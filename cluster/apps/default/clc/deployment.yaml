@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clc
+  labels:
+    app: clc
+  annotations:
+    configmap.reloader.stakater.com/reload: "clc-config"
+    secret.reloader.stakater.com/reload: "clc-secret"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: clc
+  template:
+    metadata:
+      labels:
+        app: clc
+    spec:
+      initContainers:
+      - name: init-config
+        image: dibi/envsubst:latest
+        env:
+        - name: AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: clc-secret
+              key: auth_token
+        volumeMounts:
+        - name: config-volume
+          mountPath: /processed
+        - name: workdir-volume
+          mountPath: /workdir
+      containers:
+      - name: clc
+        image: ghcr.io/edgard/clc:0.0.1 # {"$imagepolicy": "flux-system:clc"}
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config.yml
+          subPath: config.yml
+      volumes:
+      - name: workdir-volume
+        configMap:
+          name: clc-config
+      - name: config-volume
+        emptyDir: {}
+      imagePullSecrets:
+      - name: ghcr-secret

@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jackett
+  labels:
+    app: jackett
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/auth-url: "https://auth.${SECRET_PUBLIC_DOMAIN}/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://auth.${SECRET_PUBLIC_DOMAIN}/oauth2/start?rd=https%3A%2F%2F$host$request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Groups, X-Auth-Request-Email, X-Auth-Request-Preferred-Username"
+spec:
+  rules:
+    - host: jackett.${SECRET_PUBLIC_DOMAIN}
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: jackett
+                port:
+                  number: 9117
+  tls:
+    - hosts:
+        - jackett.${SECRET_PUBLIC_DOMAIN}

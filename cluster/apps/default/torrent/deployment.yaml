@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: torrent
+  labels:
+    app: torrent
+  annotations:
+    secret.reloader.stakater.com/reload: "torrent-secret"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: torrent
+  template:
+    metadata:
+      labels:
+        app: torrent
+    spec:
+      containers:
+      - name: vpn
+        image: bubuntux/nordlynx:2022-05-01 # {"$imagepolicy": "flux-system:nordlynx"}
+        env:
+        - name: TZ
+          value: "${SECRET_TIMEZONE}"
+        - name: QUERY
+          value: "filters\\[country_id\\]=209&filters\\[servers_groups\\]\\[identifier\\]=legacy_p2p"
+        - name: NET_LOCAL
+          value: "10.0.0.0/8"
+        - name: "PRIVATE_KEY"
+          valueFrom:
+            secretKeyRef:
+              name: torrent-secret
+              key: private_key
+        securityContext:
+          privileged: true
+          sysctls:
+          - name: net.ipv6.conf.all.disable_ipv6
+            value: "1"
+          - name: net.ipv4.conf.all.src_valid_mark
+            value: "1"
+        livenessProbe:
+          exec:
+            command:
+            - ping
+            - -c1
+            - www.google.com
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+      - name: torrent
+        image: lscr.io/linuxserver/qbittorrent:4.4.2 # {"$imagepolicy": "flux-system:qbittorrent"}
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: UMASK
+          value: "022"
+        - name: TZ
+          value: "${SECRET_TIMEZONE}"
+        - name: WEBUI_PORT
+          value: "8080"
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+        - mountPath: /config
+          name: config-volume
+        - mountPath: /downloads
+          name: downloads-volume
+      volumes:
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: torrent-config
+      - name: downloads-volume
+        hostPath:
+          path: /mnt/downloads

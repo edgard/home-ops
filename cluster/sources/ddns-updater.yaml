@@ -1,0 +1,18 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: ddns-updater
+spec:
+  image: qmcgaw/ddns-updater
+  interval: 30m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: ddns-updater
+spec:
+  imageRepositoryRef:
+    name: ddns-updater
+  policy:
+    semver:
+      range: 2.x

@@ -1,0 +1,20 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: murailobot
+spec:
+  image: ghcr.io/edgard/murailobot
+  interval: 30m
+  secretRef:
+    name: ghcr-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: murailobot
+spec:
+  imageRepositoryRef:
+    name: murailobot
+  policy:
+    semver:
+      range: 0.x

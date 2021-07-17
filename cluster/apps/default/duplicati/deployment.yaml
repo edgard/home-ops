@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: duplicati
+  labels:
+    app: duplicati
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: duplicati
+  template:
+    metadata:
+      labels:
+        app: duplicati
+    spec:
+      containers:
+        - name: duplicati
+          image: lscr.io/linuxserver/duplicati:2.0.6 # {"$imagepolicy": "flux-system:duplicati"}
+          env:
+            - name: PUID
+              value: "0"
+            - name: PGID
+              value: "0"
+            - name: TZ
+              value: "${SECRET_TIMEZONE}"
+          ports:
+            - containerPort: 8200
+          readinessProbe:
+            httpGet:
+              path: /ngax/index.html
+              port: 8200
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /ngax/index.html
+              port: 8200
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - mountPath: /config
+              name: config-volume
+            - mountPath: /backups
+              name: backup-volume
+            - mountPath: /source/bazarr
+              name: bazarr-volume
+              readOnly: true
+            - mountPath: /source/bdocodesbot
+              name: bdocodesbot-volume
+              readOnly: true
+            - mountPath: /source/db
+              name: db-volume
+              readOnly: true
+            - mountPath: /source/jackett
+              name: jackett-volume
+              readOnly: true
+            - mountPath: /source/murailobot
+              name: murailobot-volume
+              readOnly: true
+            - mountPath: /source/plex
+              name: plex-volume
+              readOnly: true
+            - mountPath: /source/plextraktsync
+              name: plextraktsync-volume
+              readOnly: true
+            - mountPath: /source/radarr
+              name: radarr-volume
+              readOnly: true
+            - mountPath: /source/smokeping
+              name: smokeping-volume
+              readOnly: true
+            - mountPath: /source/sonarr
+              name: sonarr-volume
+              readOnly: true
+            - mountPath: /source/torrent
+              name: torrent-volume
+              readOnly: true
+      volumes:
+        - name: config-volume
+          persistentVolumeClaim:
+            claimName: duplicati-config
+        - name: backup-volume
+          nfs:
+            server: nas01.${SECRET_PRIVATE_DOMAIN}.
+            path: /mnt/zp01/backup
+        - name: bazarr-volume
+          persistentVolumeClaim:
+            claimName: bazarr-config
+        - name: bdocodesbot-volume
+          persistentVolumeClaim:
+            claimName: bdocodesbot-data
+        - name: db-volume
+          persistentVolumeClaim:
+            claimName: db-data
+        - name: jackett-volume
+          persistentVolumeClaim:
+            claimName: jackett-config
+        - name: murailobot-volume
+          persistentVolumeClaim:
+            claimName: murailobot-data
+        - name: plex-volume
+          persistentVolumeClaim:
+            claimName: plex-config
+        - name: plextraktsync-volume
+          persistentVolumeClaim:
+            claimName: plextraktsync-config
+        - name: radarr-volume
+          persistentVolumeClaim:
+            claimName: radarr-config
+        - name: smokeping-volume
+          persistentVolumeClaim:
+            claimName: smokeping-data
+        - name: sonarr-volume
+          persistentVolumeClaim:
+            claimName: sonarr-config
+        - name: torrent-volume
+          persistentVolumeClaim:
+            claimName: torrent-config

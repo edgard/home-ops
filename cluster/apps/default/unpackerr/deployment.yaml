@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unpackerr
+  labels:
+    app: unpackerr
+  annotations:
+    secret.reloader.stakater.com/reload: "unpackerr-secret"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: unpackerr
+  template:
+    metadata:
+      labels:
+        app: unpackerr
+    spec:
+      containers:
+      - name: unpackerr
+        image: golift/unpackerr:0.10.0 # {"$imagepolicy": "flux-system:unpackerr"}
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: "${SECRET_TIMEZONE}"
+        - name: UN_SONARR_0_URL
+          value: "http://sonarr:8989"
+        - name: UN_SONARR_0_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: unpackerr-secret
+              key: UN_SONARR_0_API_KEY
+        - name: UN_RADARR_0_URL
+          value: "http://radarr:7878"
+        - name: UN_RADARR_0_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: unpackerr-secret
+              key: UN_RADARR_0_API_KEY
+        volumeMounts:
+        - mountPath: /downloads
+          name: downloads-volume
+      volumes:
+      - name: downloads-volume
+        hostPath:
+          path: /mnt/downloads

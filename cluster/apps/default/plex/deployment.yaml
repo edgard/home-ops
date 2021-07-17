@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plex
+  labels:
+    app: plex
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: plex
+  template:
+    metadata:
+      labels:
+        app: plex
+    spec:
+      hostNetwork: true
+      containers:
+      - name: plex
+        image: lscr.io/linuxserver/plex:1.26.0 # {"$imagepolicy": "flux-system:plex"}
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: UMASK
+          value: "022"
+        - name: TZ
+          value: "${SECRET_TIMEZONE}"
+        - name: VERSION
+          value: "docker"
+        ports:
+        - containerPort: 32400
+        readinessProbe:
+          httpGet:
+            path: /identity
+            port: 32400
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /identity
+            port: 32400
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+        - mountPath: /config
+          name: config-volume
+        - mountPath: /tv
+          name: media-volume
+          subPath: tvshows
+        - mountPath: /movies
+          name: media-volume
+          subPath: movies
+      volumes:
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: plex-config
+      - name: media-volume
+        nfs:
+          server: nas01.${SECRET_PRIVATE_DOMAIN}.
+          path: /mnt/zp01/media

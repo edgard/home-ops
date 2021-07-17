@@ -1,0 +1,20 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: bdocodesbot
+spec:
+  image: ghcr.io/edgard/bdocodesbot
+  interval: 30m
+  secretRef:
+    name: ghcr-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: bdocodesbot
+spec:
+  imageRepositoryRef:
+    name: bdocodesbot
+  policy:
+    semver:
+      range: 0.x

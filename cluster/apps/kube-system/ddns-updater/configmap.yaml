@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ddns-updater-config
+  labels:
+    app: ddns-updater
+data:
+  config.json: |
+    {
+      "settings":[
+          {
+            "provider": "cloudflare",
+            "zone_identifier": "2a4ce376cc96fffb16c217d9ec3bd9cb",
+            "domain": "${SECRET_ROOT_DOMAIN}",
+            "host": "*.home",
+            "ttl": 60,
+            "token": "${SECRET_CLOUDFLARE_TOKEN}",
+            "ip_version": "ipv4"
+          }
+      ]
+    }

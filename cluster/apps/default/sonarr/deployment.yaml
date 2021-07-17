@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr
+  labels:
+    app: sonarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sonarr
+  template:
+    metadata:
+      labels:
+        app: sonarr
+    spec:
+      containers:
+      - name: sonarr
+        image: lscr.io/linuxserver/sonarr:3.0.8 # {"$imagepolicy": "flux-system:sonarr"}
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: UMASK
+          value: "022"
+        - name: TZ
+          value: "${SECRET_TIMEZONE}"
+        ports:
+        - containerPort: 8989
+        readinessProbe:
+          httpGet:
+            path: /settings
+            port: 8989
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /settings
+            port: 8989
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+        - mountPath: /config
+          name: config-volume
+        - mountPath: /downloads
+          name: downloads-volume
+        - mountPath: /tv
+          name: media-volume
+          subPath: tvshows
+      volumes:
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: sonarr-config
+      - name: downloads-volume
+        hostPath:
+          path: /mnt/downloads
+      - name: media-volume
+        nfs:
+          server: nas01.${SECRET_PRIVATE_DOMAIN}.
+          path: /mnt/zp01/media

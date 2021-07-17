@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bdocodesbot-config
+  labels:
+    app: bdocodesbot
+data:
+  config.yml: |
+    auth_token: $AUTH_TOKEN
+    #db_name: storage.db

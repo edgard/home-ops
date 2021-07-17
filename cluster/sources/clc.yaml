@@ -1,0 +1,20 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: clc
+spec:
+  image: ghcr.io/edgard/clc
+  interval: 30m
+  secretRef:
+    name: ghcr-secret
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: clc
+spec:
+  imageRepositoryRef:
+    name: clc
+  policy:
+    semver:
+      range: 0.x

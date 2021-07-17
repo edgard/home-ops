@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smokeping-config
+  labels:
+    app: smokeping
+data:
+  Targets: |
+    *** Targets ***
+    probe = FPing
+    menu = Top
+    title = Network Latency Grapher
+    remark = Welcome to this SmokePing website.
+
+    + Sites
+    menu = Sites latency
+    title = Sites network latency (ICMP pings)
+
+    ++ Google
+    host = www.google.com
+    ++ Amazon
+    host = www.amazon.com
+    ++ Microsoft
+    host = www.microsoft.com
+    ++ Twitch
+    host = www.twitch.tv
+    ++ Discord
+    host = www.discord.com
+
+    + Home
+    menu = Home latency
+    title = Home network latency (ICMP pings)
+
+    ++ Gateway
+    host = gw.${SECRET_PRIVATE_DOMAIN}
+    ++ APOffice
+    host = apoffice.${SECRET_PRIVATE_DOMAIN}
+    ++ DNS01
+    host = dns01.${SECRET_PRIVATE_DOMAIN}
+    ++ NAS01
+    host = nas01.${SECRET_PRIVATE_DOMAIN}
+    ++ PVE
+    host = pve.${SECRET_PRIVATE_DOMAIN}
+    ++ HomeAssistant
+    host = homeassistant.${SECRET_PRIVATE_DOMAIN}
+    ++ Klipper
+    host = klipper.${SECRET_PRIVATE_DOMAIN}
+    ++ DEVL01
+    host = devl01.${SECRET_PRIVATE_DOMAIN}

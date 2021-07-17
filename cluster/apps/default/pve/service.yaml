@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pve
+spec:
+  type: ExternalName
+  externalName: pve.${SECRET_PRIVATE_DOMAIN}.

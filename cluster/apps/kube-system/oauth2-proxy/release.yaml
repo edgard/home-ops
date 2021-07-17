@@ -1,0 +1,47 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: oauth2-proxy
+spec:
+  releaseName: oauth2-proxy
+  chart:
+    spec:
+      chart: oauth2-proxy
+      version: "6.2.x"
+      sourceRef:
+        kind: HelmRepository
+        name: oauth2-proxy
+        namespace: flux-system
+  values:
+    config:
+      existingSecret: oauth2-proxy-secret
+    extraArgs:
+      whitelist-domain: .${SECRET_PUBLIC_DOMAIN}
+      cookie-domain: .${SECRET_PUBLIC_DOMAIN}
+      provider: github
+      cookie-name: _oauth2_proxy
+      cookie-secure: "true"
+      set-xauthrequest: "true"
+    authenticatedEmailsFile:
+      enabled: true
+      restricted_access: |-
+        ${SECRET_EMAIL}
+    ingress:
+      enabled: true
+      path: /
+      hosts:
+        - auth.${SECRET_PUBLIC_DOMAIN}
+      annotations:
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      tls:
+        - hosts:
+            - auth.${SECRET_PUBLIC_DOMAIN}
+  interval: 1h0m0s
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
