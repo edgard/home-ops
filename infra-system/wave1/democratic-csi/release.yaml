@@ -1,0 +1,44 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: democratic-csi
+spec:
+  releaseName: democratic-csi
+  chart:
+    spec:
+      chart: democratic-csi
+      version: "~0.11.1"
+      sourceRef:
+        kind: HelmRepository
+        name: democratic-csi
+        namespace: flux-system
+  values:
+    driver:
+      existingConfigSecret: democratic-csi-secret
+      config:
+        driver: freenas-iscsi
+    csiDriver:
+      name: "org.democratic-csi.iscsi"
+    storageClasses:
+      - name: freenas-iscsi-csi
+        defaultClass: true
+        reclaimPolicy: Delete
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+        parameters:
+          fsType: xfs
+    volumeSnapshotClasses:
+      - name: freenas-iscsi-csi
+        parameters:
+          detachedSnapshots: "true"
+        annotations:
+          snapshot.storage.kubernetes.io/is-default-class: "true"
+  interval: 1h0m0s
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3

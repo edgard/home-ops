@@ -1,0 +1,47 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: infra-system-wave1
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  dependsOn:
+    - name: sources
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./infra-system/wave1
+  prune: true
+  wait: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: infra-system-wave2
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  dependsOn:
+    - name: infra-system-wave1
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./infra-system/wave2
+  prune: true
+  wait: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: infra-system-wave3
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  dependsOn:
+    - name: infra-system-wave2
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./infra-system/wave3
+  prune: true
+  wait: true

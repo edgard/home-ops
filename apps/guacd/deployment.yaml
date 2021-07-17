@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guacd
+  labels:
+    app: guacd
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: guacd
+  template:
+    metadata:
+      labels:
+        app: guacd
+    spec:
+      containers:
+        - name: guacd
+          image: guacamole/guacd:1.4.0 # {"$imagepolicy": "flux-system:guacd"}

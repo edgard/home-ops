@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddns-updater
+  labels:
+    app: ddns-updater
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ddns-updater
+  template:
+    metadata:
+      labels:
+        app: ddns-updater
+    spec:
+      initContainers:
+        - name: init-config
+          image: dibi/envsubst:latest
+          env:
+            - name: CLOUDFLARE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ddns-updater-secret
+                  key: cloudflare_api_token
+          volumeMounts:
+            - name: config-volume
+              mountPath: /processed
+            - name: workdir-volume
+              mountPath: /workdir
+      containers:
+        - name: ddns-updater
+          image: qmcgaw/ddns-updater:v2.4.1 # {"$imagepolicy": "flux-system:ddns-updater"}
+          env:
+            - name: TZ
+              value: "Europe/Warsaw"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /updater/data
+      volumes:
+        - name: workdir-volume
+          configMap:
+            name: ddns-updater-config
+        - name: config-volume
+          emptyDir: {}

@@ -1,0 +1,3 @@
+.env
+secrets/.sealed-secrets-master-key.yaml
+scripts/migrate-pvc.sh

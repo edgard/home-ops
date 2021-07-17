@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bazarr
+  labels:
+    app: bazarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: bazarr
+  template:
+    metadata:
+      labels:
+        app: bazarr
+    spec:
+      containers:
+      - name: bazarr
+        image: lscr.io/linuxserver/bazarr:1.0.3 # {"$imagepolicy": "flux-system:bazarr"}
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: UMASK
+          value: "022"
+        - name: TZ
+          value: "Europe/Warsaw"
+        ports:
+        - containerPort: 6767
+        volumeMounts:
+        - mountPath: /config
+          name: config-volume
+        - mountPath: /tv
+          name: media-volume
+          subPath: tvshows
+        - mountPath: /movies
+          name: media-volume
+          subPath: movies
+      volumes:
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: bazarr-config
+      - name: media-volume
+        nfs:
+          server: nas01.home.arpa.
+          path: /mnt/zp01/media

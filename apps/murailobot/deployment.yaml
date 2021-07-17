@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: murailobot
+  labels:
+    app: murailobot
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: murailobot
+  template:
+    metadata:
+      labels:
+        app: murailobot
+    spec:
+      containers:
+      - name: murailobot
+        image: ghcr.io/edgard/murailobot:0.0.1 # {"$imagepolicy": "flux-system:murailobot"}
+        env:
+        - name: MURAILOBOT_DB_NAME
+          value: /app/db/storage.db
+        - name: MURAILOBOT_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: murailobot-secret
+              key: auth_token
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/db
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: murailobot-data

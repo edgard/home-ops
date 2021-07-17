@@ -1,0 +1,13 @@
+{
+  "settings":[
+      {
+        "provider": "cloudflare",
+        "zone_identifier": "2a4ce376cc96fffb16c217d9ec3bd9cb",
+        "domain": "edgard.org",
+        "host": "*.home",
+        "ttl": 60,
+        "token": "$CLOUDFLARE_TOKEN",
+        "ip_version": "ipv4"
+      }
+  ]
+}

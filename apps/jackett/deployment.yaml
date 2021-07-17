@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jackett
+  labels:
+    app: jackett
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: jackett
+  template:
+    metadata:
+      labels:
+        app: jackett
+    spec:
+      containers:
+      - name: jackett
+        image: lscr.io/linuxserver/jackett:0.20.788 # {"$imagepolicy": "flux-system:jackett"}
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: UMASK
+          value: "022"
+        - name: TZ
+          value: "Europe/Warsaw"
+        ports:
+        - containerPort: 9117
+        volumeMounts:
+        - mountPath: /config
+          name: config-volume
+      volumes:
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: jackett-config

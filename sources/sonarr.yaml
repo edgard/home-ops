@@ -1,0 +1,18 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: sonarr
+spec:
+  image: lscr.io/linuxserver/sonarr
+  interval: 30m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: sonarr
+spec:
+  imageRepositoryRef:
+    name: sonarr
+  policy:
+    semver:
+      range: ~3.0.7

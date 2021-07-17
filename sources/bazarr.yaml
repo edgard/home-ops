@@ -1,0 +1,18 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: bazarr
+spec:
+  image: lscr.io/linuxserver/bazarr
+  interval: 30m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: bazarr
+spec:
+  imageRepositoryRef:
+    name: bazarr
+  policy:
+    semver:
+      range: ~1.0.3

@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: duplicati
+  labels:
+    app: duplicati
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/auth-url: "https://auth.home.edgard.org/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://auth.home.edgard.org/oauth2/start?rd=https%3A%2F%2F$host$request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Groups, X-Auth-Request-Email, X-Auth-Request-Preferred-Username"
+spec:
+  rules:
+    - host: duplicati.home.edgard.org
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: duplicati
+                port:
+                  number: 8200
+  tls:
+    - hosts:
+        - duplicati.home.edgard.org
+      secretName: duplicati-tls

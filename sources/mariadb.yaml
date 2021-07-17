@@ -1,0 +1,18 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: mariadb
+spec:
+  image: mariadb
+  interval: 30m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: mariadb
+spec:
+  imageRepositoryRef:
+    name: mariadb
+  policy:
+    semver:
+      range: ~10.6.7

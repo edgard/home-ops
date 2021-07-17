@@ -1,0 +1,18 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: duplicati
+spec:
+  image: lscr.io/linuxserver/duplicati
+  interval: 30m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: duplicati
+spec:
+  imageRepositoryRef:
+    name: duplicati
+  policy:
+    semver:
+      range: ~2.0.6

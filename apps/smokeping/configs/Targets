@@ -1,0 +1,37 @@
+*** Targets ***
+probe = FPing
+menu = Top
+title = Network Latency Grapher
+remark = Welcome to this SmokePing website.
+
++ Sites
+menu = Sites latency
+title = Sites network latency (ICMP pings)
+
+++ Google
+host = www.google.com
+++ Amazon
+host = www.amazon.com
+++ Microsoft
+host = www.microsoft.com
+++ Twitch
+host = www.twitch.tv
+++ Discord
+host = www.discord.com
+
++ Home
+menu = Home latency
+title = Home network latency (ICMP pings)
+
+++ Router
+host = unifi.home.arpa
+++ APOffice
+host = apoffice.home.arpa
+++ VMHost01
+host = pve.home.arpa
+++ Kubernetes01
+host = kub01.home.arpa
+++ HomeAssistant
+host = homeassistant.home.arpa
+++ NAS01
+host = nas01.home.arpa

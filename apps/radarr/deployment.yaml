@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radarr
+  labels:
+    app: radarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: radarr
+  template:
+    metadata:
+      labels:
+        app: radarr
+    spec:
+      containers:
+        - name: radarr
+          image: lscr.io/linuxserver/radarr:4.0.5 # {"$imagepolicy": "flux-system:radarr"}
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: UMASK
+              value: "022"
+            - name: TZ
+              value: "Europe/Warsaw"
+          ports:
+            - containerPort: 7878
+          volumeMounts:
+            - mountPath: /config
+              name: config-volume
+            - mountPath: /downloads
+              name: downloads-volume
+            - mountPath: /movies
+              name: media-volume
+              subPath: movies
+      volumes:
+        - name: config-volume
+          persistentVolumeClaim:
+            claimName: radarr-config
+        - name: downloads-volume
+          hostPath:
+            path: /mnt/downloads
+        - name: media-volume
+          nfs:
+            server: nas01.home.arpa.
+            path: /mnt/zp01/media

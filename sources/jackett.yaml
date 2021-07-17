@@ -1,0 +1,18 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: jackett
+spec:
+  image: lscr.io/linuxserver/jackett
+  interval: 30m
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: jackett
+spec:
+  imageRepositoryRef:
+    name: jackett
+  policy:
+    semver:
+      range: ~0.20.788

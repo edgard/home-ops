@@ -1,0 +1,6 @@
+auth_token: $AUTH_TOKEN
+banned_words:
+  - twitch.tv/sparttacus117
+  - mixer.com/Sparttacus
+  - twitch.tv/kill_kode
+  - twitch.tv/grinnjan

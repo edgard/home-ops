@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  labels:
+    app: db
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - name: db
+        image: mariadb:10.6.7 # {"$imagepolicy": "flux-system:mariadb"}
+        env:
+        - name: MARIADB_ALLOW_EMPTY_ROOT_PASSWORD
+          value: "yes"
+        volumeMounts:
+        - name: data-volume
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: db-data
