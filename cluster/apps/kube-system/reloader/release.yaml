@@ -12,6 +12,8 @@ spec:
         kind: HelmRepository
         name: stakater
         namespace: flux-system
+  values:
+    fullnameOverride: reloader
   interval: 1h0m0s
   install:
     crds: CreateReplace
