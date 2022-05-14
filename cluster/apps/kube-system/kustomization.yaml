@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: kube-system
 resources:
   - cert-manager-config
-  - ddns-updater
+  - inadyn
   - ingress-nginx
   - oauth2-proxy
   - reflector

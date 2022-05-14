@@ -1,0 +1,35 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: inadyn
+spec:
+  releaseName: inadyn
+  chart:
+    spec:
+      chart: inadyn
+      version: "1.0.x"
+      sourceRef:
+        kind: HelmRepository
+        name: philippwaller
+        namespace: flux-system
+  values:
+    inadynConfig: |
+      period = 60
+      provider cloudflare.com:${SECRET_ROOT_DOMAIN} {
+        checkip-server = 1.1.1.1
+        checkip-path = /cdn-cgi/trace
+        username = ${SECRET_ROOT_DOMAIN}
+        password = ${SECRET_CLOUDFLARE_TOKEN}
+        hostname = "*.${SECRET_PUBLIC_DOMAIN}"
+        ttl = 60
+        proxied = false
+      }
+  interval: 5m0s
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3

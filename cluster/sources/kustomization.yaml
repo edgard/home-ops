@@ -5,7 +5,6 @@ resources:
   - bazarr.yaml
   - bdocodesbot.yaml
   - clc.yaml
-  - ddns-updater.yaml
   - duplicati.yaml
   - emberstack.yaml
   - guacamole.yaml
@@ -20,6 +19,7 @@ resources:
   - nordlynx.yaml
   - oauth2-proxy.yaml
   - openebs.yaml
+  - philippwaller.yaml
   - plex.yaml
   - plextraktsync.yaml
   - qbittorrent.yaml
