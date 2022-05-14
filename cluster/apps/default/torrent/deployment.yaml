@@ -51,7 +51,7 @@ spec:
           timeoutSeconds: 10
           failureThreshold: 3
       - name: torrent
-        image: lscr.io/linuxserver/qbittorrent:4.4.2 # {"$imagepolicy": "flux-system:qbittorrent"}
+        image: lscr.io/linuxserver/qbittorrent:20.04.1 # {"$imagepolicy": "flux-system:qbittorrent"}
         env:
         - name: PUID
           value: "1000"
