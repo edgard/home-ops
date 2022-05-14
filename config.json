@@ -1,0 +1,20 @@
+{
+  "extends": ["config:base", ":disableDependencyDashboard"],
+  "repositories": ["edgard/k8s-home-config"],
+  "requireConfig": false,
+  "onboarding": false,
+  "packageRules": [
+    {
+      "description": "Automatically merge minor and patch-level updates",
+      "matchPackagePatterns": ["*"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true,
+      "automergeType": "branch"
+    },
+    {
+      "description": "Do not automatically merge major updates",
+      "matchPackagePatterns": ["*"],
+      "matchUpdateTypes": ["major"]
+    }
+  ]
+}
