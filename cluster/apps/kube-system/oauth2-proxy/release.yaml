@@ -36,7 +36,7 @@ spec:
       tls:
         - hosts:
             - auth.${SECRET_PUBLIC_DOMAIN}
-  interval: 1h0m0s
+  interval: 5m0s
   install:
     crds: CreateReplace
     remediation:

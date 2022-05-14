@@ -27,7 +27,7 @@ spec:
       enabled: false
     snapshotOperator:
       enabled: false
-  interval: 1h0m0s
+  interval: 5m0s
   install:
     crds: CreateReplace
     remediation:

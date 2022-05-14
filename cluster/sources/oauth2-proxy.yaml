@@ -3,5 +3,5 @@ kind: HelmRepository
 metadata:
   name: oauth2-proxy
 spec:
-  interval: 30m
+  interval: 1h0m0s
   url: https://oauth2-proxy.github.io/manifests

@@ -4,7 +4,7 @@ metadata:
   name: smokeping
 spec:
   image: lscr.io/linuxserver/smokeping
-  interval: 30m
+  interval: 1h0m0s
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImagePolicy

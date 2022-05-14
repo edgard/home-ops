@@ -22,7 +22,7 @@ spec:
           metallb.universe.tf/loadBalancerIPs: 192.168.1.10
       extraArgs:
         default-ssl-certificate: "kube-system/${SECRET_PUBLIC_DOMAIN//./-}-tls"
-  interval: 1h0m0s
+  interval: 5m0s
   install:
     crds: CreateReplace
     remediation:

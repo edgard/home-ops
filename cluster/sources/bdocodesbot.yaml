@@ -4,7 +4,7 @@ metadata:
   name: bdocodesbot
 spec:
   image: ghcr.io/edgard/bdocodesbot
-  interval: 30m
+  interval: 1h0m0s
   secretRef:
     name: ghcr-secret
 ---
