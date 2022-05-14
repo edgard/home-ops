@@ -1,2 +1,2 @@
 .env
-.sops-key
+.sealed-secrets.key

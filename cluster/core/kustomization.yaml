@@ -5,3 +5,4 @@ resources:
   - cert-manager
   - metallb
   - openebs
+  - sealed-secrets

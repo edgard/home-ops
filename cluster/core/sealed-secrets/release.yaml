@@ -1,0 +1,23 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: sealed-secrets
+spec:
+  releaseName: sealed-secrets
+  chart:
+    spec:
+      chart: sealed-secrets
+      version: "2.1.x"
+      sourceRef:
+        kind: HelmRepository
+        name: sealed-secrets
+        namespace: flux-system
+  interval: 1h0m0s
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3

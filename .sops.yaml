@@ -1,5 +1,0 @@
----
-creation_rules:
-  - path_regex: cluster/.*\.ya?ml
-    encrypted_regex: ^(data|stringData)$
-    age: age1suz633prpvxz6zkyzpcnnnf887qjcwgwemwz0nhw3e8tggumesaqgh982r
