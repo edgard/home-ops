@@ -83,11 +83,13 @@ spec:
         - mountPath: /config
           name: config-volume
         - mountPath: /downloads
-          name: downloads-volume
+          name: media-volume
+          subPath: downloads
       volumes:
       - name: config-volume
         persistentVolumeClaim:
           claimName: torrent-config
-      - name: downloads-volume
-        hostPath:
-          path: /mnt/downloads
+      - name: media-volume
+        nfs:
+          server: nas01.${SECRET_PRIVATE_DOMAIN}.
+          path: /mnt/zp01/media

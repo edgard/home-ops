@@ -45,8 +45,10 @@ spec:
               key: UN_RADARR_0_API_KEY
         volumeMounts:
         - mountPath: /downloads
-          name: downloads-volume
+          name: media-volume
+          subPath: downloads
       volumes:
-      - name: downloads-volume
-        hostPath:
-          path: /mnt/downloads
+      - name: media-volume
+        nfs:
+          server: nas01.${SECRET_PRIVATE_DOMAIN}.
+          path: /mnt/zp01/media
