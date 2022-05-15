@@ -12,6 +12,7 @@ resources:
   - ingress-nginx.yaml
   - jackett.yaml
   - jetstack.yaml
+  - kyverno.yaml
   - mariadb.yaml
   - metallb.yaml
   - murailobot.yaml

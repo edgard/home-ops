@@ -5,6 +5,7 @@ resources:
   - cert-manager-config
   - inadyn
   - ingress-nginx
+  - kyverno-config
   - oauth2-proxy
   - reflector
   - reloader

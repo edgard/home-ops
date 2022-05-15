@@ -1,0 +1,7 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: kyverno
+spec:
+  interval: 1h0m0s
+  url: https://kyverno.github.io/kyverno

@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: always-pull-images
+spec:
+  rules:
+    - name: always-pull-images
+      match:
+        resources:
+          kinds:
+            - Pod
+      mutate:
+        patchStrategicMerge:
+          spec:
+            initContainers:
+              - (name): "?*"
+                imagePullPolicy: Always
+            containers:
+              - (name): "?*"
+                imagePullPolicy: Always
