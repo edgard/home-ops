@@ -6,6 +6,7 @@ resources:
   - inadyn
   - ingress-nginx
   - kyverno-config
+  - metrics-server
   - oauth2-proxy
   - reflector
   - reloader

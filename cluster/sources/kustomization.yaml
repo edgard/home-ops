@@ -4,6 +4,7 @@ namespace: flux-system
 resources:
   - bazarr.yaml
   - bdocodesbot.yaml
+  - cilium.yaml
   - clc.yaml
   - duplicati.yaml
   - emberstack.yaml
@@ -15,6 +16,7 @@ resources:
   - kyverno.yaml
   - mariadb.yaml
   - metallb.yaml
+  - metrics-server.yaml
   - murailobot.yaml
   - nginx.yaml
   - nordlynx.yaml
