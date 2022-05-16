@@ -16,7 +16,6 @@ spec:
     jiva:
       enabled: false
     localprovisioner:
-      basePath: "/mnt/kubedata"
       deviceClass:
         enabled: false
       hostpathClass:
