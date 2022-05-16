@@ -19,6 +19,7 @@ resources:
   - plextraktsync
   - pve
   - radarr
+  - resticmaint
   - smokeping
   - sonarr
   - torrent

@@ -1,0 +1,18 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: restic
+spec:
+  image: restic/restic
+  interval: 1h0m0s
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: restic
+spec:
+  imageRepositoryRef:
+    name: restic
+  policy:
+    semver:
+      range: 0.x

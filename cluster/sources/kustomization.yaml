@@ -26,6 +26,7 @@ resources:
   - plextraktsync.yaml
   - qbittorrent.yaml
   - radarr.yaml
+  - restic.yaml
   - sealed-secrets.yaml
   - smokeping.yaml
   - sonarr.yaml
