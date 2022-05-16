@@ -20,7 +20,7 @@ spec:
       hostNetwork: true
       containers:
       - name: plex
-        image: lscr.io/linuxserver/plex:1.26.0 # {"$imagepolicy": "flux-system:plex"}
+        image: lscr.io/linuxserver/plex:1.26.1 # {"$imagepolicy": "flux-system:plex"}
         env:
         - name: PUID
           value: "1000"
