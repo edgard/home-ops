@@ -7,7 +7,6 @@ resources:
   - clc
   - db
   - dns01
-  - duplicati
   - guacamole
   - guacd
   - homeassistant

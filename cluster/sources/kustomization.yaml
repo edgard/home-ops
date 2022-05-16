@@ -6,7 +6,6 @@ resources:
   - bdocodesbot.yaml
   - cilium.yaml
   - clc.yaml
-  - duplicati.yaml
   - emberstack.yaml
   - guacamole.yaml
   - guacd.yaml
