@@ -3,5 +3,7 @@ kind: Kustomization
 commonLabels:
   app: homeassistant
 resources:
-  - service.yaml
+  - deployment.yaml
   - ingress.yaml
+  - pvc.yaml
+  - service.yaml

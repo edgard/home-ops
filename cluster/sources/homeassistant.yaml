@@ -1,0 +1,21 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: homeassistant
+spec:
+  image: ghcr.io/home-assistant/home-assistant
+  interval: 1h0m0s
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: homeassistant
+spec:
+  imageRepositoryRef:
+    name: homeassistant
+  filterTags:
+    pattern: '^(?P<date>\d+\.\d+\.\d+)$'
+    extract: "$date"
+  policy:
+    alphabetical:
+      order: asc
