@@ -22,6 +22,7 @@ resources:
   - oauth2-proxy.yaml
   - openebs.yaml
   - philippwaller.yaml
+  - photoprism.yaml
   - plex.yaml
   - plextraktsync.yaml
   - qbittorrent.yaml

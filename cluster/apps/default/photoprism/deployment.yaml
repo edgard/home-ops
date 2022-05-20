@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: photoprism
+  labels:
+    app: photoprism
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: photoprism
+  template:
+    metadata:
+      labels:
+        app: photoprism
+    spec:
+      containers:
+        - name: photoprism
+          image: photoprism/photoprism:220517-bookworm # {"$imagepolicy": "flux-system:photoprism"}
+          env:
+            - name: PHOTOPRISM_UPLOAD_NSFW
+              value: "true"
+          envFrom:
+            - secretRef:
+                name: photoprism-secret
+          ports:
+            - containerPort: 2342
+          readinessProbe:
+            httpGet:
+              path: /api/v1/status
+              port: 2342
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/status
+              port: 2342
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - mountPath: /photoprism/storage
+              name: data-volume
+            - mountPath: /photoprism/originals
+              name: media-volume
+              subPath: photos
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: photoprism-data
+        - name: media-volume
+          nfs:
+            server: nas01.${SECRET_PRIVATE_DOMAIN}.
+            path: /mnt/zp01/media
