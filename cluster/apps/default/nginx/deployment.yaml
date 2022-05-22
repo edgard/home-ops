@@ -47,10 +47,9 @@ spec:
           failureThreshold: 3
         volumeMounts:
         - mountPath: /usr/share/nginx/html
-          name: misc-volume
-          subPath: www
+          name: www-volume
       volumes:
-      - name: misc-volume
+      - name: www-volume
         nfs:
           server: nas01.${SECRET_PRIVATE_DOMAIN}.
-          path: /mnt/zp01/misc
+          path: /mnt/zp01/www

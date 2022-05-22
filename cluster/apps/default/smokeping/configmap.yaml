@@ -41,8 +41,6 @@ data:
     host = nas01.${SECRET_PRIVATE_DOMAIN}
     ++ PVE
     host = pve.${SECRET_PRIVATE_DOMAIN}
-    ++ HomeAssistant
-    host = homeassistant.${SECRET_PRIVATE_DOMAIN}
     ++ Klipper
     host = klipper.${SECRET_PRIVATE_DOMAIN}
     ++ DEVL01

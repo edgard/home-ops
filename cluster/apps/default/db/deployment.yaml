@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: db
-        image: mariadb:10.6.7 # {"$imagepolicy": "flux-system:mariadb"}
+        image: mariadb:10.6.8 # {"$imagepolicy": "flux-system:mariadb"}
         env:
         - name: MARIADB_ALLOW_EMPTY_ROOT_PASSWORD
           value: "yes"
