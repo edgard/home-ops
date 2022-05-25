@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: recyclarr
+spec:
+  schedule: "@daily"
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          initContainers:
+            - name: init-config
+              image: dibi/envsubst:latest
+              envFrom:
+                - secretRef:
+                    name: recyclarr-secret
+              volumeMounts:
+                - name: config-volume
+                  mountPath: /processed
+                - name: workdir-volume
+                  mountPath: /workdir
+          containers:
+            - name: sonarrs
+              image: ghcr.io/k8s-at-home/recyclarr:v2.0.2 # {"$imagepolicy": "flux-system:recyclarr"}
+              command:
+                - /app/recyclarr
+              args:
+                - sonarr
+                - --config
+                - /config/recyclarr.yaml
+              env:
+                - name: TZ
+                  value: "${SECRET_TIMEZONE}"
+                - name: XDG_CONFIG_HOME
+                  value: /config
+              volumeMounts:
+                - name: config-volume
+                  mountPath: /config/recyclarr.yaml
+                  subPath: recyclarr.yaml
+            - name: radarrs
+              image: ghcr.io/k8s-at-home/recyclarr:v2.0.2 # {"$imagepolicy": "flux-system:recyclarr"}
+              command:
+                - /app/recyclarr
+              args:
+                - radarr
+                - --config
+                - /config/recyclarr.yaml
+              env:
+                - name: TZ
+                  value: "${SECRET_TIMEZONE}"
+                - name: XDG_CONFIG_HOME
+                  value: /config
+              volumeMounts:
+                - name: config-volume
+                  mountPath: /config/recyclarr.yaml
+                  subPath: recyclarr.yaml
+          volumes:
+            - name: workdir-volume
+              configMap:
+                name: recyclarr-config
+            - name: config-volume
+              emptyDir: {}
+          restartPolicy: Never

@@ -28,6 +28,7 @@ resources:
   - prowlarr.yaml
   - qbittorrent.yaml
   - radarr.yaml
+  - recyclarr.yaml
   - restic.yaml
   - sealed-secrets.yaml
   - smokeping.yaml
