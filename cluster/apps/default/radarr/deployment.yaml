@@ -48,12 +48,8 @@ spec:
         volumeMounts:
         - mountPath: /config
           name: config-volume
-        - mountPath: /downloads
+        - mountPath: /media
           name: media-volume
-          subPath: downloads
-        - mountPath: /movies
-          name: media-volume
-          subPath: movies
       volumes:
       - name: config-volume
         persistentVolumeClaim:

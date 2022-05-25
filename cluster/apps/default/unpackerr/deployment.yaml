@@ -44,9 +44,8 @@ spec:
               name: unpackerr-secret
               key: UN_RADARR_0_API_KEY
         volumeMounts:
-        - mountPath: /downloads
+        - mountPath: /media
           name: media-volume
-          subPath: downloads
       volumes:
       - name: media-volume
         nfs:
