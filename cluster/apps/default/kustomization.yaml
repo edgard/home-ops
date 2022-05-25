@@ -10,7 +10,6 @@ resources:
   - guacamole
   - guacd
   - homeassistant
-  - jackett
   - klipper
   - murailobot
   - nas01
@@ -18,6 +17,7 @@ resources:
   - photoprism
   - plex
   - plextraktsync
+  - prowlarr
   - pve
   - radarr
   - resticmaint

@@ -11,7 +11,6 @@ resources:
   - guacd.yaml
   - homeassistant.yaml
   - ingress-nginx.yaml
-  - jackett.yaml
   - jetstack.yaml
   - kyverno.yaml
   - mariadb.yaml
@@ -26,6 +25,7 @@ resources:
   - photoprism.yaml
   - plex.yaml
   - plextraktsync.yaml
+  - prowlarr.yaml
   - qbittorrent.yaml
   - radarr.yaml
   - restic.yaml

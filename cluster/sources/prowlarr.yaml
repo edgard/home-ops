@@ -1,18 +1,21 @@
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImageRepository
 metadata:
-  name: jackett
+  name: prowlarr
 spec:
-  image: lscr.io/linuxserver/jackett
+  image: lscr.io/linuxserver/prowlarr
   interval: 1h0m0s
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImagePolicy
 metadata:
-  name: jackett
+  name: prowlarr
 spec:
   imageRepositoryRef:
-    name: jackett
+    name: prowlarr
+  filterTags:
+    pattern: '^develop-version-(?P<version>.*)'
+    extract: "$version"
   policy:
-    semver:
-      range: 0.x
+    alphabetical:
+      order: asc

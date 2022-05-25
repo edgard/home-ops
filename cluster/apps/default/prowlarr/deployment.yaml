@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jackett
+  name: prowlarr
   labels:
-    app: jackett
+    app: prowlarr
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -11,15 +11,15 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: jackett
+      app: prowlarr
   template:
     metadata:
       labels:
-        app: jackett
+        app: prowlarr
     spec:
       containers:
-      - name: jackett
-        image: lscr.io/linuxserver/jackett:0.20.1102 # {"$imagepolicy": "flux-system:jackett"}
+      - name: prowlarr
+        image: lscr.io/linuxserver/prowlarr:develop-version-0.3.0.1730 # {"$imagepolicy": "flux-system:prowlarr"}
         env:
         - name: PUID
           value: "1000"
@@ -30,16 +30,16 @@ spec:
         - name: TZ
           value: "${SECRET_TIMEZONE}"
         ports:
-        - containerPort: 9117
+        - containerPort: 9696
         readinessProbe:
           tcpSocket:
-            port: 9117
+            port: 9696
           initialDelaySeconds: 60
           timeoutSeconds: 10
           failureThreshold: 3
         livenessProbe:
           tcpSocket:
-            port: 9117
+            port: 9696
           initialDelaySeconds: 60
           timeoutSeconds: 10
           failureThreshold: 3
@@ -49,4 +49,4 @@ spec:
       volumes:
       - name: config-volume
         persistentVolumeClaim:
-          claimName: jackett-config
+          claimName: prowlarr-config
