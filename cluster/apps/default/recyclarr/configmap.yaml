@@ -12,9 +12,23 @@ data:
         quality_definition: hybrid
         release_profiles:
           - trash_ids:
-              - EBC725268D687D588A20CBC5F97E538B # Low Quality Groups
-              - 1B018E0C53EC825085DD911102E2CA36 # Release Sources (Streaming Service)
-              - 71899E6C303A07AF0E4746EFF9873532 # P2P Groups + Repack/Proper
+            - EBC725268D687D588A20CBC5F97E538B # Low Quality Groups
+            - 1B018E0C53EC825085DD911102E2CA36 # Release Sources (Streaming Service)
+            - 71899E6C303A07AF0E4746EFF9873532 # P2P Groups + Repack/Proper
+          - trash_ids: [76e060895c5b8a765c310933da0a5357] # Optionals
+            filter:
+              include:
+                - cec8880b847dd5d31d29167ee0112b57 # Golden rule
+                - 436f5a7d08fbf02ba25cb5e5dfe98e55 # Ignore Dolby Vision without HDR10 fallback.
+                - f3f0f3691c6a1988d4a02963e69d11f2 # Ignore The Group -SCENE
+                - 5bc23c3a055a1a5d8bbe4fb49d80e0cb # Ignore so called scene releases
+                - ea83f4740cec4df8112f3d6dd7c82751 # Prefer Season Packs
+                - bc7a6383cbe88c3ee2d6396e1aacc0b3 # Prefer HDR
+                - fa47da3377076d82d07c4e95b3f13d07 # Prefer Dolby Vision
+                - 6f2aefa61342a63387f2a90489e90790 # Dislike retags: rartv, rarbg, eztv, TG
+                - 19cd5ecc0a24bf493a75e80a51974cdd # Dislike retagged groups
+                - 6a7b462c6caee4a991a9d8aa38ce2405 # Dislike release ending: en
+                - 236a3626a07cacf5692c73cc947bc280 # Dislike release containing: 1-
     radarr:
       - base_url: http://radarr:7878
         api_key: $RADARR_APIKEY
@@ -68,13 +82,13 @@ data:
               - ac49fdbf6a662d380556f40ff4856f29 # UHD WEBDV
               - afeb99e5db09290546f742503ce1cdb6 # UHD DON
               - e7718d7a3ce595f289bfee26adc178f5 # Repack
-              - ed38b889b31be83fda192888e2286d83 # BR-DISK -10000
-              - 90cedc1fea7ea5d11298bebd3d1d3223 # EVO (no WEBDL) -1000
-              - 90a6f9a284dff5103f6346090e6280c8 # LQ -10000
-              - b8cd450cbfa689c0259a01d9e29ba3d6 # 3D -10000
+              - ed38b889b31be83fda192888e2286d83 # BR-DISK [-10000]
+              - 90cedc1fea7ea5d11298bebd3d1d3223 # EVO (no WEBDL) [-1000]
+              - 90a6f9a284dff5103f6346090e6280c8 # LQ [-10000]
+              - b8cd450cbfa689c0259a01d9e29ba3d6 # 3D [-10000]
               - 7357cf5161efbf8c4d5d0c30b4815ee2 # Obfuscated
-              - ae9b7c9ebde1f3bd336a8cbd1ec4c5e5 # No-RlsGroup removed do avoid multiple downloads
-              - dc98083864ea246d05a42df0d05f81cc # x265 (720/1080p)
+              - ae9b7c9ebde1f3bd336a8cbd1ec4c5e5 # No-RlsGroup removed to avoid multiple downloads
+              - dc98083864ea246d05a42df0d05f81cc # Ignore x265 (720/1080p)
             quality_profiles:
               - name: HD
                 reset_unmatched_scores: true
