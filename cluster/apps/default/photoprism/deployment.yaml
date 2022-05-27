@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: photoprism
-        image: photoprism/photoprism:220524-bookworm # {"$imagepolicy": "flux-system:photoprism"}
+        image: photoprism/photoprism:220527-bookworm # {"$imagepolicy": "flux-system:photoprism"}
         env:
         - name: PHOTOPRISM_UPLOAD_NSFW
           value: "true"
