@@ -35,4 +35,5 @@ resources:
   - smokeping.yaml
   - sonarr.yaml
   - stakater.yaml
+  - tautulli.yaml
   - unpackerr.yaml

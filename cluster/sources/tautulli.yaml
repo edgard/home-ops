@@ -1,0 +1,18 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: tautulli
+spec:
+  image: lscr.io/linuxserver/tautulli
+  interval: 1h0m0s
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: tautulli
+spec:
+  imageRepositoryRef:
+    name: tautulli
+  policy:
+    semver:
+      range: 2.x
