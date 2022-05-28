@@ -21,6 +21,7 @@ resources:
   - nordlynx.yaml
   - oauth2-proxy.yaml
   - openebs.yaml
+  - overseerr.yaml
   - philippwaller.yaml
   - photoprism.yaml
   - plex.yaml

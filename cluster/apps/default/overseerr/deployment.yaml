@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: overseerr
+  labels:
+    app: overseerr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: overseerr
+  template:
+    metadata:
+      labels:
+        app: overseerr
+    spec:
+      containers:
+      - name: overseerr
+        image: lscr.io/linuxserver/overseerr:1.29.1 # {"$imagepolicy": "flux-system:overseerr"}
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: UMASK
+          value: "022"
+        - name: TZ
+          value: "${SECRET_TIMEZONE}"
+        ports:
+        - containerPort: 5055
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5055
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5055
+          initialDelaySeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+        - mountPath: /config
+          name: config-volume
+      volumes:
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: overseerr-config

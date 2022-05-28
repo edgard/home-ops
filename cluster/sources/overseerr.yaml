@@ -1,0 +1,18 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: overseerr
+spec:
+  image: lscr.io/linuxserver/overseerr
+  interval: 1h0m0s
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: overseerr
+spec:
+  imageRepositoryRef:
+    name: overseerr
+  policy:
+    semver:
+      range: 1.x

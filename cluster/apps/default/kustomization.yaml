@@ -14,6 +14,7 @@ resources:
   - murailobot
   - nas01
   - nginx
+  - overseerr
   - photoprism
   - plex
   - plextraktsync
