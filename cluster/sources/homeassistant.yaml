@@ -4,7 +4,7 @@ metadata:
   name: homeassistant
 spec:
   image: ghcr.io/home-assistant/home-assistant
-  interval: 1h0m0s
+  interval: 12h
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImagePolicy

@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: plex
-  labels:
-    app: plex
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -11,13 +9,12 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: plex
+      app.kubernetes.io/name: plex
   template:
     metadata:
       labels:
-        app: plex
+        app.kubernetes.io/name: plex
     spec:
-      hostNetwork: true
       containers:
       - name: plex
         image: lscr.io/linuxserver/plex:1.26.2 # {"$imagepolicy": "flux-system:plex"}

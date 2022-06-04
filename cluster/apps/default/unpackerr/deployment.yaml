@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: unpackerr
-  labels:
-    app: unpackerr
   annotations:
     secret.reloader.stakater.com/reload: "unpackerr-secret"
 spec:
@@ -13,11 +11,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: unpackerr
+      app.kubernetes.io/name: unpackerr
   template:
     metadata:
       labels:
-        app: unpackerr
+        app.kubernetes.io/name: unpackerr
     spec:
       containers:
       - name: unpackerr

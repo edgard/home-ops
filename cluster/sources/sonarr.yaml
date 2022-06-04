@@ -4,7 +4,7 @@ metadata:
   name: sonarr
 spec:
   image: lscr.io/linuxserver/sonarr
-  interval: 1h0m0s
+  interval: 12h
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImagePolicy

@@ -5,9 +5,20 @@ metadata:
   name: sources
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 10m
+  dependsOn:
+    - name: config
   path: ./cluster/sources
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
+  postBuild:
+    substitute: {}
+    substituteFrom:
+      - kind: Secret
+        name: cluster-secrets
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

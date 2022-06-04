@@ -3,5 +3,5 @@ kind: HelmRepository
 metadata:
   name: metrics-server
 spec:
-  interval: 1h0m0s
+  interval: 12h
   url: https://kubernetes-sigs.github.io/metrics-server/

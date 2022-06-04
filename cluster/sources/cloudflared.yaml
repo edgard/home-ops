@@ -1,0 +1,29 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: cloudflared
+spec:
+  interval: 12h
+  url: https://charts.kylesferrazza.com
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: cloudflared
+spec:
+  image: cloudflare/cloudflared
+  interval: 12h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: cloudflared
+spec:
+  imageRepositoryRef:
+    name: cloudflared
+  filterTags:
+    pattern: '^(?P<date>\d+\.\d+\.\d+)$'
+    extract: "$date"
+  policy:
+    alphabetical:
+      order: asc

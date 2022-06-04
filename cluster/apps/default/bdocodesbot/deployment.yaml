@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: bdocodesbot
-  labels:
-    app: bdocodesbot
   annotations:
     configmap.reloader.stakater.com/reload: "bdocodesbot-config"
     secret.reloader.stakater.com/reload: "bdocodesbot-secret"
@@ -14,11 +12,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: bdocodesbot
+      app.kubernetes.io/name: bdocodesbot
   template:
     metadata:
       labels:
-        app: bdocodesbot
+        app.kubernetes.io/name: bdocodesbot
     spec:
       initContainers:
       - name: init-config
@@ -54,4 +52,4 @@ spec:
         persistentVolumeClaim:
           claimName: bdocodesbot-data
       imagePullSecrets:
-      - name: ghcr-secret
+      - name: ghcr-secrets

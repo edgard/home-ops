@@ -2,17 +2,9 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: nginx
-  labels:
-    app: nginx
-  annotations:
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
 spec:
   rules:
-    - host: www.${SECRET_PUBLIC_DOMAIN}
+    - host: public.${SECRET_PUBLIC_DOMAIN}
       http:
         paths:
           - pathType: Prefix
@@ -24,4 +16,4 @@ spec:
                   number: 80
   tls:
     - hosts:
-        - www.${SECRET_PUBLIC_DOMAIN}
+        - public.${SECRET_PUBLIC_DOMAIN}

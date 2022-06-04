@@ -4,7 +4,7 @@ metadata:
   name: radarr
 spec:
   image: lscr.io/linuxserver/radarr
-  interval: 1h0m0s
+  interval: 12h
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImagePolicy

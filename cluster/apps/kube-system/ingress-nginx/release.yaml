@@ -20,9 +20,25 @@ spec:
       service:
         annotations:
           metallb.universe.tf/loadBalancerIPs: 192.168.1.10
+      config:
+        force-ssl-redirect: true
+        client-header-timeout: 120
+        client-body-buffer-size: "100M"
+        client-body-timeout: 120
+        enable-brotli: "true"
+        forwarded-for-header: "CF-Connecting-IP"
+        hsts-max-age: "31449600"
+        keep-alive: 120
+        keep-alive-requests: 10000
+        proxy-send-timeout: "3600"
+        proxy-read-timeout: "3600"
+        proxy-connect-timeout: "3600"
+        proxy-body-size: "100M"
+        ssl-protocols: "TLSv1.3 TLSv1.2"
+        use-forwarded-headers: "true"
       extraArgs:
         default-ssl-certificate: "kube-system/${SECRET_PUBLIC_DOMAIN//./-}-tls"
-  interval: 5m0s
+  interval: 10m
   install:
     crds: CreateReplace
     remediation:

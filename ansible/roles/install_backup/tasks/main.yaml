@@ -1,0 +1,28 @@
+---
+- name: Install packages
+  apt:
+    name:
+      - nfs-common
+      - restic
+    state: present
+
+- name: Create backup directory
+  file:
+    path: "{{ restic_repository }}"
+    state: directory
+
+- name: Mount backup volume
+  mount:
+    src: "{{ backup_mount_src }}"
+    path: "{{ restic_repository }}"
+    state: mounted
+    fstype: nfs
+
+- name: Configure backup
+  cron:
+    name: Backup daily
+    minute: "0"
+    hour: "6"
+    user: root
+    job: 'RESTIC_REPOSITORY="{{ restic_repository }}" RESTIC_PASSWORD="{{ restic_password }}" restic backup --host {{ ansible_hostname }} "{{ backup_path }}"'
+    cron_file: backup-daily

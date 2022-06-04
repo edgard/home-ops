@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: torrent
-  labels:
-    app: torrent
   annotations:
     secret.reloader.stakater.com/reload: "torrent-secret"
 spec:
@@ -13,15 +11,15 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: torrent
+      app.kubernetes.io/name: torrent
   template:
     metadata:
       labels:
-        app: torrent
+        app.kubernetes.io/name: torrent
     spec:
       containers:
       - name: vpn
-        image: bubuntux/nordlynx:2022-05-01 # {"$imagepolicy": "flux-system:nordlynx"}
+        image: bubuntux/nordlynx:2022-06-01 # {"$imagepolicy": "flux-system:nordlynx"}
         env:
         - name: TZ
           value: "${SECRET_TIMEZONE}"

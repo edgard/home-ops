@@ -1,11 +1,3 @@
-# k8s-home-config
+# home-ops
 
-Configuration for deployment of homelab Kubernetes and apps using Flux
-
-Inside "*cluster*" folder:
-
-- **base**: flux cluster configuration
-- **secrets**: secrets for automation
-- **sources**: image/helm repositories sources
-- **core**: basic core functionality
-- **apps**: namespaced common apps
+Configuration for deployment of home infrastructure and homelab

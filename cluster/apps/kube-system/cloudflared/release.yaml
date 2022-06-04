@@ -1,0 +1,38 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: cloudflared
+spec:
+  releaseName: cloudflared
+  chart:
+    spec:
+      chart: cloudflared
+      sourceRef:
+        kind: HelmRepository
+        name: cloudflared
+        namespace: flux-system
+  values:
+    image:
+      repository: cloudflare/cloudflared # {"$imagepolicy": "flux-system:cloudflared:name"}
+      tag: "2022.5.3" # {"$imagepolicy": "flux-system:cloudflared:tag"}
+    tunnelID: "${SECRET_CLOUDFLARE_TUNNEL_ID}"
+    replicaCount: 2
+    auth:
+      accountTag: "${SECRET_CLOUDFLARE_TUNNEL_ACCOUNT}"
+      tunnelName: "home"
+      tunnelSecret: "${SECRET_CLOUDFLARE_TUNNEL_SECRET}"
+    warpRouting: true
+    ingress:
+    - service: https://ingress-nginx-controller:443
+      originRequest:
+        noTLSVerify: true
+        noHappyEyeballs: true
+  interval: 10m
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3

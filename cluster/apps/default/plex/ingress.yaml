@@ -2,17 +2,6 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: plex
-  labels:
-    app: plex
-  annotations:
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/auth-url: "https://auth.${SECRET_PUBLIC_DOMAIN}/oauth2/auth"
-    nginx.ingress.kubernetes.io/auth-signin: "https://auth.${SECRET_PUBLIC_DOMAIN}/oauth2/start?rd=https%3A%2F%2F$host$request_uri"
-    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Groups, X-Auth-Request-Email, X-Auth-Request-Preferred-Username"
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
 spec:
   rules:
     - host: plex.${SECRET_PUBLIC_DOMAIN}

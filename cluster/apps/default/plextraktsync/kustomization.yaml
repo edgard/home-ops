@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 commonLabels:
-  app: plextraktsync
+  app.kubernetes.io/name: plextraktsync
 resources:
   - cronjob.yaml
   - pvc.yaml

@@ -15,7 +15,7 @@ spec:
   values:
     args:
       - --kubelet-insecure-tls
-  interval: 5m0s
+  interval: 10m
   install:
     crds: CreateReplace
     remediation:

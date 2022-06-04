@@ -6,23 +6,20 @@ resources:
   - bdocodesbot.yaml
   - cilium.yaml
   - clc.yaml
+  - cloudflared.yaml
+  - echo.yaml
   - emberstack.yaml
-  - guacamole.yaml
-  - guacd.yaml
   - homeassistant.yaml
   - ingress-nginx.yaml
   - jetstack.yaml
   - kyverno.yaml
-  - mariadb.yaml
   - metallb.yaml
   - metrics-server.yaml
   - murailobot.yaml
   - nginx.yaml
   - nordlynx.yaml
-  - oauth2-proxy.yaml
   - openebs.yaml
   - overseerr.yaml
-  - philippwaller.yaml
   - photoprism.yaml
   - plex.yaml
   - plextraktsync.yaml
@@ -31,7 +28,6 @@ resources:
   - radarr.yaml
   - recyclarr.yaml
   - restic.yaml
-  - sealed-secrets.yaml
   - smokeping.yaml
   - sonarr.yaml
   - stakater.yaml

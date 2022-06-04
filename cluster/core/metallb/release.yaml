@@ -19,7 +19,7 @@ spec:
           protocol: layer2
           addresses:
             - 192.168.1.5-192.168.1.10
-  interval: 5m0s
+  interval: 10m
   install:
     crds: CreateReplace
     remediation:

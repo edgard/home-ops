@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx
-  labels:
-    app: nginx
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -11,11 +9,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: nginx
+      app.kubernetes.io/name: nginx
   template:
     metadata:
       labels:
-        app: nginx
+        app.kubernetes.io/name: nginx
     spec:
       containers:
       - name: nginx

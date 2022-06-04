@@ -4,9 +4,9 @@ metadata:
   name: murailobot
 spec:
   image: ghcr.io/edgard/murailobot
-  interval: 1h0m0s
+  interval: 12h
   secretRef:
-    name: ghcr-secret
+    name: ghcr-secrets
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImagePolicy

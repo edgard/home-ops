@@ -2,10 +2,8 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: recyclarr-config
-  labels:
-    app: recyclarr
 data:
-  recyclarr.yaml: |
+  recyclarr.yml: |
     sonarr:
       - base_url: http://sonarr:8989
         api_key: $SONARR_APIKEY

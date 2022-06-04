@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: smokeping
-  labels:
-    app: smokeping
   annotations:
     configmap.reloader.stakater.com/reload: "smokeping-config"
 spec:
@@ -13,11 +11,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: smokeping
+      app.kubernetes.io/name: smokeping
   template:
     metadata:
       labels:
-        app: smokeping
+        app.kubernetes.io/name: smokeping
     spec:
       containers:
       - name: smokeping

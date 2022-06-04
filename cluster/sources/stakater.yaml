@@ -3,5 +3,5 @@ kind: HelmRepository
 metadata:
   name: stakater
 spec:
-  interval: 1h0m0s
+  interval: 12h
   url: https://stakater.github.io/stakater-charts

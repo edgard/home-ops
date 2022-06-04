@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: clc
-  labels:
-    app: clc
   annotations:
     configmap.reloader.stakater.com/reload: "clc-config"
     secret.reloader.stakater.com/reload: "clc-secret"
@@ -14,11 +12,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: clc
+      app.kubernetes.io/name: clc
   template:
     metadata:
       labels:
-        app: clc
+        app.kubernetes.io/name: clc
     spec:
       initContainers:
       - name: init-config
@@ -48,4 +46,4 @@ spec:
       - name: config-volume
         emptyDir: {}
       imagePullSecrets:
-      - name: ghcr-secret
+      - name: ghcr-secrets

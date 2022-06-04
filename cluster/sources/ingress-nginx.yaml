@@ -3,5 +3,5 @@ kind: HelmRepository
 metadata:
   name: ingress-nginx
 spec:
-  interval: 1h0m0s
+  interval: 12h
   url: https://kubernetes.github.io/ingress-nginx

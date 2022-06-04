@@ -3,5 +3,5 @@ kind: HelmRepository
 metadata:
   name: kyverno
 spec:
-  interval: 1h0m0s
+  interval: 12h
   url: https://kyverno.github.io/kyverno

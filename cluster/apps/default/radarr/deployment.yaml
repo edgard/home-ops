@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: radarr
-  labels:
-    app: radarr
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -11,11 +9,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: radarr
+      app.kubernetes.io/name: radarr
   template:
     metadata:
       labels:
-        app: radarr
+        app.kubernetes.io/name: radarr
     spec:
       containers:
       - name: radarr

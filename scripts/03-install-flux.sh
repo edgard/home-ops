@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
 
-REPO_ROOT=$(git rev-parse --show-toplevel)
-set -o allexport; source "${REPO_ROOT}/.env"; set +o allexport
-
-if [[ -z "${GITHUB_USER}" || -z "${GITHUB_REPO}" || -z "$GITHUB_TOKEN" ]]; then
-    echo "GitHub environment variables not set! Check $REPO_ROOT/.env"
-    exit 1
-fi
-
 flux check --pre
 FLUX_PRE=$?
 if [ ${FLUX_PRE} -ne 0 ]; then
@@ -15,6 +7,7 @@ if [ ${FLUX_PRE} -ne 0 ]; then
     exit 1
 fi
 
+kubectl create namespace flux-system --dry-run=client -o yaml | kubectl apply -f -
 flux bootstrap github \
     --components-extra=image-reflector-controller,image-automation-controller \
     --owner="${GITHUB_USER}" \

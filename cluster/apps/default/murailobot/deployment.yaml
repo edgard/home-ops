@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: murailobot
-  labels:
-    app: murailobot
   annotations:
     secret.reloader.stakater.com/reload: "murailobot-secret"
 spec:
@@ -13,11 +11,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: murailobot
+      app.kubernetes.io/name: murailobot
   template:
     metadata:
       labels:
-        app: murailobot
+        app.kubernetes.io/name: murailobot
     spec:
       containers:
       - name: murailobot
@@ -38,4 +36,4 @@ spec:
         persistentVolumeClaim:
           claimName: murailobot-data
       imagePullSecrets:
-      - name: ghcr-secret
+      - name: ghcr-secrets

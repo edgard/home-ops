@@ -3,10 +3,7 @@ kind: Kustomization
 namespace: kube-system
 resources:
   - cert-manager-config
-  - inadyn
+  - cloudflared
   - ingress-nginx
   - kyverno-config
   - metrics-server
-  - oauth2-proxy
-  - reflector
-  - reloader

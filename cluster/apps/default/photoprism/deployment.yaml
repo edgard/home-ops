@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: photoprism
-  labels:
-    app: photoprism
   annotations:
     secret.reloader.stakater.com/reload: "photoprism-secret"
 spec:
@@ -13,15 +11,15 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: photoprism
+      app.kubernetes.io/name: photoprism
   template:
     metadata:
       labels:
-        app: photoprism
+        app.kubernetes.io/name: photoprism
     spec:
       containers:
       - name: photoprism
-        image: photoprism/photoprism:220527-bookworm # {"$imagepolicy": "flux-system:photoprism"}
+        image: photoprism/photoprism:220528-bookworm # {"$imagepolicy": "flux-system:photoprism"}
         env:
         - name: PHOTOPRISM_UPLOAD_NSFW
           value: "true"

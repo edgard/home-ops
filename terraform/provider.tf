@@ -1,0 +1,50 @@
+terraform {
+  required_providers {
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "3.16.0"
+    }
+    dns = {
+      source  = "hashicorp/dns"
+      version = "3.2.3"
+    }
+    http = {
+      source  = "hashicorp/http"
+      version = "2.1.0"
+    }
+    remote = {
+      source  = "tenstad/remote"
+      version = "0.0.24"
+    }
+    sops = {
+      source  = "carlpett/sops"
+      version = "0.7.1"
+    }
+  }
+}
+
+data "sops_file" "terraform_secrets" {
+  source_file = "secrets.sops.yaml"
+}
+
+provider "cloudflare" {
+  email   = data.sops_file.terraform_secrets.data["email"]
+  api_key = data.sops_file.terraform_secrets.data["cloudflare_api_key"]
+}
+
+provider "dns" {
+  update {
+    server        = data.sops_file.terraform_secrets.data["dns_server_ip"]
+    key_name      = "rndc-key."
+    key_algorithm = "hmac-sha256"
+    key_secret    = data.sops_file.terraform_secrets.data["dns_key_secret"]
+  }
+}
+
+provider "remote" {
+  conn {
+    host        = data.sops_file.terraform_secrets.data["dns_server_ip"]
+    user        = "root"
+    private_key = data.sops_file.terraform_secrets.data["ssh_private_key"]
+  }
+}

@@ -1,7 +1,0 @@
-apiVersion: source.toolkit.fluxcd.io/v1beta1
-kind: HelmRepository
-metadata:
-  name: oauth2-proxy
-spec:
-  interval: 1h0m0s
-  url: https://oauth2-proxy.github.io/manifests

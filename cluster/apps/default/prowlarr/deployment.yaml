@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prowlarr
-  labels:
-    app: prowlarr
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -11,11 +9,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: prowlarr
+      app.kubernetes.io/name: prowlarr
   template:
     metadata:
       labels:
-        app: prowlarr
+        app.kubernetes.io/name: prowlarr
     spec:
       containers:
       - name: prowlarr

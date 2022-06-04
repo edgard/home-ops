@@ -1,0 +1,14 @@
+[pve_servers]
+pve
+
+[dns_servers]
+dns
+
+[kub_servers]
+kub01
+
+[klipper_servers]
+klipper
+
+[devl_servers]
+devl01

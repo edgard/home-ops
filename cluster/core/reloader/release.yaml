@@ -1,0 +1,25 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: reloader
+spec:
+  releaseName: reloader
+  chart:
+    spec:
+      chart: reloader
+      version: "0.0.x"
+      sourceRef:
+        kind: HelmRepository
+        name: stakater
+        namespace: flux-system
+  values:
+    fullnameOverride: reloader
+  interval: 10m
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3

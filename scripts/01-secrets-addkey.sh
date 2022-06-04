@@ -2,5 +2,5 @@
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
-kubectl apply -f "${REPO_ROOT}/.sealed-secrets.key"
-kubectl delete pod -n kube-system -l app.kubernetes.io/name=sealed-secrets
+kubectl create namespace flux-system --dry-run=client -o yaml | kubectl apply -f -
+cat "${REPO_ROOT}/.sops.agekey" | kubectl create secret generic sops-age --namespace=flux-system --from-file=sops.agekey=/dev/stdin

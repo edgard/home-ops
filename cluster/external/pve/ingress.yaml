@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pve
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  rules:
+    - host: pve.${SECRET_PUBLIC_DOMAIN}
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: pve
+                port:
+                  number: 8006
+  tls:
+    - hosts:
+        - pve.${SECRET_PUBLIC_DOMAIN}

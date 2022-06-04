@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: klipper
+spec:
+  rules:
+    - host: klipper.${SECRET_PUBLIC_DOMAIN}
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: klipper
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - klipper.${SECRET_PUBLIC_DOMAIN}

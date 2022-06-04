@@ -1,2 +1,5 @@
-.env
-.sealed-secrets.key
+.envrc
+.sops.agekey
+.terraform
+.terraform.lock.hcl
+terraform.tfstate*

@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: bazarr
-  labels:
-    app: bazarr
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -11,11 +9,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: bazarr
+      app.kubernetes.io/name: bazarr
   template:
     metadata:
       labels:
-        app: bazarr
+        app.kubernetes.io/name: bazarr
     spec:
       containers:
       - name: bazarr

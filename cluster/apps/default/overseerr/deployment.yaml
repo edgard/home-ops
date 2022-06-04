@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: overseerr
-  labels:
-    app: overseerr
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -11,11 +9,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: overseerr
+      app.kubernetes.io/name: overseerr
   template:
     metadata:
       labels:
-        app: overseerr
+        app.kubernetes.io/name: overseerr
     spec:
       containers:
       - name: overseerr

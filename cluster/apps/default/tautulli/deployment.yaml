@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tautulli
-  labels:
-    app: tautulli
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -11,15 +9,15 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: tautulli
+      app.kubernetes.io/name: tautulli
   template:
     metadata:
       labels:
-        app: tautulli
+        app.kubernetes.io/name: tautulli
     spec:
       containers:
       - name: tautulli
-        image: lscr.io/linuxserver/tautulli:2.10.0 # {"$imagepolicy": "flux-system:tautulli"}
+        image: lscr.io/linuxserver/tautulli:2.10.1 # {"$imagepolicy": "flux-system:tautulli"}
         env:
         - name: PUID
           value: "1000"

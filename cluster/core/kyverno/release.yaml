@@ -12,7 +12,7 @@ spec:
         kind: HelmRepository
         name: kyverno
         namespace: flux-system
-  interval: 5m0s
+  interval: 10m
   install:
     crds: CreateReplace
     remediation:

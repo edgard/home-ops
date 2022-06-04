@@ -1,0 +1,15 @@
+---
+- name: Disable swap
+  command: swapoff -a
+  when: ansible_swaptotal_mb > 0
+
+- name: Disable swap on fstab
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+    replace: '# \1'
+
+- name: Delete swap file
+  file:
+    path: /swap.img
+    state: absent

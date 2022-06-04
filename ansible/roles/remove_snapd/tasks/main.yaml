@@ -1,0 +1,40 @@
+---
+- name: Populate service facts
+  service_facts:
+
+- name: Ensure snapd is disabled
+  service:
+    state: stopped
+    enabled: false
+    name: snapd
+  when: "'snapd' in services"
+
+- name: Remove snapd
+  apt:
+    name: snapd
+    state: absent
+    purge: true
+
+- name: Fact the remote user
+  set_fact: fixup_remote_user="{{ ansible_user }}"
+
+- name: Remove snapd-related directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /home/{{ fixup_remote_user }}/snap
+    - /snap
+    - /var/snap
+    - /var/lib/snapd
+    - /var/cache/snapd
+    - /usr/lib/snapd
+    - /root/snap
+
+- name: Block later installations of snapd
+  copy:
+    src: snapd.pref
+    dest: /etc/apt/preferences.d/snapd.pref
+    owner: root
+    group: root
+    mode: 0644

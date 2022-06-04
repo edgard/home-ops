@@ -3,5 +3,5 @@ kind: HelmRepository
 metadata:
   name: openebs
 spec:
-  interval: 1h0m0s
+  interval: 12h
   url: https://openebs.github.io/charts

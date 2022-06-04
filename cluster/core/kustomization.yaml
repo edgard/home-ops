@@ -7,4 +7,5 @@ resources:
   - kyverno
   - metallb
   - openebs
-  - sealed-secrets
+  - reflector
+  - reloader
