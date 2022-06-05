@@ -4,6 +4,5 @@ commonLabels:
   app.kubernetes.io/name: homeassistant
 resources:
   - deployment.yaml
-  - ingress.yaml
   - pvc.yaml
   - service.yaml

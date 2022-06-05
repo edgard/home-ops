@@ -4,7 +4,6 @@ commonLabels:
   app.kubernetes.io/name: photoprism
 resources:
   - deployment.yaml
-  - ingress.yaml
   - pvc.yaml
   - secrets.yaml
   - service.yaml

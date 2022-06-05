@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: plex
   annotations:
-    metallb.universe.tf/loadBalancerIPs: 192.168.1.9
+    metallb.universe.tf/loadBalancerIPs: 192.168.1.11
 spec:
   ports:
     - port: 32400

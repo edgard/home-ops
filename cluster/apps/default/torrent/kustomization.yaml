@@ -4,7 +4,6 @@ commonLabels:
   app.kubernetes.io/name: torrent
 resources:
   - service.yaml
-  - ingress.yaml
   - deployment.yaml
   - pvc.yaml
   - secrets.yaml

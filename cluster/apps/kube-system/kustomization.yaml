@@ -4,6 +4,5 @@ namespace: kube-system
 resources:
   - cert-manager-config
   - cloudflared
-  - ingress-nginx
   - kyverno-config
   - metrics-server

@@ -87,9 +87,9 @@ resource "cloudflare_access_group" "users" {
   }
 }
 
-# access: kubernetes ingresses
+# access: applications
 resource "cloudflare_record" "root_cname_home_k8s" {
-  for_each = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_ingresses : x.name => x })
+  for_each = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_apps : x.name => x })
   name     = each.value.name
   proxied  = true
   ttl      = 1
@@ -98,18 +98,8 @@ resource "cloudflare_record" "root_cname_home_k8s" {
   zone_id  = lookup(data.cloudflare_zones.public_domain.zones[0], "id")
 }
 
-# access: kubernetes ingresses rpz
-resource "dns_a_record_set" "rpz_a_records" {
-  for_each  = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_ingresses : x.name => x })
-  zone      = "rpz."
-  name      = format("%s.%s", each.value.name, data.sops_file.terraform_secrets.data["public_domain"])
-  addresses = [data.sops_file.terraform_secrets.data["k8s_ingress_ip"]]
-  ttl       = 300
-}
-
-# access: kubernetes ingresses applications and policies
 resource "cloudflare_access_application" "http_home_k8s" {
-  for_each                  = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_ingresses : x.name => x })
+  for_each                  = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_apps : x.name => x })
   account_id                = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   name                      = each.value.name
   domain                    = "${each.value.name}.${data.sops_file.terraform_secrets.data["public_domain"]}"
@@ -119,7 +109,7 @@ resource "cloudflare_access_application" "http_home_k8s" {
 }
 
 resource "cloudflare_access_policy" "http_home_k8s_allow" {
-  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_ingresses : x.name if x.require_auth == true]))
+  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_apps : x.name if x.require_auth == true]))
   account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   application_id = cloudflare_access_application.http_home_k8s[each.value].id
   name           = "${each.value} allow"
@@ -135,7 +125,7 @@ resource "cloudflare_access_policy" "http_home_k8s_allow" {
 }
 
 resource "cloudflare_access_policy" "http_home_k8s_bypass" {
-  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_ingresses : x.name if x.require_auth == false]))
+  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_apps : x.name if x.require_auth == false]))
   account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   application_id = cloudflare_access_application.http_home_k8s[each.value].id
   name           = "${each.value} bypass"

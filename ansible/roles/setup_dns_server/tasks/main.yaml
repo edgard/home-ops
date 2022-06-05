@@ -35,7 +35,6 @@
   with_items:
     - "{{ private_domain }}"
     - "{{ lan_cidr.split('.')[0:3] | reverse | join('.') }}.in-addr.arpa"
-    - rpz
   register: zone_files
 
 - name: Template initial zone files

@@ -4,4 +4,3 @@ commonLabels:
   app.kubernetes.io/name: klipper
 resources:
   - service.yaml
-  - ingress.yaml

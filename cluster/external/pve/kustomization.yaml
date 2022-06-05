@@ -4,4 +4,3 @@ commonLabels:
   app.kubernetes.io/name: pve
 resources:
   - service.yaml
-  - ingress.yaml

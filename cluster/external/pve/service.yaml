@@ -5,3 +5,5 @@ metadata:
 spec:
   type: ExternalName
   externalName: pve.${SECRET_PRIVATE_DOMAIN}.
+  ports:
+    - port: 8006

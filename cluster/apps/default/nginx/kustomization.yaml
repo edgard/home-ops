@@ -4,5 +4,4 @@ commonLabels:
   app.kubernetes.io/name: nginx
 resources:
   - service.yaml
-  - ingress.yaml
   - deployment.yaml

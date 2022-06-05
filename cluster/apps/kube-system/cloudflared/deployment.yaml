@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  annotations:
+    secret.reloader.stakater.com/reload: "cloudflared-secret"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 0
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflared
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cloudflared
+    spec:
+      containers:
+      - name: cloudflared
+        image: cloudflare/cloudflared:2022.5.3 # {"$imagepolicy": "flux-system:cloudflared"}
+        args:
+        - tunnel
+        - --no-autoupdate
+        - --config
+        - /etc/cloudflared/config.yaml
+        - run
+        volumeMounts:
+        - mountPath: /etc/cloudflared/config.yaml
+          name: secrets-volume
+          subPath: config.yaml
+          readOnly: true
+        - mountPath: /etc/cloudflared/tunnel.json
+          name: secrets-volume
+          subPath: tunnel.json
+          readOnly: true
+      volumes:
+      - name: secrets-volume
+        secret:
+          secretName: cloudflared-secret
+          optional: false
+      terminationGracePeriodSeconds: 60

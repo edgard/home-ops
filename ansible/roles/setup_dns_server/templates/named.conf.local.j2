@@ -22,9 +22,3 @@ zone "{{ lan_cidr.split('.')[0:3] | reverse | join('.') }}.in-addr.arpa" {
 	file "/etc/bind/db.{{ lan_cidr.split('.')[0:3] | reverse | join('.') }}.in-addr.arpa";
 	allow-update { key "rndc-key"; };
 };
-
-zone "rpz" {
-	type master;
-	file "/etc/bind/db.rpz";
-	allow-update { key "rndc-key"; };
-};

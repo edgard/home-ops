@@ -4,4 +4,3 @@ commonLabels:
   app.kubernetes.io/name: nas01
 resources:
   - service.yaml
-  - ingress.yaml
