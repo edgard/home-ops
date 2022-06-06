@@ -14,11 +14,13 @@ spec:
           containers:
           - name: restic
             image: restic/restic:0.13.1 # {"$imagepolicy": "flux-system:restic"}
-            args:
-            - forget
-            - --keep-daily=7
-            - --keep-monthly=12
-            - --prune
+            command:
+            - /bin/sh
+            - -c
+            - |
+              /usr/bin/restic forget --keep-daily 7 --keep-monthly 12
+              /usr/bin/restic prune
+              /usr/bin/restic check
             env:
             - name: RESTIC_REPOSITORY
               value: "/mnt/backup/restic"
