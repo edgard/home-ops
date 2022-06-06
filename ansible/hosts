@@ -10,5 +10,11 @@ kub01
 [klipper_servers]
 klipper
 
+[hass_servers]
+hass
+
+[plex_servers]
+plex
+
 [devl_servers]
 devl01

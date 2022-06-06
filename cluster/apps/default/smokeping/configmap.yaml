@@ -29,8 +29,8 @@ data:
     menu = Home latency
     title = Home network latency (ICMP pings)
 
-    ++ Gateway
-    host = gw.${SECRET_PRIVATE_DOMAIN}
+    ++ Unifi
+    host = unifi.${SECRET_PRIVATE_DOMAIN}
     ++ APOffice
     host = apoffice.${SECRET_PRIVATE_DOMAIN}
     ++ DNS
@@ -41,5 +41,9 @@ data:
     host = pve.${SECRET_PRIVATE_DOMAIN}
     ++ Klipper
     host = klipper.${SECRET_PRIVATE_DOMAIN}
+    ++ HASS
+    host = hass.${SECRET_PRIVATE_DOMAIN}
+    ++ PLEX
+    host = plex.${SECRET_PRIVATE_DOMAIN}
     ++ DEVL01
     host = devl01.${SECRET_PRIVATE_DOMAIN}

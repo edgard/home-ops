@@ -9,7 +9,6 @@ resources:
   - cloudflared.yaml
   - echo.yaml
   - emberstack.yaml
-  - homeassistant.yaml
   - jetstack.yaml
   - kyverno.yaml
   - metallb.yaml
@@ -20,7 +19,6 @@ resources:
   - openebs.yaml
   - overseerr.yaml
   - photoprism.yaml
-  - plex.yaml
   - plextraktsync.yaml
   - prowlarr.yaml
   - qbittorrent.yaml

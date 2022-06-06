@@ -1,0 +1,27 @@
+---
+- name: Mount media volume
+  mount:
+    src: "{{ media_mount_src }}"
+    path: "/mnt/media"
+    state: mounted
+    fstype: nfs
+
+- name: Create volume directory
+  file:
+    path: /srv/volumes/plex
+    state: directory
+    mode: "0755"
+
+- name: Template service file
+  template:
+    src: "plex.service.j2"
+    dest: "/etc/systemd/system/plex.service"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Ensure daemons are enabled
+  service:
+    name: plex
+    enabled: true
+    state: started
