@@ -1,0 +1,53 @@
+---
+version: '3'
+
+dotenv: ['.envrc']
+
+tasks:
+  apply:
+    - task: config
+    - task: ansible
+    - task: terraform
+    - task: flux
+
+  config:
+    desc: Update secrets configuration files
+    dir: ansible
+    cmds:
+      - ansible-playbook config.yaml
+
+  ansible:
+    desc: Run Ansible site playbook
+    dir: ansible
+    cmds:
+      - ansible-playbook site.yaml
+
+  terraform:
+    desc: Apply terraform plan
+    dir: terraform
+    interactive: true
+    cmds:
+      - terraform apply
+
+  flux:
+    desc: Start flux repository reconciliation
+    cmds:
+      - flux reconcile source git flux-system
+
+  edit:
+    desc: Edit master secrets config file
+    interactive: true
+    silent: true
+    cmds:
+      - sops ansible/host_vars/localhost.sops.yaml
+
+  dfp:
+    desc: Deletes failed pods
+    cmds:
+      - kubectl delete pods --field-selector status.phase=Failed -A --ignore-not-found=true
+
+  hrr:
+    desc: Restart all failed Helm Releases
+    cmds:
+      - kubectl get hr --all-namespaces | grep False | awk '{print $2, $1}' | xargs -l bash -c 'flux suspend hr $0 -n $1'
+      - kubectl get hr --all-namespaces | grep False | awk '{print $2, $1}' | xargs -l bash -c 'flux resume hr $0 -n $1'

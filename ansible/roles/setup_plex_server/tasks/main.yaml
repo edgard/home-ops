@@ -1,7 +1,7 @@
 ---
 - name: Mount media volume
   mount:
-    src: "{{ media_mount_src }}"
+    src: "{{ media_share_mount }}"
     path: "/mnt/media"
     state: mounted
     fstype: nfs

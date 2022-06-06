@@ -32,7 +32,7 @@ resource "random_string" "home_tunnel_secret" {
 
 resource "cloudflare_argo_tunnel" "home" {
   account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
-  name       = "home"
+  name       = data.sops_file.terraform_secrets.data["cloudflare_tunnel_name"]
   secret     = base64encode(random_string.home_tunnel_secret.result)
 }
 
@@ -88,8 +88,8 @@ resource "cloudflare_access_group" "users" {
 }
 
 # access: applications
-resource "cloudflare_record" "root_cname_home_k8s" {
-  for_each = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_apps : x.name => x })
+resource "cloudflare_record" "root_cname_home_apps" {
+  for_each = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).apps : x.name => x })
   name     = each.value.name
   proxied  = true
   ttl      = 1
@@ -98,8 +98,8 @@ resource "cloudflare_record" "root_cname_home_k8s" {
   zone_id  = lookup(data.cloudflare_zones.public_domain.zones[0], "id")
 }
 
-resource "cloudflare_access_application" "http_home_k8s" {
-  for_each                  = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_apps : x.name => x })
+resource "cloudflare_access_application" "http_home_apps" {
+  for_each                  = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).apps : x.name => x })
   account_id                = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   name                      = each.value.name
   domain                    = "${each.value.name}.${data.sops_file.terraform_secrets.data["public_domain"]}"
@@ -108,10 +108,10 @@ resource "cloudflare_access_application" "http_home_k8s" {
   allowed_idps              = [cloudflare_access_identity_provider.otp.id]
 }
 
-resource "cloudflare_access_policy" "http_home_k8s_allow" {
-  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_apps : x.name if x.require_auth == true]))
+resource "cloudflare_access_policy" "http_home_apps_allow" {
+  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).apps : x.name if x.require_auth == true]))
   account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
-  application_id = cloudflare_access_application.http_home_k8s[each.value].id
+  application_id = cloudflare_access_application.http_home_apps[each.value].id
   name           = "${each.value} allow"
   precedence     = "1"
   decision       = "allow"
@@ -124,10 +124,10 @@ resource "cloudflare_access_policy" "http_home_k8s_allow" {
   }
 }
 
-resource "cloudflare_access_policy" "http_home_k8s_bypass" {
-  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).k8s_apps : x.name if x.require_auth == false]))
+resource "cloudflare_access_policy" "http_home_apps_bypass" {
+  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).apps : x.name if x.require_auth == false]))
   account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
-  application_id = cloudflare_access_application.http_home_k8s[each.value].id
+  application_id = cloudflare_access_application.http_home_apps[each.value].id
   name           = "${each.value} bypass"
   precedence     = "1"
   decision       = "bypass"
@@ -138,15 +138,15 @@ resource "cloudflare_access_policy" "http_home_k8s_bypass" {
 }
 
 # access: photoprism-import application for path bypass while cf doesn't offer a way to better do this
-resource "cloudflare_access_application" "http_home_k8s_photoprism_import" {
+resource "cloudflare_access_application" "http_home_apps_photoprism_import" {
   account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   name       = "photoprism-import"
   domain     = "photoprism.${data.sops_file.terraform_secrets.data["public_domain"]}/import/*"
 }
 
-resource "cloudflare_access_policy" "http_home_k8s_photoprism_import_bypass" {
+resource "cloudflare_access_policy" "http_home_apps_photoprism_import_bypass" {
   account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
-  application_id = cloudflare_access_application.http_home_k8s_photoprism_import.id
+  application_id = cloudflare_access_application.http_home_apps_photoprism_import.id
   name           = "photoprism-import bypass"
   precedence     = "1"
   decision       = "bypass"

@@ -104,7 +104,7 @@ resource "cloudflare_record" "root_cname" {
   proxied = true
   ttl     = 1
   type    = "CNAME"
-  value   = data.sops_file.terraform_secrets.data["github_origin_domain"]
+  value   = data.sops_file.terraform_secrets.data["homepage"]
   zone_id = lookup(data.cloudflare_zones.public_domain.zones[0], "id")
 }
 
@@ -113,6 +113,6 @@ resource "cloudflare_record" "root_cname_www" {
   proxied = true
   ttl     = 1
   type    = "CNAME"
-  value   = data.sops_file.terraform_secrets.data["github_origin_domain"]
+  value   = data.sops_file.terraform_secrets.data["homepage"]
   zone_id = lookup(data.cloudflare_zones.public_domain.zones[0], "id")
 }

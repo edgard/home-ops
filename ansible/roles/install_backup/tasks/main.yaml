@@ -8,13 +8,13 @@
 
 - name: Create backup directory
   file:
-    path: "{{ restic_repository }}"
+    path: "{{ restic_repo_dir }}"
     state: directory
 
 - name: Mount backup volume
   mount:
-    src: "{{ backup_mount_src }}"
-    path: "{{ restic_repository }}"
+    src: "{{ restic_repo_mount }}"
+    path: "{{ restic_repo_dir }}"
     state: mounted
     fstype: nfs
 
@@ -24,5 +24,5 @@
     minute: "0"
     hour: "6"
     user: root
-    job: 'RESTIC_REPOSITORY="{{ restic_repository }}" RESTIC_PASSWORD="{{ restic_password }}" restic backup --host {{ ansible_hostname }} "{{ backup_path }}"'
+    job: 'RESTIC_REPOSITORY="{{ restic_repo_dir }}" RESTIC_PASSWORD="{{ restic_repo_pass }}" restic backup --host {{ ansible_hostname }} "{{ backup_path }}"'
     cron_file: backup-daily
