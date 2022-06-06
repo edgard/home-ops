@@ -1,0 +1,6 @@
+---
+- name: Upgrade apt packages
+  hosts: all
+  strategy: free
+  roles:
+    - task_apt_upgrade

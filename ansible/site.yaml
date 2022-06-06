@@ -1,7 +1,6 @@
 ---
 - name: Manage PVE hosts
   hosts: pve_servers
-  remote_user: root
   roles:
     - config_ssh_keys
     - config_cron_powersave
@@ -10,7 +9,6 @@
 
 - name: Manage DNS hosts
   hosts: dns_servers
-  remote_user: root
   roles:
     - config_ssh_keys
     - config_cron_powersave
@@ -21,8 +19,6 @@
 
 - name: Manage KUB hosts
   hosts: kub_servers
-  remote_user: edgard
-  become: true
   roles:
     - config_ssh_keys
     - config_sudo_nopass
@@ -37,8 +33,6 @@
 
 - name: Manage KLIPPER hosts
   hosts: klipper_servers
-  remote_user: edgard
-  become: true
   roles:
     - config_ssh_keys
     - config_sudo_nopass
@@ -52,8 +46,6 @@
 
 - name: Manage HASS hosts
   hosts: hass_servers
-  remote_user: edgard
-  become: true
   roles:
     - config_ssh_keys
     - config_sudo_nopass
@@ -68,8 +60,6 @@
 
 - name: Manage PLEX hosts
   hosts: plex_servers
-  remote_user: edgard
-  become: true
   roles:
     - config_ssh_keys
     - config_sudo_nopass
@@ -84,8 +74,6 @@
 
 - name: Manage DEVL hosts
   hosts: devl_servers
-  remote_user: edgard
-  become: true
   roles:
     - config_ssh_keys
     - config_sudo_nopass
