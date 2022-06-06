@@ -1,20 +1,42 @@
 ---
-version: '3'
+version: "3"
 
-dotenv: ['.envrc']
+dotenv: [".envrc"]
+
+vars:
+  REPO_ROOT:
+    sh: "git rev-parse --show-toplevel"
 
 tasks:
-  apply:
-    - task: config
-    - task: ansible
-    - task: terraform
-    - task: flux
+  edit:
+    desc: Edit master secrets config file
+    interactive: true
+    silent: true
+    cmds:
+      - sops ansible/host_vars/localhost.sops.yaml
 
   config:
     desc: Update secrets configuration files
     dir: ansible
     cmds:
       - ansible-playbook config.yaml
+
+  config-push:
+    desc: Push updated secrets configuration files
+    interactive: true
+    cmds:
+      - git add ansible/host_vars/localhost.sops.yaml
+      - git add ansible/group_vars/all.sops.yaml
+      - git add terraform/secrets.sops.yaml
+      - git add cluster/config/cluster-secrets.yaml
+      - git add cluster/apps/kube-system/cloudflared/secrets.yaml
+      - git commit -m 'Update secrets configuration files' || true
+      - git push
+
+  apply:
+    - task: ansible
+    - task: terraform
+    - task: flux
 
   ansible:
     desc: Run Ansible site playbook
@@ -34,12 +56,34 @@ tasks:
     cmds:
       - flux reconcile source git flux-system
 
-  edit:
-    desc: Edit master secrets config file
-    interactive: true
-    silent: true
+  install-k3s:
+    desc: Install K3s
     cmds:
-      - sops ansible/host_vars/localhost.sops.yaml
+      - curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=stable INSTALL_K3S_SYMLINK=skip INSTALL_K3S_EXEC="--write-kubeconfig-mode 0644 --flannel-backend=none --disable-network-policy --disable-helm-controller --disable metrics-server --disable local-storage --disable traefik --disable servicelb" sh -s -
+
+  install-keys:
+    desc: Install SOPS keys
+    cmds:
+      - kubectl create namespace flux-system --dry-run=client -o yaml | kubectl apply -f -
+      - cat "{{.REPO_ROOT}}/.sops.agekey" | kubectl create secret generic sops-age --namespace=flux-system --from-file=sops.agekey=/dev/stdin
+
+  install-cilium:
+    desc: Pre-install Cilium CNI
+    cmds:
+      - kubectl create namespace kube-system --dry-run=client -o yaml | kubectl apply -f -
+      - helm repo add cilium https://helm.cilium.io
+      - helm repo update
+      - helm install cilium cilium/cilium --namespace kube-system --set operator.replicas=1
+      - cilium status --wait
+      - kubectl get pods --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,HOSTNETWORK:.spec.hostNetwork --no-headers=true | grep '<none>' | awk '{print "-n "$1" "$2}' | xargs -L 1 -r kubectl delete pod
+
+  install-flux:
+    desc: Install Flux CD
+    cmds:
+      - kubectl create namespace flux-system --dry-run=client -o yaml | kubectl apply -f -
+      - flux bootstrap github --components-extra=image-reflector-controller,image-automation-controller --owner="$GITHUB_USER" --repository="$GITHUB_REPO" --path=cluster/base --branch=master --read-write-key --personal
+    preconditions:
+      - flux check --pre
 
   dfp:
     desc: Deletes failed pods
