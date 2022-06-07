@@ -88,7 +88,7 @@ resource "cloudflare_access_group" "users" {
   account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   name       = "Users"
   include {
-    email = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).auth_groups : x.name => x if x.name == "Users" })["Users"].emails
+    email = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_auth_groups : x.name => x if x.name == "Users" })["Users"].emails
   }
 }
 

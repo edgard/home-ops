@@ -2,5 +2,11 @@
 - name: Generate config files
   hosts: localhost
   gather_facts: false
-  roles:
-    - task_generate_config
+
+  tasks:
+    - name: Load config variables
+      community.sops.load_vars:
+        file: ../config.sops.yaml
+    - name: Generate config files
+      include_role:
+        name: task_generate_config

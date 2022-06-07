@@ -13,7 +13,7 @@ tasks:
     interactive: true
     silent: true
     cmds:
-      - sops ansible/host_vars/localhost.sops.yaml
+      - sops config.sops.yaml
 
   config:
     desc: Update secrets configuration files
