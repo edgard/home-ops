@@ -18,3 +18,10 @@
     name: hass
     enabled: true
     state: started
+
+- name: Configure daily docker prune run
+  cron:
+    name: Docker prune
+    special_time: daily
+    user: root
+    job: "/usr/bin/docker system prune -af"

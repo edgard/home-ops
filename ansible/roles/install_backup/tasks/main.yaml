@@ -25,4 +25,3 @@
     hour: "6"
     user: root
     job: 'RESTIC_REPOSITORY="{{ restic_repo_dir }}" RESTIC_PASSWORD="{{ restic_repo_pass }}" restic backup --host {{ ansible_hostname }} "{{ backup_path }}"'
-    cron_file: backup-daily
