@@ -53,5 +53,16 @@
     path: /etc/bind
     owner: bind
     group: bind
-    recurse: yes
+    recurse: true
+  notify: "Restart daemons"
+
+- name: Install dhcpd configuration
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/dhcp/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  with_items:
+    - dhcpd.conf
   notify: "Restart daemons"

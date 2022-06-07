@@ -1,0 +1,38 @@
+# {{ ansible_managed }}
+
+authoritative;
+
+include "/etc/bind/rndc.key";
+
+# Server configuration
+ddns-domainname         "{{ private_domain }}";
+ddns-rev-domainname     "in-addr.arpa";
+ddns-update-style       interim;
+ddns-updates            on;
+allow                   client-updates;
+default-lease-time      600;
+max-lease-time          7200;
+
+# Networks
+subnet {{ lan_prefix }}.0 netmask 255.255.255.0 {
+        range {{ lan_prefix }}.21 {{ lan_prefix }}.240;
+
+        option domain-name              "{{ private_domain }}";
+        option domain-search            "{{ private_domain }}";
+        option routers                  {{ lan_prefix }}.1;
+        option subnet-mask              255.255.255.0;
+        option broadcast-address        {{ lan_prefix }}.255;
+        option domain-name-servers      {{ dns_server_ip }};
+
+        zone {{ private_domain }} {
+                primary 127.0.0.1;
+                key rndc-key;
+        }
+
+        zone {{ lan_cidr.split('.')[0:3] | reverse | join('.') }}.in-addr.arpa {
+                primary 127.0.0.1;
+                key rndc-key;
+        }
+}
+
+include "/etc/dhcp/fixed_hosts.conf";
