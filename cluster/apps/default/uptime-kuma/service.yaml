@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: uptime-kuma
+spec:
+  ports:
+    - port: 3001
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: uptime-kuma
+  loadBalancerIP: 192.168.1.11

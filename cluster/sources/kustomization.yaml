@@ -30,3 +30,4 @@ resources:
   - stakater.yaml
   - tautulli.yaml
   - unpackerr.yaml
+  - uptime-kuma.yaml
