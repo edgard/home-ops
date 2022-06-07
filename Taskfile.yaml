@@ -8,14 +8,14 @@ vars:
     sh: "git rev-parse --show-toplevel"
 
 tasks:
-  edit:
+  config:
     desc: Edit master secrets config file
     interactive: true
     silent: true
     cmds:
       - sops config.sops.yaml
 
-  config:
+  config-update:
     desc: Update secrets configuration files
     dir: ansible
     cmds:
@@ -33,25 +33,25 @@ tasks:
       - git commit -m 'Update secrets configuration files' || true
       - git push
 
-  apply:
-    - task: ansible
-    - task: terraform
-    - task: flux
+  apply-config:
+    - task: apply-ansible
+    - task: apply-terraform
+    - task: apply-flux
 
-  ansible:
+  apply-ansible:
     desc: Run Ansible site playbook
     dir: ansible
     cmds:
       - ansible-playbook site.yaml
 
-  terraform:
+  apply-terraform:
     desc: Apply terraform plan
     dir: terraform
     interactive: true
     cmds:
       - terraform apply
 
-  flux:
+  apply-flux:
     desc: Start flux repository reconciliation
     cmds:
       - flux reconcile source git flux-system
@@ -85,31 +85,14 @@ tasks:
     preconditions:
       - flux check --pre
 
-  upgrade:
-    desc: Upgrade all servers APT packages
+  server-upgrade:
+    desc: Upgrade all servers
     dir: ansible
     cmds:
       - ansible-playbook upgrade.yaml
-
-  restart-docker:
-    desc: Restart docker based services
-    dir: ansible
-    cmds:
       - ssh hass 'sudo systemctl restart hass'
       - ssh plex 'sudo systemctl restart plex'
 
-  dfp:
-    desc: Deletes failed pods
-    cmds:
-      - kubectl delete pods --field-selector status.phase=Failed -A --ignore-not-found=true
-
-  hrr:
-    desc: Restart all failed Helm Releases
-    cmds:
-      - kubectl get hr --all-namespaces | grep False | awk '{print $2, $1}' | xargs -l bash -c 'flux suspend hr $0 -n $1'
-      - kubectl get hr --all-namespaces | grep False | awk '{print $2, $1}' | xargs -l bash -c 'flux resume hr $0 -n $1'
-
   daily:
-    - task: apply
-    - task: restart-docker
-    - task: upgrade
+    - task: apply-config
+    - task: server-upgrade
