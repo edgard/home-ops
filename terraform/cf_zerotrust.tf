@@ -23,17 +23,22 @@ resource "cloudflare_teams_account" "edgard" {
     tcp = true
     udp = true
   }
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # argo tunnel
 resource "random_string" "home_tunnel_secret" {
   length = 32
 }
-
 resource "cloudflare_argo_tunnel" "home" {
   account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   name       = data.sops_file.terraform_secrets.data["cloudflare_tunnel_name"]
   secret     = base64encode(random_string.home_tunnel_secret.result)
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "cloudflare_tunnel_route" "home_lan" {
