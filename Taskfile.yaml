@@ -25,7 +25,7 @@ tasks:
     desc: Push updated secrets configuration files
     interactive: true
     cmds:
-      - git add ansible/host_vars/localhost.sops.yaml
+      - git add config.sops.yaml
       - git add ansible/group_vars/all.sops.yaml
       - git add terraform/secrets.sops.yaml
       - git add cluster/config/cluster-secrets.yaml
@@ -34,9 +34,11 @@ tasks:
       - git push
 
   apply-config:
-    - task: apply-ansible
-    - task: apply-terraform
-    - task: apply-flux
+    desc: Apply configuration across all tools
+    cmds:
+      - task: apply-ansible
+      - task: apply-terraform
+      - task: apply-flux
 
   apply-ansible:
     desc: Run Ansible site playbook
@@ -85,7 +87,7 @@ tasks:
     preconditions:
       - flux check --pre
 
-  server-upgrade:
+  task-upgrade:
     desc: Upgrade all servers
     dir: ansible
     cmds:
@@ -93,6 +95,8 @@ tasks:
       - ssh hass 'sudo systemctl restart hass'
       - ssh plex 'sudo systemctl restart plex'
 
-  daily:
-    - task: apply-config
-    - task: server-upgrade
+  task-daily:
+    desc: Daily maintenance
+    cmds:
+      - task: apply-config
+      - task: task-upgrade
