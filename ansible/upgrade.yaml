@@ -1,6 +1,5 @@
 ---
 - name: Upgrade apt packages
-  hosts: all
-  strategy: free
+  hosts: all:!pve_servers:!devl_servers
   roles:
     - task_apt_upgrade

@@ -1,9 +1,9 @@
 ---
-- name: Update apt repo and cache
-  apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
-
 - name: Upgrade all packages
-  apt: upgrade=dist force_apt_get=yes
+  apt:
+    upgrade: dist
+    update_cache: yes
+    dpkg_options: 'force-confold,force-confdef'
 
 - name: Check if a reboot is needed
   stat: path=/var/run/reboot-required get_md5=no
@@ -17,4 +17,9 @@
     pre_reboot_delay: 0
     post_reboot_delay: 30
     test_command: uptime
-  when: (reboot_required_file.stat.exists) and ("'pve_servers' not in group_names") and (inventory_hostname != 'devl01')
+  when: reboot_required_file.stat.exists
+
+- name: Clean up dependencies that are no longer required
+  apt:
+    autoremove: yes
+    purge: true
