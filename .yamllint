@@ -1,0 +1,12 @@
+---
+extends: default
+rules:
+  line-length: disable
+  document-start: disable
+  comments: disable
+  indentation:
+    indent-sequences: whatever
+  truthy:
+    level: error
+ignore: |
+  *.sops.yaml

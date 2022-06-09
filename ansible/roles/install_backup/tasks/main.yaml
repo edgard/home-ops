@@ -1,25 +1,28 @@
 ---
 - name: Install packages
-  apt:
+  ansible.builtin.apt:
     name:
       - nfs-common
       - restic
     state: present
 
 - name: Create backup directory
-  file:
+  ansible.builtin.file:
     path: "{{ restic_repo_dir }}"
+    owner: root
+    group: root
+    mode: "0775"
     state: directory
 
 - name: Mount backup volume
-  mount:
+  ansible.builtin.mount:
     src: "{{ restic_repo_mount }}"
     path: "{{ restic_repo_dir }}"
     state: mounted
     fstype: nfs
 
 - name: Configure backup
-  cron:
+  ansible.builtin.cron:
     name: Backup daily
     minute: "0"
     hour: "6"

@@ -1,12 +1,12 @@
 ---
 - name: Create volume directory
-  file:
+  ansible.builtin.file:
     path: /srv/volumes/hass
     state: directory
     mode: "0755"
 
 - name: Template service file
-  template:
+  ansible.builtin.template:
     src: "hass.service.j2"
     dest: "/etc/systemd/system/hass.service"
     owner: root
@@ -14,13 +14,13 @@
     mode: "0644"
 
 - name: Ensure daemons are enabled
-  service:
+  ansible.builtin.service:
     name: hass
     enabled: true
     state: started
 
 - name: Configure daily docker prune run
-  cron:
+  ansible.builtin.cron:
     name: Docker prune
     special_time: daily
     user: root

@@ -1,19 +1,19 @@
 ---
 - name: Mount media volume
-  mount:
+  ansible.builtin.mount:
     src: "{{ media_share_mount }}"
     path: "/mnt/media"
     state: mounted
     fstype: nfs
 
 - name: Create volume directory
-  file:
+  ansible.builtin.file:
     path: /srv/volumes/plex
     state: directory
     mode: "0755"
 
 - name: Template service file
-  template:
+  ansible.builtin.template:
     src: "plex.service.j2"
     dest: "/etc/systemd/system/plex.service"
     owner: root
@@ -21,13 +21,13 @@
     mode: "0644"
 
 - name: Ensure daemons are enabled
-  service:
+  ansible.builtin.service:
     name: plex
     enabled: true
     state: started
 
 - name: Configure daily docker prune run
-  cron:
+  ansible.builtin.cron:
     name: Docker prune
     special_time: daily
     user: root

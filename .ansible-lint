@@ -1,0 +1,5 @@
+parseable: true
+skip_list:
+  - yaml
+exclude_paths:
+  - Taskfile.yaml

@@ -1,12 +1,12 @@
 ---
 - name: Install unattended-upgrades
-  apt:
+  ansible.builtin.apt:
     name:
       - unattended-upgrades
     state: present
 
 - name: Config unattended-upgrades
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/apt/apt.conf.d/50unattended-upgrades
     regexp: "{{ item.key }}"
     line: "{{ item.value }}"

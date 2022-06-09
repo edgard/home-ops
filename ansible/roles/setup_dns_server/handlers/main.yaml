@@ -1,6 +1,6 @@
 ---
 - name: Restart daemons
-  service:
+  ansible.builtin.service:
     name: "{{ item }}"
     state: restarted
   with_items:

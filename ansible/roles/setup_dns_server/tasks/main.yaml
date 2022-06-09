@@ -1,6 +1,6 @@
 ---
 - name: Install packages
-  apt:
+  ansible.builtin.apt:
     name:
       - bind9
       - dnsutils
@@ -8,7 +8,7 @@
     state: present
 
 - name: Ensure daemons are enabled
-  service:
+  ansible.builtin.service:
     name: "{{ item }}"
     enabled: true
     state: started
@@ -17,7 +17,7 @@
     - isc-dhcp-server
 
 - name: Install bind configuration
-  template:
+  ansible.builtin.template:
     src: "{{ item }}.j2"
     dest: "/etc/bind/{{ item }}"
     owner: bind
@@ -30,7 +30,7 @@
   notify: "Restart daemons"
 
 - name: Check if zone files exists
-  stat:
+  ansible.builtin.stat:
     path: "/etc/bind/db.{{ item }}"
   with_items:
     - "{{ private_domain }}"
@@ -38,7 +38,7 @@
   register: zone_files
 
 - name: Template initial zone files
-  template:
+  ansible.builtin.template:
     src: "zone_template.j2"
     dest: "/etc/bind/db.{{ item.item }}"
     owner: bind
@@ -49,7 +49,7 @@
   notify: "Restart daemons"
 
 - name: Fix bind files permissions
-  file:
+  ansible.builtin.file:
     path: /etc/bind
     owner: bind
     group: bind
@@ -57,7 +57,7 @@
   notify: "Restart daemons"
 
 - name: Install dhcpd configuration
-  template:
+  ansible.builtin.template:
     src: "{{ item }}.j2"
     dest: "/etc/dhcp/{{ item }}"
     owner: root

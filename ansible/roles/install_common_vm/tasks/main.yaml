@@ -1,24 +1,24 @@
 ---
 - name: Install packages
-  apt:
+  ansible.builtin.apt:
     name:
       - qemu-guest-agent
       - nfs-common
     state: present
 
 - name: Install HWE kernel
-  apt:
+  ansible.builtin.apt:
     name: linux-generic-hwe-{{ ansible_distribution_version }}
     install_recommends: true
     state: present
 
 - name: Clean up dependencies that are no longer required
-  apt:
-    autoremove: yes
+  ansible.builtin.apt:
+    autoremove: true
     purge: true
 
 - name: Set kernel options in Grub
-  replace:
+  ansible.builtin.replace:
     path: /etc/default/grub
     regexp: '^(GRUB_CMDLINE_LINUX=(?:(?![" ]{{ item.key | regex_escape }}=).)*)(?:[" ]{{ item.key | regex_escape }}=\S+)?(.*")$'
     replace: '\1 {{ item.key }}={{ item.value }}\2'

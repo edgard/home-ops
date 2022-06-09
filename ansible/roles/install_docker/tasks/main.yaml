@@ -1,6 +1,6 @@
 ---
 - name: Remove old docker packages
-  apt:
+  ansible.builtin.apt:
     name:
       - docker
       - docker-engine
@@ -10,7 +10,7 @@
     state: absent
 
 - name: Install dependency packages
-  apt:
+  ansible.builtin.apt:
     name:
       - ca-certificates
       - curl
@@ -19,22 +19,22 @@
     state: present
 
 - name: Add docker signing keys
-  apt_key:
+  ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     keyring: /usr/share/keyrings/docker-archive-keyring.gpg
 
 - name: Get host architecture
-  set_fact:
+  ansible.builtin.set_fact:
     dpkg_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}"
 
 - name: Add docker repository
-  apt_repository:
+  ansible.builtin.apt_repository:
     repo: deb [arch={{ dpkg_arch }} signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
     filename: docker
     state: present
 
 - name: Install docker packages
-  apt:
+  ansible.builtin.apt:
     name:
       - docker-ce
       - docker-ce-cli
@@ -44,10 +44,10 @@
     update_cache: true
 
 - name: Fact the remote user
-  set_fact: fixup_remote_user="{{ ansible_user }}"
+  ansible.builtin.set_fact: fixup_remote_user="{{ ansible_user }}"
 
 - name: Add user to docker group
-  user:
+  ansible.builtin.user:
     name: "{{ fixup_remote_user }}"
     groups: docker
     append: true
