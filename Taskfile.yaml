@@ -87,7 +87,7 @@ tasks:
     preconditions:
       - flux check --pre
 
-  task-upgrade:
+  run-upgrade:
     desc: Upgrade all servers
     dir: ansible
     cmds:
@@ -95,8 +95,8 @@ tasks:
       - ssh hass 'sudo systemctl restart hass'
       - ssh plex 'sudo systemctl restart plex'
 
-  task-daily:
+  run-daily:
     desc: Daily maintenance
     cmds:
       - task: apply-config
-      - task: task-upgrade
+      - task: run-upgrade
