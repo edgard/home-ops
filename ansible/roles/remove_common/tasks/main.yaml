@@ -1,0 +1,7 @@
+---
+- name: Remove unwanted packages
+  ansible.builtin.apt:
+    name:
+      - unattended-upgrades
+    state: absent
+    purge: true

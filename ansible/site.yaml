@@ -4,7 +4,7 @@
   roles:
     - config_ssh_keys
     - config_cron_powersave
-    - install_unattended_upgrades
+    - remove_common
   tags: ["pve"]
 
 - name: Manage DNS hosts
@@ -13,7 +13,7 @@
     - config_ssh_keys
     - config_cron_powersave
     - config_dietpi_apt
-    - install_unattended_upgrades
+    - remove_common
     - setup_dns_server
   tags: ["dns"]
 
@@ -25,7 +25,7 @@
     - config_timezone
     - config_disable_swap
     - remove_snapd
-    - install_unattended_upgrades
+    - remove_common
     - install_backup
     - install_common_vm
     - setup_kub_server
@@ -38,7 +38,7 @@
     - config_sudo_nopass
     - config_timezone
     - remove_snapd
-    - install_unattended_upgrades
+    - remove_common
     - install_backup
     - install_common_vm
     - setup_klipper_server
@@ -51,7 +51,7 @@
     - config_sudo_nopass
     - config_timezone
     - remove_snapd
-    - install_unattended_upgrades
+    - remove_common
     - install_backup
     - install_docker
     - install_common_vm
@@ -65,7 +65,7 @@
     - config_sudo_nopass
     - config_timezone
     - remove_snapd
-    - install_unattended_upgrades
+    - remove_common
     - install_backup
     - install_docker
     - install_common_vm
@@ -79,7 +79,7 @@
     - config_sudo_nopass
     - config_timezone
     - remove_snapd
-    - install_unattended_upgrades
+    - remove_common
     - install_backup
     - install_docker
     - install_common_vm

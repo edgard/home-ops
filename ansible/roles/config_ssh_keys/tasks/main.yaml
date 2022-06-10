@@ -3,7 +3,7 @@
   ansible.builtin.set_fact: fixup_remote_user="{{ ansible_user }}"
 
 - name: Add personal public key to authorized_keys
-  authorized_key:
+  ansible.posix.authorized_key:
     user: "{{ fixup_remote_user }}"
     state: present
     key: "{{ ssh_public_key }}"
