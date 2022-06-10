@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: resticmaint
 spec:
-  schedule: "@daily"
+  schedule: "0 7 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
