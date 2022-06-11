@@ -6,4 +6,4 @@ resources:
   - configmap.yaml
   - deployment.yaml
   - pvc.yaml
-  - secrets.yaml
+  - secrets.sops.yaml

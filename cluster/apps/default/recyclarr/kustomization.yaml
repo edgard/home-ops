@@ -5,4 +5,4 @@ commonLabels:
 resources:
   - configmap.yaml
   - cronjob.yaml
-  - secrets.yaml
+  - secrets.sops.yaml
