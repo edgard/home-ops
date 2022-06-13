@@ -24,13 +24,13 @@ spec:
               mountPath: /workdir
           containers:
           - name: recyclarr
-            image: ghcr.io/k8s-at-home/recyclarr:v2.2.0 # {"$imagepolicy": "flux-system:recyclarr"}
+            image: ghcr.io/recyclarr/recyclarr:2.2.0 # {"$imagepolicy": "flux-system:recyclarr"}
             command:
             - /bin/sh
             - -c
             - |
-              /app/recyclarr sonarr --app-data /config
-              /app/recyclarr radarr --app-data /config
+              /usr/local/bin/recyclarr sonarr --app-data /config
+              /usr/local/bin/recyclarr radarr --app-data /config
             volumeMounts:
             - name: config-volume
               mountPath: /config/recyclarr.yml
