@@ -16,7 +16,6 @@ data:
           - trash_ids: [76e060895c5b8a765c310933da0a5357] # Optionals
             filter:
               include:
-                - cec8880b847dd5d31d29167ee0112b57 # Golden rule
                 - 436f5a7d08fbf02ba25cb5e5dfe98e55 # Ignore Dolby Vision without HDR10 fallback.
                 - f3f0f3691c6a1988d4a02963e69d11f2 # Ignore The Group -SCENE
                 - 5bc23c3a055a1a5d8bbe4fb49d80e0cb # Ignore so called scene releases
@@ -86,7 +85,6 @@ data:
               - b8cd450cbfa689c0259a01d9e29ba3d6 # 3D [-10000]
               - 7357cf5161efbf8c4d5d0c30b4815ee2 # Obfuscated
               - ae9b7c9ebde1f3bd336a8cbd1ec4c5e5 # No-RlsGroup removed to avoid multiple downloads
-              - dc98083864ea246d05a42df0d05f81cc # Ignore x265 (720/1080p)
             quality_profiles:
               - name: HD
                 reset_unmatched_scores: true
