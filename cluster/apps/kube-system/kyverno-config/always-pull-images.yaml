@@ -3,18 +3,18 @@ kind: ClusterPolicy
 metadata:
   name: always-pull-images
 spec:
+  background: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - name: always-pull-images
       match:
-        resources:
-          kinds:
-            - Pod
+        any:
+          - resources:
+              kinds:
+                - Pod
       mutate:
         patchStrategicMerge:
           spec:
-            initContainers:
-              - (name): "?*"
-                imagePullPolicy: Always
             containers:
               - (name): "?*"
                 imagePullPolicy: Always
