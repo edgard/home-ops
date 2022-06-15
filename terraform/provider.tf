@@ -2,25 +2,22 @@ terraform {
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "3.16.0"
+      version = ">= 3.16.0"
     }
     dns = {
       source  = "hashicorp/dns"
-      version = "3.2.3"
-    }
-    http = {
-      source  = "hashicorp/http"
-      version = "2.1.0"
+      version = ">= 3.2.3"
     }
     remote = {
       source  = "tenstad/remote"
-      version = "0.0.24"
+      version = ">= 0.1.0"
     }
     sops = {
       source  = "carlpett/sops"
-      version = "0.7.1"
+      version = ">= 0.7.1"
     }
   }
+  required_version = ">= 1.1.9"
 }
 
 data "sops_file" "terraform_secrets" {
