@@ -6,29 +6,61 @@
     state: mounted
     fstype: nfs
 
-- name: Create volume directory
+- name: Config docker logging to journald
+  ansible.builtin.copy:
+    src: daemon.json
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  register: logging_config_status
+
+- name: Restart docker if config change
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  when: logging_config_status.changed # noqa no-handler
+
+- name: Create directories
   ansible.builtin.file:
-    path: /srv/volumes/plex
+    path: "{{ item }}"
     state: directory
     mode: "0755"
+  with_items:
+    - /etc/docker/compose/plex
+    - /srv/volumes/plex
 
-- name: Template service file
+- name: Template compose file
   ansible.builtin.template:
-    src: "plex.service.j2"
-    dest: "/etc/systemd/system/plex.service"
+    src: "docker-compose.yml.j2"
+    dest: "/etc/docker/compose/plex/docker-compose.yml"
     owner: root
     group: root
     mode: "0644"
 
-- name: Ensure daemons are enabled
-  ansible.builtin.service:
-    name: plex
-    enabled: true
-    state: started
+- name: Copy service files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /etc/systemd/system/{{ item }}
+    owner: root
+    group: root
+    mode: "0644"
+  with_items:
+    - docker-compose@.service
+    - docker-cleanup.service
+    - docker-cleanup.timer
 
-- name: Configure daily docker prune run
-  ansible.builtin.cron:
-    name: Docker prune
-    special_time: daily
-    user: root
-    job: "/usr/bin/docker system prune -af"
+- name: Ensure services are enabled
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: true
+  with_items:
+    - docker-compose@plex
+    - docker-cleanup.timer
+
+- name: Ensure services are started
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+  with_items:
+    - docker-compose@plex

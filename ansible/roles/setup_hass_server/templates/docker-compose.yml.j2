@@ -1,0 +1,21 @@
+version: "3"
+
+services:
+  homeassistant:
+    container_name: homeassistant
+    hostname: "{{ ansible_hostname }}"
+    image: ghcr.io/home-assistant/home-assistant:stable
+    environment:
+      - TZ={{ timezone }}
+    volumes:
+      - /srv/volumes/hass:/config
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    environment:
+      - TZ={{ timezone }}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
