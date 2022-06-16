@@ -12,6 +12,9 @@ spec:
         kind: HelmRepository
         name: kyverno
         namespace: flux-system
+  values:
+    metricsService:
+      create: false
   interval: 10m
   install:
     crds: CreateReplace
