@@ -13,6 +13,8 @@ spec:
         name: kyverno
         namespace: flux-system
   values:
+    webhooksCleanup:
+      enable: true
     metricsService:
       create: false
   interval: 10m
