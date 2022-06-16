@@ -16,10 +16,7 @@ spec:
     operator:
       replicas: 1
     hubble:
-      relay:
-        enabled: false
-      ui:
-        enabled: false
+      enabled: false
   interval: 10m
   install:
     crds: CreateReplace
