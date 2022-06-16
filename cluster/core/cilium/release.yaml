@@ -13,6 +13,8 @@ spec:
         name: cilium
         namespace: flux-system
   values:
+    ipam:
+      mode: kubernetes
     operator:
       replicas: 1
     hubble:
