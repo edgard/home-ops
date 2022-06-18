@@ -24,7 +24,7 @@ spec:
               mountPath: /workdir
           containers:
           - name: recyclarr
-            image: ghcr.io/recyclarr/recyclarr:2.2.0 # {"$imagepolicy": "flux-system:recyclarr"}
+            image: ghcr.io/recyclarr/recyclarr:2.2.1 # {"$imagepolicy": "flux-system:recyclarr"}
             command:
             - /bin/sh
             - -c
