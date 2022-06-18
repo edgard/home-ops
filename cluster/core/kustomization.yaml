@@ -3,7 +3,6 @@ kind: Kustomization
 namespace: kube-system
 resources:
   - cert-manager
-  - cilium
   - kyverno
   - metallb
   - openebs

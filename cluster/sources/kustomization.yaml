@@ -4,7 +4,6 @@ namespace: flux-system
 resources:
   - bazarr.yaml
   - bdocodesbot.yaml
-  - cilium.yaml
   - clc.yaml
   - cloudflared.yaml
   - echo.yaml

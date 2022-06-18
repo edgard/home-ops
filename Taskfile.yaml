@@ -61,23 +61,13 @@ tasks:
   install-k3s:
     desc: Install K3s
     cmds:
-      - curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=stable INSTALL_K3S_SYMLINK=skip INSTALL_K3S_EXEC="--write-kubeconfig-mode 0644 --flannel-backend=none --disable-network-policy --disable-helm-controller --disable metrics-server --disable local-storage --disable traefik --disable servicelb" sh -s -
+      - curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=stable INSTALL_K3S_SYMLINK=skip INSTALL_K3S_EXEC="--write-kubeconfig-mode 0644 --disable-helm-controller --disable metrics-server --disable local-storage --disable traefik --disable servicelb" sh -s -
 
   install-keys:
     desc: Install SOPS keys
     cmds:
       - kubectl create namespace flux-system --dry-run=client -o yaml | kubectl apply -f -
       - cat "{{.REPO_ROOT}}/.sops.agekey" | kubectl create secret generic sops-age --namespace=flux-system --from-file=sops.agekey=/dev/stdin
-
-  install-cilium:
-    desc: Pre-install Cilium CNI
-    cmds:
-      - kubectl create namespace kube-system --dry-run=client -o yaml | kubectl apply -f -
-      - helm repo add cilium https://helm.cilium.io
-      - helm repo update
-      - helm install cilium cilium/cilium --namespace kube-system --set ipam.mode=kubernetes --set operator.replicas=1 --set hubble.enabled=false
-      - cilium status --wait
-      - kubectl get pods --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,HOSTNETWORK:.spec.hostNetwork --no-headers=true | grep '<none>' | awk '{print "-n "$1" "$2}' | xargs -L 1 -r kubectl delete pod
 
   install-flux:
     desc: Install Flux CD
