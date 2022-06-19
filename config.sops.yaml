@@ -30,7 +30,7 @@ cloudflare_auth_groups:
 local_hosts:
     - name: ENC[AES256_GCM,data:HpfN354=,iv:kEIRAaO0/ovq8oOq14TXk8DvMOeKQ79m3kZdpIk2poM=,tag:SeVhg409IjfW6zeD1f/uYg==,type:str]
       ip: ENC[AES256_GCM,data:dWFIO8qx4Yp2kXk=,iv:mWddXAIoXJ//nhNIauCXLhwsfxnJj25nRphzE8ShR20=,tag:XYuuj1q4m6dKVt+cKjVyBw==,type:str]
-    - name: ENC[AES256_GCM,data:zzGCiMwU8Hw=,iv:UYVyIRHqS51hfOn1Rch4E11jlNQNAze/53yNztimcZw=,tag:+uDxg4ssCGz8FruVHtwr9g==,type:str]
+    - name: ENC[AES256_GCM,data:6iA=,iv:yINFMPvvy0dVyWj/e4bDNP6Y5G877IA/TjI4kNfk8Q8=,tag:njlaKASI5HYugkfgFqWAMg==,type:str]
       ip: ENC[AES256_GCM,data:VtiHSnLeVzEjIdc=,iv:bli4iv4IOH/sGbAPtEvVmAdbPELmRFC4XGWcJgwUg5A=,tag:mQlOuvihp+VHwBjCUmOx+Q==,type:str]
     - name: ENC[AES256_GCM,data:a9zM,iv:lAyIKjdX55Ov2jcGsBUbQREl/2FmdqguKtsyKXU/iuY=,tag:YoDViJ8Qqh1ASFj4f4EEnQ==,type:str]
       ip: ENC[AES256_GCM,data:g5w8xxRhsU/+fNo=,iv:D6Iq7eLEBQSNsD5H/LIh/CXf9pq/dy5xJeMcNnJigZ4=,tag:sL3bGsGa0TdwX1E6ObmuvQ==,type:str]
@@ -115,8 +115,8 @@ sops:
             Z3NFL2pBcEFZNXcvd0tGZlluZXRjS1kKTai6azYiQt9ZJsfq7XeThHRKSPGLtH3T
             ladTbLxdFvTvlaaBqet+qib7Icgh44xRgjJ+6NkPkA0gprdgcnr/tg==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2022-06-18T21:06:07Z"
-    mac: ENC[AES256_GCM,data:2Qh1v/h675wEg6CQDFT5HVJuOcChfCze1pUh2cldBhBWeZsGFI6/M48avzHmnG+WlqWCnQwzNNzpU7oqeTAJQvlYXIuIuOWkn7x+RoHCps1sOEG7MnSX/UbjJeX8+bYgXh2p2JTpNU4RNZ3e1r6Uv0Ff6pZuMToaZ71rmoZnddQ=,iv:+wSc7RnL0gEpmauG9mZF0xXuAqOVsDiQ6sG+ntDXI9c=,tag:NruhGo6ZIReSM7uKDI/o1g==,type:str]
+    lastmodified: "2022-06-19T23:49:31Z"
+    mac: ENC[AES256_GCM,data:81aNj2VZuannT1xcQ01tXw2OkDEfkQSDwhP/ezpKBXVr/+SSmxuoKDKhykRLOAdsdPjBHZeg5kNHoG2uddp23zCPLjYHGZAS8FLFBK6la5X2bk6wUHGom2rtMpqVCAmGSaYD+tDbQDzNbrsq3IQfdA6avQwOR35GQdj6/0xD4XU=,iv:cR3RnAqN6YqdGYhlqTZMNENyOeuMYzgqlP8SDJEsQ4U=,tag:stFVDPC2IjmSDMvMb3d04g==,type:str]
     pgp: []
     unencrypted_suffix: _unencrypted
     version: 3.7.3
