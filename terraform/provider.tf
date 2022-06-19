@@ -1,5 +1,9 @@
 terraform {
   required_providers {
+    null = {
+      source  = "hashicorp/null"
+      version = ">= 3.1.1"
+    }
     cloudflare = {
       source  = "cloudflare/cloudflare"
       version = ">= 3.16.0"

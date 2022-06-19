@@ -18,12 +18,17 @@ resource "dns_ptr_record" "home_ptr_records" {
 resource "remote_file" "dhcpd_conf" {
   content = templatefile("home_dhcp.tftpl", { local_hosts = yamldecode(data.sops_file.terraform_secrets.raw).local_hosts })
   path    = "/etc/dhcp/fixed_hosts.conf"
+}
+
+resource "null_resource" "restart_dhcp_on_change" {
+  triggers = {
+    file_changed = md5(remote_file.dhcpd_conf.content)
+  }
 
   provisioner "remote-exec" {
     inline = [
       "systemctl restart isc-dhcp-server",
     ]
-
     connection {
       type        = "ssh"
       host        = data.sops_file.terraform_secrets.data["dns_server_ip"]
