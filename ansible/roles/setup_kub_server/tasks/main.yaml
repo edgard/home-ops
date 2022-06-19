@@ -1,4 +1,9 @@
 ---
+- name: Probe bridge module
+  community.general.modprobe:
+    name: br_netfilter
+    state: present
+
 - name: Set system controls
   ansible.posix.sysctl:
     name: "{{ item.key }}"
