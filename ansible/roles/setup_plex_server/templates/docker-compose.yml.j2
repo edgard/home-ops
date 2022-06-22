@@ -12,7 +12,7 @@ services:
       - UMASK=022
       - VERSION=docker
     volumes:
-      - /srv/volumes/plex:/config
+      - /srv/docker/plex:/config
       - /mnt/media:/media
     restart: unless-stopped
     privileged: true

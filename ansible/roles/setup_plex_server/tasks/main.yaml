@@ -28,7 +28,7 @@
     mode: "0755"
   with_items:
     - /etc/docker/compose/plex
-    - /srv/volumes/plex
+    - /srv/docker/plex
 
 - name: Template compose file
   ansible.builtin.template:
