@@ -18,7 +18,6 @@ spec:
               namespaces:
                 - kube-system
                 - flux-system
-    - name: always-pull-images
       mutate:
         patchStrategicMerge:
           spec:
