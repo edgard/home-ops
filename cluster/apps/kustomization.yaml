@@ -3,4 +3,3 @@ kind: Kustomization
 resources:
   - default
   - flux-system
-  - kube-system

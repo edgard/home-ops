@@ -2,13 +2,13 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
-  name: apps
+  name: core-wave2
   namespace: flux-system
 spec:
   interval: 10m
   dependsOn:
-    - name: core-wave2
-  path: ./cluster/apps
+    - name: core-wave1
+  path: ./cluster/core/wave2
   prune: true
   sourceRef:
     kind: GitRepository
