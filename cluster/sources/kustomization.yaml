@@ -8,7 +8,6 @@ resources:
   - cloudflared.yaml
   - echo.yaml
   - emberstack.yaml
-  - jetstack.yaml
   - kyverno.yaml
   - metallb.yaml
   - metrics-server.yaml
