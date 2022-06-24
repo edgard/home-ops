@@ -17,7 +17,7 @@
 
 - name: Generate Cloudflared secrets
   community.sops.sops_encrypt:
-    path: "{{ playbook_dir }}/../cluster/apps/kube-system/cloudflared/secrets.sops.yaml"
+    path: "{{ playbook_dir }}/../cluster/core/wave1/cloudflared/secrets.sops.yaml"
     content_yaml: "{{ lookup('template', 'cloudflared_secrets.yaml.j2') | from_yaml }}"
     encrypted_regex: "^(data|stringData)$"
 

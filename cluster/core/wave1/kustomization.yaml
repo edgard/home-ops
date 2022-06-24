@@ -4,8 +4,5 @@ namespace: kube-system
 resources:
   - cloudflared
   - kyverno
-  - metallb
-  - metrics-server
-  - openebs
   - reflector
   - reloader

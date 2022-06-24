@@ -29,7 +29,7 @@ tasks:
       - git add ansible/group_vars/all.sops.yaml
       - git add terraform/secrets.sops.yaml
       - git add cluster/config/cluster-secrets.yaml
-      - git add cluster/apps/kube-system/cloudflared/secrets.yaml
+      - git add cluster/core/wave1/cloudflared/secrets.yaml
       - git commit -m 'Update secrets configuration files' || true
       - git push
 
@@ -61,7 +61,7 @@ tasks:
   install-k3s:
     desc: Install K3s
     cmds:
-      - k3sup install --ip $KUB_SERVER_IP --user $KUB_SERVER_USER --local-path ~/.kube/config --k3s-channel stable --k3s-extra-args '--write-kubeconfig-mode 0644 --disable-helm-controller --disable metrics-server --disable local-storage --disable traefik --disable servicelb'
+      - k3sup install --ip $KUB_SERVER_IP --user $KUB_SERVER_USER --local-path ~/.kube/config --k3s-channel stable --k3s-extra-args '--write-kubeconfig-mode 0644 --disable-helm-controller --disable traefik'
 
   install-keys:
     desc: Install SOPS keys

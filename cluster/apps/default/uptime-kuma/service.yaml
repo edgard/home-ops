@@ -8,4 +8,3 @@ spec:
   type: LoadBalancer
   selector:
     app.kubernetes.io/name: uptime-kuma
-  loadBalancerIP: 192.168.1.11
