@@ -5,6 +5,7 @@
     - config_ssh_keys
     - config_cron_powersave
     - remove_common
+    - setup_pve_server
   tags: ["pve"]
 
 - name: Manage DNS hosts
