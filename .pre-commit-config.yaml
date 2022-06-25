@@ -5,16 +5,9 @@ repos:
     rev: v4.3.0
     hooks:
       - id: check-merge-conflict
-      - id: check-yaml
-        args:
-          - --allow-multiple-documents
-      - id: check-json
-      - id: check-toml
-      - id: check-xml
       - id: check-added-large-files
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
-      - id: detect-private-key
       - id: end-of-file-fixer
       - id: fix-byte-order-marker
       - id: mixed-line-ending
@@ -23,31 +16,76 @@ repos:
     rev: 0.3.1
     hooks:
       - id: fix-smartquotes
-  - repo: https://github.com/k8s-at-home/sops-pre-commit
-    rev: v2.1.1
+
+  # data format files
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
     hooks:
-      - id: forbid-secrets
-  - repo: https://github.com/zricethezav/gitleaks
-    rev: v8.8.7
-    hooks:
-      - id: gitleaks
-  - repo: https://github.com/psf/black
-    rev: 22.3.0
-    hooks:
-      - id: black
-        args:
-          - -l 999
-  - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.72.1
-    hooks:
-      - id: terraform_fmt
-      - id: terraform_tflint
+      - id: check-json
+      - id: check-toml
+      - id: check-xml
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+
+  # yaml
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.26.3
     hooks:
       - id: yamllint
-        entry: yamllint -f parsable
+        entry: yamllint -f parsable -d '{"extends":"default","rules":{"line-length":"disable","document-start":"disable","comments":"disable","indentation":{"indent-sequences":"whatever"},"truthy":{"level":"error"}},"ignore":"*.sops.yaml"}'
+
+  # go
+  - repo: https://github.com/Bahjat/pre-commit-golang
+    rev: v1.0.1
+    hooks:
+      - id: go-fmt-import
+      - id: gofumpt
+      - id: go-vet
+      - id: go-err-check
+      - id: go-static-check
+      - id: golangci-lint
+        pass_filenames: false
+
+  # python
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.34.0
+    hooks:
+      - id: pyupgrade
+        args: [--py38-plus]
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+        args: [-l 999]
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 3.9.2
+    hooks:
+      - id: flake8
+
+  # terraform
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.72.2
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_tflint
+
+  # ansible
   - repo: https://github.com/ansible-community/ansible-lint.git
     rev: v6.3.0
     hooks:
       - id: ansible-lint
+        args: ["-p", "-x=yaml"]
+
+  # credentials
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: detect-private-key
+  - repo: https://github.com/zricethezav/gitleaks
+    rev: v8.8.8
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/k8s-at-home/sops-pre-commit
+    rev: v2.1.1
+    hooks:
+      - id: forbid-secrets
