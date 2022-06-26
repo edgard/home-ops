@@ -8,6 +8,7 @@ resources:
   - cloudflared.yaml
   - echo.yaml
   - emberstack.yaml
+  - k8s-at-home.yaml
   - kyverno.yaml
   - murailobot.yaml
   - nginx.yaml

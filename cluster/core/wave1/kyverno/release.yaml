@@ -12,13 +12,9 @@ spec:
         kind: HelmRepository
         name: kyverno
         namespace: flux-system
-  values:
-    webhooksCleanup:
-      enable: true
-    metricsService:
-      create: false
   interval: 10m
   install:
+    createNamespace: true
     crds: CreateReplace
     remediation:
       retries: 3
@@ -26,3 +22,8 @@ spec:
     crds: CreateReplace
     remediation:
       retries: 3
+  values:
+    webhooksCleanup:
+      enable: true
+    metricsService:
+      create: false
