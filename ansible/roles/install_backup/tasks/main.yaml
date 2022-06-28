@@ -2,24 +2,8 @@
 - name: Install packages
   ansible.builtin.apt:
     name:
-      - nfs-common
       - restic
     state: present
-
-- name: Create backup directory
-  ansible.builtin.file:
-    path: "{{ restic_repo_dir }}"
-    owner: root
-    group: root
-    mode: "0775"
-    state: directory
-
-- name: Mount backup volume
-  ansible.builtin.mount:
-    src: "{{ restic_repo_mount }}"
-    path: "{{ restic_repo_dir }}"
-    state: mounted
-    fstype: nfs
 
 - name: Configure backup
   ansible.builtin.cron:
@@ -27,4 +11,4 @@
     minute: "0"
     hour: "6"
     user: root
-    job: 'RESTIC_REPOSITORY="{{ restic_repo_dir }}" RESTIC_PASSWORD="{{ restic_repo_pass }}" restic backup --host {{ ansible_hostname }} "{{ backup_path }}"{% if heartbeat_url is defined %} && curl -fsS --retry 5 -o /dev/null "{{ heartbeat_url }}"{% endif %}'
+    job: 'AWS_ACCESS_KEY_ID="{{ minio_access_key_id }}" AWS_SECRET_ACCESS_KEY="{{ minio_secret_access_key }}" RESTIC_REPOSITORY="{{ restic_repo }}" RESTIC_PASSWORD="{{ restic_repo_pass }}" restic backup --host {{ ansible_hostname }} "{{ backup_path }}"{% if heartbeat_url is defined %} && curl -fsS --retry 5 -o /dev/null "{{ heartbeat_url }}"{% endif %}'

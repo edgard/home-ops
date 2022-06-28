@@ -3,7 +3,7 @@ kind: ImageRepository
 metadata:
   name: restic
 spec:
-  image: restic/restic
+  image: instrumentisto/restic
   interval: 12h
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1

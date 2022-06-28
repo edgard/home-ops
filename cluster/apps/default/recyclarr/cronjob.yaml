@@ -29,8 +29,15 @@ spec:
             - /bin/sh
             - -c
             - |
-              /usr/local/bin/recyclarr sonarr --app-data /config
-              /usr/local/bin/recyclarr radarr --app-data /config
+              /usr/local/bin/recyclarr sonarr
+              /usr/local/bin/recyclarr radarr
+            env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "${SECRET_TIMEZONE}"
             volumeMounts:
             - name: config-volume
               mountPath: /config/recyclarr.yml
