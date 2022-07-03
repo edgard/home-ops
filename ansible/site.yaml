@@ -1,13 +1,4 @@
 ---
-- name: Manage PVE hosts
-  hosts: pve_servers
-  roles:
-    - config_ssh_keys
-    - config_cron_powersave
-    - remove_common
-    - setup_pve_server
-  tags: ["pve"]
-
 - name: Manage DNS hosts
   hosts: dns_servers
   roles:
@@ -31,19 +22,6 @@
     - install_common_vm
     - setup_kub_server
   tags: ["kub"]
-
-- name: Manage KLIPPER hosts
-  hosts: klipper_servers
-  roles:
-    - config_ssh_keys
-    - config_sudo_nopass
-    - config_timezone
-    - remove_snapd
-    - remove_common
-    - install_backup
-    - install_common_vm
-    - setup_klipper_server
-  tags: ["klipper"]
 
 - name: Manage HASS hosts
   hosts: hass_servers

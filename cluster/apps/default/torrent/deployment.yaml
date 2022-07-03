@@ -19,12 +19,12 @@ spec:
     spec:
       containers:
       - name: vpn
-        image: bubuntux/nordlynx:2022-06-01 # {"$imagepolicy": "flux-system:nordlynx"}
+        image: bubuntux/nordlynx:2022-07-01 # {"$imagepolicy": "flux-system:nordlynx"}
         env:
         - name: TZ
           value: "${SECRET_TIMEZONE}"
         - name: QUERY
-          value: "filters\\[country_id\\]=209&filters\\[servers_groups\\]\\[identifier\\]=legacy_p2p"
+          value: "filters\\[country_id\\]=209"
         - name: NET_LOCAL
           value: "10.0.0.0/8"
         - name: "PRIVATE_KEY"
@@ -88,5 +88,5 @@ spec:
           claimName: torrent-config
       - name: media-volume
         nfs:
-          server: nas01.${SECRET_PRIVATE_DOMAIN}.
-          path: /mnt/zp01/media
+          server: sc01.${SECRET_PRIVATE_DOMAIN}
+          path: /mnt/dpool/media

@@ -35,12 +35,8 @@ data:
     host = apoffice.${SECRET_PRIVATE_DOMAIN}
     ++ DNS
     host = dns.${SECRET_PRIVATE_DOMAIN}
-    ++ NAS01
-    host = nas01.${SECRET_PRIVATE_DOMAIN}
-    ++ PVE
-    host = pve.${SECRET_PRIVATE_DOMAIN}
-    ++ Klipper
-    host = klipper.${SECRET_PRIVATE_DOMAIN}
+    ++ SC01
+    host = sc01.${SECRET_PRIVATE_DOMAIN}
     ++ HASS
     host = hass.${SECRET_PRIVATE_DOMAIN}
     ++ PLEX

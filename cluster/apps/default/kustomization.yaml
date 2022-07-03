@@ -14,6 +14,7 @@ resources:
   - plextraktsync
   - prowlarr
   - radarr
+  - radarr-uhd
   - recyclarr
   - smokeping
   - sonarr

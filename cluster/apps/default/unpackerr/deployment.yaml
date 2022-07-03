@@ -47,5 +47,5 @@ spec:
       volumes:
       - name: media-volume
         nfs:
-          server: nas01.${SECRET_PRIVATE_DOMAIN}.
-          path: /mnt/zp01/media
+          server: sc01.${SECRET_PRIVATE_DOMAIN}
+          path: /mnt/dpool/media

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx
+  name: radarr-uhd
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -9,15 +9,15 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app.kubernetes.io/name: nginx
+      app.kubernetes.io/name: radarr-uhd
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: nginx
+        app.kubernetes.io/name: radarr-uhd
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.23.0 # {"$imagepolicy": "flux-system:nginx"}
+      - name: radarr-uhd
+        image: lscr.io/linuxserver/radarr:4.1.0 # {"$imagepolicy": "flux-system:radarr"}
         env:
         - name: PUID
           value: "1000"
@@ -28,26 +28,31 @@ spec:
         - name: TZ
           value: "${SECRET_TIMEZONE}"
         ports:
-        - containerPort: 80
+        - containerPort: 7878
         readinessProbe:
           httpGet:
-            path: /
-            port: 80
+            path: /settings
+            port: 7878
           initialDelaySeconds: 60
           timeoutSeconds: 10
           failureThreshold: 3
         livenessProbe:
           httpGet:
-            path: /
-            port: 80
+            path: /settings
+            port: 7878
           initialDelaySeconds: 60
           timeoutSeconds: 10
           failureThreshold: 3
         volumeMounts:
-        - mountPath: /usr/share/nginx/html
-          name: www-volume
+        - mountPath: /config
+          name: config-volume
+        - mountPath: /media
+          name: media-volume
       volumes:
-      - name: www-volume
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: radarr-uhd-config
+      - name: media-volume
         nfs:
           server: sc01.${SECRET_PRIVATE_DOMAIN}
-          path: /mnt/dpool/www
+          path: /mnt/dpool/media

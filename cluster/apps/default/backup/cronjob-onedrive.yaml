@@ -17,7 +17,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - rclone -v sync onedrive:/ nas01:onedrive
+            - rclone -v sync onedrive:/ sc01:onedrive
             volumeMounts:
             - name: config-volume
               mountPath: /root/.config/rclone/rclone.conf
