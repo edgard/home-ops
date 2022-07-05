@@ -16,7 +16,7 @@ data:
           - trash_ids: [76e060895c5b8a765c310933da0a5357] # Optionals
             filter:
               include:
-                - cec8880b847dd5d31d29167ee0112b57 # Golden rule
+                #- cec8880b847dd5d31d29167ee0112b57 # Golden rule
                 - bc7a6383cbe88c3ee2d6396e1aacc0b3 # Prefer HDR
                 - fa47da3377076d82d07c4e95b3f13d07 # Prefer Dolby Vision
                 - ea83f4740cec4df8112f3d6dd7c82751 # Prefer Season Packs
