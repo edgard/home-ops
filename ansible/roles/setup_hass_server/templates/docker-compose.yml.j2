@@ -13,6 +13,14 @@ services:
     privileged: true
     network_mode: host
 
+  airconnect:
+    container_name: airconnect
+    hostname: "{{ ansible_hostname }}"
+    image: 1activegeek/airconnect:latest
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+
   watchtower:
     image: containrrr/watchtower:latest
     environment:
