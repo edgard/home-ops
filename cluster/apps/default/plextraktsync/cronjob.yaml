@@ -5,7 +5,7 @@ metadata:
 spec:
   schedule: "@daily"
   concurrencyPolicy: Replace
-  successfulJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 0
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
