@@ -9,8 +9,8 @@ resource "dns_a_record_set" "home_a_records" {
 
 resource "dns_ptr_record" "home_ptr_records" {
   for_each = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).local_hosts : x.name => x if x.ptr == true })
-  zone     = format("%s.in-addr.arpa.", join(".", reverse(slice(split(".", data.sops_file.terraform_secrets.data["lan_cidr"]), 0, 3))))
-  name     = trimprefix(each.value.ip, format("%s.", join(".", slice(split(".", data.sops_file.terraform_secrets.data["lan_cidr"]), 0, 3))))
+  zone     = format("%s.in-addr.arpa.", join(".", reverse(split(".", data.sops_file.terraform_secrets.data["lan_prefix"]))))
+  name     = trimprefix(each.value.ip, format("%s.", data.sops_file.terraform_secrets.data["lan_prefix"]))
   ptr      = format("%s.%s", each.key, "${data.sops_file.terraform_secrets.data["private_domain"]}.")
   ttl      = 300
 }

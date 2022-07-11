@@ -29,7 +29,7 @@ subnet {{ lan_prefix }}.0 netmask 255.255.255.0 {
                 key rndc-key;
         }
 
-        zone {{ lan_cidr.split('.')[0:3] | reverse | join('.') }}.in-addr.arpa {
+        zone {{ lan_prefix.split('.') | reverse | join('.') }}.in-addr.arpa {
                 primary 127.0.0.1;
                 key rndc-key;
         }

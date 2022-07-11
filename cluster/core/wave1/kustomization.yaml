@@ -3,5 +3,6 @@ kind: Kustomization
 namespace: kube-system
 resources:
   - cloudflared
+  - metallb
   - reflector
   - reloader

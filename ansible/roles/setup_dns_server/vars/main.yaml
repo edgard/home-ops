@@ -1,2 +1,0 @@
----
-lan_prefix: "{{ lan_cidr.split('.')[0:3] | join('.') }}"
