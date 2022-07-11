@@ -4,7 +4,7 @@ services:
   plex:
     container_name: plex
     hostname: "{{ ansible_hostname }}"
-    image: lscr.io/linuxserver/plex:latest
+    image: linuxserver/plex:latest
     environment:
       - TZ={{ timezone }}
       - PUID=1000

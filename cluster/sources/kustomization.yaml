@@ -9,7 +9,6 @@ resources:
   - echo.yaml
   - emberstack.yaml
   - k8s-at-home.yaml
-  - kyverno.yaml
   - murailobot.yaml
   - nginx.yaml
   - nordlynx.yaml
