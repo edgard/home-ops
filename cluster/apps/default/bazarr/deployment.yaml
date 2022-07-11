@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: bazarr
-        image: lscr.io/linuxserver/bazarr:1.0.4 # {"$imagepolicy": "flux-system:bazarr"}
+        image: linuxserver/bazarr:1.1.0 # {"$imagepolicy": "flux-system:bazarr"}
         env:
         - name: PUID
           value: "1000"

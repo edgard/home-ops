@@ -3,8 +3,8 @@ kind: ImageRepository
 metadata:
   name: bazarr
 spec:
-  image: lscr.io/linuxserver/bazarr
-  interval: 12h
+  image: linuxserver/bazarr
+  interval: 1h
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImagePolicy

@@ -3,8 +3,8 @@ kind: ImageRepository
 metadata:
   name: sonarr
 spec:
-  image: lscr.io/linuxserver/sonarr
-  interval: 12h
+  image: linuxserver/sonarr
+  interval: 1h
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImagePolicy

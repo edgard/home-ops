@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: smokeping
-        image: lscr.io/linuxserver/smokeping:2.7.3 # {"$imagepolicy": "flux-system:smokeping"}
+        image: linuxserver/smokeping:2.7.3 # {"$imagepolicy": "flux-system:smokeping"}
         env:
         - name: PUID
           value: "1000"

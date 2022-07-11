@@ -4,7 +4,7 @@ metadata:
   name: clc
 spec:
   image: ghcr.io/edgard/clc
-  interval: 12h
+  interval: 1h
   secretRef:
     name: ghcr-secrets
 ---
