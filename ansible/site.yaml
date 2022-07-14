@@ -23,34 +23,6 @@
     - setup_kub_server
   tags: ["kub"]
 
-- name: Manage HASS hosts
-  hosts: hass_servers
-  roles:
-    - config_ssh_keys
-    - config_sudo_nopass
-    - config_timezone
-    - remove_snapd
-    - remove_common
-    - install_backup
-    - install_docker
-    - install_common_vm
-    - setup_hass_server
-  tags: ["hass"]
-
-- name: Manage PLEX hosts
-  hosts: plex_servers
-  roles:
-    - config_ssh_keys
-    - config_sudo_nopass
-    - config_timezone
-    - remove_snapd
-    - remove_common
-    - install_backup
-    - install_docker
-    - install_common_vm
-    - setup_plex_server
-  tags: ["plex"]
-
 - name: Manage DEVL hosts
   hosts: devl_servers
   roles:

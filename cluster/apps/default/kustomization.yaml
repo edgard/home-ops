@@ -7,10 +7,12 @@ resources:
   - bdocodesbot
   - clc
   - echo
+  - homebridge
   - murailobot
   - nginx
   - overseerr
   - photoprism
+  - plex
   - plextraktsync
   - prowlarr
   - radarr

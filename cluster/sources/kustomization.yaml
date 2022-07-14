@@ -8,6 +8,7 @@ resources:
   - cloudflared.yaml
   - echo.yaml
   - emberstack.yaml
+  - homebridge.yaml
   - k8s-at-home.yaml
   - metallb.yaml
   - murailobot.yaml
@@ -15,6 +16,7 @@ resources:
   - nordlynx.yaml
   - overseerr.yaml
   - photoprism.yaml
+  - plex.yaml
   - plextraktsync.yaml
   - prowlarr.yaml
   - qbittorrent.yaml

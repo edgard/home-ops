@@ -4,11 +4,5 @@ dns
 [kub_servers]
 kub01
 
-[hass_servers]
-hass
-
-[plex_servers]
-plex
-
 [devl_servers]
 devl01
