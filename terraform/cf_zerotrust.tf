@@ -138,22 +138,3 @@ resource "cloudflare_access_policy" "http_home_apps_bypass" {
     everyone = true
   }
 }
-
-# access: photoprism-import application for path bypass while cf doesn't offer a way to better do this
-resource "cloudflare_access_application" "http_home_apps_photoprism_import" {
-  account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
-  name       = "photoprism-import"
-  domain     = "photoprism.${data.sops_file.terraform_secrets.data["public_domain"]}/import/*"
-}
-
-resource "cloudflare_access_policy" "http_home_apps_photoprism_import_bypass" {
-  account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
-  application_id = cloudflare_access_application.http_home_apps_photoprism_import.id
-  name           = "photoprism-import bypass"
-  precedence     = "1"
-  decision       = "bypass"
-
-  include {
-    everyone = true
-  }
-}

@@ -15,7 +15,6 @@ resources:
   - nginx.yaml
   - nordlynx.yaml
   - overseerr.yaml
-  - photoprism.yaml
   - plex.yaml
   - plextraktsync.yaml
   - prowlarr.yaml
