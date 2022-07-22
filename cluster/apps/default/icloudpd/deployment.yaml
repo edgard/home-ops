@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: icloudpd
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: icloudpd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: icloudpd
+    spec:
+      containers:
+      - name: icloudpd
+        image: boredazfcuk/icloudpd:latest
+        env:
+        - name: TZ
+          value: "${SECRET_TIMEZONE}"
+        - name: apple_id
+          value: "${SECRET_EMAIL}"
+        - name: notification_type
+          value: Telegram
+        - name: notification_title
+          value: "iCloudPD"
+        - name: "download_notifications"
+          value: "False"
+        - name: "delete_notifications"
+          value: "False"
+        - name: "delete_empty_directories"
+          value: "True"
+        - name: download_path
+          value: "/media/photos"
+        - name: user_id
+          value: "1000"
+        - name: group_id
+          value: "1000"
+        - name: directory_permissions
+          value: "777"
+        - name: file_permissions
+          value: "666"
+        - name: folder_structure
+          value: "{:%Y/%m}"
+        - name: auto_delete
+          value: "True"
+        envFrom:
+        - secretRef:
+            name: icloudpd-secret
+        volumeMounts:
+        - mountPath: /config
+          name: config-volume
+        - mountPath: /media
+          name: media-volume
+      volumes:
+      - name: config-volume
+        persistentVolumeClaim:
+          claimName: icloudpd-config
+      - name: media-volume
+        nfs:
+          server: sc01.${SECRET_PRIVATE_DOMAIN}
+          path: /mnt/dpool/media
