@@ -63,7 +63,7 @@ resource "cloudflare_fallback_domain" "home_lan" {
   domains {
     suffix      = data.sops_file.terraform_secrets.data["private_domain"]
     description = "Home LAN"
-    dns_server  = [data.sops_file.terraform_secrets.data["dns_server_ip"]]
+    dns_server  = ["${data.sops_file.terraform_secrets.data["lan_prefix"]}.1"]
   }
   dynamic "domains" {
     for_each = toset(["corp", "domain", "home", "host", "internal", "intranet", "invalid", "lan", "local", "localdomain", "localhost", "private", "test"])
@@ -91,7 +91,7 @@ resource "cloudflare_access_group" "users" {
 
 # access: applications
 resource "cloudflare_record" "root_cname_home_apps" {
-  for_each = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).apps : x.name => x })
+  for_each = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_apps : x.name => x })
   name     = each.value.name
   proxied  = true
   ttl      = 1
@@ -101,7 +101,7 @@ resource "cloudflare_record" "root_cname_home_apps" {
 }
 
 resource "cloudflare_access_application" "http_home_apps" {
-  for_each                  = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).apps : x.name => x })
+  for_each                  = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_apps : x.name => x })
   account_id                = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   name                      = each.value.name
   domain                    = "${each.value.name}.${data.sops_file.terraform_secrets.data["public_domain"]}"
@@ -111,7 +111,7 @@ resource "cloudflare_access_application" "http_home_apps" {
 }
 
 resource "cloudflare_access_policy" "http_home_apps_allow" {
-  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).apps : x.name if x.require_auth == true]))
+  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_apps : x.name if x.require_auth == true]))
   account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   application_id = cloudflare_access_application.http_home_apps[each.value].id
   name           = "${each.value} allow"
@@ -127,7 +127,7 @@ resource "cloudflare_access_policy" "http_home_apps_allow" {
 }
 
 resource "cloudflare_access_policy" "http_home_apps_bypass" {
-  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).apps : x.name if x.require_auth == false]))
+  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_apps : x.name if x.require_auth == false]))
   account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
   application_id = cloudflare_access_application.http_home_apps[each.value].id
   name           = "${each.value} bypass"

@@ -33,8 +33,6 @@ data:
     host = unifi.${SECRET_PRIVATE_DOMAIN}
     ++ OfficeAP
     host = officeap.${SECRET_PRIVATE_DOMAIN}
-    ++ DNS
-    host = dns.${SECRET_PRIVATE_DOMAIN}
     ++ SC01
     host = sc01.${SECRET_PRIVATE_DOMAIN}
     ++ DEVL01
