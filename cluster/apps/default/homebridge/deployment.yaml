@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: homebridge
-        image: oznu/homebridge:2022-07-08 # {"$imagepolicy": "flux-system:homebridge"}
+        image: oznu/homebridge:2022-08-09 # {"$imagepolicy": "flux-system:homebridge"}
         env:
         - name: TZ
           value: "${SECRET_TIMEZONE}"
