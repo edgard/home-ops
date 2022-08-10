@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: tautulli
-        image: linuxserver/tautulli:2.10.2 # {"$imagepolicy": "flux-system:tautulli"}
+        image: linuxserver/tautulli:2.10.3 # {"$imagepolicy": "flux-system:tautulli"}
         env:
         - name: PUID
           value: "1000"
