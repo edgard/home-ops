@@ -3,6 +3,5 @@ kind: Kustomization
 commonLabels:
   app.kubernetes.io/name: recyclarr
 resources:
-  - configmap.yaml
   - cronjob.yaml
-  - secrets.sops.yaml
+  - pvc.yaml

@@ -11,17 +11,6 @@ spec:
     spec:
       template:
         spec:
-          initContainers:
-          - name: init-config
-            image: dibi/envsubst:latest
-            envFrom:
-            - secretRef:
-                name: recyclarr-secret
-            volumeMounts:
-            - name: config-volume
-              mountPath: /processed
-            - name: workdir-volume
-              mountPath: /workdir
           containers:
           - name: recyclarr
             image: ghcr.io/recyclarr/recyclarr:2.3.0 # {"$imagepolicy": "flux-system:recyclarr"}
@@ -29,8 +18,8 @@ spec:
             - /bin/sh
             - -c
             - |
-              /usr/local/bin/recyclarr sonarr
-              /usr/local/bin/recyclarr radarr
+              recyclarr sonarr
+              recyclarr radarr
             env:
             - name: PUID
               value: "1000"
@@ -40,12 +29,9 @@ spec:
               value: "${SECRET_TIMEZONE}"
             volumeMounts:
             - name: config-volume
-              mountPath: /config/recyclarr.yml
-              subPath: recyclarr.yml
+              mountPath: /config
           volumes:
-          - name: workdir-volume
-            configMap:
-              name: recyclarr-config
           - name: config-volume
-            emptyDir: {}
+            persistentVolumeClaim:
+              claimName: recyclarr-config
           restartPolicy: Never
