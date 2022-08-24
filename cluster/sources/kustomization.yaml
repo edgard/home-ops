@@ -3,7 +3,6 @@ kind: Kustomization
 namespace: flux-system
 resources:
   - bazarr.yaml
-  - bdocodesbot.yaml
   - clc.yaml
   - cloudflared.yaml
   - echo.yaml

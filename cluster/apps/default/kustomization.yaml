@@ -4,7 +4,6 @@ namespace: default
 resources:
   - backup-maint
   - bazarr
-  - bdocodesbot
   - clc
   - echo
   - homebridge
