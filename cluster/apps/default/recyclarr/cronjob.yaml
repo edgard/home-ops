@@ -13,7 +13,7 @@ spec:
         spec:
           containers:
           - name: recyclarr
-            image: ghcr.io/recyclarr/recyclarr:2.3.1 # {"$imagepolicy": "flux-system:recyclarr"}
+            image: ghcr.io/recyclarr/recyclarr:2.4.0 # {"$imagepolicy": "flux-system:recyclarr"}
             command:
             - /bin/sh
             - -c
