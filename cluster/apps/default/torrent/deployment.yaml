@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: vpn
-        image: bubuntux/nordlynx:2022-09-26 # {"$imagepolicy": "flux-system:nordlynx"}
+        image: bubuntux/nordlynx:2022-10-01 # {"$imagepolicy": "flux-system:nordlynx"}
         env:
         - name: TZ
           value: "${SECRET_TIMEZONE}"
