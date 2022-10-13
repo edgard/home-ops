@@ -1,21 +1,18 @@
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImageRepository
 metadata:
-  name: nordlynx
+  name: wireguard
 spec:
-  image: bubuntux/nordlynx
+  image: linuxserver/wireguard
   interval: 1h
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta1
 kind: ImagePolicy
 metadata:
-  name: nordlynx
+  name: wireguard
 spec:
   imageRepositoryRef:
-    name: nordlynx
-  filterTags:
-    pattern: '^(?P<date>\d+-\d+-\d+)$'
-    extract: "$date"
+    name: wireguard
   policy:
-    alphabetical:
-      order: asc
+    semver:
+      range: 1.x

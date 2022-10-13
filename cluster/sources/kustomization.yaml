@@ -12,7 +12,6 @@ resources:
   - metallb.yaml
   - murailobot.yaml
   - nginx.yaml
-  - nordlynx.yaml
   - overseerr.yaml
   - plex.yaml
   - plextraktsync.yaml
@@ -27,3 +26,4 @@ resources:
   - tautulli.yaml
   - unpackerr.yaml
   - uptime-kuma.yaml
+  - wireguard.yaml

@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: torrent
-  annotations:
-    secret.reloader.stakater.com/reload: "torrent-secret"
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -19,19 +17,14 @@ spec:
     spec:
       containers:
       - name: vpn
-        image: bubuntux/nordlynx:2022-10-09 # {"$imagepolicy": "flux-system:nordlynx"}
+        image: linuxserver/wireguard:1.0.20210914 # {"$imagepolicy": "flux-system:wireguard"}
         env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
         - name: TZ
           value: "${SECRET_TIMEZONE}"
-        - name: QUERY
-          value: "filters\\[country_id\\]=209"
-        - name: NET_LOCAL
-          value: "10.0.0.0/8"
-        - name: "PRIVATE_KEY"
-          valueFrom:
-            secretKeyRef:
-              name: torrent-secret
-              key: private_key
         securityContext:
           privileged: true
           sysctls:
@@ -48,6 +41,9 @@ spec:
           initialDelaySeconds: 60
           timeoutSeconds: 10
           failureThreshold: 3
+        volumeMounts:
+        - mountPath: /config
+          name: wireguard-volume
       - name: torrent
         image: linuxserver/qbittorrent:4.4.5 # {"$imagepolicy": "flux-system:qbittorrent"}
         env:
@@ -86,6 +82,9 @@ spec:
       - name: config-volume
         persistentVolumeClaim:
           claimName: torrent-config
+      - name: wireguard-volume
+        persistentVolumeClaim:
+          claimName: wireguard-config
       - name: media-volume
         nfs:
           server: sc01.${SECRET_PRIVATE_DOMAIN}
