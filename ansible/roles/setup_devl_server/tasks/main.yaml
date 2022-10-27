@@ -3,5 +3,4 @@
   ansible.builtin.apt:
     name:
       - build-essential
-      - ansible
     state: present
