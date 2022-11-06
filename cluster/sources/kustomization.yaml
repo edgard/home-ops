@@ -7,7 +7,6 @@ resources:
   - cloudflared.yaml
   - echo.yaml
   - emberstack.yaml
-  - homebridge.yaml
   - k8s-at-home.yaml
   - metallb.yaml
   - murailobot.yaml
