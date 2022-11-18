@@ -11,7 +11,6 @@ resources:
   - metallb.yaml
   - murailobot.yaml
   - nginx.yaml
-  - overseerr.yaml
   - plex.yaml
   - plextraktsync.yaml
   - prowlarr.yaml
@@ -22,7 +21,6 @@ resources:
   - smokeping.yaml
   - sonarr.yaml
   - stakater.yaml
-  - tautulli.yaml
   - unpackerr.yaml
   - uptime-kuma.yaml
   - wireguard.yaml

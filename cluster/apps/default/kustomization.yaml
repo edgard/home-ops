@@ -9,7 +9,6 @@ resources:
   - icloudpd
   - murailobot
   - nginx
-  - overseerr
   - plex
   - plextraktsync
   - prowlarr
@@ -17,7 +16,6 @@ resources:
   - recyclarr
   - smokeping
   - sonarr
-  - tautulli
   - torrent
   - unpackerr
   - uptime-kuma
