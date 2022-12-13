@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: plex
-        image: linuxserver/plex:1.29.2 # {"$imagepolicy": "flux-system:plex"}
+        image: linuxserver/plex:1.30.0 # {"$imagepolicy": "flux-system:plex"}
         env:
         - name: TZ
           value: "${SECRET_TIMEZONE}"
