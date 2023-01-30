@@ -6,7 +6,6 @@ resources:
   - bazarr
   - clc
   - echo
-  - icloudpd
   - murailobot
   - nginx
   - plex
