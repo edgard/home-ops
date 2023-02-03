@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: backup-maint
+  name: restic
 spec:
   schedule: "0 7 * * *"
   concurrencyPolicy: Forbid
@@ -26,8 +26,4 @@ spec:
               value: ${SECRET_RESTIC_REPO}
             - name: RESTIC_PASSWORD
               value: ${SECRET_RESTIC_REPO_PASS}
-            - name: AWS_ACCESS_KEY_ID
-              value: ${SECRET_MINIO_ACCESS_KEY_ID}
-            - name: AWS_SECRET_ACCESS_KEY
-              value: ${SECRET_MINIO_SECRET_ACCESS_KEY}
           restartPolicy: Never
