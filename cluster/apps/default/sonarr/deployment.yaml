@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: sonarr
-        image: linuxserver/sonarr:3.0.9 # {"$imagepolicy": "flux-system:sonarr"}
+        image: linuxserver/sonarr:3.0.10 # {"$imagepolicy": "flux-system:sonarr"}
         env:
         - name: PUID
           value: "1000"
