@@ -7,7 +7,6 @@ resources:
   - echo.yaml
   - emberstack.yaml
   - k8s-at-home.yaml
-  - metallb.yaml
   - murailobot.yaml
   - nginx.yaml
   - plex.yaml
