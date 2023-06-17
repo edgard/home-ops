@@ -6,6 +6,7 @@ resources:
   - cloudflared.yaml
   - echo.yaml
   - emberstack.yaml
+  - flaresolverr.yaml
   - k8s-at-home.yaml
   - murailobot.yaml
   - nginx.yaml

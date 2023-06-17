@@ -4,6 +4,7 @@ namespace: default
 resources:
   - bazarr
   - echo
+  - flaresolverr
   - murailobot
   - nginx
   - plex
