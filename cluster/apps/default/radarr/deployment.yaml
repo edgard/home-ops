@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: radarr
-        image: linuxserver/radarr:4.5.2 # {"$imagepolicy": "flux-system:radarr"}
+        image: linuxserver/radarr:4.6.4 # {"$imagepolicy": "flux-system:radarr"}
         env:
         - name: PUID
           value: "1000"
