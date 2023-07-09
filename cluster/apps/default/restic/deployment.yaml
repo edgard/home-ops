@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: restic
-        image: restic/rest-server:0.12.0 # {"$imagepolicy": "flux-system:rest-server"}
+        image: restic/rest-server:0.12.1 # {"$imagepolicy": "flux-system:rest-server"}
         env:
         - name: DISABLE_AUTHENTICATION
           value: "1"
