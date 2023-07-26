@@ -27,7 +27,7 @@ spec:
       nameOverride: cloudflared
     image:
       repository: cloudflare/cloudflared # {"$imagepolicy": "flux-system:cloudflared:name"}
-      tag: 2023.7.2 # {"$imagepolicy": "flux-system:cloudflared:tag"}
+      tag: 2023.7.3 # {"$imagepolicy": "flux-system:cloudflared:tag"}
     controller:
       replicas: 2
       strategy: RollingUpdate
