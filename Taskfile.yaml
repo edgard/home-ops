@@ -28,14 +28,16 @@ tasks:
       - git add config.sops.yaml
       - git add ansible/group_vars/all.sops.yaml
       - git add terraform/secrets.sops.yaml
-      - git add cluster/config/cluster-secrets.yaml
-      - git add cluster/core/wave1/cloudflared/secrets.yaml
+      - git add cluster/config/cluster-secrets.sops.yaml
+      - git add cluster/core/cloudflared/secrets.sops.yaml
       - git commit -m 'Update secrets configuration files' || true
       - git push
 
   apply-config:
     desc: Apply configuration across all tools
     cmds:
+      - task: config-update
+      - task: config-push
       - task: apply-ansible
       - task: apply-terraform
       - task: apply-flux

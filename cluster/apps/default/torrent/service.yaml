@@ -4,6 +4,6 @@ metadata:
   name: torrent
 spec:
   ports:
-    - port: 8080
+    - port: 8112
   selector:
     app.kubernetes.io/name: torrent
