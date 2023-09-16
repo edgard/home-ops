@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: echo
-        image: ealen/echo-server:0.7.1 # {"$imagepolicy": "flux-system:echo"}
+        image: ealen/echo-server:0.8.0 # {"$imagepolicy": "flux-system:echo"}
         env:
         - name: LOGS__IGNORE__PING
           value: "true"
