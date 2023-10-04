@@ -63,7 +63,7 @@ resource "cloudflare_fallback_domain" "home_lan" {
   domains {
     suffix      = data.sops_file.terraform_secrets.data["private_domain"]
     description = "Home LAN"
-    dns_server  = [data.sops_file.terraform_secrets.data["dns_server_ip"]]
+    dns_server  = [format("%s.1", join(".", slice(split(".", data.sops_file.terraform_secrets.data["lan_cidr"]), 0, 3)))]
   }
   dynamic "domains" {
     for_each = toset(["corp", "domain", "home", "host", "internal", "intranet", "invalid", "lan", "local", "localdomain", "localhost", "private", "test"])

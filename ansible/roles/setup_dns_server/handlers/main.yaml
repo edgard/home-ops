@@ -1,8 +1,0 @@
----
-- name: Restart daemons
-  ansible.builtin.service:
-    name: "{{ item }}"
-    state: restarted
-  with_items:
-    - named
-    - isc-dhcp-server
