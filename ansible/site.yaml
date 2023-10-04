@@ -1,4 +1,14 @@
 ---
+- name: Manage DNS hosts
+  hosts: dns_servers
+  roles:
+    - config_ssh_keys
+    - config_sudo_nopass
+    - config_timezone
+    - remove_common
+    - setup_dns_server
+  tags: ["dns"]
+
 - name: Manage KUB hosts
   hosts: kub_servers
   roles:

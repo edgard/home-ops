@@ -1,0 +1,68 @@
+---
+- name: Install packages
+  ansible.builtin.apt:
+    name:
+      - bind9
+      - dnsutils
+      - isc-dhcp-server
+    state: present
+
+- name: Ensure daemons are enabled
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  with_items:
+    - named
+    - isc-dhcp-server
+
+- name: Install bind configuration
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/bind/{{ item }}"
+    owner: bind
+    group: bind
+    mode: "0644"
+  with_items:
+    - named.conf.local
+    - named.conf.options
+    - rndc.key
+  notify: "Restart daemons"
+
+- name: Check if zone files exists
+  ansible.builtin.stat:
+    path: "/etc/bind/db.{{ item }}"
+  with_items:
+    - "{{ private_domain }}"
+    - "{{ lan_prefix.split('.') | reverse | join('.') }}.in-addr.arpa"
+  register: zone_files
+
+- name: Template initial zone files
+  ansible.builtin.template:
+    src: "zone_template.j2"
+    dest: "/etc/bind/db.{{ item.item }}"
+    owner: bind
+    group: bind
+    mode: "0644"
+  with_items: "{{ zone_files.results }}"
+  when: not item.stat.exists
+  notify: "Restart daemons"
+
+- name: Fix bind files permissions
+  ansible.builtin.file:
+    path: /etc/bind
+    owner: bind
+    group: bind
+    recurse: true
+  notify: "Restart daemons"
+
+- name: Install dhcpd configuration
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/dhcp/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  with_items:
+    - dhcpd.conf
+  notify: "Restart daemons"

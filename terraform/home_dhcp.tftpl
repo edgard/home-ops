@@ -1,0 +1,10 @@
+# Terraform managed
+
+%{ for key, value in local_hosts ~}
+%{ if value.mac != false ~}
+host ${value.name} {
+    hardware ethernet ${value.mac};
+    fixed-address ${value.ip};
+}
+%{ endif ~}
+%{ endfor ~}

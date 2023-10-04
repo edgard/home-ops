@@ -1,0 +1,24 @@
+# {{ ansible_managed }}
+
+include "/etc/bind/rndc.key";
+
+acl internals {
+	127.0.0.0/8;
+	{{ lan_cidr }};
+};
+
+controls {
+	inet * allow { internals; } keys { rndc-key; };
+};
+
+zone "{{ private_domain }}" {
+	type master;
+	file "/etc/bind/db.{{ private_domain }}";
+	allow-update { key "rndc-key"; };
+};
+
+zone "{{ lan_prefix.split('.') | reverse | join('.') }}.in-addr.arpa" {
+	type master;
+	file "/etc/bind/db.{{ lan_prefix.split('.') | reverse | join('.') }}.in-addr.arpa";
+	allow-update { key "rndc-key"; };
+};

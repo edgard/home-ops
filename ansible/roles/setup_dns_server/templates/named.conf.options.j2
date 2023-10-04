@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+
+options {
+	directory "/var/cache/bind";
+
+	listen-on { internals; };
+	listen-on-v6 { none; };
+	allow-query { any; };
+	allow-recursion { any; };
+
+	check-names master ignore;
+	check-names slave ignore;
+	check-names response ignore;
+
+	recursion yes;
+	dnssec-validation no;
+	auth-nxdomain no;
+	max-ncache-ttl 60;
+	version none;
+};

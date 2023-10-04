@@ -1,0 +1,10 @@
+$ORIGIN .
+$TTL 300	; 5 minutes
+{{ item.item }}		IN SOA	srv01.{{ private_domain }}. hostmaster.{{ private_domain }}. (
+				1          ; serial
+				28800      ; refresh (8 hours)
+				7200       ; retry (2 hours)
+				604800     ; expire (1 week)
+				300        ; minimum (5 minutes)
+				)
+			NS	srv01.{{ private_domain }}.

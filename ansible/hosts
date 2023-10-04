@@ -1,3 +1,6 @@
+[dns_servers]
+srv01
+
 [kub_servers]
 kub01
 
