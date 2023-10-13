@@ -11,16 +11,3 @@
     name: linux-generic-hwe-{{ ansible_distribution_version }}
     install_recommends: true
     state: present
-
-- name: Set kernel options in Grub
-  ansible.builtin.replace:
-    path: /etc/default/grub
-    regexp: '^(GRUB_CMDLINE_LINUX=(?:(?![" ]{{ item.key | regex_escape }}=).)*"?)\s*(?:{{ item.key | regex_escape }}=\S+\s*)?(.*")$'
-    replace: '\1 {{ item.key }}={{ item.value }}\2'
-  with_dict: "{{ grub_config }}"
-  vars:
-    grub_config:
-      apparmor: 0
-      mitigations: "off"
-      pti: "off"
-  notify: Run grub-mkconfig
