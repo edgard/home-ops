@@ -1,6 +1,0 @@
----
-- name: Set powersave scheduler at reboot
-  ansible.builtin.cron:
-    name: "Set cpu scheduler to powersave"
-    special_time: reboot
-    job: 'echo "powersave" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1'
