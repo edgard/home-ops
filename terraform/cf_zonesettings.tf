@@ -1,5 +1,5 @@
 resource "cloudflare_zone_settings_override" "cloudflare_settings_personal" {
-  zone_id = lookup(data.cloudflare_zones.public_domain.zones[0], "id")
+  zone_id = local.zone_id
   settings {
     # /ssl-tls
     ssl = "strict"

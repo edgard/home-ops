@@ -21,6 +21,6 @@ data "sops_file" "terraform_secrets" {
 }
 
 provider "cloudflare" {
-  email   = data.sops_file.terraform_secrets.data["email"]
-  api_key = data.sops_file.terraform_secrets.data["cloudflare_api_key"]
+  email   = local.email
+  api_key = local.api_key
 }

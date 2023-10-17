@@ -1,6 +1,6 @@
-# teams account
+# Cloudflare Teams Account Configuration
 resource "cloudflare_teams_account" "edgard" {
-  account_id           = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
+  account_id           = local.account_id
   activity_log_enabled = false
   logging {
     redact_pii = false
@@ -28,42 +28,43 @@ resource "cloudflare_teams_account" "edgard" {
   }
 }
 
-# argo tunnel
+# Argo Tunnel Configuration
 resource "cloudflare_argo_tunnel" "home" {
-  account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
-  name       = data.sops_file.terraform_secrets.data["cloudflare_tunnel_name"]
-  secret     = data.sops_file.terraform_secrets.data["cloudflare_tunnel_secret"]
+  account_id = local.account_id
+  name       = local.tunnel_name
+  secret     = local.tunnel_secret
   lifecycle {
     prevent_destroy = true
   }
 }
 
 resource "cloudflare_tunnel_route" "home_lan" {
-  account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
+  account_id = local.account_id
   tunnel_id  = cloudflare_argo_tunnel.home.id
-  network    = data.sops_file.terraform_secrets.data["lan_cidr"]
+  network    = local.lan_cidr
   comment    = "Home LAN"
 }
 
+# Split Tunnel and Fallback Domain Configuration
 resource "cloudflare_split_tunnel" "home_lan_include" {
-  account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
+  account_id = local.account_id
   mode       = "include"
   tunnels {
-    address     = data.sops_file.terraform_secrets.data["lan_cidr"]
+    address     = local.lan_cidr
     description = "Home LAN"
   }
   tunnels {
-    host        = data.sops_file.terraform_secrets.data["private_domain"]
+    host        = local.private_domain
     description = "Home Domain"
   }
 }
 
 resource "cloudflare_fallback_domain" "home_lan" {
-  account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
+  account_id = local.account_id
   domains {
-    suffix      = data.sops_file.terraform_secrets.data["private_domain"]
+    suffix      = local.private_domain
     description = "Home LAN"
-    dns_server  = [format("%s.1", join(".", slice(split(".", data.sops_file.terraform_secrets.data["lan_cidr"]), 0, 3)))]
+    dns_server  = [cidrhost(local.lan_cidr, 1)]
   }
   dynamic "domains" {
     for_each = toset(["corp", "domain", "home", "host", "internal", "intranet", "invalid", "lan", "local", "localdomain", "localhost", "private", "test"])
@@ -73,25 +74,24 @@ resource "cloudflare_fallback_domain" "home_lan" {
   }
 }
 
-# access: idp
+# Access and Identity Configuration
 resource "cloudflare_access_identity_provider" "otp" {
-  account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
+  account_id = local.account_id
   name       = "OTP"
   type       = "onetimepin"
 }
 
-# access: groups
 resource "cloudflare_access_group" "users" {
-  account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
+  account_id = local.account_id
   name       = "Users"
   include {
-    email = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_auth_groups : x.name => x if x.name == "Users" })["Users"].emails
+    email = local.users_group_emails
   }
 }
 
-# access: applications
+# Applications and Policies Configuration
 resource "cloudflare_record" "root_cname_home_apps" {
-  for_each = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_apps : x.name => x })
+  for_each = { for app in local.cloudflare_apps : app.name => app }
   name     = each.value.name
   proxied  = true
   ttl      = 1
@@ -101,18 +101,18 @@ resource "cloudflare_record" "root_cname_home_apps" {
 }
 
 resource "cloudflare_access_application" "http_home_apps" {
-  for_each                  = nonsensitive({ for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_apps : x.name => x })
-  account_id                = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
+  for_each                  = { for app in local.cloudflare_apps : app.name => app }
+  account_id                = local.account_id
   name                      = each.value.name
-  domain                    = "${each.value.name}.${data.sops_file.terraform_secrets.data["public_domain"]}"
+  domain                    = "${each.value.name}.${local.public_domain}"
   session_duration          = "730h"
   auto_redirect_to_identity = true
   allowed_idps              = [cloudflare_access_identity_provider.otp.id]
 }
 
 resource "cloudflare_access_policy" "http_home_apps_allow" {
-  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_apps : x.name if x.require_auth == true]))
-  account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
+  for_each       = toset([for app in local.cloudflare_apps : app.name if app.require_auth == true])
+  account_id     = local.account_id
   application_id = cloudflare_access_application.http_home_apps[each.value].id
   name           = "${each.value} allow"
   precedence     = "1"
@@ -127,8 +127,8 @@ resource "cloudflare_access_policy" "http_home_apps_allow" {
 }
 
 resource "cloudflare_access_policy" "http_home_apps_bypass" {
-  for_each       = nonsensitive(toset([for x in yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_apps : x.name if x.require_auth == false]))
-  account_id     = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
+  for_each       = toset([for app in local.cloudflare_apps : app.name if app.require_auth == false])
+  account_id     = local.account_id
   application_id = cloudflare_access_application.http_home_apps[each.value].id
   name           = "${each.value} bypass"
   precedence     = "1"
