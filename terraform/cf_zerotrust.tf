@@ -97,7 +97,7 @@ resource "cloudflare_record" "root_cname_home_apps" {
   ttl      = 1
   type     = "CNAME"
   value    = "${cloudflare_argo_tunnel.home.id}.cfargotunnel.com"
-  zone_id  = lookup(data.cloudflare_zones.public_domain.zones[0], "id")
+  zone_id  = local.zone_id
 }
 
 resource "cloudflare_access_application" "http_home_apps" {
