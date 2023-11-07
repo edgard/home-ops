@@ -13,36 +13,34 @@ resource "cloudflare_record" "root_caa" {
 }
 
 # Email Records
-resource "cloudflare_record" "root_dkim_fm" {
-  for_each = toset(["fm1", "fm2", "fm3"])
+resource "cloudflare_record" "root_dkim" {
+  for_each = toset(["sig1"])
   name     = "${each.value}._domainkey"
   proxied  = false
   ttl      = 1
   type     = "CNAME"
-  value    = format("%s.%s.dkim.fmhosted.com", each.value, local.public_domain)
+  value    = format("%s.dkim.%s.at.icloudmailadmin.com", each.value, local.public_domain)
   zone_id  = local.zone_id
 }
 
 resource "cloudflare_record" "root_mx" {
-  for_each = tomap({ "10" = "in1-smtp.messagingengine.com", "20" = "in2-smtp.messagingengine.com" })
+  for_each = tomap({ "mx01.mail.icloud.com" = "10", "mx02.mail.icloud.com" = "10" })
   name     = local.public_domain
-  priority = each.key
+  priority = each.value
   proxied  = false
   ttl      = 1
   type     = "MX"
-  value    = each.value
+  value    = each.key
   zone_id  = local.zone_id
 }
 
-resource "cloudflare_record" "root_wildcard_mx" {
-  for_each = tomap({ "10" = "in1-smtp.messagingengine.com", "20" = "in2-smtp.messagingengine.com" })
-  name     = "*"
-  priority = each.key
-  proxied  = false
-  ttl      = 1
-  type     = "MX"
-  value    = each.value
-  zone_id  = local.zone_id
+resource "cloudflare_record" "root_spf" {
+  name    = local.public_domain
+  proxied = false
+  ttl     = 1
+  type    = "TXT"
+  value   = "v=spf1 include:icloud.com ~all"
+  zone_id = local.zone_id
 }
 
 resource "cloudflare_record" "root_dmarc" {
@@ -51,15 +49,6 @@ resource "cloudflare_record" "root_dmarc" {
   ttl     = 1
   type    = "TXT"
   value   = format("v=DMARC1; p=quarantine; rua=mailto:%s", local.email)
-  zone_id = local.zone_id
-}
-
-resource "cloudflare_record" "root_spf" {
-  name    = local.public_domain
-  proxied = false
-  ttl     = 1
-  type    = "TXT"
-  value   = "v=spf1 include:spf.messagingengine.com ?all"
   zone_id = local.zone_id
 }
 
