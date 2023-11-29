@@ -14,7 +14,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: ./cluster/config
+  path: ./cluster/manifests/config
   decryption:
     provider: sops
     secretRef:
