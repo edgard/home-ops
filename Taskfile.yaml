@@ -75,7 +75,7 @@ tasks:
     desc: Install Flux CD
     cmds:
       - kubectl create namespace flux-system --dry-run=client -o yaml | kubectl apply -f -
-      - flux bootstrap github --components-extra=image-reflector-controller,image-automation-controller --owner="$GITHUB_USER" --repository="$GITHUB_REPO" --path=cluster/base --branch=master --read-write-key --personal
+      - flux bootstrap github --components-extra=image-reflector-controller,image-automation-controller --owner="$GITHUB_USER" --repository="$GITHUB_REPO" --path=cluster/bootstrap --branch=master --read-write-key --personal
     preconditions:
       - flux check --pre
 
