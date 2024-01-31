@@ -15,4 +15,4 @@ spec:
     name: radarr
   policy:
     semver:
-      range: 4.x
+      range: 5.x

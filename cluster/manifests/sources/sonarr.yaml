@@ -15,4 +15,4 @@ spec:
     name: sonarr
   policy:
     semver:
-      range: 3.x
+      range: 4.x
