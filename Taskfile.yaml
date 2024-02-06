@@ -60,11 +60,6 @@ tasks:
     cmds:
       - flux reconcile source git flux-system
 
-  install-k3s:
-    desc: Install K3s
-    cmds:
-      - k3sup install --ip $KUB_SERVER_IP --user $KUB_SERVER_USER --local-path ~/.kube/config --k3s-channel stable --k3s-extra-args '--write-kubeconfig-mode 0644 --disable-helm-controller --disable traefik'
-
   install-keys:
     desc: Install SOPS keys
     cmds:
