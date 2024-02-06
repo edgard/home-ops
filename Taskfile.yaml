@@ -28,8 +28,8 @@ tasks:
       - git add config.sops.yaml
       - git add ansible/group_vars/all.sops.yaml
       - git add terraform/secrets.sops.yaml
-      - git add cluster/config/cluster-secrets.sops.yaml
-      - git add cluster/core/cloudflared/secrets.sops.yaml
+      - git add cluster/manifests/config/cluster-secrets.sops.yaml
+      - git add cluster/manifests/apps/infra-system/cloudflared/secrets.sops.yaml
       - git commit -m 'Update secrets configuration files' || true
       - git push
 
