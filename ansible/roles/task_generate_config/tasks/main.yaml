@@ -1,9 +1,4 @@
 ---
-- name: Generate Ansible all group vars secrets
-  community.sops.sops_encrypt:
-    path: "{{ playbook_dir }}/group_vars/all.sops.yaml"
-    content_yaml: "{{ lookup('template', 'ansible_group_all.yaml.j2') | from_yaml }}"
-
 - name: Generate Terraform secrets
   community.sops.sops_encrypt:
     path: "{{ playbook_dir }}/../terraform/secrets.sops.yaml"

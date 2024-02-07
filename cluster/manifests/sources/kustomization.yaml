@@ -9,6 +9,7 @@ resources:
   - echo.yaml
   - emberstack.yaml
   - flaresolverr.yaml
+  - minio.yaml
   - murailobot.yaml
   - nginx.yaml
   - plex.yaml
@@ -16,10 +17,10 @@ resources:
   - prowlarr.yaml
   - radarr.yaml
   - recyclarr.yaml
-  - restic.yaml
   - smokeping.yaml
   - sonarr.yaml
   - stakater.yaml
+  - tanzu.yaml
   - unpackerr.yaml
   - uptime-kuma.yaml
   - wireguard.yaml

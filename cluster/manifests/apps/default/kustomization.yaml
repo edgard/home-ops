@@ -12,7 +12,6 @@ resources:
   - prowlarr
   - radarr
   - recyclarr
-  - restic
   - smokeping
   - sonarr
   - torrent

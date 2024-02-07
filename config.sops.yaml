@@ -7,8 +7,11 @@ github_user: ENC[AES256_GCM,data:RELdTq6h,iv:yN/RtViHew7vYKLCxr7EaKCX6Kf4aCqd8tx
 github_repo: ENC[AES256_GCM,data:qDDTsPvPUiE=,iv:VWyDpYKyTQ4JYuy9Jl0btqESrPpa9G7Jms6HIh4ta1c=,tag:DO3el8tTTWNjFcdxvgSazw==,type:str]
 github_token: ENC[AES256_GCM,data:1I8zzvC6tEEdMTwrXTF7rlOwHmY+snYHUTdFNEIAyuUC4SrL/178Cw==,iv:JG80lPXHSVv9ZqPxKW1KdHVIgC+Z8+QX31jQKSnus1Q=,tag:bLFE9xr46rmZ7XG2gUjM/A==,type:str]
 lan_cidr: ENC[AES256_GCM,data:tgXid71E7esxkMN8QFk=,iv:yVxAxKqjty+CJXnK+MItFiiMWLdHW9wTXnGtw0Q1T9U=,tag:v97GPLIxJfPCilr8Ulu3ng==,type:str]
-restic_repo: ENC[AES256_GCM,data:Q3fqf2Gjy5y7VdAYM6wGJHucjQTCxIlpgxh+99O46A==,iv:YNdPcCAzI6q9lSf3MshU7yxv5OQFSkba/j6l6RXjAr0=,tag:8vUlcXcjW8fyGXE6EZvEgw==,type:str]
+restic_repo: ENC[AES256_GCM,data:LNMy26V2bWiiapyJqJdeAVisW2tF/fvzegpy2/41IpxrI5Yv,iv:CqK5igfNH0Km0CLjwnpYje5WQtGzAn7va3DOfBxzyFQ=,tag:5KMmJdiiR3KGFJTzkfQsEg==,type:str]
 restic_repo_pass: ENC[AES256_GCM,data:ORm9033V854=,iv:aI4FL3ULq8RVsjs2bFUXi1MA03lci/oPDW1Wm5GF+x0=,tag:TSnXijflgV/gGwlpAEVyNw==,type:str]
+minio_repo: ENC[AES256_GCM,data:L+6qxyk+uP+g+v6P3iuJ4OYMb7a7qbGEC8k=,iv:J1Yoddh9/uI9n3O/BhwbpSS2PRk7nKK6rMxQ5UUxQBs=,tag:2XQJ4ELLSDnS8heNgHrayA==,type:str]
+minio_access_key_id: ENC[AES256_GCM,data:FBSYNcPlBuXVmZ1dgPTXSW59djU=,iv:AmAnm1EvXCR/iGXazPlOyqbkqkIuGgjsKfnC9zdP1FM=,tag:wgl2tJSJOIDytSJAqWKOyQ==,type:str]
+minio_secret_access_key: ENC[AES256_GCM,data:AlBlgFpw795kWtIOOC7xOiyNTC9UAUpdjlwPB6SPQNyZ9FUG2N1lkQ==,iv:e4zK80vyFvY7fk/Z6h9Puih3OE+pIaR++6hz3CZZxSc=,tag:LvDhZwfkKFzInxj5g+U+NQ==,type:str]
 cloudflare_account_id: ENC[AES256_GCM,data:ZQIx8LioXFJuVVdMIupMs1spBJc4NWK1BBwcbjVi93k=,iv:RkuOGhzyX4r+B/eoCF6BDH/qikl8UpoER8UkbTceQqw=,tag:hkeNE6hQXBLEdrqlahWnGQ==,type:str]
 cloudflare_api_key: ENC[AES256_GCM,data:B7HbyWfMec50nDCmlfLn1XDXgaGyXrnWvVjL80g5gqwBXh9Piw==,iv:6n289CPUfaTANfVtd1kaBZ1zJnyqCQviPj8JzCacWRk=,tag:3oTy9dvLnkQhFVO89qi3WQ==,type:str]
 cloudflare_token: ENC[AES256_GCM,data:IvwwT8vyHayrr19WNuNLZldfPmmY+F/SX3Cf3Iw4JqKc0+Q8/jmgTQ==,iv:n9/hx19zwMuDzOQaKYjOga2W/Pj62ax4eA71d9C1SBw=,tag:CJ8AjA4Ro8VU0uq+JJOUSw==,type:str]
@@ -46,6 +49,8 @@ cloudflare_apps:
       url: ENC[AES256_GCM,data:V6y36o8ZASewz7/CnOoiL0Q7NSYYi0rw2Y/9uztA8Uly2+8FqHCdQzrC70u6i98SeA==,iv:B47WhlFQe6P1npauOYTPTZkWsWXXlVzgdcDaEwQWWv4=,tag:klg1K7D6/+awmpZKQIpnHg==,type:str]
     - name: ENC[AES256_GCM,data:6UxtE1GYal3Y8A==,iv:PDzpltyXrhLVGNRCom2BmYupeGj1wVD2yQRDmAm47OM=,tag:+1PHQCDgLQJE5CyhwigscA==,type:str]
       url: ENC[AES256_GCM,data:fb7At1alvO4quPuWplsBlI5/rSP+UATqxzsb4vFQ,iv:T5YSEl0Zubv3cLK7PEAqPiNeelgFOYzB8PPfaQqbACA=,tag:qNyTww3fiC1cmJmNTlzbmQ==,type:str]
+    - name: ENC[AES256_GCM,data:DBdXKo0=,iv:H5AsQmf12QrvwAt4vmgvlv2TPA5U13OMyAj6e9jKlw0=,tag:zYC9904B0U8Tiq/EAtuGow==,type:str]
+      url: ENC[AES256_GCM,data:qbaQv58mTWcq//JcZ0kyJnDk2fzA844cfp0wk/d66SkZLoanKwNzboScTyLJweNH,iv:N9zLqlzHYn9BtpnC5fsTQkA4sE9khHKA6ADTMtM1CAo=,tag:GCyy57rxtddeFXpvVpQyWA==,type:str]
 sops:
     kms: []
     gcp_kms: []
@@ -61,8 +66,8 @@ sops:
             Z3NFL2pBcEFZNXcvd0tGZlluZXRjS1kKTai6azYiQt9ZJsfq7XeThHRKSPGLtH3T
             ladTbLxdFvTvlaaBqet+qib7Icgh44xRgjJ+6NkPkA0gprdgcnr/tg==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2024-02-07T09:46:49Z"
-    mac: ENC[AES256_GCM,data:GGsRNv75An0MuG2YmlZcilE3A9OX+uwUQFtbMq+4UHqIztMRhmxotjnyA6AppuTlAL1qVuyqHxwLGPZy7HfUoRotc0z9zyZJDjeMuPwRn03wszZfze64PwnCI8mPLef8rrzWMPQhG39TWGjgtIT+GEEsPtozGNYFXzO3DoiYqR0=,iv:y0cVHm8ND4F+QAjhrF+Vp78zK5R/pN4gW92K6tHsa7g=,tag:eUnffvSlheRCJNudVBtQug==,type:str]
+    lastmodified: "2024-02-08T22:20:51Z"
+    mac: ENC[AES256_GCM,data:5sBydVdon+qU40Cn8Z+laixOIJKBC/VgzrsUPzQN9YRxEpYytf9BIwud6E9zTMFD9z6TO7qGb6f/H12lIXItSDT1lhTn1Z4IzvjStTr+HVTjxg3n7vxdqhqTveZDKLMygBPmRhA35aWg5BVD2WDwNxFiHJ2V5GDtFrInvIotOmU=,iv:3iJ8wv/j18luokGznPT5cTmF7P85OPFYD9Yv5jXa/YA=,tag:ifCtRTDQmdlR3vx5aQVTgQ==,type:str]
     pgp: []
     unencrypted_suffix: _unencrypted
     version: 3.8.1
