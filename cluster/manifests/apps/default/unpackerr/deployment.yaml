@@ -46,6 +46,5 @@ spec:
           name: media-volume
       volumes:
       - name: media-volume
-        nfs:
-          server: sc01.${SECRET_PRIVATE_DOMAIN}
+        hostPath:
           path: /mnt/dpool/media
