@@ -3,13 +3,13 @@ kind: Kustomization
 namespace: flux-system
 resources:
   - bazarr.yaml
+  - bitnami.yaml
   - bjw-s.yaml
   - cloudflared.yaml
   - deluge.yaml
   - echo.yaml
   - emberstack.yaml
   - flaresolverr.yaml
-  - minio.yaml
   - murailobot.yaml
   - nginx.yaml
   - plex.yaml
