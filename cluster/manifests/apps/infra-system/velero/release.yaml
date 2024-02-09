@@ -48,3 +48,11 @@ spec:
       volumeMounts:
         - mountPath: /target
           name: plugins
+    schedules:
+      default:
+        schedule: "0 6 * * *"
+        template:
+          ttl: "240h"
+          storageLocation: default
+          includedNamespaces:
+          - '*'
