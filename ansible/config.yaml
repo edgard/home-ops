@@ -4,9 +4,6 @@
   gather_facts: false
 
   tasks:
-    - name: Load config variables
-      community.sops.load_vars:
-        file: ../config.sops.yaml
     - name: Generate config files
       include_role:
         name: task_generate_config

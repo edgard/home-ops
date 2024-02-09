@@ -14,6 +14,7 @@ tasks:
     silent: true
     cmds:
       - sops config.sops.yaml
+      - task: config-update
 
   config-update:
     desc: Update secrets configuration files
@@ -24,20 +25,18 @@ tasks:
   config-push:
     desc: Push updated secrets configuration files
     interactive: true
+    deps: [config-update]
     cmds:
       - git add config.sops.yaml
-      - git add ansible/group_vars/all.sops.yaml
-      - git add terraform/secrets.sops.yaml
       - git add cluster/manifests/config/cluster-secrets.sops.yaml
       - git add cluster/manifests/apps/infra-system/cloudflared/secrets.sops.yaml
       - git commit -m 'Update secrets configuration files' || true
       - git push
 
-  apply-config:
+  apply:
     desc: Apply configuration across all tools
+    deps: [config-push]
     cmds:
-      - task: config-update
-      - task: config-push
       - task: apply-ansible
       - task: apply-terraform
       - task: apply-flux

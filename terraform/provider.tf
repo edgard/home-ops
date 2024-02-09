@@ -17,7 +17,7 @@ terraform {
 }
 
 data "sops_file" "terraform_secrets" {
-  source_file = "secrets.sops.yaml"
+  source_file = "../config.sops.yaml"
 }
 
 provider "cloudflare" {

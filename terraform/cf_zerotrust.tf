@@ -111,7 +111,7 @@ resource "cloudflare_access_application" "http_home_apps" {
 }
 
 resource "cloudflare_access_policy" "http_home_apps_allow" {
-  for_each       = toset([for app in local.cloudflare_apps : app.name if app.require_auth == true])
+  for_each       = toset([for app in local.cloudflare_apps : app.name if app.auth == true])
   account_id     = local.account_id
   application_id = cloudflare_access_application.http_home_apps[each.value].id
   name           = "${each.value} allow"
@@ -127,7 +127,7 @@ resource "cloudflare_access_policy" "http_home_apps_allow" {
 }
 
 resource "cloudflare_access_policy" "http_home_apps_bypass" {
-  for_each       = toset([for app in local.cloudflare_apps : app.name if app.require_auth == false])
+  for_each       = toset([for app in local.cloudflare_apps : app.name if app.auth == false])
   account_id     = local.account_id
   application_id = cloudflare_access_application.http_home_apps[each.value].id
   name           = "${each.value} bypass"

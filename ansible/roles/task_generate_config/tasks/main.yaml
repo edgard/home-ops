@@ -1,9 +1,4 @@
 ---
-- name: Generate Terraform secrets
-  community.sops.sops_encrypt:
-    path: "{{ playbook_dir }}/../terraform/secrets.sops.yaml"
-    content_yaml: "{{ lookup('template', 'terraform_secrets.yaml.j2') | from_yaml }}"
-
 - name: Generate Cluster secrets
   community.sops.sops_encrypt:
     path: "{{ playbook_dir }}/../cluster/manifests/config/cluster-secrets.sops.yaml"
