@@ -20,16 +20,21 @@ resource "cloudflare_teams_account" "edgard" {
     }
   }
   proxy {
-    tcp = true
-    udp = true
+    tcp     = true
+    udp     = true
+    root_ca = true
   }
+
   lifecycle {
     prevent_destroy = true
+    ignore_changes = [
+     ssh_session_log,  # FIXME: bug on provider, returning empty block
+    ]
   }
 }
 
-# Argo Tunnel Configuration
-resource "cloudflare_argo_tunnel" "home" {
+# Tunnel Configuration
+resource "cloudflare_tunnel" "home" {
   account_id = local.account_id
   name       = local.tunnel_name
   secret     = local.tunnel_secret
@@ -40,7 +45,7 @@ resource "cloudflare_argo_tunnel" "home" {
 
 resource "cloudflare_tunnel_route" "home_lan" {
   account_id = local.account_id
-  tunnel_id  = cloudflare_argo_tunnel.home.id
+  tunnel_id  = cloudflare_tunnel.home.id
   network    = local.lan_cidr
   comment    = "Home LAN"
 }
@@ -96,7 +101,7 @@ resource "cloudflare_record" "root_cname_home_apps" {
   proxied  = true
   ttl      = 1
   type     = "CNAME"
-  value    = "${cloudflare_argo_tunnel.home.id}.cfargotunnel.com"
+  value    = "${cloudflare_tunnel.home.id}.cfargotunnel.com"
   zone_id  = local.zone_id
 }
 

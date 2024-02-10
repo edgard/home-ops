@@ -2,15 +2,15 @@ terraform {
   required_providers {
     null = {
       source  = "hashicorp/null"
-      version = ">= 3.1.1"
+      version = ">= 3.2.2"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = ">= 3.16.0"
+      version = ">= 4.24.0"
     }
     sops = {
       source  = "carlpett/sops"
-      version = ">= 0.7.1"
+      version = ">= 1.0.0"
     }
   }
   required_version = ">= 1.1.9"

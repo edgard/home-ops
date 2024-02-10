@@ -23,16 +23,4 @@ locals {
   cloudflare_apps        = nonsensitive(yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_apps)
   cloudflare_auth_groups = nonsensitive(yamldecode(data.sops_file.terraform_secrets.raw).cloudflare_auth_groups)
   users_group_emails     = flatten([for group in local.cloudflare_auth_groups : group.emails if group.name == "Users"])
-
-  # Firewall filter settings
-  firewall_filters = {
-    bots = {
-      description = "Block bots determined by CF"
-      expression  = "(cf.client.bot)"
-    },
-    threats = {
-      description = "Block medium threats and higher"
-      expression  = "(cf.threat_score gt 14)"
-    }
-  }
 }
