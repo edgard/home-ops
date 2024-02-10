@@ -33,9 +33,11 @@ data:
     host = unifi.${SECRET_PRIVATE_DOMAIN}
     ++ OfficeAP
     host = officeap.${SECRET_PRIVATE_DOMAIN}
-    ++ SC01
-    host = sc01.${SECRET_PRIVATE_DOMAIN}
+    ++ LivingRoomAP
+    host = livingroomap.${SECRET_PRIVATE_DOMAIN}
     ++ DEVL01
     host = devl01.${SECRET_PRIVATE_DOMAIN}
+    ++ HASS
+    host = hass.${SECRET_PRIVATE_DOMAIN}
     ++ Mainsail
     host = mainsailos.${SECRET_PRIVATE_DOMAIN}
