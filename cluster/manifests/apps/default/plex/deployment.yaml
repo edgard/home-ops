@@ -57,7 +57,3 @@ spec:
       - name: media-volume
         hostPath:
           path: /mnt/dpool/media
-      hostNetwork: true
-      securityContext:
-        privileged: true
-      dnsPolicy: ClusterFirstWithHostNet

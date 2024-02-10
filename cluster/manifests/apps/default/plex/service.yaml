@@ -5,5 +5,6 @@ metadata:
 spec:
   ports:
     - port: 32400
+  type: LoadBalancer
   selector:
     app.kubernetes.io/name: plex
