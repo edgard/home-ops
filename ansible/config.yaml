@@ -5,5 +5,5 @@
 
   tasks:
     - name: Generate config files
-      include_role:
+      ansible.builtin.include_role:
         name: task_generate_config

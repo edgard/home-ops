@@ -1,9 +1,11 @@
 ---
 - name: Fact the remote user
-  ansible.builtin.set_fact: fixup_remote_user="{{ ansible_user }}"
+  ansible.builtin.set_fact:
+    fixup_remote_user: "{{ ansible_user }}"
 
 - name: Get public key from GitHub
-  ansible.builtin.set_fact: github_public_key="{{ lookup('ansible.builtin.url', 'https://github.com/' ~ github_user ~ '.keys') }}"
+  ansible.builtin.set_fact:
+    github_public_key: "{{ lookup('ansible.builtin.url', 'https://github.com/' ~ github_user ~ '.keys') }}"
 
 - name: Add public key to authorized_keys
   ansible.posix.authorized_key:

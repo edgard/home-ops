@@ -16,7 +16,8 @@
     purge: true
 
 - name: Fact the remote user
-  ansible.builtin.set_fact: fixup_remote_user="{{ ansible_user }}"
+  ansible.builtin.set_fact:
+    fixup_remote_user: "{{ ansible_user }}"
 
 - name: Remove snapd-related directories
   ansible.builtin.file:

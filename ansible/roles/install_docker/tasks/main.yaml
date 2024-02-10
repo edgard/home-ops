@@ -44,7 +44,8 @@
     update_cache: true
 
 - name: Fact the remote user
-  ansible.builtin.set_fact: fixup_remote_user="{{ ansible_user }}"
+  ansible.builtin.set_fact:
+    fixup_remote_user: "{{ ansible_user }}"
 
 - name: Add user to docker group
   ansible.builtin.user:
