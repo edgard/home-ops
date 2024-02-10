@@ -13,9 +13,6 @@ metadata:
 spec:
   imageRepositoryRef:
     name: prowlarr
-  filterTags:
-    pattern: '^develop-version-(?P<version>.*)'
-    extract: "$version"
   policy:
-    alphabetical:
-      order: asc
+    semver:
+      range: 1.x
