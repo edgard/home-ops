@@ -7,10 +7,10 @@ spec:
   chart:
     spec:
       chart: minio
-      version: "13.4.x"
+      version: "5.0.x"
       sourceRef:
         kind: HelmRepository
-        name: bitnami
+        name: minio
         namespace: flux-system
   interval: 10m
   install:
@@ -23,16 +23,23 @@ spec:
     remediation:
       retries: 3
   values:
-    auth:
-      existingSecret: minio-secret
-    service:
-      type: LoadBalancer
     persistence:
       enabled: false
-      mountPath: /tmp/old-data
+    mode: standalone
+    existingSecret: minio-secret
+    deploymentUpdate:
+      type: Recreate
+    service:
+      type: LoadBalancer
+    consoleService:
+      type: LoadBalancer
+    resources:
+      requests:
+        memory: 512Mi
+    bucketRoot: /data
     extraVolumeMounts:
       - name: data-volume
-        mountPath: /bitnami/minio/data
+        mountPath: /data
     extraVolumes:
       - name: data-volume
         hostPath:
