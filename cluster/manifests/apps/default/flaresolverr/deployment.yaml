@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: flaresolverr
-        image: ghcr.io/flaresolverr/flaresolverr:v3.3.13 # {"$imagepolicy": "flux-system:flaresolverr"}
+        image: ghcr.io/flaresolverr/flaresolverr:v3.3.14 # {"$imagepolicy": "flux-system:flaresolverr"}
         env:
         - name: TZ
           value: "${SECRET_TIMEZONE}"
