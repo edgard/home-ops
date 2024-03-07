@@ -30,8 +30,15 @@ spec:
             volumeMounts:
             - name: config-volume
               mountPath: /config
+            - name: secret-volume
+              readOnly: true
+              mountPath: /config/recyclarr.yml
+              subPath: recyclarr.yml
           volumes:
           - name: config-volume
             persistentVolumeClaim:
               claimName: recyclarr-config
+          - name: secret-volume
+            secret:
+              secretName: recyclarr-secret
           restartPolicy: Never

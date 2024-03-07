@@ -5,3 +5,4 @@ commonLabels:
 resources:
   - cronjob.yaml
   - pvc.yaml
+  - secrets.sops.yaml

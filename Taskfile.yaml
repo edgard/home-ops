@@ -78,3 +78,52 @@ tasks:
     dir: ansible
     cmds:
       - ansible-playbook upgrade.yaml
+
+  k8s-delete-failed-pods:
+    desc: Deletes failed pods
+    cmds:
+      - kubectl delete pods --field-selector status.phase=Failed -A --ignore-not-found=true
+
+  k8s-delete-jobs:
+    desc: Delete all jobs
+    cmds:
+      - kubectl delete job -A --all
+
+  k8s-debug-volume:
+    desc: Create a container for debugging a PVC (ex. task PVC=plex-config-v1 k8s-debug-volume)
+    interactive: true
+    cmds:
+      - |
+        kubectl run -n $(kubectl get pvc -A | grep {{.PVC}} | awk '{print $1}') debug-{{.PVC}} -i --tty --rm --image=null --privileged --overrides='
+          {
+            "apiVersion": "v1",
+            "spec": {
+              "containers": [
+                {
+                  "name": "debug",
+                  "image": "ghcr.io/onedr0p/alpine:rolling",
+                  "command": [
+                    "/bin/bash"
+                  ],
+                  "stdin": true,
+                  "stdinOnce": true,
+                  "tty": true,
+                  "volumeMounts": [
+                    {
+                      "name": "config",
+                      "mountPath": "/data/config"
+                    }
+                  ]
+                }
+              ],
+              "volumes": [
+                {
+                  "name": "config",
+                  "persistentVolumeClaim": {
+                    "claimName": "{{.PVC}}"
+                  }
+                }
+              ],
+              "restartPolicy": "Never"
+            }
+          }'
