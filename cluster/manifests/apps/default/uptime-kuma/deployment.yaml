@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: uptime-kuma
-        image: louislam/uptime-kuma:1.23.11 # {"$imagepolicy": "flux-system:uptime-kuma"}
+        image: louislam/uptime-kuma:1.23.12 # {"$imagepolicy": "flux-system:uptime-kuma"}
         env:
         - name: TZ
           value: "${SECRET_TIMEZONE}"
