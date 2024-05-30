@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:1.26.0 # {"$imagepolicy": "flux-system:nginx"}
+        image: nginx:1.27.0 # {"$imagepolicy": "flux-system:nginx"}
         env:
         - name: PUID
           value: "1000"
