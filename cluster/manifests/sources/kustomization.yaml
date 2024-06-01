@@ -5,7 +5,6 @@ resources:
   - bazarr.yaml
   - bjw-s.yaml
   - cloudflared.yaml
-  - deluge.yaml
   - echo.yaml
   - emberstack.yaml
   - flaresolverr.yaml
@@ -15,6 +14,7 @@ resources:
   - plex.yaml
   - plextraktsync.yaml
   - prowlarr.yaml
+  - qbittorrent.yaml
   - radarr.yaml
   - recyclarr.yaml
   - smokeping.yaml

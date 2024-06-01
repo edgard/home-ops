@@ -45,7 +45,7 @@ spec:
         - mountPath: /config
           name: wireguard-volume
       - name: torrent
-        image: linuxserver/deluge:2.1.1 # {"$imagepolicy": "flux-system:deluge"}
+        image: linuxserver/qbittorrent:4.6.5 # {"$imagepolicy": "flux-system:qbittorrent"}
         env:
         - name: PUID
           value: "1000"
@@ -55,19 +55,23 @@ spec:
           value: "022"
         - name: TZ
           value: "${SECRET_TIMEZONE}"
+        - name: WEBUI_PORT
+          value: "8080"
+        - name: TORRENTING_PORT
+          value: "6881"
         ports:
-        - containerPort: 8112
+        - containerPort: 8080
         readinessProbe:
           httpGet:
             path: /
-            port: 8112
+            port: 8080
           initialDelaySeconds: 60
           timeoutSeconds: 10
           failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /
-            port: 8112
+            port: 8080
           initialDelaySeconds: 60
           timeoutSeconds: 10
           failureThreshold: 3
