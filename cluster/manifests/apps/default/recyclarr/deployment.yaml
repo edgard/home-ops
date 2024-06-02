@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recyclarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: recyclarr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: recyclarr
+    spec:
+      containers:
+        - name: recyclarr
+          image: ghcr.io/recyclarr/recyclarr:6.0.2 # {"$imagepolicy": "flux-system:recyclarr"}
+          env:
+            - name: TZ
+              value: "${SECRET_TIMEZONE}"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config
+            - name: secret-volume
+              readOnly: true
+              mountPath: /config/recyclarr.yml
+              subPath: recyclarr.yml
+      volumes:
+        - name: config-volume
+          persistentVolumeClaim:
+            claimName: recyclarr-config
+        - name: secret-volume
+          secret:
+            secretName: recyclarr-secret
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000

@@ -15,4 +15,4 @@ spec:
     name: recyclarr
   policy:
     semver:
-      range: 2.x
+      range: 6.x
