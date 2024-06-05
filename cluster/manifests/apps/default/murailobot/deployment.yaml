@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: murailobot
-        image: ghcr.io/edgard/murailobot:0.0.2 # {"$imagepolicy": "flux-system:murailobot"}
+        image: ghcr.io/edgard/murailobot:0.0.3 # {"$imagepolicy": "flux-system:murailobot"}
         env:
         - name: MURAILOBOT_DB_NAME
           value: /app/db/storage.db
