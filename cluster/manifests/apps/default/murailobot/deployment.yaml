@@ -33,6 +33,11 @@ spec:
             secretKeyRef:
               name: murailobot-secret
               key: openai_token
+        - name: MURAILOBOT_OPENAI_INSTRUCTION
+          valueFrom:
+            secretKeyRef:
+              name: murailobot-secret
+              key: openai_instruction
         volumeMounts:
         - name: data-volume
           mountPath: /app/db
