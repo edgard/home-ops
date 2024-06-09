@@ -18,17 +18,33 @@ spec:
         app.kubernetes.io/name: murailobot
     spec:
       containers:
-      - name: murailobot
-        image: ghcr.io/edgard/murailobot:0.0.6 # {"$imagepolicy": "flux-system:murailobot"}
-        envFrom:
-        - secretRef:
-            name: murailobot-secret
-        volumeMounts:
-        - name: data-volume
-          mountPath: /app/db
+        - name: murailobot
+          image: ghcr.io/edgard/murailobot:0.0.6 # {"$imagepolicy": "flux-system:murailobot"}
+          envFrom:
+            - secretRef:
+                name: murailobot-secret
+          volumeMounts:
+            - name: data-volume
+              mountPath: /app/db
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
       volumes:
-      - name: data-volume
-        persistentVolumeClaim:
-          claimName: murailobot-data
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: murailobot-data
       imagePullSecrets:
-      - name: ghcr-secrets
+        - name: ghcr-secrets
