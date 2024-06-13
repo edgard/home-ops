@@ -13,7 +13,7 @@ spec:
         spec:
           containers:
           - name: plextraktsync
-            image: ghcr.io/taxel/plextraktsync:0.30.11 # {"$imagepolicy": "flux-system:plextraktsync"}
+            image: ghcr.io/taxel/plextraktsync:0.31.0 # {"$imagepolicy": "flux-system:plextraktsync"}
             volumeMounts:
             - name: config-volume
               mountPath: /app/config
