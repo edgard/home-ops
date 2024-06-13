@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: murailobot
-          image: ghcr.io/edgard/murailobot:0.0.14 # {"$imagepolicy": "flux-system:murailobot"}
+          image: ghcr.io/edgard/murailobot:0.0.15 # {"$imagepolicy": "flux-system:murailobot"}
           envFrom:
             - secretRef:
                 name: murailobot-secret
