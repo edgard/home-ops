@@ -26,22 +26,6 @@ spec:
           volumeMounts:
             - name: data-volume
               mountPath: /app/db
-          ports:
-            - containerPort: 8080
-          readinessProbe:
-            httpGet:
-              path: /
-              port: 8080
-            initialDelaySeconds: 60
-            timeoutSeconds: 10
-            failureThreshold: 3
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 8080
-            initialDelaySeconds: 60
-            timeoutSeconds: 10
-            failureThreshold: 3
       volumes:
         - name: data-volume
           persistentVolumeClaim:
