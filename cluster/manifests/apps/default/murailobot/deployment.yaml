@@ -25,7 +25,8 @@ spec:
                 name: murailobot-secret
           volumeMounts:
             - name: data-volume
-              mountPath: /app/db
+              mountPath: /app/storage.db
+              subPath: storage.db
       volumes:
         - name: data-volume
           persistentVolumeClaim:
