@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: unpackerr
-        image: golift/unpackerr:0.14.0 # {"$imagepolicy": "flux-system:unpackerr"}
+        image: golift/unpackerr:0.14.1 # {"$imagepolicy": "flux-system:unpackerr"}
         env:
         - name: PUID
           value: "1000"
