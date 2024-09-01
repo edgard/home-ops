@@ -14,6 +14,14 @@ spec:
           containers:
           - name: plextraktsync
             image: ghcr.io/taxel/plextraktsync:0.31.10 # {"$imagepolicy": "flux-system:plextraktsync"}
+            args: ['sync']
+            env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "${SECRET_TIMEZONE}"
             volumeMounts:
             - name: config-volume
               mountPath: /app/config
