@@ -11,4 +11,4 @@
     minute: "0"
     hour: "6"
     user: root
-    job: 'RESTIC_REPOSITORY="{{ restic_repo }}" RESTIC_PASSWORD="{{ restic_repo_pass }}" AWS_ACCESS_KEY_ID="{{ minio_access_key_id }}" AWS_SECRET_ACCESS_KEY="{{ minio_secret_access_key }}" restic backup --host {{ ansible_hostname }} "{{ backup_path }}"{% if heartbeat_url is defined %} && curl -fsS --retry 5 -o /dev/null "{{ heartbeat_url }}"{% endif %}'
+    job: 'RESTIC_REPOSITORY="{{ restic_repo }}" RESTIC_PASSWORD="{{ restic_repo_pass }}" AWS_ACCESS_KEY_ID="{{ minio_access_key_id }}" AWS_SECRET_ACCESS_KEY="{{ minio_secret_access_key }}" restic backup --host {{ ansible_hostname }} "{{ backup_path }}"'

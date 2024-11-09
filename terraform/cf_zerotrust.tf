@@ -28,7 +28,7 @@ resource "cloudflare_teams_account" "edgard" {
   lifecycle {
     prevent_destroy = true
     ignore_changes = [
-     ssh_session_log,  # FIXME: bug on provider, returning empty block
+      ssh_session_log, # FIXME: bug on provider, returning empty block
     ]
   }
 }

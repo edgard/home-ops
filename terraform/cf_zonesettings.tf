@@ -18,9 +18,9 @@ resource "cloudflare_zone_settings_override" "cloudflare_settings_personal" {
     # /speed/optimization
     brotli = "on"
     minify {
-      css  = "on"
-      js   = "on"
-      html = "on"
+      css  = "off"
+      js   = "off"
+      html = "off"
     }
     rocket_loader = "off"
     # /caching/configuration

@@ -2,7 +2,7 @@ locals {
   # Cloudflare general settings
   api_key    = data.sops_file.terraform_secrets.data["cloudflare_api_key"]
   account_id = data.sops_file.terraform_secrets.data["cloudflare_account_id"]
-  zone_id    = lookup(data.cloudflare_zones.public_domain.zones[0], "id")
+  zone_id    = data.cloudflare_zones.public_domain.zones[0]["id"]
 
   # Domain settings
   public_domain  = data.sops_file.terraform_secrets.data["public_domain"]
