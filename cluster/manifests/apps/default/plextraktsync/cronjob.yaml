@@ -13,7 +13,7 @@ spec:
         spec:
           containers:
           - name: plextraktsync
-            image: ghcr.io/taxel/plextraktsync:0.34.0 # {"$imagepolicy": "flux-system:plextraktsync"}
+            image: ghcr.io/taxel/plextraktsync:0.34.1 # {"$imagepolicy": "flux-system:plextraktsync"}
             args: ['sync']
             env:
             - name: PUID
