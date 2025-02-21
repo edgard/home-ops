@@ -20,10 +20,10 @@ spec:
       containers:
         - name: murailobot
           image: ghcr.io/edgard/murailobot:0.3.0 # {"$imagepolicy": "flux-system:murailobot"}
-          envFrom:
-            - secretRef:
-                name: murailobot-secret
           volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
             - name: data-volume
               mountPath: /app/storage.db
               subPath: storage.db
@@ -31,5 +31,8 @@ spec:
         - name: data-volume
           persistentVolumeClaim:
             claimName: murailobot-data
+        - name: config
+          secret:
+            secretName: murailobot-secret
       imagePullSecrets:
         - name: ghcr-secrets
