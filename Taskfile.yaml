@@ -106,9 +106,9 @@ tasks:
               "containers": [
                 {
                   "name": "debug",
-                  "image": "ghcr.io/onedr0p/alpine:rolling",
+                  "image": "alpine:latest",
                   "command": [
-                    "/bin/bash"
+                    "/bin/sh"
                   ],
                   "stdin": true,
                   "stdinOnce": true,
