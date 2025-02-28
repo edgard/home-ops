@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: murailobot
-          image: ghcr.io/edgard/murailobot:0.9.9 # {"$imagepolicy": "flux-system:murailobot"}
+          image: ghcr.io/edgard/murailobot:0.9.10 # {"$imagepolicy": "flux-system:murailobot"}
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
