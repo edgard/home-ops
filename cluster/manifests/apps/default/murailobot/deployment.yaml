@@ -20,6 +20,9 @@ spec:
       containers:
         - name: murailobot
           image: ghcr.io/edgard/murailobot:0.11.23 # {"$imagepolicy": "flux-system:murailobot"}
+          env:
+            - name: TZ
+              value: "America/Sao_Paulo"
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
