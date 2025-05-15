@@ -27,26 +27,22 @@ spec:
       cloudflared:
         replicas: 2
         strategy: RollingUpdate
-
         pod:
           terminationGracePeriodSeconds: 60
           priorityClassName: system-cluster-critical
           annotations:
             secret.reloader.stakater.com/reload: cloudflared-secret
-
         containers:
           app:
             image:
               repository: cloudflare/cloudflared # {"$imagepolicy": "flux-system:cloudflared:name"}
-              tag: 2025.4.2 # {"$imagepolicy": "flux-system:cloudflared:tag"}
-
+              tag: 2025.5.0 # {"$imagepolicy": "flux-system:cloudflared:tag"}
             args:
               - tunnel
               - --no-autoupdate
               - --config
               - /etc/cloudflared/config.yaml
               - run
-
             probes:
               liveness:
                 enabled: false
@@ -54,7 +50,6 @@ spec:
                 enabled: false
               startup:
                 enabled: false
-
     persistence:
       config:
         type: secret
