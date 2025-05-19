@@ -41,8 +41,6 @@ spec:
               - tunnel
               - --no-autoupdate
               - run
-              - --token
-              - "$(TUNNEL_TOKEN)"
             env:
               - name: TUNNEL_TOKEN
                 valueFrom:
