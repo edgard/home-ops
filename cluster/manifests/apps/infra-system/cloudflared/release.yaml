@@ -40,9 +40,15 @@ spec:
             args:
               - tunnel
               - --no-autoupdate
-              - --config
-              - /etc/cloudflared/config.yaml
               - run
+              - --token
+              - "$(TUNNEL_TOKEN)"
+            env:
+              - name: TUNNEL_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: cloudflared-secret
+                    key: TUNNEL_TOKEN
             probes:
               liveness:
                 enabled: false
@@ -50,14 +56,3 @@ spec:
                 enabled: false
               startup:
                 enabled: false
-    persistence:
-      config:
-        type: secret
-        name: cloudflared-secret
-        globalMounts:
-          - path: /etc/cloudflared/config.yaml
-            subPath: config.yaml
-            readOnly: true
-          - path: /etc/cloudflared/tunnel.json
-            subPath: tunnel.json
-            readOnly: true

@@ -38,7 +38,6 @@ tasks:
     deps: [config-push]
     cmds:
       - task: apply-ansible
-      - task: apply-terraform
       - task: apply-flux
 
   apply-ansible:
@@ -46,13 +45,6 @@ tasks:
     dir: ansible
     cmds:
       - ansible-playbook site.yaml
-
-  apply-terraform:
-    desc: Apply terraform plan
-    dir: terraform
-    interactive: true
-    cmds:
-      - terraform apply
 
   apply-flux:
     desc: Start flux repository reconciliation
