@@ -3,10 +3,6 @@ version: "3"
 
 dotenv: [".envrc"]
 
-vars:
-  REPO_ROOT:
-    sh: "git rev-parse --show-toplevel"
-
 tasks:
   config:
     desc: Edit master secrets config file
@@ -29,7 +25,6 @@ tasks:
     cmds:
       - git add config.sops.yaml
       - git add cluster/manifests/config/cluster-secrets.sops.yaml
-      - git add cluster/manifests/apps/infra-system/cloudflared/secrets.sops.yaml
       - git commit -m 'Update secrets configuration files' || true
       - git push
 
@@ -60,7 +55,7 @@ tasks:
     desc: Install SOPS keys
     cmds:
       - kubectl create namespace flux-system --dry-run=client -o yaml | kubectl apply -f -
-      - cat "{{ .REPO_ROOT }}/.sops.agekey" | kubectl create secret generic sops-age --namespace=flux-system --from-file=sops.agekey=/dev/stdin
+      - cat "~/.config/sops/age/keys.txt" | kubectl create secret generic sops-age --namespace=flux-system --from-file=sops.agekey=/dev/stdin
 
   install-flux:
     desc: Install Flux CD
