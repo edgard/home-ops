@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: vpn
-        image: linuxserver/wireguard:1.0.20210914 # {"$imagepolicy": "flux-system:wireguard"}
+        image: linuxserver/wireguard:1.0.20250521 # {"$imagepolicy": "flux-system:wireguard"}
         env:
         - name: PUID
           value: "1000"
