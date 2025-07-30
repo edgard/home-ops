@@ -35,8 +35,8 @@ data:
     host = officeap.${SECRET_PRIVATE_DOMAIN}
     ++ LivingRoomAP
     host = livingroomap.${SECRET_PRIVATE_DOMAIN}
-    ++ DEVL01
-    host = devl01.${SECRET_PRIVATE_DOMAIN}
+    ++ DEV
+    host = dev.${SECRET_PRIVATE_DOMAIN}
     ++ HASS
     host = hass.${SECRET_PRIVATE_DOMAIN}
     ++ Mainsail

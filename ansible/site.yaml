@@ -9,6 +9,6 @@
     - remove_common
     - install_backup
     - install_docker
-    - install_common_vm
+    # - install_common_vm
     - setup_devl_server
   tags: ["devl"]
