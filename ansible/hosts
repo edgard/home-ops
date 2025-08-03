@@ -1,2 +1,5 @@
 [devl_servers]
 dev
+
+[kub_servers]
+kub
