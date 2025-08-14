@@ -8,7 +8,6 @@ resources:
   - echo.yaml
   - emberstack.yaml
   - flaresolverr.yaml
-  - minio.yaml
   - murailobot.yaml
   - nginx.yaml
   - plex.yaml
