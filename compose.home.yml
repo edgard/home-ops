@@ -1,0 +1,256 @@
+name: home
+
+services:
+  #----------------------------------------------------------------------------
+  # Infrastructure Services
+  #----------------------------------------------------------------------------
+  duplicati:
+    image: linuxserver/duplicati:latest
+    container_name: duplicati
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=${TZ}
+      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_SETTINGS_ENCRYPTION_KEY}
+    ports:
+      - "8200:8200"
+    volumes:
+      - ${APPDATA_PATH}/duplicati:/config
+      - ${BACKUP_PATH}/duplicati:/backups
+      - ${APPDATA_PATH}:/source
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    restart: unless-stopped
+
+  vpn:
+    image: linuxserver/wireguard:latest
+    container_name: vpn
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=022
+      - TZ=${TZ}
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    volumes:
+      - ${APPDATA_PATH}/vpn:/config
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - torrent
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    environment:
+      - TZ=${TZ}
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_POLL_INTERVAL=3600
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  #----------------------------------------------------------------------------
+  # Monitoring Services
+  #----------------------------------------------------------------------------
+  smokeping:
+    image: linuxserver/smokeping:latest
+    container_name: smokeping
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=022
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/smokeping/config:/config
+      - ${APPDATA_PATH}/smokeping/data:/data
+    restart: unless-stopped
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    environment:
+      - TZ=${TZ}
+    ports:
+      - "3001:3001"
+    volumes:
+      - ${APPDATA_PATH}/uptime-kuma:/app/data
+    restart: unless-stopped
+
+  #----------------------------------------------------------------------------
+  # Media Services
+  #----------------------------------------------------------------------------
+  plex:
+    image: linuxserver/plex:latest
+    container_name: plex
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=022
+      - VERSION=docker
+    ports:
+      - "32400:32400"
+    volumes:
+      - ${APPDATA_PATH}/plex:/config
+      - ${MEDIA_PATH}:/media
+    restart: unless-stopped
+
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=022
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/radarr:/config
+      - ${MEDIA_PATH}:/media
+    restart: unless-stopped
+
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=022
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/sonarr:/config
+      - ${MEDIA_PATH}:/media
+    restart: unless-stopped
+
+  bazarr:
+    image: linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=022
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/bazarr:/config
+      - ${MEDIA_PATH}:/media
+    restart: unless-stopped
+
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=022
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/prowlarr:/config
+    restart: unless-stopped
+
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:latest
+    container_name: recyclarr
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/recyclarr:/config
+    user: "568:568"
+    restart: unless-stopped
+
+  plextraktsync:
+    image: ghcr.io/taxel/plextraktsync:latest
+    container_name: plextraktsync
+    command: watch
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/plextraktsync:/app/config
+
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=022
+      - TZ=${TZ}
+      - WEBUI_PORT=8080
+      - TORRENTING_PORT=6881
+    volumes:
+      - ${APPDATA_PATH}/qbittorrent:/config
+      - ${MEDIA_PATH}:/media
+    network_mode: "service:vpn"
+    depends_on:
+      - vpn
+    restart: unless-stopped
+
+  unpackerr:
+    image: golift/unpackerr:latest
+    container_name: unpackerr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - UN_SONARR_0_URL=http://sonarr:8989
+      - UN_SONARR_0_API_KEY=${UN_SONARR_0_API_KEY}
+      - UN_RADARR_0_URL=http://radarr:7878
+      - UN_RADARR_0_API_KEY=${UN_RADARR_0_API_KEY}
+    volumes:
+      - ${MEDIA_PATH}:/media
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - TZ=${TZ}
+    restart: unless-stopped
+
+  #----------------------------------------------------------------------------
+  # Other Apps
+  #----------------------------------------------------------------------------
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${WEB_PATH}:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+  echo:
+    image: ealen/echo-server:latest
+    container_name: echo
+    environment:
+      - TZ=${TZ}
+      - LOGS__IGNORE__PING=true
+    restart: unless-stopped
+
+  # murailobot:
+  #   image: ghcr.io/edgard/murailobot:latest
+  #   container_name: murailobot
+  #   environment:
+  #     - TZ=${ALT_TZ}
+  #   volumes:
+  #     - ${APPDATA_PATH}/murailobot/config.yaml:/app/config.yaml
+  #     - ${APPDATA_PATH}/murailobot/storage.db:/app/storage.db
+  #   restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge

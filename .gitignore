@@ -1,5 +1,1 @@
-.envrc
-.sops.agekey
-.terraform
-.terraform.lock.hcl
-terraform.tfstate*
+.env.*

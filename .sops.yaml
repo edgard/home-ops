@@ -1,7 +1,0 @@
----
-creation_rules:
-  - path_regex: cluster/.*\.sops\.ya?ml
-    encrypted_regex: "^(data|stringData)$"
-    age: age13nyczucs9c8xrpdw297gzak367gcnw02hd5yn36c5xlu4cxtfygqfxmlgx
-
-  - age: age13nyczucs9c8xrpdw297gzak367gcnw02hd5yn36c5xlu4cxtfygqfxmlgx

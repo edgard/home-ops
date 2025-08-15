@@ -1,3 +1,3 @@
 # home-ops
 
-Configuration for deployment of home infrastructure and homelab
+Configuration for deployment of home stuff
