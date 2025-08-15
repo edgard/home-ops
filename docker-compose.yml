@@ -1,0 +1,232 @@
+version: '3.8'
+
+services:
+  ## Network services
+  # cloudflared:
+  #   image: cloudflare/cloudflared:2025.8.0
+  #   container_name: cloudflared
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+  #   restart: unless-stopped
+
+  # wireguard:
+  #   image: linuxserver/wireguard:1.0.20250521
+  #   container_name: wireguard
+  #   cap_add:
+  #     - NET_ADMIN
+  #     - SYS_MODULE
+  #   sysctls:
+  #     - net.ipv6.conf.all.disable_ipv6=1
+  #     - net.ipv4.conf.all.src_valid_mark=1
+  #   volumes:
+  #     - wireguard-config:/config
+  #   restart: unless-stopped
+
+  ## Web services
+  nginx:
+    image: nginx:1.29.1
+    container_name: nginx
+    environment:
+      - TZ=${TZ}
+    ports:
+      - "30080:80"
+    volumes:
+      - /mnt/dpool/www:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+  echo:
+    image: ealen/echo-server:0.9.2
+    container_name: echo
+    environment:
+      - TZ=${TZ}
+      - LOGS__IGNORE__PING=true
+    ports:
+      - "30081:80"
+    restart: unless-stopped
+
+  ## Monitoring services
+  # smokeping:
+  #   image: linuxserver/smokeping:2.9.0
+  #   container_name: smokeping
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - UMASK=022
+  #     - TZ=${TZ}
+  #   ports:
+  #     - "30082:80"
+  #   volumes:
+  #     - smokeping-data:/data
+  #     - ./smokeping/Targets:/config/Targets
+  #   restart: unless-stopped
+
+  # uptime-kuma:
+  #   image: louislam/uptime-kuma:1.23.16
+  #   container_name: uptime-kuma
+  #   environment:
+  #     - TZ=${TZ}
+  #   ports:
+  #     - "3001:3001"
+  #   volumes:
+  #     - uptime-kuma-config:/app/data
+  #   restart: unless-stopped
+
+  ## Media services
+  # plex:
+  #   image: linuxserver/plex:1.42.1
+  #   container_name: plex
+  #   environment:
+  #     - TZ=${TZ}
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - UMASK=022
+  #     - VERSION=docker
+  #   ports:
+  #     - "32400:32400"
+  #   volumes:
+  #     - plex-config:/config
+  #     - /mnt/dpool/media:/media
+  #   restart: unless-stopped
+
+  # radarr:
+  #   image: linuxserver/radarr:5.26.2
+  #   container_name: radarr
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - UMASK=022
+  #     - TZ=${TZ}
+  #   ports:
+  #     - "7878:7878"
+  #   volumes:
+  #     - radarr-config:/config
+  #     - /mnt/dpool/media:/media
+  #   restart: unless-stopped
+
+  # sonarr:
+  #   image: linuxserver/sonarr:4.0.15
+  #   container_name: sonarr
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - UMASK=022
+  #     - TZ=${TZ}
+  #   ports:
+  #     - "8989:8989"
+  #   volumes:
+  #     - sonarr-config:/config
+  #     - /mnt/dpool/media:/media
+  #   restart: unless-stopped
+
+  # bazarr:
+  #   image: linuxserver/bazarr:1.5.2
+  #   container_name: bazarr
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - UMASK=022
+  #     - TZ=${TZ}
+  #   ports:
+  #     - "6767:6767"
+  #   volumes:
+  #     - bazarr-config:/config
+  #     - /mnt/dpool/media:/media
+  #   restart: unless-stopped
+
+  # prowlarr:
+  #   image: linuxserver/prowlarr:1.37.0
+  #   container_name: prowlarr
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - UMASK=022
+  #     - TZ=${TZ}
+  #   ports:
+  #     - "9696:9696"
+  #   volumes:
+  #     - prowlarr-config:/config
+  #   restart: unless-stopped
+
+  # torrent:
+  #   image: linuxserver/qbittorrent:4.6.7
+  #   container_name: torrent
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - UMASK=022
+  #     - TZ=${TZ}
+  #     - WEBUI_PORT=8080
+  #     - TORRENTING_PORT=6881
+  #   ports:
+  #     - "8080:8080"
+  #     - "6881:6881"
+  #     - "6881:6881/udp"
+  #   volumes:
+  #     - torrent-config:/config
+  #     - /mnt/dpool/media:/media
+  #   network_mode: "service:wireguard"
+  #   restart: unless-stopped
+
+  # recyclarr:
+  #   image: ghcr.io/recyclarr/recyclarr:6.0.2
+  #   container_name: recyclarr
+  #   environment:
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - recyclarr-config:/config
+  #     - ./recyclarr/recyclarr.yml:/config/recyclarr.yml
+  #   user: "1000:1000"
+  #   restart: unless-stopped
+
+  # unpackerr:
+  #   image: golift/unpackerr:0.14.5
+  #   container_name: unpackerr
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - TZ=${TZ}
+  #     - UN_SONARR_0_URL=http://sonarr:8989
+  #     - UN_SONARR_0_API_KEY=${UN_SONARR_0_API_KEY}
+  #     - UN_RADARR_0_URL=http://radarr:7878
+  #     - UN_RADARR_0_API_KEY=${UN_RADARR_0_API_KEY}
+  #   volumes:
+  #     - /mnt/dpool/media:/media
+  #   restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.3.25
+    container_name: flaresolverr
+    environment:
+      - TZ=${TZ}
+    ports:
+      - "38191:8191"
+    restart: unless-stopped
+
+  # plextraktsync:
+  #   # This is a cron job in the original setup.
+  #   # To run it manually: docker-compose run --rm plextraktsync
+  #   image: ghcr.io/taxel/plextraktsync:0.34.12
+  #   container_name: plextraktsync
+  #   command: sync
+  #   environment:
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #     - TZ=${TZ}
+  #   volumes:
+  #     - plextraktsync-config:/app/config
+
+  ## Other services
+  murailobot:
+    image: ghcr.io/edgard/murailobot:0.15.1
+    container_name: murailobot
+    environment:
+      - TZ=${LOCAL_TZ}
+    volumes:
+      - ${APPDATA_PATH}/murailobot/config.yaml:/app/config.yaml
+      - ${APPDATA_PATH}/murailobot/storage.db:/app/storage.db
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge

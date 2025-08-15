@@ -6,7 +6,7 @@ resources:
   - bazarr
   - echo
   - flaresolverr
-  - murailobot
+  # - murailobot
   - nginx
   - plex
   - plextraktsync
