@@ -63,22 +63,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
-  #----------------------------------------------------------------------------
-  # Monitoring Services
-  #----------------------------------------------------------------------------
-  smokeping:
-    image: linuxserver/smokeping:latest
-    container_name: smokeping
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - UMASK=022
-      - TZ=${TZ}
-    volumes:
-      - ${APPDATA_PATH}/smokeping/config:/config
-      - ${APPDATA_PATH}/smokeping/data:/data
-    restart: unless-stopped
-
   uptime-kuma:
     image: louislam/uptime-kuma:latest
     container_name: uptime-kuma
@@ -223,7 +207,7 @@ services:
     restart: unless-stopped
 
   #----------------------------------------------------------------------------
-  # Other Apps
+  # Other Services
   #----------------------------------------------------------------------------
   nginx:
     image: nginx:latest
