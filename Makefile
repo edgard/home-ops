@@ -31,7 +31,7 @@ file-check: ## Verify compose file exists
 	@echo "Using compose file: $(FILES)"
 
 up: file-check ## Start (or create) the stack
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) up $(DETACH)
+	$(COMPOSE) $(ENV_OPTS) -f $(FILES) up $(DETACH) --remove-orphans
 
 down: file-check ## Stop and remove containers
 	$(COMPOSE) $(ENV_OPTS) -f $(FILES) down
@@ -64,11 +64,8 @@ update: file-check ## Pull images and (re)create containers
 config: file-check ## Show the fully rendered config
 	$(COMPOSE) $(ENV_OPTS) -f $(FILES) config
 
-orphans: file-check ## Remove orphan containers
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) down --remove-orphans
-
-prune: file-check ## Stop & remove containers, networks, orphans & volumes (danger!)
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) down --remove-orphans --volumes
+prune: file-check ## Remove unused containers, images, networks, and volumes
+	@docker system prune -a --volumes
 
 exec: file-check ## Exec into a container: SERVICE=name make exec CMD="/bin/sh"
 	@test -n "$(SERVICE)" || (echo "Set SERVICE=name"; exit 1)

@@ -78,20 +78,23 @@ services:
   #----------------------------------------------------------------------------
   # Media Services
   #----------------------------------------------------------------------------
-  plex:
-    image: linuxserver/plex:latest
-    container_name: plex
+  jellyfin:
+    image: linuxserver/jellyfin:latest
+    container_name: jellyfin
     environment:
-      - TZ=${TZ}
       - PUID=${PUID}
       - PGID=${PGID}
+      - TZ=${TZ}
       - UMASK=022
-      - VERSION=docker
-    ports:
-      - "32400:32400"
+      - JELLYFIN_PublishedServerUrl=${JELLYFIN_PUBLISHED_SERVER_URL}
     volumes:
-      - ${APPDATA_PATH}/plex:/config
+      - ${APPDATA_PATH}/jellyfin:/config
       - ${MEDIA_PATH}:/media
+    ports:
+      - 8096:8096
+      - 8920:8920
+      - 7359:7359/udp
+      - 1900:1900/udp
     restart: unless-stopped
 
   radarr:
@@ -154,17 +157,6 @@ services:
       - ${APPDATA_PATH}/recyclarr:/config
     user: "568:568"
     restart: unless-stopped
-
-  plextraktsync:
-    image: ghcr.io/taxel/plextraktsync:latest
-    container_name: plextraktsync
-    command: watch
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - ${APPDATA_PATH}/plextraktsync:/app/config
 
   qbittorrent:
     image: linuxserver/qbittorrent:latest
