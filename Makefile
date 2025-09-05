@@ -1,88 +1,88 @@
 # ---- Makefile for single Docker Compose stack (home) ------------------------
-STACK       ?= home
-FILES       ?= compose.$(STACK).yml
-DETACH      ?= -d
-SERVICE     ?=
-LOGS_TAIL   ?= 200
+.DEFAULT_GOAL := help
 
-COMPOSE     ?= docker compose
+# Core inputs
+STACK        ?= home
+FILES        ?= compose.$(STACK).yml     # supports space-separated list
+DETACH       ?= -d
+SERVICE      ?=
+LOGS_TAIL    ?= 200
+SINCE        ?=                          # e.g. 1h or 2024-09-01T00:00:00
 
-# Auto-load env files if they exist
-ENV_OPTS := $(if $(wildcard .env),--env-file .env,) \
-            $(if $(wildcard .env.$(STACK)),--env-file .env.$(STACK),)
+# Compose binary
+COMPOSE      ?= docker compose
 
-# Internal: pass a service name only if provided
-_service    = $(if $(SERVICE),$(SERVICE),)
+# Extra env file: Compose already loads .env by default
+ENV_OPTS := $(if $(wildcard .env.$(STACK)),--env-file .env.$(STACK),)
 
-.PHONY: help up down stop restart ps logs pull build recreate update config \
-        prune orphans exec sh top events images volumes env-check file-check
+# Build common CLI option groups
+FOPTS        := $(foreach f,$(FILES),-f $(f))
+
+# Convenience: base compose command with consistent options
+CBASE        := $(COMPOSE) $(ENV_OPTS) $(FOPTS)
+
+# Internal helpers
+_service     = $(if $(SERVICE),$(SERVICE),)
+_logs_since  = $(if $(SINCE),--since $(SINCE),)
+
+.PHONY: help env-check file-check config up down restart ps logs pull build recreate update exec prune
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_\-]+:.*?## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo "\nVariables:"
+	@echo "  STACK=$(STACK)  FILES=$(FILES)"
+	@echo "  SERVICE=$(SERVICE)  DETACH=$(DETACH)  LOGS_TAIL=$(LOGS_TAIL)  SINCE=$(SINCE)"
 
 env-check: ## Show which env files are being used
 	@echo "ENV files loaded:"
-	@([ -f .env ] && echo "  .env") || true
-	@([ -f .env.$(STACK) ] && echo "  .env.$(STACK)") || true
+	@([ -f .env ] && echo "  .env (auto)") || true
+	@([ -f .env.$(STACK) ] && echo "  .env.$(STACK) (via --env-file)") || true
 	@([ -f .env ] || [ -f .env.$(STACK) ]) || echo "  (none found)"
+	@echo "Compose command: $(COMPOSE)"
 
-file-check: ## Verify compose file exists
-	@[ -f $(FILES) ] || (echo "Compose file '$(FILES)' not found" && exit 1)
-	@echo "Using compose file: $(FILES)"
-
-up: file-check ## Start (or create) the stack
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) up $(DETACH) --remove-orphans
-
-down: file-check ## Stop and remove containers
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) down
-
-stop: file-check ## Stop containers without removing
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) stop $(_service)
-
-restart: file-check ## Restart the whole stack or a SERVICE=...
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) restart $(_service)
-
-ps: file-check ## Show containers
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) ps
-
-logs: file-check ## Tail logs (use SERVICE=name to narrow)
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) logs -f --tail=$(LOGS_TAIL) $(_service)
-
-pull: file-check ## Pull images
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) pull $(_service)
-
-build: file-check ## Build images (if any build sections exist)
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) build $(_service)
-
-recreate: file-check ## Recreate containers (no image pull)
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) up $(DETACH) --force-recreate
-
-update: file-check ## Pull images and (re)create containers
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) pull
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) up $(DETACH)
+file-check: ## Verify compose file(s) exist
+	@missing=0; \
+	for f in $(FILES); do \
+	  if [ ! -f $$f ]; then echo "Missing compose file: $$f"; missing=1; fi; \
+	done; \
+	if [ $$missing -ne 0 ]; then exit 1; fi
+	@echo "Using compose files: $(FILES)"
 
 config: file-check ## Show the fully rendered config
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) config
+	$(CBASE) config
 
-prune: file-check ## Remove unused containers, images, networks, and volumes
-	@docker system prune -a --volumes
+up: file-check ## Start (or create) the stack
+	$(CBASE) up $(DETACH) --remove-orphans
+
+down: file-check ## Stop and remove containers
+	$(CBASE) down
+
+restart: file-check ## Restart the whole stack or a SERVICE=...
+	$(CBASE) restart $(_service)
+
+ps: file-check ## Show containers
+	$(CBASE) ps
+
+logs: file-check ## Tail logs (use SERVICE=name and/or SINCE=1h)
+	$(CBASE) logs -f $(_logs_since) --tail=$(LOGS_TAIL) $(_service)
+
+pull: file-check ## Pull images
+	$(CBASE) pull $(_service)
+
+build: file-check ## Build images (if any build sections exist)
+	$(CBASE) build $(_service)
+
+recreate: file-check ## Recreate containers (no image pull)
+	$(CBASE) up $(DETACH) --force-recreate
+
+update: file-check ## Pull images and (re)create containers
+	$(CBASE) pull
+	$(CBASE) up $(DETACH)
 
 exec: file-check ## Exec into a container: SERVICE=name make exec CMD="/bin/sh"
 	@test -n "$(SERVICE)" || (echo "Set SERVICE=name"; exit 1)
-	@$(if $(CMD),,$(eval CMD=/bin/sh))
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) exec $(SERVICE) $(CMD)
+	$(CBASE) exec $(SERVICE) $(if $(CMD),$(CMD),/bin/sh)
 
-sh: ## Shortcut for `exec` with /bin/sh
-	@$(MAKE) exec SERVICE="$(SERVICE)" CMD="/bin/sh"
-
-top: file-check ## Show running processes per container
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) top
-
-events: file-check ## Stream events
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) events
-
-images: file-check ## List images used by the stack
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) images
-
-volumes: file-check ## List volumes used by the stack
-	$(COMPOSE) $(ENV_OPTS) -f $(FILES) ls --format table
+prune: ## Cleanup unused Docker resources
+	@docker system prune -a --volumes -f
+	@docker builder prune -a -f || true
