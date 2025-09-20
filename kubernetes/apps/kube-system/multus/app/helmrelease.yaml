@@ -1,0 +1,35 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: multus
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: multus
+  interval: 1h
+  targetNamespace: kube-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      multus:
+        serviceAccount:
+          identifier: multus
+        pod:
+          nodeSelector:
+            kubernetes.io/os: linux
+    cni-plugins:
+      image:
+        repository: ghcr.io/home-operations/cni-plugins
+        tag: 1.8.0
+    multus:
+      image:
+        repository: ghcr.io/k8snetworkplumbingwg/multus-cni
+        tag: v4.2.3
+    cni:
+      netPath: /etc/cni/net.d
+      binPath: /opt/cni/bin

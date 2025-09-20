@@ -1,0 +1,87 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cloudflared
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: cloudflared
+  interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      main:
+        type: deployment
+        replicas: 2
+        strategy: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 0
+          maxSurge: 1
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          main:
+            image:
+              repository: cloudflare/cloudflared
+              tag: 2025.11.1
+              pullPolicy: IfNotPresent
+            command:
+              - cloudflared
+            args:
+              - tunnel
+              - run
+            env:
+              TZ: Europe/Warsaw
+              NO_AUTOUPDATE: true
+              TUNNEL_METRICS: 0.0.0.0:8080
+              TUNNEL_POST_QUANTUM: true
+              TUNNEL_TRANSPORT_PROTOCOL: quic
+            envFrom:
+              - secretRef:
+                  name: cloudflared
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ready
+                    port: 8080
+                    scheme: HTTP
+                  initialDelaySeconds: 20
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ready
+                    port: 8080
+                    scheme: HTTP
+                  initialDelaySeconds: 10
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+              readOnlyRootFilesystem: true
+    service:
+      main:
+        controller: main
+        enabled: false
+    persistence:
+      config:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/cloudflared
+        globalMounts:
+          - path: /home/nonroot/.cloudflared

@@ -1,0 +1,89 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: home-assistant
+  namespace: home-automation
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: home-assistant
+  interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      main:
+        type: deployment
+        replicas: 1
+        strategy: Recreate
+        pod:
+          annotations:
+            k8s.v1.cni.cncf.io/networks: |
+              [
+                {
+                  "name": "lan-macvlan",
+                  "namespace": "kube-system",
+                  "ips": ["192.168.1.246/24"],
+                  "mac": "02:42:c0:a8:01:f6",
+                  "gateway": ["192.168.1.1"]
+                }
+              ]
+        containers:
+          main:
+            image:
+              repository: ghcr.io/home-assistant/home-assistant
+              tag: "2025.11.1"
+            env:
+              TZ: Europe/Warsaw
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8123
+                  failureThreshold: 30
+                  periodSeconds: 10
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8123
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8123
+                  initialDelaySeconds: 15
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+    service:
+      main:
+        controller: main
+        type: ClusterIP
+        ports:
+          http:
+            enabled: true
+            port: 8123
+            protocol: TCP
+            targetPort: 8123
+    persistence:
+      config:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/home-assistant
+        globalMounts:
+          - path: /config
