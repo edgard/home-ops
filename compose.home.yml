@@ -15,7 +15,7 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=false
     ports:
-      - "8200:8200"
+      - 8200:8200
     volumes:
       - ${APPDATA_PATH}/duplicati:/config
       - ${BACKUP_PATH}/duplicati:/backups
@@ -38,19 +38,19 @@ services:
       - PGID=${PGID}
       - UMASK=022
       - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/vpn:/config
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
       - net.ipv4.conf.all.src_valid_mark=1
-    volumes:
-      - ${APPDATA_PATH}/vpn:/config
-    restart: unless-stopped
     networks:
       default:
         aliases:
           - torrent
+    restart: unless-stopped
 
   watchtower:
     image: containrrr/watchtower:latest
@@ -71,7 +71,7 @@ services:
     environment:
       - TZ=${TZ}
     ports:
-      - "3001:3001"
+      - 3001:3001
     volumes:
       - ${APPDATA_PATH}/uptime-kuma:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
@@ -89,14 +89,14 @@ services:
       - TZ=${TZ}
       - UMASK=022
       - JELLYFIN_PublishedServerUrl=${JELLYFIN_PUBLISHED_SERVER_URL}
-    volumes:
-      - ${APPDATA_PATH}/jellyfin:/config
-      - ${MEDIA_PATH}:/media
     ports:
       - 8096:8096
       - 8920:8920
       - 7359:7359/udp
       - 1900:1900/udp
+    volumes:
+      - ${APPDATA_PATH}/jellyfin:/config
+      - ${MEDIA_PATH}:/media
     restart: unless-stopped
 
   radarr:
@@ -110,6 +110,9 @@ services:
     volumes:
       - ${APPDATA_PATH}/radarr:/config
       - ${MEDIA_PATH}:/media
+    depends_on:
+      - prowlarr
+      - qbittorrent
     restart: unless-stopped
 
   sonarr:
@@ -123,6 +126,9 @@ services:
     volumes:
       - ${APPDATA_PATH}/sonarr:/config
       - ${MEDIA_PATH}:/media
+    depends_on:
+      - prowlarr
+      - qbittorrent
     restart: unless-stopped
 
   bazarr:
@@ -136,6 +142,9 @@ services:
     volumes:
       - ${APPDATA_PATH}/bazarr:/config
       - ${MEDIA_PATH}:/media
+    depends_on:
+      - radarr
+      - sonarr
     restart: unless-stopped
 
   prowlarr:
@@ -148,16 +157,21 @@ services:
       - TZ=${TZ}
     volumes:
       - ${APPDATA_PATH}/prowlarr:/config
+    depends_on:
+      - flaresolverr
     restart: unless-stopped
 
   recyclarr:
     image: ghcr.io/recyclarr/recyclarr:latest
     container_name: recyclarr
+    user: 568:568
     environment:
       - TZ=${TZ}
     volumes:
       - ${APPDATA_PATH}/recyclarr:/config
-    user: "568:568"
+    depends_on:
+      - radarr
+      - sonarr
     restart: unless-stopped
 
   qbittorrent:
@@ -173,7 +187,7 @@ services:
     volumes:
       - ${APPDATA_PATH}/qbittorrent:/config
       - ${MEDIA_PATH}:/media
-    network_mode: "service:vpn"
+    network_mode: service:vpn
     depends_on:
       - vpn
     restart: unless-stopped
@@ -191,6 +205,10 @@ services:
       - UN_RADARR_0_API_KEY=${UN_RADARR_0_API_KEY}
     volumes:
       - ${MEDIA_PATH}:/media
+    depends_on:
+      - radarr
+      - sonarr
+      - qbittorrent
     restart: unless-stopped
 
   flaresolverr:
@@ -236,22 +254,22 @@ services:
   klipper:
     image: mkuf/klipper:latest
     container_name: klipper
-    environment:
-      - TZ=${TZ}
-    labels:
-      - com.centurylinklabs.watchtower.enable=false
-    privileged: true  # grant access to hot-plugged printer device
     command: >
       -I printer_data/run/klipper.tty
       -a printer_data/run/klipper.sock
       printer_data/config/printer.cfg
       -l printer_data/logs/klippy.log
+    environment:
+      - TZ=${TZ}
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
     volumes:
       - /dev:/dev  # mount host /dev so the container can see the port once it appears
       - ${APPDATA_PATH}/klipper/config:/opt/printer_data/config
       - ${APPDATA_PATH}/klipper/run:/opt/printer_data/run
       - ${APPDATA_PATH}/klipper/gcodes:/opt/printer_data/gcodes
       - ${APPDATA_PATH}/klipper/logs:/opt/printer_data/logs
+    privileged: true  # grant access to hot-plugged printer device
     restart: unless-stopped
 
   moonraker:
@@ -261,10 +279,8 @@ services:
       - TZ=${TZ}
     labels:
       - com.centurylinklabs.watchtower.enable=false
-    depends_on:
-      - klipper
     ports:
-      - "7125:7125"
+      - 7125:7125
     volumes:
       - /dev/null:/opt/klipper/config/null
       - /dev/null:/opt/klipper/docs/null
@@ -273,6 +289,8 @@ services:
       - ${APPDATA_PATH}/klipper/gcodes:/opt/printer_data/gcodes
       - ${APPDATA_PATH}/klipper/logs:/opt/printer_data/logs
       - ${APPDATA_PATH}/moonraker/database:/opt/printer_data/database
+    depends_on:
+      - klipper
     restart: unless-stopped
 
   mainsail:
@@ -282,12 +300,12 @@ services:
       - TZ=${TZ}
     labels:
       - com.centurylinklabs.watchtower.enable=false
-    depends_on:
-      - moonraker
     ports:
-      - "8010:80"
+      - 8010:80
     volumes:
       - ${APPDATA_PATH}/mainsail/config.json:/usr/share/nginx/html/config.json:ro
+    depends_on:
+      - moonraker
     restart: unless-stopped
 
 networks:
