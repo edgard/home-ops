@@ -1,0 +1,18 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: home-automation-home-assistant
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kube-system-multus-config
+  interval: 2h
+  path: ./kubernetes/apps/home-automation/home-assistant/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: home-automation
+  wait: true

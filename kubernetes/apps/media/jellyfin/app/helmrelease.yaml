@@ -1,0 +1,102 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: jellyfin
+  namespace: media
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: jellyfin
+  interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      main:
+        type: deployment
+        replicas: 1
+        strategy: Recreate
+        pod:
+          annotations:
+            k8s.v1.cni.cncf.io/networks: |
+              [
+                {
+                  "name": "lan-macvlan",
+                  "namespace": "kube-system",
+                  "ips": ["192.168.1.245/24"],
+                  "mac": "02:42:c0:a8:01:f5",
+                  "gateway": ["192.168.1.1"]
+                }
+              ]
+          nodeSelector:
+            kubernetes.io/arch: amd64
+        containers:
+          main:
+            image:
+              repository: lscr.io/linuxserver/jellyfin
+              tag: 10.11.2
+            env:
+              TZ: Europe/Warsaw
+              PUID: "568"
+              PGID: "568"
+              UMASK: "022"
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8096
+                  failureThreshold: 30
+                  periodSeconds: 10
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8096
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8096
+                  initialDelaySeconds: 15
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+    service:
+      main:
+        controller: main
+        type: ClusterIP
+        ports:
+          http:
+            enabled: true
+            port: 8096
+            targetPort: 8096
+          https:
+            enabled: true
+            port: 8920
+            targetPort: 8920
+    persistence:
+      config:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/jellyfin
+        globalMounts:
+          - path: /config
+      media:
+        type: hostPath
+        hostPath: /mnt/dpool/media
+        globalMounts:
+          - path: /media
