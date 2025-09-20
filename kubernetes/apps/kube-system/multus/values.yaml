@@ -1,0 +1,18 @@
+controllers:
+  multus:
+    serviceAccount:
+      identifier: multus
+    pod:
+      nodeSelector:
+        kubernetes.io/os: linux
+cni-plugins:
+  image:
+    repository: ghcr.io/home-operations/cni-plugins
+    tag: 1.8.0
+multus:
+  image:
+    repository: ghcr.io/k8snetworkplumbingwg/multus-cni
+    tag: v4.2.3
+cni:
+  netPath: /etc/cni/net.d
+  binPath: /opt/cni/bin

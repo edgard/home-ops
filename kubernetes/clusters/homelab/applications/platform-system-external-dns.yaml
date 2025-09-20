@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-system-external-dns
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: '5'
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-system
+  sources:
+    - repoURL: https://kubernetes-sigs.github.io/external-dns
+      chart: external-dns
+      targetRevision: 1.19.0
+      helm:
+        releaseName: external-dns
+        valueFiles:
+          - $values/kubernetes/apps/platform-system/external-dns/values.yaml
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      ref: values
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      path: kubernetes/apps/platform-system/external-dns/resources
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

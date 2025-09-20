@@ -1,0 +1,3 @@
+fullnameOverride: reloader
+reloader:
+  reloadStrategy: annotations

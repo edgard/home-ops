@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-system-reloader
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: '-5'
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-system
+  sources:
+    - repoURL: ghcr.io/stakater/charts
+      chart: reloader
+      targetRevision: 2.2.5
+      helm:
+        releaseName: reloader
+        valueFiles:
+          - $values/kubernetes/apps/platform-system/reloader/values.yaml
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

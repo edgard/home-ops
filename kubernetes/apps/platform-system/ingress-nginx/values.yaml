@@ -1,0 +1,41 @@
+controller:
+  replicaCount: 1
+  kind: Deployment
+  updateStrategy:
+    type: Recreate
+  ingressClass: nginx
+  ingressClassResource:
+    name: nginx
+    enabled: true
+    default: true
+    controllerValue: k8s.io/ingress-nginx
+  resources: null
+  podAnnotations:
+    k8s.v1.cni.cncf.io/networks: |
+      [
+        {
+          "name": "lan-macvlan",
+          "namespace": "kube-system",
+          "ips": ["192.168.1.241/24"],
+          "mac": "02:42:c0:a8:01:f1",
+          "gateway": ["192.168.1.1"]
+        }
+      ]
+  publishService:
+    enabled: false
+  extraArgs:
+    publish-status-address: 192.168.1.241
+  config:
+    use-forwarded-headers: "true"
+    compute-full-forwarded-for: "true"
+    ssl-redirect: "true"
+  service:
+    enabled: true
+    type: ClusterIP
+  hostNetwork: false
+  hostPort:
+    enabled: false
+  metrics:
+    enabled: false
+defaultBackend:
+  enabled: false

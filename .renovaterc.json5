@@ -1,0 +1,90 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    'docker:enableMajor',
+    'helpers:pinGitHubActionDigests',
+    ':automergeBranch',
+    ':dependencyDashboard',
+    ':semanticCommits',
+    ':timezone(Europe/Warsaw)',
+  ],
+  dependencyDashboardTitle: 'Renovate Dashboard 🤖',
+  'helm-values': {
+    managerFilePatterns: [
+      '/^kubernetes\\/apps\\/.+\\/values\\.ya?ml$/',
+    ],
+  },
+  argocd: {
+    managerFilePatterns: [
+      '/^kubernetes\\/clusters\\/.+\\/applications\\/.+\\.ya?ml$/',
+    ],
+  },
+  kubernetes: {
+    managerFilePatterns: [
+      '/^kubernetes/.+\\.ya?ml$/',
+    ],
+  },
+  customManagers: [
+    {
+      customType: 'regex',
+      description: 'Track Kind node images used by bootstrap',
+      managerFilePatterns: [
+        '/^bootstrap/cluster-config\\.yaml$/',
+      ],
+      matchStrings: [
+        'image:\\s*(?<depName>kindest/node):(?<currentValue>[0-9A-Za-z_.-]+)',
+      ],
+      datasourceTemplate: 'docker',
+    },
+  ],
+  packageRules: [
+    {
+      description: 'Treat Kind node tags as loose versions',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'kindest/node',
+      ],
+      versioning: 'loose',
+    },
+    {
+      description: 'Group Kind cluster node updates into a single PR',
+      matchFileNames: [
+        'bootstrap/cluster-config.yaml',
+      ],
+      groupName: 'kind-nodes',
+    },
+    {
+      description: 'Auto-merge all non-major dependency updates',
+      automerge: true,
+      automergeType: 'branch',
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+        'digest',
+        'pin',
+        'rollback',
+      ],
+      ignoreTests: true,
+    },
+    {
+      description: 'Require manual review for major upgrades',
+      automerge: false,
+      matchUpdateTypes: [
+        'major',
+      ],
+      addLabels: [
+        'renovate/manual-review',
+      ],
+    },
+    {
+      description: 'Only consider semver Jellyfin tags',
+      matchPackageNames: [
+        'lscr.io/linuxserver/jellyfin',
+      ],
+      allowedVersions: '/^(?:[0-9]|[1-9][0-9])\\.\\d+\\.\\d+$/',
+    },
+  ],
+}

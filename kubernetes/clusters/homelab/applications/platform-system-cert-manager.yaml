@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-system-cert-manager
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: '-5'
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-system
+  sources:
+    - repoURL: https://charts.jetstack.io
+      chart: cert-manager
+      targetRevision: v1.19.1
+      helm:
+        releaseName: cert-manager
+        valueFiles:
+          - $values/kubernetes/apps/platform-system/cert-manager/values.yaml
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      ref: values
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      path: kubernetes/apps/platform-system/cert-manager/resources
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

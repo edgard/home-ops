@@ -1,0 +1,7 @@
+fullnameOverride: sealed-secrets-controller
+image:
+  tag: 0.33.1
+namespace: kube-system
+podAnnotations:
+  reloader.stakater.com/auto: "true"
+secretName: sealed-secrets-key

@@ -1,0 +1,20 @@
+fullnameOverride: metrics-server
+postRenderers:
+  - kustomize:
+      patchesJson6902:
+        - target:
+            group: apps
+            version: v1
+            kind: Deployment
+            name: metrics-server
+            namespace: kube-system
+          patch: |
+            - op: remove
+              path: /spec/template/spec/containers/0/resources
+args:
+  - --kubelet-insecure-tls
+  - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+  - --kubelet-use-node-status-port
+  - --metric-resolution=10s
+  - --kubelet-request-timeout=2s
+resources: []

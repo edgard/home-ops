@@ -1,0 +1,56 @@
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: golift/unpackerr
+          tag: 0.14.5
+        env:
+          TZ: Europe/Warsaw
+          PUID: "568"
+          PGID: "568"
+          UN_RADARR_0_URL: http://radarr.media.svc.cluster.local:7878
+          UN_SONARR_0_URL: http://sonarr.media.svc.cluster.local:8989
+        envFrom:
+          - secretRef:
+              name: unpackerr
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - /unpackerr
+                  - --version
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - /unpackerr
+                  - --version
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+service:
+  main:
+    controller: main
+    enabled: false
+persistence:
+  media:
+    type: hostPath
+    hostPath: /mnt/dpool/media
+    globalMounts:
+      - path: /media

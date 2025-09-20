@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-system-reflector
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: '-5'
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-system
+  sources:
+    - repoURL: https://emberstack.github.io/helm-charts
+      chart: reflector
+      targetRevision: 9.1.38
+      helm:
+        releaseName: reflector
+        valueFiles:
+          - $values/kubernetes/apps/platform-system/reflector/values.yaml
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

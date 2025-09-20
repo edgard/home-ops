@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - argocd-wait-for-multus.yaml
+  - arc-arc-home-ops.yaml
+  - arc-arc.yaml
+  - home-automation-home-assistant.yaml
+  - home-automation-mosquitto.yaml
+  - home-automation-zigbee2mqtt.yaml
+  - kube-system-metrics-server.yaml
+  - kube-system-multus.yaml
+  - kube-system-sealed-secrets.yaml
+  - media-bazarr.yaml
+  - media-flaresolverr.yaml
+  - media-jellyfin.yaml
+  - media-prowlarr.yaml
+  - media-qbittorrent.yaml
+  - media-radarr.yaml
+  - media-recyclarr.yaml
+  - media-sonarr.yaml
+  - media-unpackerr.yaml
+  - platform-system-kopia.yaml
+  - platform-system-oauth2-proxy.yaml
+  - platform-system-reflector.yaml
+  - platform-system-reloader.yaml
+  - platform-system-dex.yaml
+  - platform-system-cert-manager.yaml
+  - platform-system-ingress-nginx.yaml
+  - platform-system-external-dns.yaml
+  - platform-system-cloudflared.yaml
+  - web-echo.yaml
+  - web-nginx.yaml
+  - web-uptime-kuma.yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: '0'

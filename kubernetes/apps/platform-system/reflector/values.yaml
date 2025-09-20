@@ -1,0 +1,4 @@
+fullnameOverride: reflector
+configuration:
+  logging:
+    minimumLevel: Information

@@ -1,2 +1,4 @@
-.env.*
-.envrc
+AGENTS.md
+.sealed-secrets.key
+.sealed-secrets.crt
+.git-secret.yaml

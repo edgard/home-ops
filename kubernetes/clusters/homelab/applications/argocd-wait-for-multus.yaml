@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-wait-for-multus
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '-10'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-wait-for-multus
+  annotations:
+    argocd.argoproj.io/sync-wave: '-10'
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - daemonsets
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-wait-for-multus
+  annotations:
+    argocd.argoproj.io/sync-wave: '-10'
+subjects:
+  - kind: ServiceAccount
+    name: argocd-wait-for-multus
+    namespace: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-wait-for-multus
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: argocd-wait-for-multus
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    argocd.argoproj.io/sync-wave: '-9'
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: argocd-wait-for-multus
+      containers:
+        - name: kubectl
+          image: alpine/kubectl:1.34.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              echo "Waiting for multus daemonset to have all pods Ready..."
+              for attempt in $(seq 1 120); do
+                  ready="$(kubectl -n kube-system get daemonset multus -o jsonpath='{.status.numberReady}' 2>/dev/null || echo 0)"
+                  desired="$(kubectl -n kube-system get daemonset multus -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || echo 0)"
+                  available="$(kubectl -n kube-system get daemonset multus -o jsonpath='{.status.numberAvailable}' 2>/dev/null || echo 0)"
+                  if [[ -n "${ready}" && -n "${desired}" && "${ready}" == "${desired}" && "${desired}" != "0" && "${available}" == "${desired}" ]]; then
+                      echo "multus daemonset ready (${ready}/${desired})"
+                      exit 0
+                  fi
+                  sleep 5
+              done
+              echo "Timed out waiting for multus readiness" >&2
+              exit 1

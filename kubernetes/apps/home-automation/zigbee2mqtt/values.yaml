@@ -1,0 +1,90 @@
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        supplementalGroups:
+          - 20 # dialout group to access /dev/ttyUSB0
+    containers:
+      main:
+        securityContext:
+          privileged: true
+        image:
+          repository: koenkk/zigbee2mqtt
+          tag: 2.6.3
+        env:
+          TZ: Europe/Warsaw
+          ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mosquitto.home-automation.svc.cluster.local:1883
+          ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyUSB0
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+        ports:
+          - name: http
+            containerPort: 8080
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8080
+        protocol: TCP
+        targetPort: 8080
+ingress:
+  main:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/auth-url: http://oauth2-proxy.platform-system.svc.cluster.local:4180/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://auth.edgard.org/oauth2/start?rd=http://$host$request_uri$is_args$args
+      nginx.ingress.kubernetes.io/auth-response-headers: Authorization,X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
+      external-dns.alpha.kubernetes.io/target: tunnel.edgard.org
+    hosts:
+      - host: zigbee2mqtt.edgard.org
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              identifier: main
+              port: http
+    tls:
+      - secretName: wildcard-edgard-org-tls
+        hosts:
+          - zigbee2mqtt.edgard.org
+persistence:
+  data:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/zigbee2mqtt/data
+    globalMounts:
+      - path: /app/data
+  usb:
+    type: hostPath
+    hostPath: /dev/ttyUSB0
+    hostPathType: CharDevice
+    globalMounts:
+      - path: /dev/ttyUSB0

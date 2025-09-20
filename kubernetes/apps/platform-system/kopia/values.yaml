@@ -1,0 +1,159 @@
+controllers:
+  main:
+    initContainers:
+      repo-init:
+        image:
+          repository: ghcr.io/home-operations/kopia
+          tag: 0.21.1
+          pullPolicy: IfNotPresent
+        env:
+          TZ: Europe/Warsaw
+        envFrom:
+          - secretRef:
+              name: kopia
+        command:
+          - /bin/bash
+          - -c
+        args:
+          - |
+            set -euo pipefail
+            mkdir -p /config/cache /config/logs
+            CONFIG="/config/repository.config"
+            REPO_METADATA="/repository/kopia.repository.f"
+            if [ -f "${CONFIG}" ]; then
+              if [ ! -f "${REPO_METADATA}" ]; then
+                echo "Repository metadata missing but config exists at ${CONFIG}, removing stale config"
+                rm -f "${CONFIG}"
+              else
+                if kopia repository status >/dev/null 2>&1; then
+                  echo "Using existing repository config at ${CONFIG}"
+                else
+                  echo "Repository config at ${CONFIG} is invalid, removing so it can be re-created"
+                  rm -f "${CONFIG}"
+                fi
+              fi
+            fi
+            if [ ! -f "${CONFIG}" ]; then
+              if [ -f "${REPO_METADATA}" ]; then
+                echo "Repository data detected, generating config at ${CONFIG}"
+                kopia repository connect filesystem --path=/repository --password "${KOPIA_PASSWORD}"
+              else
+                echo "Initializing Kopia repository at /repository"
+                kopia repository create filesystem --path=/repository --password "${KOPIA_PASSWORD}"
+              fi
+            fi
+            kopia repository status >/dev/null 2>&1 || kopia repository connect filesystem --path=/repository --password "${KOPIA_PASSWORD}"
+            kopia repository set-client --hostname homelab --username root
+        securityContext:
+          allowPrivilegeEscalation: true
+          privileged: true
+          runAsGroup: 0
+          runAsUser: 0
+    annotations:
+      reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: ghcr.io/home-operations/kopia
+          tag: 0.21.1
+          pullPolicy: IfNotPresent
+        env:
+          - name: TZ
+            value: Europe/Warsaw
+        envFrom:
+          - secretRef:
+              name: kopia
+        args:
+          - --without-password
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              tcpSocket:
+                port: 51515
+              initialDelaySeconds: 20
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              tcpSocket:
+                port: 51515
+              initialDelaySeconds: 10
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          privileged: true
+          allowPrivilegeEscalation: true
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 51515
+        protocol: TCP
+        targetPort: 51515
+      metrics:
+        enabled: true
+        port: 51516
+        protocol: TCP
+        targetPort: 51516
+ingress:
+  main:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/auth-url: http://oauth2-proxy.platform-system.svc.cluster.local:4180/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://auth.edgard.org/oauth2/start?rd=http://$host$request_uri$is_args$args
+      nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
+      external-dns.alpha.kubernetes.io/target: tunnel.edgard.org
+    hosts:
+      - host: kopia.edgard.org
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              identifier: main
+              port: http
+    tls:
+      - secretName: wildcard-edgard-org-tls
+        hosts:
+          - kopia.edgard.org
+persistence:
+  config:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/kopia/config
+    hostPathType: DirectoryOrCreate
+    globalMounts:
+      - path: /config
+  repository:
+    type: hostPath
+    hostPath: /mnt/dpool/backup/kopia
+    hostPathType: DirectoryOrCreate
+    globalMounts:
+      - path: /repository
+  tmp:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/kopia/tmp
+    hostPathType: DirectoryOrCreate
+    globalMounts:
+      - path: /tmp
+  source:
+    type: hostPath
+    hostPath: /mnt/spool/appdata
+    hostPathType: Directory
+    advancedMounts:
+      main:
+        main:
+          - path: /data
+            readOnly: true

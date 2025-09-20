@@ -1,88 +1,90 @@
-# ---- Makefile for single Docker Compose stack (home) ------------------------
+# ---- Makefile for Argo CD-managed Kind homelab ------------------------------
 .DEFAULT_GOAL := help
 
-# Core inputs
-STACK        ?= home
-FILES        ?= compose.$(STACK).yml     # supports space-separated list
-DETACH       ?= -d
-SERVICE      ?=
-LOGS_TAIL    ?= 200
-SINCE        ?=                          # e.g. 1h or 2024-09-01T00:00:00
+REPO_ROOT      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+BOOTSTRAP      ?= $(REPO_ROOT)bootstrap/bootstrap.sh
+KIND           ?= kind
+KIND_CONFIG    ?= $(REPO_ROOT)bootstrap/cluster-config.yaml
+KIND_CONFIG_NAME := $(shell awk '/^name:[[:space:]]*/ {sub(/^name:[[:space:]]*/, ""); print; exit}' "$(KIND_CONFIG)" 2>/dev/null)
+CLUSTER_NAME   ?= $(if $(KIND_CONFIG_NAME),$(KIND_CONFIG_NAME),homelab)
+KUBECTL        ?= kubectl
+KUBESEAL       ?= kubeseal
+ARGOCD_NAMESPACE ?= argocd
+ARGO_ROOT_APP  ?= home-ops-root
+SEALED_SECRETS_NAMESPACE ?= kube-system
+SEALED_SECRETS_SECRET ?= sealed-secrets-key
+SEALED_SECRETS_CERT ?= $(REPO_ROOT).sealed-secrets.crt
+SEALED_SECRETS_KEY ?= $(REPO_ROOT).sealed-secrets.key
+ARGO_ADMIN_SECRET_NAME ?= argocd-initial-admin-secret
 
-# Compose binary
-COMPOSE      ?= docker compose
+APP            ?= $(ARGO_ROOT_APP)
+SEALED_NAMESPACE ?= default
+SEALED_NAME    ?=
+SECRET_IN      ?=
+SEALED_OUT     ?=
+TARGET ?=
 
-# Extra env file: Compose already loads .env by default
-ENV_OPTS := $(if $(wildcard .env.$(STACK)),--env-file .env.$(STACK),)
-
-# Build common CLI option groups
-FOPTS        := $(foreach f,$(FILES),-f $(f))
-
-# Convenience: base compose command with consistent options
-CBASE        := $(COMPOSE) $(ENV_OPTS) $(FOPTS)
-
-# Internal helpers
-_service     = $(if $(SERVICE),$(SERVICE),)
-_logs_since  = $(if $(SINCE),--since $(SINCE),)
-
-.PHONY: help env-check file-check config up down restart ps logs pull build recreate update exec prune
+.PHONY: help bootstrap bootstrap-delete bootstrap-recreate kind-create kind-delete kind-recreate kind-status \
+    argo-apps argo-sync argo-port-forward argo-admin-secret sealed-secrets-edit
 
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_\-]+:.*?## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_\-]+:.*?## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo "\nVariables:"
-	@echo "  STACK=$(STACK)  FILES=$(FILES)"
-	@echo "  SERVICE=$(SERVICE)  DETACH=$(DETACH)  LOGS_TAIL=$(LOGS_TAIL)  SINCE=$(SINCE)"
+	@echo "  CLUSTER_NAME=$(CLUSTER_NAME)  KIND_CONFIG=$(KIND_CONFIG)"
 
-env-check: ## Show which env files are being used
-	@echo "ENV files loaded:"
-	@([ -f .env ] && echo "  .env (auto)") || true
-	@([ -f .env.$(STACK) ] && echo "  .env.$(STACK) (via --env-file)") || true
-	@([ -f .env ] || [ -f .env.$(STACK) ]) || echo "  (none found)"
-	@echo "Compose command: $(COMPOSE)"
+bootstrap: ## Provision Kind cluster on remote Docker host and install Argo CD
+	$(BOOTSTRAP)
 
-file-check: ## Verify compose file(s) exist
-	@missing=0; \
-	for f in $(FILES); do \
-	  if [ ! -f $$f ]; then echo "Missing compose file: $$f"; missing=1; fi; \
-	done; \
-	if [ $$missing -ne 0 ]; then exit 1; fi
-	@echo "Using compose files: $(FILES)"
+bootstrap-delete: ## Delete the Kind cluster via the bootstrap script
+	$(BOOTSTRAP) --delete
 
-config: file-check ## Show the fully rendered config
-	$(CBASE) config
+bootstrap-recreate: ## Delete and rebuild the Kind cluster via the bootstrap script
+	-$(MAKE) bootstrap-delete
+	$(MAKE) bootstrap
 
-up: file-check ## Start (or create) the stack
-	$(CBASE) up $(DETACH) --remove-orphans
+kind-create: ## Create a local Kind cluster using the repo configuration
+	$(KIND) create cluster --config "$(KIND_CONFIG)"
 
-down: file-check ## Stop and remove containers
-	$(CBASE) down
+kind-delete: ## Delete the local Kind cluster
+	$(KIND) delete cluster --name "$(CLUSTER_NAME)"
 
-restart: file-check ## Restart the whole stack or a SERVICE=...
-	$(CBASE) restart $(_service)
+kind-recreate: ## Recreate the Kind cluster from scratch
+	-$(KIND) delete cluster --name "$(CLUSTER_NAME)"
+	$(MAKE) kind-create
 
-ps: file-check ## Show containers
-	$(CBASE) ps
+kind-status: ## Show Kind nodes and their status
+	$(KUBECTL) get nodes -o wide
 
-logs: file-check ## Tail logs (use SERVICE=name and/or SINCE=1h)
-	$(CBASE) logs -f $(_logs_since) --tail=$(LOGS_TAIL) $(_service)
+argo-apps: ## List Argo CD applications
+	$(KUBECTL) -n $(ARGOCD_NAMESPACE) get applications
 
-pull: file-check ## Pull images
-	$(CBASE) pull $(_service)
+argo-sync: ## Force a hard refresh of APP (default $(ARGO_ROOT_APP))
+	@test -n "$(APP)" || (echo "Set APP=<application-name>"; exit 1)
+	$(KUBECTL) -n $(ARGOCD_NAMESPACE) patch application "$(APP)" --type merge -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
 
-build: file-check ## Build images (if any build sections exist)
-	$(CBASE) build $(_service)
+argo-port-forward: ## Forward Argo CD UI to localhost:8080
+	$(KUBECTL) -n $(ARGOCD_NAMESPACE) port-forward svc/argocd-server 8080:80
 
-recreate: file-check ## Recreate containers (no image pull)
-	$(CBASE) up $(DETACH) --force-recreate
+argo-admin-secret: ## Print the argocd-initial-admin-secret password
+	@set -euo pipefail; \
+	secret_data="$$( $(KUBECTL) -n $(ARGOCD_NAMESPACE) get secret $(ARGO_ADMIN_SECRET_NAME) -o jsonpath='{.data.password}' 2>/dev/null )"; \
+	if [ -z "$$secret_data" ]; then \
+		echo "Secret $(ARGO_ADMIN_SECRET_NAME) not found in namespace $(ARGOCD_NAMESPACE)" >&2; \
+		exit 1; \
+	fi; \
+	password="$$(printf "%s" "$$secret_data" | tr -d '\n' | openssl base64 -d -A)"; \
+	echo "$$password"
 
-update: file-check ## Pull images and (re)create containers
-	$(CBASE) pull
-	$(CBASE) up $(DETACH)
-
-exec: file-check ## Exec into a container: SERVICE=name make exec CMD="/bin/sh"
-	@test -n "$(SERVICE)" || (echo "Set SERVICE=name"; exit 1)
-	$(CBASE) exec $(SERVICE) $(if $(CMD),$(CMD),/bin/sh)
-
-prune: ## Cleanup unused Docker resources
-	@docker system prune -a --volumes -f
-	@docker builder prune -a -f || true
+sealed-secrets-edit: ## Edit an existing SealedSecret file in-place (TARGET required; uses ${EDITOR:-vi})
+	@test -n "$(TARGET)" || (echo "Set TARGET=path/to/foo.sealedsecret.yaml"; exit 1)
+	@test -f "$(TARGET)" || (echo "Sealed secret file $(TARGET) not found"; exit 1)
+	@test -f "$(SEALED_SECRETS_KEY)" || (echo "Missing $(SEALED_SECRETS_KEY); keep the controller private key locally to unseal."; exit 1)
+	@test -f "$(SEALED_SECRETS_CERT)" || (echo "Missing $(SEALED_SECRETS_CERT)"; exit 1)
+	@set -euo pipefail; \
+	tmp_plain="$$(mktemp)"; \
+	tmp_sealed="$$(mktemp)"; \
+	$(KUBESEAL) --recovery-unseal --format yaml --recovery-private-key "$(SEALED_SECRETS_KEY)" < "$(TARGET)" > "$$tmp_plain"; \
+	$${EDITOR:-vi} "$$tmp_plain"; \
+	$(KUBESEAL) --cert "$(SEALED_SECRETS_CERT)" --format yaml < "$$tmp_plain" > "$$tmp_sealed"; \
+	mv "$$tmp_sealed" "$(TARGET)"; \
+	rm -f "$$tmp_plain"

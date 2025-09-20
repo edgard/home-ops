@@ -1,0 +1,67 @@
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: ealen/echo-server
+          tag: 0.9.2
+        env:
+          TZ: Europe/Warsaw
+          LOGS__IGNORE__PING: "true"
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 80
+              initialDelaySeconds: 10
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 80
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 3
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 80
+        targetPort: 80
+ingress:
+  main:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/auth-url: http://oauth2-proxy.platform-system.svc.cluster.local:4180/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://auth.edgard.org/oauth2/start?rd=http://$host$request_uri$is_args$args
+      nginx.ingress.kubernetes.io/auth-response-headers: Authorization,X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
+      external-dns.alpha.kubernetes.io/target: tunnel.edgard.org
+    hosts:
+      - host: echo.edgard.org
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              identifier: main
+              port: http
+    tls:
+      - secretName: wildcard-edgard-org-tls
+        hosts:
+          - echo.edgard.org

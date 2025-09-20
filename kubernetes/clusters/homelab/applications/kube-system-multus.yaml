@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-system-multus
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: '-10'
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  sources:
+    - repoURL: ghcr.io/bjw-s-labs/helm
+      chart: multus
+      targetRevision: 1.0.1
+      helm:
+        releaseName: multus
+        valueFiles:
+          - $values/kubernetes/apps/kube-system/multus/values.yaml
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      ref: values
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      path: kubernetes/apps/kube-system/multus/resources
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

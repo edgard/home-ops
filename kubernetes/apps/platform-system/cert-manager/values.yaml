@@ -1,0 +1,8 @@
+installCRDs: true
+
+global:
+  leaderElection:
+    namespace: platform-system
+
+nodeSelector: {}
+tolerations: []

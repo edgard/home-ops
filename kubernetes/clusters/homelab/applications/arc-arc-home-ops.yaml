@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: arc-arc-home-ops
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: '1'
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: arc
+  sources:
+    - repoURL: ghcr.io/actions/actions-runner-controller-charts
+      chart: gha-runner-scale-set
+      targetRevision: 0.13.0
+      helm:
+        releaseName: arc-home-ops
+        valueFiles:
+          - $values/kubernetes/apps/arc/runners/values.yaml
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      ref: values
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      path: kubernetes/apps/arc/runners/resources
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

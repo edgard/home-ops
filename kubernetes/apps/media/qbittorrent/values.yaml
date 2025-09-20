@@ -1,0 +1,144 @@
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: lscr.io/linuxserver/qbittorrent
+          tag: 20.04.1
+        env:
+          TZ: Europe/Warsaw
+          PUID: "568"
+          PGID: "568"
+          UMASK: "022"
+          TORRENTING_PORT: "6881"
+          WEBUI_PORT: "8080"
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              failureThreshold: 30
+              periodSeconds: 10
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+      gluetun:
+        image:
+          repository: qmcgaw/gluetun
+          tag: v3.40.0
+        env:
+          TZ: Europe/Warsaw
+          VPN_SERVICE_PROVIDER: mullvad
+          VPN_TYPE: wireguard
+          FIREWALL_INPUT_PORTS: "8080"
+          FIREWALL_VPN_INPUT_PORTS: "6881"
+          PUID: "568"
+          PGID: "568"
+        envFrom:
+          - secretRef:
+              name: qbittorrent-gluetun
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - NET_ADMIN
+              - SYS_MODULE
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8080
+        protocol: TCP
+        targetPort: 8080
+      bittorrent-tcp:
+        enabled: true
+        port: 6881
+        protocol: TCP
+        targetPort: 6881
+      bittorrent-udp:
+        enabled: true
+        port: 6881
+        protocol: UDP
+        targetPort: 6881
+ingress:
+  main:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/auth-url: http://oauth2-proxy.platform-system.svc.cluster.local:4180/oauth2/auth
+      nginx.ingress.kubernetes.io/auth-signin: https://auth.edgard.org/oauth2/start?rd=http://$host$request_uri$is_args$args
+      nginx.ingress.kubernetes.io/auth-response-headers: Authorization,X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
+      external-dns.alpha.kubernetes.io/target: tunnel.edgard.org
+    hosts:
+      - host: qbittorrent.edgard.org
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              identifier: main
+              port: http
+    tls:
+      - secretName: wildcard-edgard-org-tls
+        hosts:
+          - qbittorrent.edgard.org
+persistence:
+  qb-config:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/qbittorrent
+    advancedMounts:
+      main:
+        main:
+          - path: /config
+  downloads:
+    type: hostPath
+    hostPath: /mnt/dpool/media
+    advancedMounts:
+      main:
+        main:
+          - path: /media
+  gluetun-config:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/gluetun
+    advancedMounts:
+      main:
+        gluetun:
+          - path: /gluetun
+  dev-net-tun:
+    type: hostPath
+    hostPath: /dev/net/tun
+    hostPathType: CharDevice
+    advancedMounts:
+      main:
+        gluetun:
+          - path: /dev/net/tun
