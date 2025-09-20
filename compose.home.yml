@@ -12,6 +12,8 @@ services:
       - PGID=0
       - TZ=${TZ}
       - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_SETTINGS_ENCRYPTION_KEY}
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
     ports:
       - "8200:8200"
     volumes:
@@ -239,8 +241,6 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=false
     privileged: true  # grant access to hot-plugged printer device
-    cap_add:
-      - SYS_NICE
     command: >
       -I printer_data/run/klipper.tty
       -a printer_data/run/klipper.sock
