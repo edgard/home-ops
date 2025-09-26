@@ -88,15 +88,13 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
       - UMASK=022
-      - JELLYFIN_PublishedServerUrl=${JELLYFIN_PUBLISHED_SERVER_URL}
-    ports:
-      - 8096:8096
-      - 8920:8920
-      - 7359:7359/udp
-      - 1900:1900/udp
     volumes:
       - ${APPDATA_PATH}/jellyfin:/config
       - ${MEDIA_PATH}:/media
+    networks:
+      default: {}
+      lan:
+        ipv4_address: 192.168.1.249
     restart: unless-stopped
 
   radarr:
@@ -311,3 +309,12 @@ services:
 networks:
   default:
     driver: bridge
+
+  lan:
+    driver: macvlan
+    driver_opts:
+      parent: br0
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
+          gateway: 192.168.1.1
