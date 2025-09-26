@@ -306,6 +306,10 @@ services:
       - moonraker
     restart: unless-stopped
 
+#----------------------------------------------------------------------------
+# Network Configuration
+#----------------------------------------------------------------------------
+
 networks:
   default:
     driver: bridge
