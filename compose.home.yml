@@ -73,8 +73,6 @@ services:
     container_name: uptime-kuma
     environment:
       TZ: ${TZ}
-    ports:
-      - 3001:3001
     volumes:
       - ${APPDATA_PATH}/uptime-kuma:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
@@ -353,8 +351,6 @@ services:
       TZ: ${TZ}
     labels:
       - com.centurylinklabs.watchtower.enable=false
-    ports:
-      - 8010:80
     volumes:
       - ${APPDATA_PATH}/mainsail/config.json:/usr/share/nginx/html/config.json:ro
     depends_on:
