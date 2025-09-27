@@ -9,17 +9,17 @@ services:
     container_name: cloudflared
     command: tunnel --no-autoupdate run
     environment:
-      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
     restart: unless-stopped
 
   vpn:
     image: linuxserver/wireguard:latest
     container_name: vpn
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - UMASK=022
-      - TZ=${TZ}
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
     volumes:
       - ${APPDATA_PATH}/vpn:/config
     cap_add:
@@ -41,11 +41,11 @@ services:
     image: containrrr/watchtower:latest
     container_name: watchtower
     environment:
-      - TZ=${TZ}
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_INCLUDE_STOPPED=true
-      - WATCHTOWER_INCLUDE_RESTARTING=true
-      - WATCHTOWER_POLL_INTERVAL=3600
+      TZ: ${TZ}
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      WATCHTOWER_INCLUDE_STOPPED: "true"
+      WATCHTOWER_POLL_INTERVAL: "3600"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
@@ -54,10 +54,10 @@ services:
     image: linuxserver/duplicati:latest
     container_name: duplicati
     environment:
-      - PUID=0
-      - PGID=0
-      - TZ=${TZ}
-      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_SETTINGS_ENCRYPTION_KEY}
+      PUID: "0"
+      PGID: "0"
+      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_SETTINGS_ENCRYPTION_KEY}
+      TZ: ${TZ}
     labels:
       - com.centurylinklabs.watchtower.enable=false
     ports:
@@ -72,7 +72,7 @@ services:
     image: louislam/uptime-kuma:latest
     container_name: uptime-kuma
     environment:
-      - TZ=${TZ}
+      TZ: ${TZ}
     ports:
       - 3001:3001
     volumes:
@@ -87,7 +87,7 @@ services:
     image: eclipse-mosquitto:2
     container_name: mosquitto
     environment:
-      - TZ=${TZ}
+      TZ: ${TZ}
     volumes:
       - ${APPDATA_PATH}/mosquitto/config:/mosquitto/config
       - ${APPDATA_PATH}/mosquitto/data:/mosquitto/data
@@ -98,9 +98,9 @@ services:
     image: koenkk/zigbee2mqtt:latest
     container_name: zigbee2mqtt
     environment:
-      - TZ=${TZ}
-      - ZIGBEE2MQTT_CONFIG_MQTT_SERVER=mqtt://mosquitto:1883
-      - ZIGBEE2MQTT_CONFIG_SERIAL_PORT=/dev/ttyUSB0
+      TZ: ${TZ}
+      ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mosquitto:1883
+      ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyUSB0
     volumes:
       - ${APPDATA_PATH}/zigbee2mqtt/data:/app/data
       - /run/udev:/run/udev:ro
@@ -116,7 +116,7 @@ services:
     image: ghcr.io/home-assistant/home-assistant:stable
     container_name: hass
     environment:
-      - TZ=${TZ}
+      TZ: ${TZ}
     volumes:
       - ${APPDATA_PATH}/hass:/config
     depends_on:
@@ -136,10 +136,10 @@ services:
     image: linuxserver/jellyfin:latest
     container_name: jellyfin
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-      - UMASK=022
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
     volumes:
       - ${APPDATA_PATH}/jellyfin:/config
       - ${MEDIA_PATH}:/media
@@ -154,10 +154,10 @@ services:
     image: linuxserver/prowlarr:latest
     container_name: prowlarr
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - UMASK=022
-      - TZ=${TZ}
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
     volumes:
       - ${APPDATA_PATH}/prowlarr:/config
     depends_on:
@@ -168,17 +168,17 @@ services:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
     environment:
-      - TZ=${TZ}
+      TZ: ${TZ}
     restart: unless-stopped
 
   radarr:
     image: linuxserver/radarr:latest
     container_name: radarr
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - UMASK=022
-      - TZ=${TZ}
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
     volumes:
       - ${APPDATA_PATH}/radarr:/config
       - ${MEDIA_PATH}:/media
@@ -191,10 +191,10 @@ services:
     image: linuxserver/sonarr:latest
     container_name: sonarr
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - UMASK=022
-      - TZ=${TZ}
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
     volumes:
       - ${APPDATA_PATH}/sonarr:/config
       - ${MEDIA_PATH}:/media
@@ -207,10 +207,10 @@ services:
     image: linuxserver/bazarr:latest
     container_name: bazarr
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - UMASK=022
-      - TZ=${TZ}
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
     volumes:
       - ${APPDATA_PATH}/bazarr:/config
       - ${MEDIA_PATH}:/media
@@ -224,7 +224,7 @@ services:
     container_name: recyclarr
     user: 568:568
     environment:
-      - TZ=${TZ}
+      TZ: ${TZ}
     volumes:
       - ${APPDATA_PATH}/recyclarr:/config
     depends_on:
@@ -237,12 +237,12 @@ services:
     image: linuxserver/qbittorrent:latest
     container_name: qbittorrent
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - UMASK=022
-      - TZ=${TZ}
-      - WEBUI_PORT=8080
-      - TORRENTING_PORT=6881
+      PUID: ${PUID}
+      PGID: ${PGID}
+      UMASK: ${UMASK}
+      TZ: ${TZ}
+      TORRENTING_PORT: "6881"
+      WEBUI_PORT: "8080"
     volumes:
       - ${APPDATA_PATH}/qbittorrent:/config
       - ${MEDIA_PATH}:/media
@@ -255,13 +255,13 @@ services:
     image: golift/unpackerr:latest
     container_name: unpackerr
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-      - UN_SONARR_0_URL=http://sonarr:8989
-      - UN_SONARR_0_API_KEY=${UN_SONARR_0_API_KEY}
-      - UN_RADARR_0_URL=http://radarr:7878
-      - UN_RADARR_0_API_KEY=${UN_RADARR_0_API_KEY}
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      UN_RADARR_0_URL: http://radarr:7878
+      UN_RADARR_0_API_KEY: ${UN_RADARR_0_API_KEY}
+      UN_SONARR_0_URL: http://sonarr:8989
+      UN_SONARR_0_API_KEY: ${UN_SONARR_0_API_KEY}
     volumes:
       - ${MEDIA_PATH}:/media
     depends_on:
@@ -277,7 +277,7 @@ services:
     image: nginx:latest
     container_name: nginx
     environment:
-      - TZ=${TZ}
+      TZ: ${TZ}
     volumes:
       - ${WEB_PATH}:/usr/share/nginx/html:ro
     restart: unless-stopped
@@ -286,8 +286,8 @@ services:
     image: ealen/echo-server:latest
     container_name: echo
     environment:
-      - TZ=${TZ}
-      - LOGS__IGNORE__PING=true
+      TZ: ${TZ}
+      LOGS__IGNORE__PING: "true"
     restart: unless-stopped
 
   # Disabled
@@ -313,7 +313,7 @@ services:
       printer_data/config/printer.cfg
       -l printer_data/logs/klippy.log
     environment:
-      - TZ=${TZ}
+      TZ: ${TZ}
     labels:
       - com.centurylinklabs.watchtower.enable=false
     volumes:
@@ -329,7 +329,7 @@ services:
     image: mkuf/moonraker:latest
     container_name: moonraker
     environment:
-      - TZ=${TZ}
+      TZ: ${TZ}
     labels:
       - com.centurylinklabs.watchtower.enable=false
     ports:
@@ -350,7 +350,7 @@ services:
     image: ghcr.io/mainsail-crew/mainsail:latest
     container_name: mainsail
     environment:
-      - TZ=${TZ}
+      TZ: ${TZ}
     labels:
       - com.centurylinklabs.watchtower.enable=false
     ports:
