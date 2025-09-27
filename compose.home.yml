@@ -247,6 +247,54 @@ services:
   #   restart: unless-stopped
 
   #----------------------------------------------------------------------------
+  # Home Automation Services
+  #----------------------------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/mosquitto/config:/mosquitto/config
+      - ${APPDATA_PATH}/mosquitto/data:/mosquitto/data
+      - ${APPDATA_PATH}/mosquitto/log:/mosquitto/log
+    restart: unless-stopped
+
+  zigbee2mqtt:
+    image: koenkk/zigbee2mqtt:latest
+    container_name: zigbee2mqtt
+    environment:
+      - TZ=${TZ}
+      - ZIGBEE2MQTT_CONFIG_MQTT_SERVER=mqtt://mosquitto:1883
+      - ZIGBEE2MQTT_CONFIG_SERIAL_PORT=/dev/ttyUSB0
+    volumes:
+      - ${APPDATA_PATH}/zigbee2mqtt/data:/app/data
+      - /run/udev:/run/udev:ro
+    ports:
+      - 8099:8099
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  hass:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: hass
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/hass:/config
+    depends_on:
+      - mosquitto
+      - zigbee2mqtt
+    networks:
+      default: {}
+      lan:
+        ipv4_address: 192.168.1.250
+    restart: unless-stopped
+
+  #----------------------------------------------------------------------------
   # 3D Printing Services
   #----------------------------------------------------------------------------
   klipper:
