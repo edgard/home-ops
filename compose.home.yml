@@ -2,26 +2,8 @@ name: home
 
 services:
   #----------------------------------------------------------------------------
-  # Infrastructure Services
+  # Core Access & Security
   #----------------------------------------------------------------------------
-  duplicati:
-    image: linuxserver/duplicati:latest
-    container_name: duplicati
-    environment:
-      - PUID=0
-      - PGID=0
-      - TZ=${TZ}
-      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_SETTINGS_ENCRYPTION_KEY}
-    labels:
-      - com.centurylinklabs.watchtower.enable=false
-    ports:
-      - 8200:8200
-    volumes:
-      - ${APPDATA_PATH}/duplicati:/config
-      - ${BACKUP_PATH}/duplicati:/backups
-      - ${APPDATA_PATH}:/source
-    restart: unless-stopped
-
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
@@ -52,6 +34,9 @@ services:
           - torrent
     restart: unless-stopped
 
+  #----------------------------------------------------------------------------
+  # Maintenance & Reliability
+  #----------------------------------------------------------------------------
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower
@@ -63,6 +48,24 @@ services:
       - WATCHTOWER_POLL_INTERVAL=3600
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+  duplicati:
+    image: linuxserver/duplicati:latest
+    container_name: duplicati
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=${TZ}
+      - SETTINGS_ENCRYPTION_KEY=${DUPLICATI_SETTINGS_ENCRYPTION_KEY}
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
+    ports:
+      - 8200:8200
+    volumes:
+      - ${APPDATA_PATH}/duplicati:/config
+      - ${BACKUP_PATH}/duplicati:/backups
+      - ${APPDATA_PATH}:/source
     restart: unless-stopped
 
   uptime-kuma:
@@ -78,8 +81,57 @@ services:
     restart: unless-stopped
 
   #----------------------------------------------------------------------------
-  # Media Services
+  # Home Automation
   #----------------------------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/mosquitto/config:/mosquitto/config
+      - ${APPDATA_PATH}/mosquitto/data:/mosquitto/data
+      - ${APPDATA_PATH}/mosquitto/log:/mosquitto/log
+    restart: unless-stopped
+
+  zigbee2mqtt:
+    image: koenkk/zigbee2mqtt:latest
+    container_name: zigbee2mqtt
+    environment:
+      - TZ=${TZ}
+      - ZIGBEE2MQTT_CONFIG_MQTT_SERVER=mqtt://mosquitto:1883
+      - ZIGBEE2MQTT_CONFIG_SERIAL_PORT=/dev/ttyUSB0
+    volumes:
+      - ${APPDATA_PATH}/zigbee2mqtt/data:/app/data
+      - /run/udev:/run/udev:ro
+    ports:
+      - 8099:8099
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  hass:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: hass
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/hass:/config
+    depends_on:
+      - mosquitto
+      - zigbee2mqtt
+    networks:
+      default: {}
+      lan:
+        ipv4_address: 192.168.1.250
+    restart: unless-stopped
+
+  #----------------------------------------------------------------------------
+  # Media Platform
+  #----------------------------------------------------------------------------
+  # Playback & Interface
   jellyfin:
     image: linuxserver/jellyfin:latest
     container_name: jellyfin
@@ -95,6 +147,28 @@ services:
       default: {}
       lan:
         ipv4_address: 192.168.1.249
+    restart: unless-stopped
+
+  # Indexing & Automation
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=022
+      - TZ=${TZ}
+    volumes:
+      - ${APPDATA_PATH}/prowlarr:/config
+    depends_on:
+      - flaresolverr
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - TZ=${TZ}
     restart: unless-stopped
 
   radarr:
@@ -145,20 +219,6 @@ services:
       - sonarr
     restart: unless-stopped
 
-  prowlarr:
-    image: linuxserver/prowlarr:latest
-    container_name: prowlarr
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - UMASK=022
-      - TZ=${TZ}
-    volumes:
-      - ${APPDATA_PATH}/prowlarr:/config
-    depends_on:
-      - flaresolverr
-    restart: unless-stopped
-
   recyclarr:
     image: ghcr.io/recyclarr/recyclarr:latest
     container_name: recyclarr
@@ -172,6 +232,7 @@ services:
       - sonarr
     restart: unless-stopped
 
+  # Downloads & Post-Processing
   qbittorrent:
     image: linuxserver/qbittorrent:latest
     container_name: qbittorrent
@@ -209,15 +270,8 @@ services:
       - qbittorrent
     restart: unless-stopped
 
-  flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: flaresolverr
-    environment:
-      - TZ=${TZ}
-    restart: unless-stopped
-
   #----------------------------------------------------------------------------
-  # Other Services
+  # Utility & Web
   #----------------------------------------------------------------------------
   nginx:
     image: nginx:latest
@@ -236,6 +290,7 @@ services:
       - LOGS__IGNORE__PING=true
     restart: unless-stopped
 
+  # Disabled
   # murailobot:
   #   image: ghcr.io/edgard/murailobot:latest
   #   container_name: murailobot
@@ -247,55 +302,7 @@ services:
   #   restart: unless-stopped
 
   #----------------------------------------------------------------------------
-  # Home Automation Services
-  #----------------------------------------------------------------------------
-  mosquitto:
-    image: eclipse-mosquitto:2
-    container_name: mosquitto
-    environment:
-      - TZ=${TZ}
-    volumes:
-      - ${APPDATA_PATH}/mosquitto/config:/mosquitto/config
-      - ${APPDATA_PATH}/mosquitto/data:/mosquitto/data
-      - ${APPDATA_PATH}/mosquitto/log:/mosquitto/log
-    restart: unless-stopped
-
-  zigbee2mqtt:
-    image: koenkk/zigbee2mqtt:latest
-    container_name: zigbee2mqtt
-    environment:
-      - TZ=${TZ}
-      - ZIGBEE2MQTT_CONFIG_MQTT_SERVER=mqtt://mosquitto:1883
-      - ZIGBEE2MQTT_CONFIG_SERIAL_PORT=/dev/ttyUSB0
-    volumes:
-      - ${APPDATA_PATH}/zigbee2mqtt/data:/app/data
-      - /run/udev:/run/udev:ro
-    ports:
-      - 8099:8099
-    devices:
-      - /dev/ttyUSB0:/dev/ttyUSB0
-    depends_on:
-      - mosquitto
-    restart: unless-stopped
-
-  hass:
-    image: ghcr.io/home-assistant/home-assistant:stable
-    container_name: hass
-    environment:
-      - TZ=${TZ}
-    volumes:
-      - ${APPDATA_PATH}/hass:/config
-    depends_on:
-      - mosquitto
-      - zigbee2mqtt
-    networks:
-      default: {}
-      lan:
-        ipv4_address: 192.168.1.250
-    restart: unless-stopped
-
-  #----------------------------------------------------------------------------
-  # 3D Printing Services
+  # 3D Printing
   #----------------------------------------------------------------------------
   klipper:
     image: mkuf/klipper:latest
