@@ -102,8 +102,6 @@ services:
     volumes:
       - ${APPDATA_PATH}/zigbee2mqtt/data:/app/data
       - /run/udev:/run/udev:ro
-    ports:
-      - 8099:8099
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0
     depends_on:
@@ -299,63 +297,61 @@ services:
   #     - ${APPDATA_PATH}/murailobot/storage.db:/app/storage.db
   #   restart: unless-stopped
 
-  #----------------------------------------------------------------------------
-  # 3D Printing
-  #----------------------------------------------------------------------------
-  klipper:
-    image: mkuf/klipper:latest
-    container_name: klipper
-    command: >
-      -I printer_data/run/klipper.tty
-      -a printer_data/run/klipper.sock
-      printer_data/config/printer.cfg
-      -l printer_data/logs/klippy.log
-    environment:
-      TZ: ${TZ}
-    labels:
-      - com.centurylinklabs.watchtower.enable=false
-    volumes:
-      - /dev:/dev  # mount host /dev so the container can see the port once it appears
-      - ${APPDATA_PATH}/klipper/config:/opt/printer_data/config
-      - ${APPDATA_PATH}/klipper/run:/opt/printer_data/run
-      - ${APPDATA_PATH}/klipper/gcodes:/opt/printer_data/gcodes
-      - ${APPDATA_PATH}/klipper/logs:/opt/printer_data/logs
-    privileged: true  # grant access to hot-plugged printer device
-    restart: unless-stopped
+  # #----------------------------------------------------------------------------
+  # # 3D Printing
+  # #----------------------------------------------------------------------------
+  # klipper:
+  #   image: mkuf/klipper:latest
+  #   container_name: klipper
+  #   command: >
+  #     -I printer_data/run/klipper.tty
+  #     -a printer_data/run/klipper.sock
+  #     printer_data/config/printer.cfg
+  #     -l printer_data/logs/klippy.log
+  #   environment:
+  #     TZ: ${TZ}
+  #   labels:
+  #     - com.centurylinklabs.watchtower.enable=false
+  #   volumes:
+  #     - /dev:/dev  # mount host /dev so the container can see the port once it appears
+  #     - ${APPDATA_PATH}/klipper/config:/opt/printer_data/config
+  #     - ${APPDATA_PATH}/klipper/run:/opt/printer_data/run
+  #     - ${APPDATA_PATH}/klipper/gcodes:/opt/printer_data/gcodes
+  #     - ${APPDATA_PATH}/klipper/logs:/opt/printer_data/logs
+  #   privileged: true  # grant access to hot-plugged printer device
+  #   restart: unless-stopped
 
-  moonraker:
-    image: mkuf/moonraker:latest
-    container_name: moonraker
-    environment:
-      TZ: ${TZ}
-    labels:
-      - com.centurylinklabs.watchtower.enable=false
-    ports:
-      - 7125:7125
-    volumes:
-      - /dev/null:/opt/klipper/config/null
-      - /dev/null:/opt/klipper/docs/null
-      - ${APPDATA_PATH}/klipper/config:/opt/printer_data/config
-      - ${APPDATA_PATH}/klipper/run:/opt/printer_data/run
-      - ${APPDATA_PATH}/klipper/gcodes:/opt/printer_data/gcodes
-      - ${APPDATA_PATH}/klipper/logs:/opt/printer_data/logs
-      - ${APPDATA_PATH}/moonraker/database:/opt/printer_data/database
-    depends_on:
-      - klipper
-    restart: unless-stopped
+  # moonraker:
+  #   image: mkuf/moonraker:latest
+  #   container_name: moonraker
+  #   environment:
+  #     TZ: ${TZ}
+  #   labels:
+  #     - com.centurylinklabs.watchtower.enable=false
+  #   volumes:
+  #     - /dev/null:/opt/klipper/config/null
+  #     - /dev/null:/opt/klipper/docs/null
+  #     - ${APPDATA_PATH}/klipper/config:/opt/printer_data/config
+  #     - ${APPDATA_PATH}/klipper/run:/opt/printer_data/run
+  #     - ${APPDATA_PATH}/klipper/gcodes:/opt/printer_data/gcodes
+  #     - ${APPDATA_PATH}/klipper/logs:/opt/printer_data/logs
+  #     - ${APPDATA_PATH}/moonraker/database:/opt/printer_data/database
+  #   depends_on:
+  #     - klipper
+  #   restart: unless-stopped
 
-  mainsail:
-    image: ghcr.io/mainsail-crew/mainsail:latest
-    container_name: mainsail
-    environment:
-      TZ: ${TZ}
-    labels:
-      - com.centurylinklabs.watchtower.enable=false
-    volumes:
-      - ${APPDATA_PATH}/mainsail/config.json:/usr/share/nginx/html/config.json:ro
-    depends_on:
-      - moonraker
-    restart: unless-stopped
+  # mainsail:
+  #   image: ghcr.io/mainsail-crew/mainsail:latest
+  #   container_name: mainsail
+  #   environment:
+  #     TZ: ${TZ}
+  #   labels:
+  #     - com.centurylinklabs.watchtower.enable=false
+  #   volumes:
+  #     - ${APPDATA_PATH}/mainsail/config.json:/usr/share/nginx/html/config.json:ro
+  #   depends_on:
+  #     - moonraker
+  #   restart: unless-stopped
 
 #----------------------------------------------------------------------------
 # Network Configuration
