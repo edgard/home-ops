@@ -1,0 +1,8 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: bazarr
+  namespace: flux-system
+spec:
+  image: lscr.io/linuxserver/bazarr
+  interval: 1h

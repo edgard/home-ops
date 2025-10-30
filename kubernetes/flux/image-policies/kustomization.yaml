@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cloudflared.yaml
+  - mosquitto.yaml
+  - zigbee2mqtt.yaml
+  - home-assistant.yaml
+  - jellyfin.yaml
+  - prowlarr.yaml
+  - flaresolverr.yaml
+  - radarr.yaml
+  - sonarr.yaml
+  - bazarr.yaml
+  - recyclarr.yaml
+  - qbittorrent.yaml
+  - wireguard.yaml
+  - unpackerr.yaml
+  - duplicati.yaml
+  - uptime-kuma.yaml
+  - nginx.yaml
+  - echo.yaml

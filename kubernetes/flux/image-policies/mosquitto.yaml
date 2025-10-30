@@ -1,0 +1,11 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: mosquitto
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: mosquitto
+  policy:
+    semver:
+      range: ">=0.0.0"

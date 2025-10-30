@@ -1,0 +1,8 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: jellyfin
+  namespace: flux-system
+spec:
+  image: lscr.io/linuxserver/jellyfin
+  interval: 1h

@@ -1,0 +1,11 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: unpackerr
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: unpackerr
+  policy:
+    semver:
+      range: ">=0.0.0"

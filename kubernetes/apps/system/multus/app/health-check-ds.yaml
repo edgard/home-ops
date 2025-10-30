@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: multus-smoke-test
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: multus-smoke-test
+  template:
+    metadata:
+      labels:
+        name: multus-smoke-test
+      annotations:
+        k8s.v1.cni.cncf.io/networks: lan-macvlan
+    spec:
+      containers:
+      - name: smoke-test
+        image: busybox
+        command: ["sleep", "3600"]

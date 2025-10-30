@@ -1,0 +1,8 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: prowlarr
+  namespace: flux-system
+spec:
+  image: lscr.io/linuxserver/prowlarr
+  interval: 1h

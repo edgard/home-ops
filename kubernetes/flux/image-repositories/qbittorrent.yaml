@@ -1,0 +1,8 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: qbittorrent
+  namespace: flux-system
+spec:
+  image: lscr.io/linuxserver/qbittorrent
+  interval: 1h

@@ -1,0 +1,8 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: radarr
+  namespace: flux-system
+spec:
+  image: lscr.io/linuxserver/radarr
+  interval: 1h

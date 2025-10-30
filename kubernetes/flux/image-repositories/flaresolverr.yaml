@@ -1,0 +1,8 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: flaresolverr
+  namespace: flux-system
+spec:
+  image: ghcr.io/flaresolverr/flaresolverr
+  interval: 1h

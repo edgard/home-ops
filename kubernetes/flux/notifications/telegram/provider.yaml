@@ -1,0 +1,10 @@
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: telegram
+  namespace: flux-system
+spec:
+  type: telegram
+  channel: "52094995" # Chat ID
+  secretRef:
+    name: telegram-webhook

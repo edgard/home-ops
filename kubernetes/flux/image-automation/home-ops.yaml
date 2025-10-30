@@ -1,0 +1,28 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: home-ops
+  namespace: flux-system
+spec:
+  interval: 1h
+  sourceRef:
+    kind: GitRepository
+    name: home-ops
+  git:
+    checkout:
+      ref:
+        branch: master
+    commit:
+      author:
+        name: FluxCD Automation
+        email: flux-system@users.noreply.github.com
+      messageTemplate: |
+        chore(images): update
+        {{- range .Changed.Changes }}
+        - {{ .OldValue }} -> {{ .NewValue }}
+        {{- end }}
+    push:
+      branch: master
+  update:
+    path: ./kubernetes/apps
+    strategy: Setters

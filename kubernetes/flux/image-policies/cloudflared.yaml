@@ -1,0 +1,14 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: cloudflared
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: cloudflared
+  filterTags:
+    pattern: '^(?P<version>\d+\.\d+\.\d+)$'
+    extract: '$version'
+  policy:
+    semver:
+      range: ">=0.0.0"

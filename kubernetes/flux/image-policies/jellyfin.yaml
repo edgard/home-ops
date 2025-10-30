@@ -1,0 +1,11 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: jellyfin
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: jellyfin
+  policy:
+    semver:
+      range: ">=10.0.0 <999.0.0"

@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./namespace.yaml
+  - ./jellyfin/ks.yaml
+  - ./prowlarr/ks.yaml
+  - ./flaresolverr/ks.yaml
+  - ./radarr/ks.yaml
+  - ./sonarr/ks.yaml
+  - ./bazarr/ks.yaml
+  - ./recyclarr/ks.yaml
+  - ./qbittorrent/ks.yaml
+  - ./unpackerr/ks.yaml

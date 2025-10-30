@@ -1,0 +1,11 @@
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: sonarr
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: sonarr
+  policy:
+    semver:
+      range: ">=0.0.0"

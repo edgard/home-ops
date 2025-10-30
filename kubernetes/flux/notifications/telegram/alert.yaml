@@ -1,0 +1,38 @@
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: flux-events
+  namespace: flux-system
+spec:
+  providerRef:
+    name: telegram
+  summary: Flux reconciliation events
+  eventSeverity: info
+  eventSources:
+    - kind: GitRepository
+      name: '*'
+      namespace: '*'
+    - kind: Kustomization
+      name: '*'
+      namespace: '*'
+    - kind: HelmRepository
+      name: '*'
+      namespace: '*'
+    - kind: HelmRelease
+      name: '*'
+      namespace: '*'
+    - kind: OCIRepository
+      name: '*'
+      namespace: '*'
+    - kind: ImageRepository
+      name: '*'
+      namespace: '*'
+    - kind: ImagePolicy
+      name: '*'
+      namespace: '*'
+    - kind: ImageUpdateAutomation
+      name: '*'
+      namespace: '*'
+    - kind: Bucket
+      name: '*'
+      namespace: '*'
