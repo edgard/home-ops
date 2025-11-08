@@ -1,0 +1,73 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: traefik
+  namespace: platform-system
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: traefik
+      version: 37.2.0
+    sourceRef:
+      kind: HelmRepository
+      name: traefik
+      namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    deployment:
+      replicas: 1
+      podAnnotations:
+        k8s.v1.cni.cncf.io/networks: |
+          [
+            {
+              "name": "lan-macvlan",
+              "namespace": "kube-system",
+              "ips": ["192.168.1.241/24"],
+              "mac": "02:42:c0:a8:01:f1",
+              "gateway": ["192.168.1.1"]
+            }
+          ]
+    ingressClass:
+      enabled: true
+      isDefaultClass: true
+      name: traefik
+    service:
+      type: ClusterIP
+    additionalArguments:
+      - "--providers.kubernetesingress"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.http.tls.certresolver=home"
+    providers:
+      kubernetesIngress:
+        ingressClass: traefik
+    certificatesResolvers:
+      home:
+        acme:
+          email: ops@home.edgard.org
+          storage: /data/acme.json
+          dnsChallenge:
+            provider: cloudflare
+            delayBeforeCheck: 0
+    env:
+      - name: CF_API_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: cloudflare-api-traefik
+            key: CF_API_TOKEN
+    volumes:
+      - name: acme-storage
+        hostPath:
+          path: /mnt/spool/appdata/traefik
+          type: DirectoryOrCreate
+    additionalVolumeMounts:
+      - name: acme-storage
+        mountPath: /data

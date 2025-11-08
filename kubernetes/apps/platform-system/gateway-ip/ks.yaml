@@ -1,0 +1,18 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: platform-system-gateway-ip
+spec:
+  dependsOn:
+    - name: platform-system-external-dns
+  interval: 1h
+  path: ./kubernetes/apps/platform-system/gateway-ip/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: platform-system
+  timeout: 10m
+  wait: true

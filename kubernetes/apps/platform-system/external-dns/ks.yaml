@@ -2,20 +2,17 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: platform-system-cloudflared
-  namespace: flux-system
+  name: platform-system-external-dns
 spec:
-  dependsOn: []
+  dependsOn:
+    - name: platform-system-cloudflare
   interval: 1h
-  path: ./kubernetes/apps/platform-system/cloudflared/app
+  path: ./kubernetes/apps/platform-system/external-dns/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
   targetNamespace: platform-system
+  timeout: 10m
   wait: true

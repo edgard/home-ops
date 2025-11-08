@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway-ip-updater
+  namespace: platform-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gateway-ip-updater
+subjects:
+  - kind: ServiceAccount
+    name: gateway-ip-updater
+    namespace: platform-system

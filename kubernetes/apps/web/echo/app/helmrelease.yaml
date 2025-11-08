@@ -60,3 +60,23 @@ spec:
             enabled: true
             port: 80
             targetPort: 80
+    ingress:
+      main:
+        enabled: true
+        className: traefik
+        annotations:
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.tls: "true"
+          traefik.ingress.kubernetes.io/router.tls.certresolver: home
+        hosts:
+          - host: echo.home.edgard.org
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  name: main
+                  identifier: main
+                  port: http
+        tls:
+          - hosts:
+              - echo.home.edgard.org

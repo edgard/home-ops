@@ -1,0 +1,49 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-dns
+  namespace: platform-system
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: externaldns
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    provider:
+      name: cloudflare
+    domainFilters:
+      - home.edgard.org
+    sources:
+      - crd
+    policy: sync
+    interval: "1m"
+    logLevel: info
+    logFormat: text
+    registry: txt
+    txtOwnerId: home-ops
+    txtPrefix: "k8s."
+    triggerLoopOnEvent: true
+    extraArgs:
+      - "--cloudflare-dns-records-per-page=1000"
+      - "--crd-source-apiversion=externaldns.k8s.io/v1alpha1"
+      - "--crd-source-kind=DNSEndpoint"
+    cloudflare:
+      proxied: false
+    env:
+      - name: CF_API_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: cloudflare-api-externaldns
+            key: CF_API_TOKEN
+    namespace: platform-system
+    watchReleaseNamespace: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32M

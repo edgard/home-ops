@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: gateway-ip-updater
+  namespace: platform-system
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: gateway-ip-updater
+          restartPolicy: OnFailure
+          containers:
+            - name: updater
+              image: lachlanevenson/k8s-kubectl:v1.33.1
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: EXTERNAL_IP_URL
+                  value: https://ifconfig.me
+              command:
+                - /bin/sh
+                - -c
+              args:
+                - >-
+                  set -euo pipefail
+                  apk add --no-cache curl >/dev/null 2>&1 || true
+                  ip=$(curl -fsSL "$EXTERNAL_IP_URL")
+                  if [ -z "$ip" ]; then
+                    echo "external IP lookup returned empty" >&2
+                    exit 1
+                  fi
+                  cat <<YAML | kubectl apply -f -
+                  apiVersion: externaldns.k8s.io/v1alpha1
+                  kind: DNSEndpoint
+                  metadata:
+                    name: home-gateway
+                    namespace: platform-system
+                  spec:
+                    endpoints:
+                      - dnsName: home.edgard.org
+                        recordType: A
+                        recordTTL: 60
+                        targets:
+                          - "$ip"
+                      - dnsName: '*.home.edgard.org'
+                        recordType: A
+                        recordTTL: 60
+                        targets:
+                          - "$ip"
+                  YAML

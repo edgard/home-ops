@@ -1,0 +1,17 @@
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: home-gateway
+  namespace: platform-system
+spec:
+  endpoints:
+    - dnsName: home.edgard.org
+      recordType: A
+      targets:
+        - 0.0.0.0
+      recordTTL: 60
+    - dnsName: '*.home.edgard.org'
+      recordType: A
+      targets:
+        - 0.0.0.0
+      recordTTL: 60
