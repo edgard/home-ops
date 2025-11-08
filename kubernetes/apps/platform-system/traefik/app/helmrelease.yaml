@@ -6,8 +6,8 @@ metadata:
 spec:
   interval: 1h
   chartRef:
-    kind: HelmRepository
-    name: traefik
+    kind: HelmChart
+    name: traefik-chart
     namespace: flux-system
   install:
     remediation:
