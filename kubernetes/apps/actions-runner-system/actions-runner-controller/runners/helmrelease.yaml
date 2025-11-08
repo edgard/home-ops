@@ -32,7 +32,7 @@ spec:
                 mountPath: /home/runner/tmpDir
         containers:
           - name: dind
-            image: docker:27-dind
+            image: docker:28-dind
             args:
               - dockerd
               - --host=unix:///var/run/docker.sock
