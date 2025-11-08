@@ -53,4 +53,5 @@ Once running, Renovate will:
 - group both `kindest/node` entries so the control-plane/worker images stay in sync;
 - auto-merge every non-major update (containers, charts, GitHub Actions), so most PRs land without manual review.
 
+
 Only major bumps require a manual merge; those PRs carry the `renovate/manual-review` label. Keep an eye on the dependency dashboard or the workflow logs (`Actions → Renovate`) to double-check critical upgrades; temporarily pause the workflow if you ever need to hold back a rollout.
