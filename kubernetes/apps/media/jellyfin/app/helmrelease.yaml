@@ -38,7 +38,7 @@ spec:
           main:
             image:
               repository: lscr.io/linuxserver/jellyfin
-              tag: 10.11.2
+              tag: 2021.12.16
             env:
               TZ: Europe/Warsaw
               PUID: "568"
