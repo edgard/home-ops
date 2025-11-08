@@ -3,5 +3,4 @@ kind: Kustomization
 resources:
   - ./secret.sops.yaml
   - ./helmrepository.yaml
-  - ./helmchart.yaml
   - ./helmrelease.yaml
