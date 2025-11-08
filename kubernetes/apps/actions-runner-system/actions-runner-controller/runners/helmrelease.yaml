@@ -1,0 +1,46 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: arc-home-ops
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: gha-runner-scale-set
+  driftDetection:
+    mode: enabled
+  values:
+    githubConfigUrl: https://github.com/edgard/home-ops
+    githubConfigSecret: actions-runner-controller-secret
+
+    runnerScaleSetName: home-ops
+    minRunners: 0
+    maxRunners: 2
+
+    containerMode:
+      type: kubernetes-novolume
+
+    template:
+      spec:
+        containers:
+          - name: runner
+            image: ghcr.io/actions/actions-runner:2.329.0
+            command:
+              - /home/runner/run.sh
+            env:
+              - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+                value: "false"
+              - name: ACTIONS_RUNNER_POD_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+            volumeMounts:
+              - mountPath: /home/runner/_work
+                name: work
+        volumes:
+          - name: work
+            emptyDir: {}
+
+    controllerServiceAccount:
+      name: actions-runner-controller
+      namespace: actions-runner-system

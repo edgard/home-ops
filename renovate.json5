@@ -22,13 +22,13 @@
     "**/secret.sops.yaml",
   ],
   flux: {
-    managerFilePatterns: ["/^kubernetes/.+\\.ya?ml$/"],
+    fileMatch: ["^kubernetes/.+\\.ya?ml$"],
   },
   "helm-values": {
-    managerFilePatterns: ["/^kubernetes/.+\\.ya?ml$/"],
+    fileMatch: ["^kubernetes/.+\\.ya?ml$"],
   },
   kubernetes: {
-    managerFilePatterns: ["/^kubernetes/.+\\.ya?ml$/"],
+    fileMatch: ["^kubernetes/.+\\.ya?ml$"],
   },
   customManagers: [
     {
@@ -65,6 +65,11 @@
       automerge: false,
       matchUpdateTypes: ["major"],
       addLabels: ["renovate/manual-review"],
+    },
+    {
+      description: "Only consider semver Jellyfin tags",
+      matchPackageNames: ["lscr.io/linuxserver/jellyfin"],
+      allowedVersions: "/^(?:[0-9]|[1-9][0-9])\\.\\d+\\.\\d+$/",
     },
   ],
 }

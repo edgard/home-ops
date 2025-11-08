@@ -5,7 +5,7 @@ metadata:
   name: web-uptime-kuma
   namespace: flux-system
 spec:
-  interval: 2h
+  interval: 1h
   path: ./kubernetes/apps/web/uptime-kuma/app
   prune: true
   sourceRef:
