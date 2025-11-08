@@ -19,6 +19,9 @@ spec:
       multus:
         serviceAccount:
           identifier: multus
+        pod:
+          nodeSelector:
+            kubernetes.io/os: linux
     cni-plugins:
       image:
         repository: ghcr.io/home-operations/cni-plugins
