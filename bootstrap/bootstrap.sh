@@ -82,7 +82,7 @@ parse_args() {
             exit 0
             ;;
         *)
-            fatal "Unknown option: ${1}"
+            fatal "CLI: Unknown option ${1}"
             ;;
         esac
         shift
@@ -94,7 +94,7 @@ parse_args() {
 # -----------------------------------------------------------------------------
 require() {
     if ! command -v "${1}" >/dev/null 2>&1; then
-        fatal "${1} is required but not found in PATH"
+        fatal "Deps: ${1} is required but not found in PATH"
     fi
 }
 
@@ -103,13 +103,13 @@ load_cluster_name() {
     local name
 
     if [[ ! -f "${config_path}" ]]; then
-        fatal "Kind config ${config_path} does not exist"
+        fatal "Config: Kind config ${config_path} does not exist"
     fi
 
     name=$(yq eval '.name' "${config_path}" 2>/dev/null)
 
     if [[ -z "${name}" || "${name}" == "null" ]]; then
-        fatal "Kind config ${config_path} does not define a cluster name"
+        fatal "Config: Kind config ${config_path} does not define a cluster name"
     fi
 
     echo "${name}"
@@ -133,7 +133,7 @@ use_docker_context() {
     ORIGINAL_CONTEXT=$(docker context show 2>/dev/null || echo "default")
 
     if [[ "${ORIGINAL_CONTEXT}" != "${target}" ]]; then
-        log "Switching docker context to ${target}"
+        log "Docker: Switching context to ${target}"
         docker context use "${target}"
     fi
 }
@@ -176,6 +176,9 @@ detect_api_endpoint_settings() {
 
     if [[ -n "${remote_host}" ]]; then
         BIND_ADDRESS="0.0.0.0"
+        log "API: Exposing control plane on ${remote_host} (bind ${BIND_ADDRESS})"
+    else
+        log "API: Using local control plane endpoint"
     fi
 }
 
@@ -196,7 +199,7 @@ patch_kubeconfig_endpoint() {
             current_host="${BASH_REMATCH[1]}"
             port="${BASH_REMATCH[2]}"
             if [[ -n "${current_host}" && -n "${port}" && "${current_host}" != "${ADVERTISE_HOST}" ]]; then
-                log "Patching kubeconfig server endpoint to https://${ADVERTISE_HOST}:${port}"
+                log "Kubeconfig: Patching server endpoint to https://${ADVERTISE_HOST}:${port}"
                 kubectl config set-cluster "${cluster_context}" "--server=https://${ADVERTISE_HOST}:${port}"
             fi
         fi
@@ -216,20 +219,20 @@ install_flux_release() {
     chart_version=$(yq -r '.spec.ref.tag' "${repo_manifest}")
 
     if [[ -z "${chart_url}" || "${chart_url}" == "null" ]]; then
-        fatal "Missing spec.url in ${repo_manifest}"
+        fatal "Flux: Missing spec.url in ${repo_manifest}"
     fi
 
     if [[ -z "${chart_version}" || "${chart_version}" == "null" ]]; then
-        fatal "Missing spec.ref.tag in ${repo_manifest}"
+        fatal "Flux: Missing spec.ref.tag in ${repo_manifest}"
     fi
 
-    log "Installing ${release_name} (${chart_url}@${chart_version})"
+    log "Flux: Installing ${release_name} (${chart_url}@${chart_version})"
     helm upgrade --install "${release_name}" "${chart_url}" --namespace flux-system --create-namespace --version "${chart_version}" --values <(yq -o=yaml '.spec.values // {}' "${helmrelease_manifest}") --wait
 }
 
 setup_flux() {
-    log "Running flux check --pre"
-    flux check --pre || fatal "Flux pre-check failed"
+    log "Flux: Running flux check --pre"
+    flux check --pre || fatal "Flux: Pre-check failed"
 
     local manifests_root="${REPO_ROOT}/kubernetes/apps/flux-system"
     local -a releases=(
@@ -242,6 +245,8 @@ setup_flux() {
         IFS=":" read -r release_name release_path <<<"${release}"
         install_flux_release "${release_name}" "${release_path}/ocirepository.yaml" "${release_path}/helmrelease.yaml"
     done
+
+    log "Flux: Operator components installed"
 }
 
 apply_secret() {
@@ -255,45 +260,50 @@ apply_secret() {
 
 create_flux_secrets() {
     local git_username git_pat
+    local -a applied_secrets=()
 
     if [[ -f "${SOPS_AGE_KEY_PATH}" ]]; then
-        log "Applying flux-system/sops-age secret from ${SOPS_AGE_KEY_PATH}"
         apply_secret "flux-system" "sops-age" --from-file="age.agekey=${SOPS_AGE_KEY_PATH}"
+        applied_secrets+=("sops-age")
     else
-        log "Skipping SOPS secret creation (generate ${SOPS_AGE_KEY_PATH} via make sops-key-generate)"
+        log_warn "Secrets: Missing ${SOPS_AGE_KEY_PATH}; run make sops-key-generate"
     fi
 
     if [[ -f "${GIT_CREDENTIALS_PATH}" ]]; then
-        log "Loading Git credentials from ${GIT_CREDENTIALS_PATH}"
-
         git_username=$(grep '^username=' "${GIT_CREDENTIALS_PATH}" 2>/dev/null | cut -d= -f2- || true)
         git_pat=$(grep '^password=' "${GIT_CREDENTIALS_PATH}" 2>/dev/null | cut -d= -f2- || true)
 
         if [[ -n "${git_username}" && -n "${git_pat}" ]]; then
-            log "Applying flux-system/home-ops-git secret for Git push"
             apply_secret "flux-system" "home-ops-git" --from-literal="username=${git_username}" --from-literal="password=${git_pat}"
+            applied_secrets+=("home-ops-git")
         else
-            log_warn "Incomplete Git credentials found (need both username= and password= lines)"
+            log_warn "Git: Incomplete credentials; add username= and password= lines"
         fi
     else
-        log "Skipping Git credentials secret (populate ${GIT_CREDENTIALS_PATH} with username=/password= lines)"
+        log_warn "Git: Missing ${GIT_CREDENTIALS_PATH}; populate it with username=/password= lines"
+    fi
+
+    if (( ${#applied_secrets[@]} > 0 )); then
+        log "Secrets: Applied ${applied_secrets[*]} secret(s)"
+    else
+        log_warn "Secrets: No Flux secrets applied; bootstrap will stall without them"
     fi
 }
 
 finalize_cluster() {
-    log "Waiting for flux-system kustomization to be created"
+    log "Flux: Waiting for flux-system kustomization"
     until kubectl get kustomization flux-system -n flux-system >/dev/null 2>&1; do
         sleep 5
     done
 
-    log "Triggering initial Flux reconciliation"
+    log "Flux: Triggering initial reconciliation"
     flux reconcile source git flux-system --namespace flux-system
     flux reconcile kustomization flux-system --namespace flux-system
 
-    log "Verifying Flux installation"
-    flux check || fatal "Flux verification failed"
+    log "Flux: Verifying installation"
+    flux check || fatal "Flux: Verification failed"
 
-    log "Bootstrap complete. kubectl context is kind-${CLUSTER_NAME}."
+    log "Bootstrap: Complete; kubectl context is kind-${CLUSTER_NAME}"
 }
 
 # -----------------------------------------------------------------------------
@@ -302,16 +312,18 @@ finalize_cluster() {
 configure_macvlan_network() {
     local nodes node
     local network_name="${MULTUS_NETWORK}"
+    local -a attached_nodes=()
+    local -a unchanged_nodes=()
 
     if docker network ls --format '{{.Name}}' | grep -q "^${network_name}$"; then
-        log "Reusing existing docker network ${network_name}"
+        log "Network: Reusing docker macvlan ${network_name}"
     else
-        log "Creating docker macvlan network ${network_name} on parent ${MULTUS_PARENT_IFACE} (subnet ${MULTUS_PARENT_SUBNET}, ip-range ${MULTUS_PARENT_IP_RANGE})"
-        docker network create -d macvlan --subnet "${MULTUS_PARENT_SUBNET}" --gateway "${MULTUS_PARENT_GATEWAY}" --ip-range "${MULTUS_PARENT_IP_RANGE}" -o "parent=${MULTUS_PARENT_IFACE}" "${network_name}" || fatal "Failed to create macvlan network ${network_name}"
+        log "Network: Creating docker macvlan ${network_name} on ${MULTUS_PARENT_IFACE} (subnet ${MULTUS_PARENT_SUBNET}, ip-range ${MULTUS_PARENT_IP_RANGE})"
+        docker network create -d macvlan --subnet "${MULTUS_PARENT_SUBNET}" --gateway "${MULTUS_PARENT_GATEWAY}" --ip-range "${MULTUS_PARENT_IP_RANGE}" -o "parent=${MULTUS_PARENT_IFACE}" "${network_name}" || fatal "Network: Failed to create macvlan ${network_name}"
     fi
 
     if ! nodes=$(kind get nodes --name "${CLUSTER_NAME}" 2>/dev/null); then
-        log "Skipping network attach; no nodes found for cluster ${CLUSTER_NAME}"
+        log_warn "Network: No nodes reported for cluster ${CLUSTER_NAME}; skipping macvlan attachment"
         return
     fi
 
@@ -321,11 +333,23 @@ configure_macvlan_network() {
         fi
 
         if docker network connect "${network_name}" "${node}" 2>/dev/null; then
-            log "Connected ${node} to ${network_name}"
+            attached_nodes+=("${node}")
         else
-            log_warn "Node ${node} already on ${network_name}"
+            unchanged_nodes+=("${node}")
         fi
     done <<<"${nodes}"
+
+    if (( ${#attached_nodes[@]} > 0 )); then
+        log "Network: Attached workers ${attached_nodes[*]} to ${network_name}"
+    fi
+
+    if (( ${#unchanged_nodes[@]} > 0 )); then
+        log_warn "Network: Workers already on ${network_name}: ${unchanged_nodes[*]}"
+    fi
+
+    if (( ${#attached_nodes[@]} == 0 && ${#unchanged_nodes[@]} == 0 )); then
+        log "Network: No worker nodes eligible for macvlan attachment"
+    fi
 }
 
 create_cluster() {
@@ -334,46 +358,46 @@ create_cluster() {
 
     if [[ -n "${BIND_ADDRESS}" ]]; then
         yq eval ".networking.apiServerAddress = \"${BIND_ADDRESS}\"" -i "${TEMP_CONFIG}"
-        log "Set apiServerAddress to ${BIND_ADDRESS}"
+        log "Config: Setting apiServerAddress to ${BIND_ADDRESS}"
     fi
 
     if [[ "$(yq eval '.nodes[0].kubeadmConfigPatches | length' "${TEMP_CONFIG}")" -eq 0 ]]; then
-        fatal "Kind config ${KIND_CONFIG_PATH} must define a kubeadmConfigPatch for the control plane"
+        fatal "Config: Kind config ${KIND_CONFIG_PATH} must define a kubeadmConfigPatch for the control plane"
     fi
 
     if ! cluster_exists "${CLUSTER_NAME}"; then
-        log "Creating kind cluster ${CLUSTER_NAME}"
-        kind create cluster --config "${TEMP_CONFIG}" || fatal "Failed to create kind cluster ${CLUSTER_NAME}"
+        log "Cluster: Creating kind cluster ${CLUSTER_NAME}"
+        kind create cluster --config "${TEMP_CONFIG}" || fatal "Cluster: Failed to create kind cluster ${CLUSTER_NAME}"
     elif [[ -n "${BIND_ADDRESS}" || -n "${ADVERTISE_HOST}" ]]; then
-        log "Cluster ${CLUSTER_NAME} already exists; rerun with --delete to apply updated API server exposure settings"
+        log_warn "Cluster: ${CLUSTER_NAME} already exists; rerun with --delete to apply updated API server exposure settings"
     fi
 }
 
 strip_kindnet_resources() {
-    log "Patching kindnet to remove resources req/limit"
+    log "Network: Patching kindnet to remove resource requests and limits"
     if ! kubectl -n kube-system patch ds kindnet --type=json -p='[{"op":"remove","path":"/spec/template/spec/containers/0/resources"}]' >/dev/null 2>&1; then
-        log_warn "Failed to patch kindnet (resources may already be absent)"
+        log_warn "Network: Failed to patch kindnet (resources may already be absent)"
     fi
 }
 
 ensure_nodes_ready() {
-    log "Waiting for nodes to become Ready"
-    kubectl wait --for=condition=Ready node --all --timeout=180s || fatal "Nodes failed to become Ready within timeout"
+    log "Nodes: Waiting for all nodes to become Ready"
+    kubectl wait --for=condition=Ready node --all --timeout=180s || fatal "Nodes: Failed to become Ready within timeout"
 }
 
 teardown_cluster() {
     if cluster_exists "${CLUSTER_NAME}"; then
-        log "Deleting kind cluster ${CLUSTER_NAME}"
-        kind delete cluster --name "${CLUSTER_NAME}" || log_warn "Failed to delete cluster ${CLUSTER_NAME}"
+        log "Cluster: Deleting kind cluster ${CLUSTER_NAME}"
+        kind delete cluster --name "${CLUSTER_NAME}" || log_warn "Cluster: Failed to delete ${CLUSTER_NAME}"
     else
-        log "No kind cluster named ${CLUSTER_NAME} found; nothing to delete"
+        log "Cluster: Skipping delete; cluster ${CLUSTER_NAME} not found"
     fi
 
     if [[ -n "${MULTUS_NETWORK}" ]]; then
         if docker network rm "${MULTUS_NETWORK}" >/dev/null 2>&1; then
-            log "Removed docker macvlan network ${MULTUS_NETWORK}"
+            log "Network: Removed docker macvlan ${MULTUS_NETWORK}"
         else
-            log "No docker network named ${MULTUS_NETWORK} found; nothing to remove"
+            log "Network: Skipping removal; docker network ${MULTUS_NETWORK} not found"
         fi
     fi
 }
@@ -401,15 +425,17 @@ init_environment() {
     export KUBECONFIG="${KUBECONFIG_PATH}"
 
     if ! docker context ls --format '{{.Name}}' 2>/dev/null | grep -qx "${DOCKER_CONTEXT}"; then
-        fatal "Docker context '${DOCKER_CONTEXT}' not found. Create it before running bootstrap."
+        fatal "Docker: Context '${DOCKER_CONTEXT}' not found; create it before running bootstrap"
     fi
 
     use_docker_context "${DOCKER_CONTEXT}"
 
-    log "Multus network iface=${MULTUS_PARENT_IFACE}, subnet=${MULTUS_PARENT_SUBNET}, gateway=${MULTUS_PARENT_GATEWAY}, range=${MULTUS_PARENT_IP_RANGE}"
+    log "Bootstrap: Targeting cluster ${CLUSTER_NAME} (context ${DOCKER_CONTEXT})"
+    log "Network: Using Multus iface=${MULTUS_PARENT_IFACE}, subnet=${MULTUS_PARENT_SUBNET}, gateway=${MULTUS_PARENT_GATEWAY}, range=${MULTUS_PARENT_IP_RANGE}"
 }
 
 bootstrap_flow() {
+    log "Bootstrap: Starting create workflow for cluster ${CLUSTER_NAME}"
     detect_api_endpoint_settings
     create_cluster
     configure_macvlan_network
@@ -428,7 +454,9 @@ main() {
     init_environment
 
     if [[ "${DELETE_MODE}" == "true" ]]; then
+        log "Bootstrap: Starting delete workflow for cluster ${CLUSTER_NAME}"
         teardown_cluster
+        log "Bootstrap: Delete workflow complete for cluster ${CLUSTER_NAME}"
         return 0
     fi
 
