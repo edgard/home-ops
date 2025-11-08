@@ -2,7 +2,7 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
-  name: duplicati
+  name: kopia
 spec:
   interval: 30m
   layerSelector:

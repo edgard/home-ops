@@ -2,12 +2,13 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: platform-system-duplicati
+  name: platform-system-kopia
   namespace: flux-system
 spec:
-  dependsOn: []
+  dependsOn:
+    - name: kube-system-multus-networks
   interval: 1h
-  path: ./kubernetes/apps/platform-system/duplicati/app
+  path: ./kubernetes/apps/platform-system/kopia/app
   prune: true
   sourceRef:
     kind: GitRepository

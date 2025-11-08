@@ -3,5 +3,5 @@ kind: Kustomization
 resources:
   - ./namespace.yaml
   - ./cloudflared/ks.yaml
-  - ./duplicati/ks.yaml
+  - ./kopia/ks.yaml
   - ./reloader/ks.yaml

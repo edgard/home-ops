@@ -1,0 +1,152 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kopia
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kopia
+  interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      main:
+        initContainers:
+          repo-init:
+            image:
+              repository: ghcr.io/home-operations/kopia
+              tag: 0.21.1
+              pullPolicy: IfNotPresent
+            env:
+              TZ: Europe/Warsaw
+            envFrom:
+              - secretRef:
+                  name: kopia
+            command:
+              - /bin/bash
+              - -c
+            args:
+              - |
+                set -euo pipefail
+                mkdir -p /config/cache /config/logs
+                CONFIG="/config/repository.config"
+                if [ ! -f "${CONFIG}" ]; then
+                  if [ -z "$(ls -A /repository 2>/dev/null)" ]; then
+                    echo "Initializing Kopia repository at /repository"
+                    kopia repository create filesystem --path=/repository --password "${KOPIA_PASSWORD}"
+                  else
+                    echo "Repository data detected, ensuring config at ${CONFIG}"
+                    kopia repository connect filesystem --path=/repository --password "${KOPIA_PASSWORD}"
+                  fi
+                else
+                  echo "Using existing repository config at ${CONFIG}"
+                fi
+                kopia repository status >/dev/null 2>&1 || kopia repository connect filesystem --path=/repository --password "${KOPIA_PASSWORD}"
+                kopia repository set-client --hostname homelab --username root
+            securityContext:
+              allowPrivilegeEscalation: true
+              privileged: true
+              runAsGroup: 0
+              runAsUser: 0
+        pod:
+          annotations:
+            k8s.v1.cni.cncf.io/networks: |
+              [
+                {
+                  "name": "lan-macvlan",
+                  "namespace": "kube-system",
+                  "ips": ["192.168.1.244/24"],
+                  "mac": "02:42:c0:a8:01:f4",
+                  "gateway": ["192.168.1.1"]
+                }
+              ]
+        annotations:
+          reloader.stakater.com/auto: "true"
+        type: deployment
+        replicas: 1
+        strategy: Recreate
+        containers:
+          main:
+            image:
+              repository: ghcr.io/home-operations/kopia
+              tag: 0.21.1
+              pullPolicy: IfNotPresent
+            args:
+              - --without-password
+            env:
+              TZ: Europe/Warsaw
+            envFrom:
+              - secretRef:
+                  name: kopia
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 51515
+                  initialDelaySeconds: 20
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 51515
+                  initialDelaySeconds: 10
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            securityContext:
+              runAsUser: 0
+              runAsGroup: 0
+              privileged: true
+              allowPrivilegeEscalation: true
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 51515
+            protocol: TCP
+            targetPort: 51515
+          metrics:
+            enabled: true
+            port: 51516
+            protocol: TCP
+            targetPort: 51516
+    persistence:
+      config:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/kopia/config
+        hostPathType: DirectoryOrCreate
+        globalMounts:
+          - path: /config
+      repository:
+        type: hostPath
+        hostPath: /mnt/dpool/backup/kopia
+        hostPathType: DirectoryOrCreate
+        globalMounts:
+          - path: /repository
+      tmp:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/kopia/tmp
+        hostPathType: DirectoryOrCreate
+        globalMounts:
+          - path: /tmp
+      source:
+        type: hostPath
+        hostPath: /mnt/spool/appdata
+        hostPathType: Directory
+        advancedMounts:
+          main:
+            main:
+              - path: /data
+                readOnly: true
