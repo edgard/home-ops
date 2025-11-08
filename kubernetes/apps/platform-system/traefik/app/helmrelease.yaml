@@ -33,6 +33,11 @@ spec:
               "gateway": ["192.168.1.1"]
             }
           ]
+      additionalVolumes:
+        - name: acme-storage
+          hostPath:
+            path: /mnt/spool/appdata/traefik
+            type: DirectoryOrCreate
     ingressClass:
       enabled: true
       isDefaultClass: true
@@ -53,7 +58,7 @@ spec:
       home:
         acme:
           email: ops@home.edgard.org
-          storage: /data/acme.json
+          storage: /acme/acme.json
           dnsChallenge:
             provider: cloudflare
             delayBeforeCheck: 0
@@ -63,11 +68,6 @@ spec:
           secretKeyRef:
             name: cloudflare-api-traefik
             key: CF_API_TOKEN
-    volumes:
-      - name: acme-storage
-        hostPath:
-          path: /mnt/spool/appdata/traefik
-          type: DirectoryOrCreate
     additionalVolumeMounts:
       - name: acme-storage
-        mountPath: /data
+        mountPath: /acme
