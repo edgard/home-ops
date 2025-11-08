@@ -6,7 +6,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn: []
-  interval: 2h
+  interval: 1h
   path: ./kubernetes/apps/media/sonarr/app
   prune: true
   sourceRef:

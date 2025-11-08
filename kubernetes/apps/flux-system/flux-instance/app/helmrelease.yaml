@@ -29,7 +29,7 @@ spec:
         url: https://github.com/edgard/home-ops.git
         ref: refs/heads/master
         path: kubernetes/flux/cluster
-        interval: 2h
+        interval: 15m
         pullSecret: home-ops-git
       kustomize:
         patches:

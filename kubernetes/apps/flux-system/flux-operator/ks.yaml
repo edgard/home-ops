@@ -8,7 +8,7 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: flux-operator
-  interval: 2h
+  interval: 1h
   path: ./kubernetes/apps/flux-system/flux-operator/app
   prune: false # Never delete this
   sourceRef:

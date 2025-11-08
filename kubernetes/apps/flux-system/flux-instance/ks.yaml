@@ -10,7 +10,7 @@ spec:
       app.kubernetes.io/name: flux-instance
   dependsOn:
     - name: flux-operator
-  interval: 2h
+  interval: 1h
   path: ./kubernetes/apps/flux-system/flux-instance/app
   prune: false # Never delete this
   sourceRef:

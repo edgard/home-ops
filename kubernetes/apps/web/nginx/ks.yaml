@@ -5,7 +5,7 @@ metadata:
   name: web-nginx
   namespace: flux-system
 spec:
-  interval: 2h
+  interval: 1h
   path: ./kubernetes/apps/web/nginx/app
   prune: true
   sourceRef:
