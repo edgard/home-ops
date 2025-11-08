@@ -1,75 +1,101 @@
 {
-  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: [
-    "config:recommended",
-    "docker:enableMajor",
-    "helpers:pinGitHubActionDigests",
-    ":automergeBranch",
-    ":dependencyDashboard",
-    ":semanticCommits",
-    ":timezone(Europe/Warsaw)",
+    'config:recommended',
+    'docker:enableMajor',
+    'helpers:pinGitHubActionDigests',
+    ':automergeBranch',
+    ':dependencyDashboard',
+    ':semanticCommits',
+    ':timezone(Europe/Warsaw)',
   ],
-  dependencyDashboardTitle: "Renovate Dashboard 🤖",
+  dependencyDashboardTitle: 'Renovate Dashboard 🤖',
   suppressNotifications: [
-    "prEditedNotification",
-    "prIgnoreNotification",
+    'prEditedNotification',
+    'prIgnoreNotification',
   ],
   ignorePaths: [
-    "**/*.sops.yaml",
-    "**/*.sops.yml",
-    "**/*.sops.json",
-    "**/*.sops.*",
-    "**/secret.sops.yaml",
+    '**/*.sops.yaml',
+    '**/*.sops.yml',
+    '**/*.sops.json',
+    '**/*.sops.*',
+    '**/secret.sops.yaml',
   ],
   flux: {
-    fileMatch: ["^kubernetes/.+\\.ya?ml$"],
+    managerFilePatterns: [
+      '/^kubernetes/.+\\.ya?ml$/',
+    ],
   },
-  "helm-values": {
-    fileMatch: ["^kubernetes/.+\\.ya?ml$"],
+  'helm-values': {
+    managerFilePatterns: [
+      '/^kubernetes/.+\\.ya?ml$/',
+    ],
   },
   kubernetes: {
-    fileMatch: ["^kubernetes/.+\\.ya?ml$"],
+    managerFilePatterns: [
+      '/^kubernetes/.+\\.ya?ml$/',
+    ],
   },
   customManagers: [
     {
-      customType: "regex",
-      description: "Track Kind node images used by bootstrap",
-      fileMatch: ["^bootstrap/cluster-config\\.yaml$"],
-      matchStrings: [
-        "image:\\s*(?<depName>kindest/node):(?<currentValue>[0-9A-Za-z_.-]+)",
+      customType: 'regex',
+      description: 'Track Kind node images used by bootstrap',
+      managerFilePatterns: [
+        '/^bootstrap/cluster-config\\.yaml$/',
       ],
-      datasourceTemplate: "docker",
+      matchStrings: [
+        'image:\\s*(?<depName>kindest/node):(?<currentValue>[0-9A-Za-z_.-]+)',
+      ],
+      datasourceTemplate: 'docker',
     },
   ],
   packageRules: [
     {
-      description: "Treat Kind node tags as loose versions",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["kindest/node"],
-      versioning: "loose",
+      description: 'Treat Kind node tags as loose versions',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'kindest/node',
+      ],
+      versioning: 'loose',
     },
     {
-      description: "Group Kind cluster node updates into a single PR",
-      matchFileNames: ["bootstrap/cluster-config.yaml"],
-      groupName: "kind-nodes",
+      description: 'Group Kind cluster node updates into a single PR',
+      matchFileNames: [
+        'bootstrap/cluster-config.yaml',
+      ],
+      groupName: 'kind-nodes',
     },
     {
-      description: "Auto-merge all non-major dependency updates",
+      description: 'Auto-merge all non-major dependency updates',
       automerge: true,
-      automergeType: "branch",
-      matchUpdateTypes: ["minor", "patch", "digest", "pin", "rollback"],
+      automergeType: 'branch',
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+        'digest',
+        'pin',
+        'rollback',
+      ],
       ignoreTests: true,
     },
     {
-      description: "Require manual review for major upgrades",
+      description: 'Require manual review for major upgrades',
       automerge: false,
-      matchUpdateTypes: ["major"],
-      addLabels: ["renovate/manual-review"],
+      matchUpdateTypes: [
+        'major',
+      ],
+      addLabels: [
+        'renovate/manual-review',
+      ],
     },
     {
-      description: "Only consider semver Jellyfin tags",
-      matchPackageNames: ["lscr.io/linuxserver/jellyfin"],
-      allowedVersions: "/^(?:[0-9]|[1-9][0-9])\\.\\d+\\.\\d+$/",
+      description: 'Only consider semver Jellyfin tags',
+      matchPackageNames: [
+        'lscr.io/linuxserver/jellyfin',
+      ],
+      allowedVersions: '/^(?:[0-9]|[1-9][0-9])\\.\\d+\\.\\d+$/',
     },
   ],
 }
