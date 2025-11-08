@@ -25,15 +25,19 @@ spec:
                 - /bin/sh
                 - -c
               args:
-                - >-
+                - |
                   set -euo pipefail
                   apk add --no-cache curl >/dev/null 2>&1 || true
-                  ip=$(curl -fsSL "$EXTERNAL_IP_URL")
+                  if command -v curl >/dev/null 2>&1; then
+                    ip=$(curl -fsSL "$EXTERNAL_IP_URL")
+                  else
+                    ip=$(wget -qO- "$EXTERNAL_IP_URL")
+                  fi
                   if [ -z "$ip" ]; then
                     echo "external IP lookup returned empty" >&2
                     exit 1
                   fi
-                  cat <<YAML | kubectl apply -f -
+                  cat <<'YAML' | kubectl apply -f -
                   apiVersion: externaldns.k8s.io/v1alpha1
                   kind: DNSEndpoint
                   metadata:
