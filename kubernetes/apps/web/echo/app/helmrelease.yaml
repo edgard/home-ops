@@ -74,9 +74,8 @@ spec:
               - path: /
                 pathType: Prefix
                 service:
-                  name: main
-                  identifier: main
-                  port: http
+                  name: echo
+                  port: 80
         tls:
           - hosts:
               - echo.home.edgard.org
