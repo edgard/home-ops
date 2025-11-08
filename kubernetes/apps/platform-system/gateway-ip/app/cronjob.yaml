@@ -37,7 +37,7 @@ spec:
                     echo "external IP lookup returned empty" >&2
                     exit 1
                   fi
-                  cat <<'YAML' | kubectl apply -f -
+                  cat <<YAML | kubectl apply -f -
                   apiVersion: externaldns.k8s.io/v1alpha1
                   kind: DNSEndpoint
                   metadata:
