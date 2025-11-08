@@ -17,8 +17,11 @@ spec:
     controllers:
       main:
         type: deployment
-        replicas: 1
-        strategy: Recreate
+        replicas: 2
+        strategy: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 0
+          maxSurge: 1
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -31,11 +34,13 @@ spec:
               - cloudflared
             args:
               - tunnel
-              - --no-autoupdate
-              - --metrics=0.0.0.0:2000
               - run
             env:
               TZ: Europe/Warsaw
+              NO_AUTOUPDATE: true
+              TUNNEL_METRICS: 0.0.0.0:8080
+              TUNNEL_POST_QUANTUM: true
+              TUNNEL_TRANSPORT_PROTOCOL: quic
             envFrom:
               - secretRef:
                   name: cloudflared
@@ -46,7 +51,7 @@ spec:
                 spec:
                   httpGet:
                     path: /ready
-                    port: 2000
+                    port: 8080
                     scheme: HTTP
                   initialDelaySeconds: 20
                   periodSeconds: 30
@@ -58,7 +63,7 @@ spec:
                 spec:
                   httpGet:
                     path: /ready
-                    port: 2000
+                    port: 8080
                     scheme: HTTP
                   initialDelaySeconds: 10
                   periodSeconds: 15
