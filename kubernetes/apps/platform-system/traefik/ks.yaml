@@ -5,8 +5,6 @@ metadata:
   name: platform-system-traefik
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: platform-system-cloudflare
   interval: 1h
   path: ./kubernetes/apps/platform-system/traefik/app
   prune: true
