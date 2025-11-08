@@ -9,7 +9,7 @@ spec:
     provider: sops
     secretRef:
       name: sops-age
-  interval: 2h
+  interval: 1h
   path: ./kubernetes/apps
   patches:
     - patch: |-

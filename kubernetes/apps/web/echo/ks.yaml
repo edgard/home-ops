@@ -5,7 +5,7 @@ metadata:
   name: web-echo
   namespace: flux-system
 spec:
-  interval: 2h
+  interval: 1h
   path: ./kubernetes/apps/web/echo/app
   prune: true
   sourceRef:

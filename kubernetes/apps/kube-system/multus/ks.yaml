@@ -6,7 +6,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn: []
-  interval: 2h
+  interval: 1h
   path: ./kubernetes/apps/kube-system/multus/app
   prune: true
   sourceRef:
@@ -33,7 +33,7 @@ metadata:
 spec:
   dependsOn:
     - name: kube-system-multus
-  interval: 2h
+  interval: 1h
   path: ./kubernetes/apps/kube-system/multus/config
   prune: true
   sourceRef:
