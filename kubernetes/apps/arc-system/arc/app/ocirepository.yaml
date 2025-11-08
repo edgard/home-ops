@@ -1,7 +1,7 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
-  name: gha-runner-scale-set-controller
+  name: arc
 spec:
   interval: 30m
   layerSelector:

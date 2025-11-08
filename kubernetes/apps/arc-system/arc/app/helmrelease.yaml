@@ -1,14 +1,14 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: actions-runner-controller
+  name: arc
 spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
-    name: gha-runner-scale-set-controller
+    name: arc
   driftDetection:
     mode: enabled
   values:
-    fullnameOverride: actions-runner-controller
+    fullnameOverride: arc
     replicaCount: 1

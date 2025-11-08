@@ -6,12 +6,12 @@ spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
-    name: gha-runner-scale-set
+    name: arc-runners
   driftDetection:
     mode: enabled
   values:
     githubConfigUrl: https://github.com/edgard/home-ops
-    githubConfigSecret: actions-runner-controller-secret
+    githubConfigSecret: arc-runners-secret
 
     runnerScaleSetName: home-ops
     minRunners: 0
@@ -86,5 +86,5 @@ spec:
             emptyDir: {}
 
     controllerServiceAccount:
-      name: actions-runner-controller
-      namespace: actions-runner-system
+      name: arc
+      namespace: arc-system
