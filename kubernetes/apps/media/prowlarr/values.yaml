@@ -49,6 +49,9 @@ service:
   main:
     controller: main
     type: ClusterIP
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: prowlarr.edgard.org
+      external-dns.alpha.kubernetes.io/target: 192.168.1.241
     ports:
       http:
         enabled: true

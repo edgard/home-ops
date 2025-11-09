@@ -1,0 +1,70 @@
+fullnameOverride: external-dns-unifi
+
+image:
+  repository: registry.k8s.io/external-dns/external-dns
+  tag: v0.19.0
+  pullPolicy: IfNotPresent
+
+logLevel: debug
+logFormat: text
+interval: 1m
+triggerLoopOnEvent: true
+
+serviceAccount:
+  create: true
+  name: external-dns-unifi
+  automountServiceAccountToken: true
+
+rbac:
+  create: true
+
+sources:
+  - service
+
+extraArgs:
+  - --publish-internal-services
+  - --service-type-filter=ClusterIP
+  - --annotation-filter=external-dns.alpha.kubernetes.io/hostname
+
+policy: sync
+registry: txt
+txtOwnerId: home-ops-unifi
+txtPrefix: "k8s."
+domainFilters:
+  - edgard.org
+
+provider:
+  name: webhook
+  webhook:
+    image:
+      repository: ghcr.io/kashalls/external-dns-unifi-webhook
+      tag: v0.7.0
+      pullPolicy: IfNotPresent
+    env:
+      - name: LOG_LEVEL
+        value: debug
+      - name: UNIFI_HOST
+        value: https://192.168.1.1
+      - name: UNIFI_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: external-dns-unifi
+            key: unifi_api_key
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: http-webhook
+      initialDelaySeconds: 10
+      timeoutSeconds: 5
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: http-webhook
+      initialDelaySeconds: 10
+      timeoutSeconds: 5
+
+podAnnotations:
+  reloader.stakater.com/auto: "true"
+
+serviceMonitor:
+  enabled: false

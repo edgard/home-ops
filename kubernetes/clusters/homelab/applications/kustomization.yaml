@@ -27,6 +27,7 @@ resources:
   - platform-system-cert-manager.yaml
   - platform-system-ingress-nginx.yaml
   - platform-system-external-dns.yaml
+  - platform-system-external-dns-unifi.yaml
   - platform-system-cloudflared.yaml
   - web-echo.yaml
   - web-nginx.yaml
