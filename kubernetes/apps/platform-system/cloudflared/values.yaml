@@ -52,9 +52,9 @@ controllers:
               httpGet:
                 path: /ready
                 port: 8080
-              initialDelaySeconds: 0
-              periodSeconds: 10
-              timeoutSeconds: 1
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
               failureThreshold: 3
           liveness:
             enabled: true
@@ -63,10 +63,10 @@ controllers:
               httpGet:
                 path: /ready
                 port: 8080
-              initialDelaySeconds: 0
-              periodSeconds: 10
-              timeoutSeconds: 1
-              failureThreshold: 3
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

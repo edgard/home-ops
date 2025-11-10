@@ -21,20 +21,26 @@ controllers:
         probes:
           readiness:
             enabled: true
+            custom: true
             spec:
               httpGet:
-                path: /healthz/ready
+                path: /healthz
                 port: 5556
-              initialDelaySeconds: 5
-              periodSeconds: 10
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
           liveness:
             enabled: true
+            custom: true
             spec:
               httpGet:
-                path: /healthz/live
+                path: /healthz
                 port: 5556
-              initialDelaySeconds: 10
-              periodSeconds: 15
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
 
 service:
   main:

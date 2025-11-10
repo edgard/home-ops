@@ -37,8 +37,9 @@ template:
               - docker
               - info
           initialDelaySeconds: 0
-          failureThreshold: 24
-          periodSeconds: 5
+          failureThreshold: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
         volumeMounts:
           - name: work
             mountPath: /home/runner/_work

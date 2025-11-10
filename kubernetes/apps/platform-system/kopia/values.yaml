@@ -73,9 +73,10 @@ controllers:
             enabled: true
             custom: true
             spec:
-              tcpSocket:
+              httpGet:
+                path: /
                 port: 51515
-              initialDelaySeconds: 20
+              initialDelaySeconds: 30
               periodSeconds: 30
               timeoutSeconds: 5
               failureThreshold: 5
@@ -83,9 +84,10 @@ controllers:
             enabled: true
             custom: true
             spec:
-              tcpSocket:
+              httpGet:
+                path: /
                 port: 51515
-              initialDelaySeconds: 10
+              initialDelaySeconds: 15
               periodSeconds: 15
               timeoutSeconds: 5
               failureThreshold: 3

@@ -1,4 +1,28 @@
 fullnameOverride: reflector
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  timeoutSeconds: 5
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  failureThreshold: 5
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  timeoutSeconds: 5
+  initialDelaySeconds: 15
+  periodSeconds: 15
+  failureThreshold: 3
+startupProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  timeoutSeconds: 5
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  failureThreshold: 30
 configuration:
   logging:
     minimumLevel: Information

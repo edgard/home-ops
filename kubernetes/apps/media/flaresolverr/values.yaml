@@ -38,7 +38,7 @@ controllers:
               httpGet:
                 path: /health
                 port: 8191
-              initialDelaySeconds: 10
+              initialDelaySeconds: 15
               periodSeconds: 15
               timeoutSeconds: 5
               failureThreshold: 3
