@@ -1,69 +1,61 @@
 # home-ops
 
-Kind hosts the homelab cluster, Argo CD keeps it reconciled, and each workload is a “values-only” Helm release with optional Kustomize resources (mainly SealedSecrets).
+Kind hosts the homelab cluster, Argo CD reconciles it, and each workload is a values-only Helm release with optional Kustomize resources (mainly SealedSecrets).
 
-## Layout
+## Repository map
 
-- `bootstrap/` – Kind cluster config + `bootstrap.sh`, which installs Argo CD and applies `kubernetes/clusters/homelab/root-application.yaml`.
-- `kubernetes/clusters/homelab/` – namespaces, application manifests, and the kustomization synced by the root app.
-- `kubernetes/apps/<namespace>/<app>/values.yaml` – Helm values per workload; `resources/` holds extra manifests (ConfigMaps, middlewares, `*.sealedsecret.yaml`).
-- `.git-secret.yaml` (untracked) – repository credentials Argo needs; bootstrap applies it to `argocd/home-ops-git` (see the example near the bottom of this document).
+- `bootstrap/` – Kind config + `bootstrap.sh`, which installs Argo CD and applies `kubernetes/clusters/homelab/root-application.yaml`.
+- `kubernetes/clusters/homelab/` – namespaces, Applications, and the kustomization synced by the root app.
+- `kubernetes/apps/<namespace>/<app>/values.yaml` – Helm values per workload; `resources/` carries ConfigMaps, middlewares, and `*.sealedsecret.yaml`.
+- `.git-secret.yaml` (untracked) – Argo repository credentials; bootstrap applies it to `argocd/home-ops-git` (example below).
 
-## Requirements
+## Prerequisites
 
 - CLI deps: `docker`, `kind`, `kubectl`, `helm`, `yq`, `kubeseal`, `openssl`.
-- Docker context `kind-<cluster>` pointing at the host that runs the Kind nodes (default cluster name: `homelab`).
+- Docker context `kind-<cluster>` pointing at the host that runs the Kind nodes (`homelab` by default).
 - Sealed Secrets keypair stored as `.sealed-secrets.key` / `.sealed-secrets.crt`. Generate once:
-  ```
+  ```bash
   openssl req -x509 -nodes -newkey rsa:4096 \
     -keyout .sealed-secrets.key -out .sealed-secrets.crt \
     -days 3650 -subj "/CN=sealed-secrets/O=home-ops"
   ```
-- A `.git-secret.yaml` file (example below) and host paths that match `bootstrap/cluster-config.yaml`.
+- `.git-secret.yaml` in the repo root (untracked) plus any host paths referenced by `bootstrap/cluster-config.yaml`.
 
 ## Networking & TLS
 
-- `platform-system-ingress-nginx` provides the default `nginx` ingress class. Each controller pod connects to the `lan-macvlan` Multus network with the static IP `192.168.1.241`.
-- cert-manager (chart values in `kubernetes/apps/platform-system/cert-manager/values.yaml`) plus `clusterissuer.yaml` uses Cloudflare DNS-01 via the sealed `cloudflare-api-cert-manager` secret.
-- All `*.edgard.org` hosts terminate TLS with one wildcard certificate (`kubernetes/apps/platform-system/cert-manager/resources/wildcard-certificate.yaml`). Emberstack Reflector (`platform-system-reflector` Application) mirrors `wildcard-edgard-org-tls` into `arc`, `home-automation`, `media`, `platform-system`, and `web`. Ingresses must only set `tls.secretName: wildcard-edgard-org-tls`; leave out `cert-manager.io/*issuer` annotations. Add new namespaces to the certificate’s reflection annotations before rolling out ingresses there.
-- `platform-system-external-dns` (the upstream external-dns Helm chart v1.19.0 from `https://kubernetes-sigs.github.io/external-dns`) publishes ingress hosts and DNSEndpoint objects to Cloudflare. Provide an API token (Zone:DNS edit + Zone:Zone read on `edgard.org`) via `kubernetes/apps/platform-system/external-dns/resources/external-dns.sealedsecret.yaml`, reseal it, and sync the Argo Application. Every ingress includes `external-dns.alpha.kubernetes.io/target: tunnel.edgard.org`, so external-dns creates proxied CNAMEs aimed at the tunnel alias defined in `kubernetes/apps/platform-system/cloudflared/resources/cloudflared-dnsendpoint.yaml`. After creating the tunnel in Cloudflare, update that file’s `targets` entry to the real `<tunnel-id>.cfargotunnel.com` hostname so DNS stays in sync.
-- `platform-system-external-dns-unifi` runs the same chart with the webhook provider (`ghcr.io/kashalls/external-dns-unifi-webhook`) so UniFi Network DNS stays aligned with Cloudflare. It only watches Kubernetes Services (no Ingress/CRD/Gateway inputs) to mirror bjw-s’ UniFi pattern. Annotate each ingress-backed Service with `external-dns.alpha.kubernetes.io/hostname` (comma-separated if you need multiple records) plus `external-dns.alpha.kubernetes.io/target: 192.168.1.241`; the UniFi instance filters on those annotations, publishes LAN-only A/CNAMEs pointing at the ingress IP, and ignores everything else. Update `UNIFI_HOST` in `kubernetes/apps/platform-system/external-dns-unifi/values.yaml` to point at your controller and reseal `kubernetes/apps/platform-system/external-dns-unifi/resources/external-dns-unifi.sealedsecret.yaml` with a controller-scoped API key (the committed placeholder must be replaced before deployment). The deployment uses its own `txtOwnerId` so it can reconcile alongside the Cloudflare instance without TXT record ownership conflicts.
+- `platform-system/ingress-nginx` provides the default ingress class and attaches to the `lan-macvlan` Multus network with static IP `192.168.1.241`.
+- cert-manager + `clusterissuer.yaml` issue a wildcard `*.edgard.org` cert via Cloudflare DNS-01; Emberstack Reflector copies `wildcard-edgard-org-tls` into application namespaces. Add new namespaces to the certificate annotations before rolling out ingresses there and keep `tls.secretName: wildcard-edgard-org-tls` on every ingress.
+- `platform-system/external-dns` (chart v1.19.0) publishes ingress hosts + DNSEndpoints to Cloudflare. Provide a Zone:DNS edit token via `external-dns.sealedsecret.yaml`, reseal it, and update `kubernetes/apps/platform-system/cloudflared/resources/cloudflared-dnsendpoint.yaml` with the actual `<tunnel-id>.cfargotunnel.com`.
+- `platform-system/external-dns-unifi` reuses the chart with the UniFi webhook (`ghcr.io/kashalls/external-dns-unifi-webhook`) and only watches Services so LAN DNS mirrors Cloudflare. Annotate each ingress-backed Service with `external-dns.alpha.kubernetes.io/hostname` and `external-dns.alpha.kubernetes.io/target: 192.168.1.241`, set `UNIFI_HOST` in its `values.yaml`, and reseal `external-dns-unifi.sealedsecret.yaml` with the controller API key.
 
-## Secrets & Identity
+## Secrets & identity
 
-- Commit secrets as `SealedSecret` manifests inside each app’s `resources/` folder. To rotate:
-  1. create a plaintext Secret locally (never commit it);
-  2. `kubeseal --cert .sealed-secrets.crt --format yaml < secret.yaml > app/resources/<name>.sealedsecret.yaml`;
-  3. list it in `resources/kustomization.yaml`.
-- Dex (`platform-system-dex`) handles auth. Its config lives in `kubernetes/apps/platform-system/dex/resources/dex-config.sealedsecret.yaml`. Update passwords or OAuth clients by editing the plaintext source, running `htpasswd -nbB -C 10 user pass` for bcrypt hashes, resealing, and syncing the Argo app. Change the default admin account and oauth2-proxy secret immediately after bootstrap.
+- Commit only sealed manifests: create a plaintext Secret locally, run `kubeseal --cert .sealed-secrets.crt --format yaml`, and list the resulting `<name>.sealedsecret.yaml` inside `resources/kustomization.yaml`.
+- Dex (`platform-system/dex`) provides authentication. Rotate static users or OAuth clients by editing the plaintext config, generating bcrypt hashes with `htpasswd -nbB -C 10`, resealing `dex-config.sealedsecret.yaml`, and syncing the Application. Replace the default admin password and oauth2-proxy secret right after bootstrap.
 
 ## Bootstrap
 
-1. Review `bootstrap/cluster-config.yaml` and any app values you plan to customize.
-2. Ensure `.sealed-secrets.key`, `.sealed-secrets.crt`, and `.git-secret.yaml` exist.
-3. Run `make bootstrap`. The script:
-   - creates or reuses the Kind cluster;
-   - seeds `kube-system/sealed-secrets-key`;
-   - installs Argo CD with `bootstrap/argocd-values.yaml`;
-   - applies `root-application.yaml`, which syncs every namespace + Application (including cert-manager, ingress-nginx, reflector, etc.).
-4. Track progress via `kubectl -n argocd get applications`, `make argo-apps`, or the Argo UI/CLI.
+1. Review `bootstrap/cluster-config.yaml` plus any workload `values.yaml` overrides.
+2. Ensure `.sealed-secrets.key`, `.sealed-secrets.crt`, `.git-secret.yaml`, and required host paths exist.
+3. Run `make bootstrap`. The script creates (or reuses) the Kind cluster, seeds `kube-system/sealed-secrets-key`, installs Argo CD with `bootstrap/argocd-values.yaml`, and applies the root Application so every namespace + workload syncs.
+4. Watch progress with `kubectl -n argocd get applications`, `make argo-apps`, or the Argo UI/CLI. Use `make argo-admin-secret` for the initial password if you need to log in.
 
-## Operations
+## Day-2 operations
 
-- Tweak workloads by editing the relevant `values.yaml` (and optional `resources/`). Commit + push; Argo picks up the change.
-- Need non-Helm YAML? Drop it into `resources/` with a `kustomization.yaml`.
-- To force reconciliation: `make argo-sync APP=<name>` or `argocd app sync <name>`. Use `argocd app get <name>` for status.
-- When adding a namespace with ingresses, update `wildcard-certificate.yaml` reflection annotations, sync `platform-system-cert-manager` + `platform-system-reflector`, then roll out the workload.
+- Workload changes: edit the relevant `values.yaml` or `resources/`, commit, and push—Argo reconciles automatically. Use `make argo-sync APP=<name>` or `argocd app sync <name>` for a forced refresh.
+- Namespaces with ingresses: create the namespace manifest, add it to `kubernetes/clusters/homelab/namespaces`, update `wildcard-certificate.yaml` reflection annotations, sync cert-manager + reflector, then deploy the workload.
+- Secrets: re-run the `kubeseal` flow for any rotation, reseal with the current `.sealed-secrets.crt`, and commit only the sealed output.
+- Troubleshooting: `make argo-apps` lists status, `make argo-port-forward` exposes the UI on `localhost:8080`, and `argocd app get <name>` shows health/sync info. Delete or recreate Kind clusters via `make kind-*` targets when you need a clean environment.
 
 ## Make targets
 
-- `make bootstrap|bootstrap-delete|bootstrap-recreate` – drive `bootstrap/bootstrap.sh`.
-- `make kind-create|kind-delete|kind-recreate|kind-status` – raw Kind lifecycle.
-- `make argo-apps`, `make argo-sync APP=<name>`, `make argo-port-forward` – inspect/sync/port-forward Argo CD (`localhost:8080`).
-- `make argo-admin-secret` – print the initial admin password without writing it to disk.
-- `make sealed-secrets-fetch-cert` / `make sealed-secrets-seal SECRET_IN=...` – manage the Sealed Secrets public cert and reseal plaintext manifests.
+- `make bootstrap | bootstrap-delete | bootstrap-recreate` – run or reset `bootstrap/bootstrap.sh`.
+- `make kind-create | kind-delete | kind-recreate | kind-status` – manage the Kind cluster directly.
+- `make argo-apps`, `make argo-sync APP=<name>`, `make argo-port-forward` – inspect, sync, or port-forward Argo CD.
+- `make argo-admin-secret` – print the decoded `argocd-initial-admin-secret`.
+- `make sealed-secrets-fetch-cert` / `make sealed-secrets-seal SECRET_IN=... SEALED_OUT=...` – manage the Sealed Secrets certificate and reseal plaintext manifests.
 
-## Example Argo repository secret (`.git-secret.yaml`)
+## Example `.git-secret.yaml`
 
 ```yaml
 apiVersion: v1
@@ -79,6 +71,6 @@ stringData:
   password: ghp_yourTokenHere
 ```
 
-## Updates
+## Changes & testing
 
-Renovate tracks charts, containers, Kind images, and CI. For each PR, review the changed `values.yaml` files, run any needed dry-runs, and merge after Argo reports healthy syncs (test majors on a throwaway Kind bootstrap if unsure). Update this README + `AGENTS.md` whenever bootstrap, ingress, or validation flows change.
+Renovate tracks charts, containers, Kind images, and CI. Review its PRs like any other change, run dry-runs or a `make bootstrap` smoke test for major upgrades, and merge once Argo reports healthy syncs. Update this document whenever bootstrap, ingress, or validation flows change.
