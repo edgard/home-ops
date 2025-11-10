@@ -29,6 +29,20 @@ Kind hosts the homelab cluster, Argo CD reconciles it, and each workload is a va
 - Include the Argo repository credentials in that same file: set `argocd_repo_url`, `argocd_repo_username`, and `argocd_repo_password` (if you still have `.git-secret.yaml`, copy its stringData values over, then delete the file).
 - Dex (`platform-system/dex`) provides authentication. Rotate static users or OAuth clients by editing the `dex_config_yaml` entry in `.central-secrets.yaml` (bcrypt hashes still come from `htpasswd -nbB -C 10`), reapply the local secret (`kubectl apply -f .central-secrets.yaml`), and let the Dex ExternalSecret refresh. Replace the default admin password and oauth2-proxy secret right after bootstrap.
 
+## Argo sync waves
+
+Argo sync waves keep platform dependencies ordered; update this table whenever you add or reshuffle Applications so the README and AGENTS stay aligned.
+
+| Purpose | Wave | Resources |
+| --- | --- | --- |
+| Kube-system bootstrap | `-10` | `kube-system-external-secrets`, `kube-system-metrics-server`, `kube-system-multus` |
+| Startup gates | `-9` | `argocd-wait-for-multus`, `argocd-wait-for-external-secrets` |
+| Ingress, TLS, and config reload | `-5` | `platform-system-ingress-nginx`, `platform-system-cert-manager`, `platform-system-reloader` |
+| Identity + front-door networking | `-4` | `platform-system-dex`, `platform-system-cloudflared`, `platform-system-external-dns`, `platform-system-external-dns-unifi` |
+| oauth2-proxy sidecar auth | `-3` | `platform-system-oauth2-proxy` |
+| Default workloads | `0` | Any Application without an explicit wave annotation |
+| ARC runner scale set | `1` | `arc-arc-home-ops` |
+
 ## Bootstrap
 
 1. Review `bootstrap/cluster-config.yaml` plus any workload `values.yaml` overrides.

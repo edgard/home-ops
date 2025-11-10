@@ -4,14 +4,14 @@ metadata:
   name: argocd-wait-for-multus
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: '-10'
+    argocd.argoproj.io/sync-wave: '-9'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: argocd-wait-for-multus
   annotations:
-    argocd.argoproj.io/sync-wave: '-10'
+    argocd.argoproj.io/sync-wave: '-9'
 rules:
   - apiGroups:
       - apps
@@ -27,7 +27,7 @@ kind: ClusterRoleBinding
 metadata:
   name: argocd-wait-for-multus
   annotations:
-    argocd.argoproj.io/sync-wave: '-10'
+    argocd.argoproj.io/sync-wave: '-9'
 subjects:
   - kind: ServiceAccount
     name: argocd-wait-for-multus
