@@ -65,7 +65,7 @@ service:
     type: ClusterIP
     annotations:
       external-dns.alpha.kubernetes.io/hostname: jellyfin.edgard.org
-      external-dns.alpha.kubernetes.io/target: 192.168.1.245
+      external-dns.alpha.kubernetes.io/target: 192.168.1.241
     ports:
       http:
         enabled: true
