@@ -27,6 +27,7 @@ Kind hosts the homelab cluster, Argo CD reconciles it, and each workload is a va
 
 - External Secrets Operator reads everything from `home-ops-central-secrets` (defined locally inside `.central-secrets.yaml` and created in the `kube-system` namespace). Keep that manifest out of Git and update it whenever credentials change.
 - Include the Argo repository credentials in that same file: set `argocd_repo_url`, `argocd_repo_username`, and `argocd_repo_password` (if you still have `.git-secret.yaml`, copy its stringData values over, then delete the file).
+- Define the Argo admin password there too: add `argocd_admin_password` (bcrypt hash from `htpasswd -nbBC 10 "" <password> | tr -d ':\n' | sed 's/$2y/$2a/'`).
 - Dex (`platform-system/dex`) provides authentication. Rotate static users or OAuth clients by editing the `dex_config_yaml` entry in `.central-secrets.yaml` (bcrypt hashes still come from `htpasswd -nbB -C 10`), reapply the local secret (`kubectl apply -f .central-secrets.yaml`), and let the Dex ExternalSecret refresh. Replace the default admin password and oauth2-proxy secret right after bootstrap.
 
 ## Argo sync waves
@@ -48,7 +49,7 @@ Argo sync waves keep platform dependencies ordered; update this table whenever y
 1. Review `bootstrap/cluster-config.yaml` plus any workload `values.yaml` overrides.
 2. Ensure `.central-secrets.yaml` and required host paths exist.
 3. Run `make bootstrap`. The script creates (or reuses) the Kind cluster, applies `.central-secrets.yaml`, installs Argo CD with `bootstrap/argocd-values.yaml`, and applies the root Application so every namespace + workload syncs.
-4. Watch progress with `kubectl -n argocd get applications`, `make argo-apps`, or the Argo UI/CLI. Use `make argo-admin-secret` for the initial password if you need to log in.
+4. Watch progress with `kubectl -n argocd get applications`, `make argo-apps`, or the Argo UI/CLI.
 
 ## Day-2 operations
 
@@ -62,7 +63,6 @@ Argo sync waves keep platform dependencies ordered; update this table whenever y
 - `make bootstrap | bootstrap-delete | bootstrap-recreate` – run or reset `bootstrap/bootstrap.sh`.
 - `make kind-create | kind-delete | kind-recreate | kind-status` – manage the Kind cluster directly.
 - `make argo-apps`, `make argo-sync APP=<name>`, `make argo-port-forward` – inspect, sync, or port-forward Argo CD.
-- `make argo-admin-secret` – print the decoded `argocd-initial-admin-secret`.
 
 ## Changes & testing
 

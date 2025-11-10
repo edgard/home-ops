@@ -3,22 +3,19 @@
 set -euo pipefail
 
 # User-configurable defaults (override via environment)
-KUBECONFIG_PATH="${KUBECONFIG:-${HOME}/.kube/config}"
-MULTUS_PARENT_IFACE="${MULTUS_PARENT_IFACE:-br0}"
-MULTUS_PARENT_SUBNET="${MULTUS_PARENT_SUBNET:-192.168.1.0/24}"
-MULTUS_PARENT_GATEWAY="${MULTUS_PARENT_GATEWAY:-192.168.1.1}"
-MULTUS_PARENT_IP_RANGE="${MULTUS_PARENT_IP_RANGE:-192.168.1.240/29}"
+readonly KUBECONFIG_PATH="${KUBECONFIG:-${HOME}/.kube/config}"
+readonly MULTUS_PARENT_IFACE="${MULTUS_PARENT_IFACE:-br0}"
+readonly MULTUS_PARENT_SUBNET="${MULTUS_PARENT_SUBNET:-192.168.1.0/24}"
+readonly MULTUS_PARENT_GATEWAY="${MULTUS_PARENT_GATEWAY:-192.168.1.1}"
+readonly MULTUS_PARENT_IP_RANGE="${MULTUS_PARENT_IP_RANGE:-192.168.1.240/29}"
+readonly ARGO_HELM_VERSION="${ARGO_HELM_VERSION:-9.1.0}"
 
 # Internal constants derived from configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-KIND_CONFIG_PATH="${REPO_ROOT}/bootstrap/cluster-config.yaml"
-CENTRAL_SECRETS_FILE="${REPO_ROOT}/.central-secrets.yaml"
-ARGO_HELM_REPO="${ARGO_HELM_REPO:-https://argoproj.github.io/argo-helm}"
-ARGO_HELM_RELEASE="${ARGO_HELM_RELEASE:-argocd}"
-ARGO_HELM_CHART="${ARGO_HELM_CHART:-argo-cd}"
-ARGO_HELM_VERSION="${ARGO_HELM_VERSION:-9.1.0}"
-ARGO_HELM_VALUES="${REPO_ROOT}/bootstrap/argocd-values.yaml"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+readonly KIND_CONFIG_PATH="${REPO_ROOT}/bootstrap/cluster-config.yaml"
+readonly CENTRAL_SECRETS_FILE="${REPO_ROOT}/.central-secrets.yaml"
+readonly ARGO_HELM_VALUES="${REPO_ROOT}/bootstrap/argocd-values.yaml"
 
 # Global variables
 DELETE_MODE=false
@@ -28,13 +25,14 @@ MULTUS_NETWORK=""
 BIND_ADDRESS=""
 ADVERTISE_HOST=""
 TEMP_CONFIG=""
+ARGO_HELM_SECRET_VALUES=""
 ORIGINAL_CONTEXT=""
 
 # Color codes for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly NC='\033[0m'
 
 # -----------------------------------------------------------------------------
 # Logging
@@ -86,7 +84,7 @@ parse_args() {
             exit 0
             ;;
         *)
-            fatal "CLI: Unknown option ${1}"
+            fatal "[CLI] Unknown option ${1}"
             ;;
         esac
         shift
@@ -98,7 +96,7 @@ parse_args() {
 # -----------------------------------------------------------------------------
 require() {
     if ! command -v "${1}" >/dev/null 2>&1; then
-        fatal "Deps: ${1} is required but not found in PATH"
+        fatal "[Deps] ${1} is required but not found in PATH"
     fi
 }
 
@@ -107,13 +105,13 @@ load_cluster_name() {
     local name
 
     if [[ ! -f "${config_path}" ]]; then
-        fatal "Config: Kind config ${config_path} does not exist"
+        fatal "[Config] Kind config ${config_path} does not exist"
     fi
 
     name=$(yq eval '.name' "${config_path}" 2>/dev/null)
 
     if [[ -z "${name}" || "${name}" == "null" ]]; then
-        fatal "Config: Kind config ${config_path} does not define a cluster name"
+        fatal "[Config] Kind config ${config_path} does not define a cluster name"
     fi
 
     echo "${name}"
@@ -129,6 +127,7 @@ inspect_docker_host() {
 
 cleanup() {
     [[ -n "${TEMP_CONFIG:-}" ]] && rm -f "${TEMP_CONFIG}"
+    [[ -n "${ARGO_HELM_SECRET_VALUES:-}" ]] && rm -f "${ARGO_HELM_SECRET_VALUES}"
     [[ -n "${ORIGINAL_CONTEXT:-}" ]] && docker context use "${ORIGINAL_CONTEXT}" 2>/dev/null || true
 }
 
@@ -137,7 +136,7 @@ use_docker_context() {
     ORIGINAL_CONTEXT=$(docker context show 2>/dev/null || echo "default")
 
     if [[ "${ORIGINAL_CONTEXT}" != "${target}" ]]; then
-        log "Docker: Switching context to ${target}"
+        log "[Docker] Switching context to ${target}"
         docker context use "${target}"
     fi
 }
@@ -180,9 +179,9 @@ detect_api_endpoint_settings() {
 
     if [[ -n "${remote_host}" ]]; then
         BIND_ADDRESS="0.0.0.0"
-        log "API: Exposing control plane on ${remote_host} (bind ${BIND_ADDRESS})"
+        log "[API] Exposing control plane on ${remote_host} (bind ${BIND_ADDRESS})"
     else
-        log "API: Using local control plane endpoint"
+        log "[API] Using local control plane endpoint"
     fi
 }
 
@@ -203,7 +202,7 @@ patch_kubeconfig_endpoint() {
             current_host="${BASH_REMATCH[1]}"
             port="${BASH_REMATCH[2]}"
             if [[ -n "${current_host}" && -n "${port}" && "${current_host}" != "${ADVERTISE_HOST}" ]]; then
-                log "Kubeconfig: Patching server endpoint to https://${ADVERTISE_HOST}:${port}"
+                log "[Kubeconfig] Patching server endpoint to https://${ADVERTISE_HOST}:${port}"
                 kubectl config set-cluster "${cluster_context}" "--server=https://${ADVERTISE_HOST}:${port}"
             fi
         fi
@@ -213,49 +212,83 @@ patch_kubeconfig_endpoint() {
 # -----------------------------------------------------------------------------
 # Argo CD deployment helpers
 # -----------------------------------------------------------------------------
+ensure_argocd_admin_password_override() {
+    if ! ensure_central_secrets "Argo admin password"; then
+        fatal "[Argo] .central-secrets.yaml is required to set the admin password"
+    fi
+
+    local admin_hash
+    admin_hash=$(yq -r '.stringData.argocd_admin_password // ""' "${CENTRAL_SECRETS_FILE}")
+    if [[ -z "${admin_hash}" || "${admin_hash}" == "null" ]]; then
+        fatal "[Argo] argocd_admin_password is required inside ${CENTRAL_SECRETS_FILE}"
+    fi
+
+    ARGO_HELM_SECRET_VALUES=$(mktemp)
+    HASH="${admin_hash}" yq -n '.configs.secret.argocdServerAdminPassword = env(HASH)' >"${ARGO_HELM_SECRET_VALUES}"
+
+    log "[Argo] Using admin password from .central-secrets.yaml"
+}
+
 deploy_argocd() {
-    log "Argo: Installing via Helm chart ${ARGO_HELM_CHART}@${ARGO_HELM_VERSION}"
-    helm repo add argo "${ARGO_HELM_REPO}" >/dev/null 2>&1 || true
-    helm repo update argo >/dev/null 2>&1 || true
-    helm upgrade --install "${ARGO_HELM_RELEASE}" argo/"${ARGO_HELM_CHART}" \
+    log "[Argo] Installing via Helm chart argo-cd@${ARGO_HELM_VERSION}"
+    helm repo add argo "https://argoproj.github.io/argo-helm" --force-update >/dev/null 2>&1 || true
+    local -a values_args=("-f" "${ARGO_HELM_VALUES}")
+    if [[ -n "${ARGO_HELM_SECRET_VALUES:-}" ]]; then
+        values_args+=("-f" "${ARGO_HELM_SECRET_VALUES}")
+    fi
+
+    helm upgrade --install "argocd" argo/"argo-cd" \
         --namespace argocd \
         --create-namespace \
         --version "${ARGO_HELM_VERSION}" \
-        -f "${ARGO_HELM_VALUES}" \
-        --wait || fatal "Argo: Helm install failed"
+        "${values_args[@]}" \
+        --wait || fatal "[Argo] Helm install failed"
+    log "[Argo] Helm install completed"
 }
 
-apply_central_secret_manifest() {
-    local central="${CENTRAL_SECRETS_FILE}"
+ensure_central_secrets() {
+    local subject="${1:-Central secrets}"
 
-    if [[ ! -f "${central}" ]]; then
-        log_warn "Secrets: Central file ${central} not found; skipping"
+    if [[ -f "${CENTRAL_SECRETS_FILE}" ]]; then
+        return 0
+    fi
+
+    log_warn "[Secrets] ${subject} skipped because ${CENTRAL_SECRETS_FILE} is missing"
+    return 1
+}
+
+apply_central_secrets() {
+    if ! ensure_central_secrets "Central secret manifest"; then
         return
     fi
 
-    local rel="${central#${REPO_ROOT}/}"
-    log "Secrets: Applying ${rel}"
-    kubectl apply -f "${central}" || fatal "Secrets: Failed to apply ${central}"
+    local rel="${CENTRAL_SECRETS_FILE#"${REPO_ROOT}/"}"
+    log "[Secrets] Applying ${rel}"
+    kubectl apply -f "${CENTRAL_SECRETS_FILE}" || fatal "[Secrets] Failed to apply ${CENTRAL_SECRETS_FILE}"
 }
 
-ensure_git_repo_secret() {
-    local central="${CENTRAL_SECRETS_FILE}"
-    if [[ ! -f "${central}" ]]; then
-        log_warn "Secrets: Missing ${central}; Argo CD will require manual repo credentials"
+apply_git_repo_secret() {
+    if ! ensure_central_secrets "Home-ops-git secret"; then
         return
     fi
 
-    local repo_url repo_username repo_password
-    repo_url=$(yq -r '.stringData.argocd_repo_url // ""' "${central}")
-    repo_username=$(yq -r '.stringData.argocd_repo_username // ""' "${central}")
-    repo_password=$(yq -r '.stringData.argocd_repo_password // ""' "${central}")
+    local repo_fields=()
+    mapfile -t repo_fields < <(yq -r '[
+        .stringData.argocd_repo_url // "",
+        .stringData.argocd_repo_username // "",
+        .stringData.argocd_repo_password // ""
+    ] | .[]' "${CENTRAL_SECRETS_FILE}")
+
+    local repo_url="${repo_fields[0]:-}"
+    local repo_username="${repo_fields[1]:-}"
+    local repo_password="${repo_fields[2]:-}"
 
     if [[ -z "${repo_url}" || -z "${repo_username}" || -z "${repo_password}" ]]; then
-        log_warn "Secrets: argocd_repo_* keys missing in ${central}; skipping home-ops-git Secret"
+        log_warn "[Secrets] Required argocd_repo_* keys missing in ${CENTRAL_SECRETS_FILE}; skipping home-ops-git secret"
         return
     fi
 
-    log "Secrets: Applying argocd/home-ops-git from ${central}"
+    log "[Secrets] Applying argocd/home-ops-git from ${CENTRAL_SECRETS_FILE}"
     kubectl -n argocd create secret generic home-ops-git \
         --type Opaque \
         --from-literal=url="${repo_url}" \
@@ -263,13 +296,13 @@ ensure_git_repo_secret() {
         --from-literal=password="${repo_password}" \
         --dry-run=client -o yaml \
         | yq eval '.metadata.labels."argocd.argoproj.io/secret-type" = "repository"' - \
-        | kubectl apply -f - || fatal "Secrets: Failed to apply argocd/home-ops-git"
+        | kubectl apply -f - || fatal "[Secrets] Failed to apply argocd/home-ops-git"
 }
 
 apply_root_application() {
     local root_app="${REPO_ROOT}/kubernetes/clusters/homelab/root-application.yaml"
-    log "Argo: Applying home-ops root application"
-    kubectl apply -f "${root_app}" || fatal "Argo: Failed to apply root application"
+    log "[Argo] Applying home-ops root application"
+    kubectl apply -f "${root_app}" || fatal "[Argo] Failed to apply root application"
 }
 
 wait_for_root_application() {
@@ -277,22 +310,22 @@ wait_for_root_application() {
     local namespace="argocd"
     local attempts=30
 
-    log "Argo: Waiting for ${app_name} to sync"
+    log "[Argo] Waiting for ${app_name} to sync"
     for ((i = 0; i < attempts; i++)); do
         local status
         status=$(kubectl -n "${namespace}" get application "${app_name}" -o jsonpath='{.status.sync.status} {.status.health.status}' 2>/dev/null || true)
         if [[ "${status}" == "Synced Healthy" ]]; then
-            log "Argo: ${app_name} is synced and healthy"
+            log "[Argo] ${app_name} is synced and healthy"
             return
         fi
         sleep 10
     done
 
-    log_warn "Argo: ${app_name} did not report Synced/Healthy within the timeout; inspect with 'kubectl -n argocd get app ${app_name} -o yaml'"
+    log_warn "[Argo] ${app_name} did not report Synced/Healthy within the timeout; inspect with 'kubectl -n argocd get app ${app_name} -o yaml'"
 }
 
 finalize_cluster() {
-    log "Bootstrap: Complete; kubectl context is kind-${CLUSTER_NAME}"
+    log "[Bootstrap] Complete; kubectl context is kind-${CLUSTER_NAME}"
 }
 
 # -----------------------------------------------------------------------------
@@ -305,14 +338,14 @@ configure_macvlan_network() {
     local -a unchanged_nodes=()
 
     if docker network ls --format '{{.Name}}' | grep -q "^${network_name}$"; then
-        log "Network: Reusing docker macvlan ${network_name}"
+        log "[Network] Reusing Docker macvlan ${network_name}"
     else
-        log "Network: Creating docker macvlan ${network_name} on ${MULTUS_PARENT_IFACE} (subnet ${MULTUS_PARENT_SUBNET}, ip-range ${MULTUS_PARENT_IP_RANGE})"
-        docker network create -d macvlan --subnet "${MULTUS_PARENT_SUBNET}" --gateway "${MULTUS_PARENT_GATEWAY}" --ip-range "${MULTUS_PARENT_IP_RANGE}" -o "parent=${MULTUS_PARENT_IFACE}" "${network_name}" || fatal "Network: Failed to create macvlan ${network_name}"
+        log "[Network] Creating Docker macvlan ${network_name} on ${MULTUS_PARENT_IFACE} (subnet ${MULTUS_PARENT_SUBNET}, ip-range ${MULTUS_PARENT_IP_RANGE})"
+        docker network create -d macvlan --subnet "${MULTUS_PARENT_SUBNET}" --gateway "${MULTUS_PARENT_GATEWAY}" --ip-range "${MULTUS_PARENT_IP_RANGE}" -o "parent=${MULTUS_PARENT_IFACE}" "${network_name}" || fatal "[Network] Failed to create macvlan ${network_name}"
     fi
 
     if ! nodes=$(kind get nodes --name "${CLUSTER_NAME}" 2>/dev/null); then
-        log_warn "Network: No nodes reported for cluster ${CLUSTER_NAME}; skipping macvlan attachment"
+        log_warn "[Network] No nodes reported for cluster ${CLUSTER_NAME}; skipping macvlan attachment"
         return
     fi
 
@@ -329,15 +362,15 @@ configure_macvlan_network() {
     done <<<"${nodes}"
 
     if (( ${#attached_nodes[@]} > 0 )); then
-        log "Network: Attached workers ${attached_nodes[*]} to ${network_name}"
+        log "[Network] Attached workers ${attached_nodes[*]} to ${network_name}"
     fi
 
     if (( ${#unchanged_nodes[@]} > 0 )); then
-        log_warn "Network: Workers already on ${network_name}: ${unchanged_nodes[*]}"
+        log_warn "[Network] Workers already attached to ${network_name}: ${unchanged_nodes[*]}"
     fi
 
     if (( ${#attached_nodes[@]} == 0 && ${#unchanged_nodes[@]} == 0 )); then
-        log "Network: No worker nodes eligible for macvlan attachment"
+        log "[Network] No worker nodes eligible for macvlan attachment"
     fi
 }
 
@@ -347,46 +380,47 @@ create_cluster() {
 
     if [[ -n "${BIND_ADDRESS}" ]]; then
         yq eval ".networking.apiServerAddress = \"${BIND_ADDRESS}\"" -i "${TEMP_CONFIG}"
-        log "Config: Setting apiServerAddress to ${BIND_ADDRESS}"
+        log "[Config] Setting Kind apiServerAddress override to ${BIND_ADDRESS}"
     fi
 
     if [[ "$(yq eval '.nodes[0].kubeadmConfigPatches | length' "${TEMP_CONFIG}")" -eq 0 ]]; then
-        fatal "Config: Kind config ${KIND_CONFIG_PATH} must define a kubeadmConfigPatch for the control plane"
+        fatal "[Config] Kind config ${KIND_CONFIG_PATH} must define a kubeadmConfigPatch for the control plane"
     fi
 
     if ! cluster_exists "${CLUSTER_NAME}"; then
-        log "Cluster: Creating kind cluster ${CLUSTER_NAME}"
-        kind create cluster --config "${TEMP_CONFIG}" || fatal "Cluster: Failed to create kind cluster ${CLUSTER_NAME}"
+        log "[Cluster] Creating Kind cluster ${CLUSTER_NAME}"
+        kind create cluster --config "${TEMP_CONFIG}" || fatal "[Cluster] Failed to create Kind cluster ${CLUSTER_NAME}"
     elif [[ -n "${BIND_ADDRESS}" || -n "${ADVERTISE_HOST}" ]]; then
-        log_warn "Cluster: ${CLUSTER_NAME} already exists; rerun with --delete to apply updated API server exposure settings"
+        log_warn "[Cluster] ${CLUSTER_NAME} already exists; rerun with --delete to apply updated API server exposure settings"
     fi
 }
 
 strip_kindnet_resources() {
-    log "Network: Patching kindnet to remove resource requests and limits"
+    log "[Network] Patching Kindnet to remove resource requests and limits"
     if ! kubectl -n kube-system patch ds kindnet --type=json -p='[{"op":"remove","path":"/spec/template/spec/containers/0/resources"}]' >/dev/null 2>&1; then
-        log_warn "Network: Failed to patch kindnet (resources may already be absent)"
+        log_warn "[Network] Failed to patch Kindnet (resources may already be absent)"
     fi
 }
 
 ensure_nodes_ready() {
-    log "Nodes: Waiting for all nodes to become Ready"
-    kubectl wait --for=condition=Ready node --all --timeout=180s || fatal "Nodes: Failed to become Ready within timeout"
+    log "[Nodes] Waiting for all nodes to become Ready"
+    kubectl wait --for=condition=Ready node --all --timeout=180s || fatal "[Nodes] Failed to become Ready within timeout"
+    log "[Nodes] All nodes are Ready"
 }
 
 teardown_cluster() {
     if cluster_exists "${CLUSTER_NAME}"; then
-        log "Cluster: Deleting kind cluster ${CLUSTER_NAME}"
-        kind delete cluster --name "${CLUSTER_NAME}" || log_warn "Cluster: Failed to delete ${CLUSTER_NAME}"
+        log "[Cluster] Deleting Kind cluster ${CLUSTER_NAME}"
+        kind delete cluster --name "${CLUSTER_NAME}" || log_warn "[Cluster] Failed to delete ${CLUSTER_NAME}"
     else
-        log "Cluster: Skipping delete; cluster ${CLUSTER_NAME} not found"
+        log "[Cluster] Skipping delete; cluster ${CLUSTER_NAME} not found"
     fi
 
     if [[ -n "${MULTUS_NETWORK}" ]]; then
         if docker network rm "${MULTUS_NETWORK}" >/dev/null 2>&1; then
-            log "Network: Removed docker macvlan ${MULTUS_NETWORK}"
+            log "[Network] Removed Docker macvlan ${MULTUS_NETWORK}"
         else
-            log "Network: Skipping removal; docker network ${MULTUS_NETWORK} not found"
+            log "[Network] Skipping removal; Docker network ${MULTUS_NETWORK} not found"
         fi
     fi
 }
@@ -414,26 +448,27 @@ init_environment() {
     export KUBECONFIG="${KUBECONFIG_PATH}"
 
     if ! docker context ls --format '{{.Name}}' 2>/dev/null | grep -qx "${DOCKER_CONTEXT}"; then
-        fatal "Docker: Context '${DOCKER_CONTEXT}' not found; create it before running bootstrap"
+        fatal "[Docker] Context '${DOCKER_CONTEXT}' not found; create it before running bootstrap"
     fi
 
     use_docker_context "${DOCKER_CONTEXT}"
 
-    log "Bootstrap: Targeting cluster ${CLUSTER_NAME} (context ${DOCKER_CONTEXT})"
-    log "Network: Using Multus iface=${MULTUS_PARENT_IFACE}, subnet=${MULTUS_PARENT_SUBNET}, gateway=${MULTUS_PARENT_GATEWAY}, range=${MULTUS_PARENT_IP_RANGE}"
+    log "[Bootstrap] Targeting cluster ${CLUSTER_NAME} (context ${DOCKER_CONTEXT})"
+    log "[Network] Using Multus iface=${MULTUS_PARENT_IFACE}, subnet=${MULTUS_PARENT_SUBNET}, gateway=${MULTUS_PARENT_GATEWAY}, range=${MULTUS_PARENT_IP_RANGE}"
 }
 
 bootstrap_flow() {
-    log "Bootstrap: Starting create workflow for cluster ${CLUSTER_NAME}"
+    log "[Bootstrap] Starting create workflow for cluster ${CLUSTER_NAME}"
     detect_api_endpoint_settings
     create_cluster
     configure_macvlan_network
     patch_kubeconfig_endpoint
     ensure_nodes_ready
     strip_kindnet_resources
-    apply_central_secret_manifest
+    apply_central_secrets
+    ensure_argocd_admin_password_override
     deploy_argocd
-    ensure_git_repo_secret
+    apply_git_repo_secret
     apply_root_application
     wait_for_root_application
     finalize_cluster
@@ -446,9 +481,9 @@ main() {
     init_environment
 
     if [[ "${DELETE_MODE}" == "true" ]]; then
-        log "Bootstrap: Starting delete workflow for cluster ${CLUSTER_NAME}"
+        log "[Bootstrap] Starting delete workflow for cluster ${CLUSTER_NAME}"
         teardown_cluster
-        log "Bootstrap: Delete workflow complete for cluster ${CLUSTER_NAME}"
+        log "[Bootstrap] Delete workflow complete for cluster ${CLUSTER_NAME}"
         return 0
     fi
 
