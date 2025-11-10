@@ -8,24 +8,14 @@ KIND_CONFIG    ?= $(REPO_ROOT)bootstrap/cluster-config.yaml
 KIND_CONFIG_NAME := $(shell awk '/^name:[[:space:]]*/ {sub(/^name:[[:space:]]*/, ""); print; exit}' "$(KIND_CONFIG)" 2>/dev/null)
 CLUSTER_NAME   ?= $(if $(KIND_CONFIG_NAME),$(KIND_CONFIG_NAME),homelab)
 KUBECTL        ?= kubectl
-KUBESEAL       ?= kubeseal
 ARGOCD_NAMESPACE ?= argocd
 ARGO_ROOT_APP  ?= home-ops-root
-SEALED_SECRETS_NAMESPACE ?= kube-system
-SEALED_SECRETS_SECRET ?= sealed-secrets-key
-SEALED_SECRETS_CERT ?= $(REPO_ROOT).sealed-secrets.crt
-SEALED_SECRETS_KEY ?= $(REPO_ROOT).sealed-secrets.key
 ARGO_ADMIN_SECRET_NAME ?= argocd-initial-admin-secret
 
 APP            ?= $(ARGO_ROOT_APP)
-SEALED_NAMESPACE ?= default
-SEALED_NAME    ?=
-SECRET_IN      ?=
-SEALED_OUT     ?=
-TARGET ?=
 
 .PHONY: help bootstrap bootstrap-delete bootstrap-recreate kind-create kind-delete kind-recreate kind-status \
-    argo-apps argo-sync argo-port-forward argo-admin-secret sealed-secrets-edit
+    argo-apps argo-sync argo-port-forward argo-admin-secret
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_\-]+:.*?## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -74,17 +64,3 @@ argo-admin-secret: ## Print the argocd-initial-admin-secret password
 	fi; \
 	password="$$(printf "%s" "$$secret_data" | tr -d '\n' | openssl base64 -d -A)"; \
 	echo "$$password"
-
-sealed-secrets-edit: ## Edit an existing SealedSecret file in-place (TARGET required; uses ${EDITOR:-vi})
-	@test -n "$(TARGET)" || (echo "Set TARGET=path/to/foo.sealedsecret.yaml"; exit 1)
-	@test -f "$(TARGET)" || (echo "Sealed secret file $(TARGET) not found"; exit 1)
-	@test -f "$(SEALED_SECRETS_KEY)" || (echo "Missing $(SEALED_SECRETS_KEY); keep the controller private key locally to unseal."; exit 1)
-	@test -f "$(SEALED_SECRETS_CERT)" || (echo "Missing $(SEALED_SECRETS_CERT)"; exit 1)
-	@set -euo pipefail; \
-	tmp_plain="$$(mktemp)"; \
-	tmp_sealed="$$(mktemp)"; \
-	$(KUBESEAL) --recovery-unseal --format yaml --recovery-private-key "$(SEALED_SECRETS_KEY)" < "$(TARGET)" > "$$tmp_plain"; \
-	$${EDITOR:-vi} "$$tmp_plain"; \
-	$(KUBESEAL) --cert "$(SEALED_SECRETS_CERT)" --format yaml < "$$tmp_plain" > "$$tmp_sealed"; \
-	mv "$$tmp_sealed" "$(TARGET)"; \
-	rm -f "$$tmp_plain"

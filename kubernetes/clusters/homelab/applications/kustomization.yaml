@@ -9,7 +9,7 @@ resources:
   - home-automation-zigbee2mqtt.yaml
   - kube-system-metrics-server.yaml
   - kube-system-multus.yaml
-  - kube-system-sealed-secrets.yaml
+  - kube-system-external-secrets.yaml
   - media-bazarr.yaml
   - media-flaresolverr.yaml
   - media-jellyfin.yaml
@@ -21,7 +21,6 @@ resources:
   - media-unpackerr.yaml
   - platform-system-kopia.yaml
   - platform-system-oauth2-proxy.yaml
-  - platform-system-reflector.yaml
   - platform-system-reloader.yaml
   - platform-system-dex.yaml
   - platform-system-cert-manager.yaml

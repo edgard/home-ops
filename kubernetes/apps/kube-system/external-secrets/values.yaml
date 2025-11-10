@@ -1,0 +1,13 @@
+fullnameOverride: external-secrets
+installCRDs: true
+leaderElect: true
+
+serviceAccount:
+  create: true
+  name: external-secrets
+
+rbac:
+  create: true
+
+podAnnotations:
+  reloader.stakater.com/auto: "true"

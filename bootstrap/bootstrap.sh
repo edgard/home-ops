@@ -13,9 +13,7 @@ MULTUS_PARENT_IP_RANGE="${MULTUS_PARENT_IP_RANGE:-192.168.1.240/29}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 KIND_CONFIG_PATH="${REPO_ROOT}/bootstrap/cluster-config.yaml"
-SEALED_SECRETS_KEY_PATH="${REPO_ROOT}/.sealed-secrets.key"
-SEALED_SECRETS_CERT_PATH="${REPO_ROOT}/.sealed-secrets.crt"
-GIT_CREDENTIALS_PATH="${REPO_ROOT}/.git-secret.yaml"
+CENTRAL_SECRETS_FILE="${REPO_ROOT}/.central-secrets.yaml"
 ARGO_HELM_REPO="${ARGO_HELM_REPO:-https://argoproj.github.io/argo-helm}"
 ARGO_HELM_RELEASE="${ARGO_HELM_RELEASE:-argocd}"
 ARGO_HELM_CHART="${ARGO_HELM_CHART:-argo-cd}"
@@ -227,26 +225,45 @@ deploy_argocd() {
         --wait || fatal "Argo: Helm install failed"
 }
 
-ensure_sealed_secrets_key_secret() {
-    if [[ ! -f "${SEALED_SECRETS_KEY_PATH}" || ! -f "${SEALED_SECRETS_CERT_PATH}" ]]; then
-        fatal "Secrets: Missing ${SEALED_SECRETS_KEY_PATH} or ${SEALED_SECRETS_CERT_PATH}; generate them with openssl (see README)."
-    fi
+apply_central_secret_manifest() {
+    local central="${CENTRAL_SECRETS_FILE}"
 
-    log "Secrets: Applying kube-system/sealed-secrets-key"
-    kubectl -n kube-system create secret tls sealed-secrets-key \
-        --cert="${SEALED_SECRETS_CERT_PATH}" \
-        --key="${SEALED_SECRETS_KEY_PATH}" \
-        --dry-run=client -o yaml | kubectl apply -f - || fatal "Secrets: Failed to apply sealed-secrets-key"
-}
-
-ensure_git_repo_secret() {
-    if [[ ! -f "${GIT_CREDENTIALS_PATH}" ]]; then
-        log_warn "Secrets: Missing ${GIT_CREDENTIALS_PATH}; Argo CD will require manual repo credentials"
+    if [[ ! -f "${central}" ]]; then
+        log_warn "Secrets: Central file ${central} not found; skipping"
         return
     fi
 
-    log "Secrets: Applying repository credential manifest from ${GIT_CREDENTIALS_PATH}"
-    kubectl apply -f "${GIT_CREDENTIALS_PATH}" || fatal "Secrets: Failed to apply ${GIT_CREDENTIALS_PATH}"
+    local rel="${central#${REPO_ROOT}/}"
+    log "Secrets: Applying ${rel}"
+    kubectl apply -f "${central}" || fatal "Secrets: Failed to apply ${central}"
+}
+
+ensure_git_repo_secret() {
+    local central="${CENTRAL_SECRETS_FILE}"
+    if [[ ! -f "${central}" ]]; then
+        log_warn "Secrets: Missing ${central}; Argo CD will require manual repo credentials"
+        return
+    fi
+
+    local repo_url repo_username repo_password
+    repo_url=$(yq -r '.stringData.argocd_repo_url // ""' "${central}")
+    repo_username=$(yq -r '.stringData.argocd_repo_username // ""' "${central}")
+    repo_password=$(yq -r '.stringData.argocd_repo_password // ""' "${central}")
+
+    if [[ -z "${repo_url}" || -z "${repo_username}" || -z "${repo_password}" ]]; then
+        log_warn "Secrets: argocd_repo_* keys missing in ${central}; skipping home-ops-git Secret"
+        return
+    fi
+
+    log "Secrets: Applying argocd/home-ops-git from ${central}"
+    kubectl -n argocd create secret generic home-ops-git \
+        --type Opaque \
+        --from-literal=url="${repo_url}" \
+        --from-literal=username="${repo_username}" \
+        --from-literal=password="${repo_password}" \
+        --dry-run=client -o yaml \
+        | yq eval '.metadata.labels."argocd.argoproj.io/secret-type" = "repository"' - \
+        | kubectl apply -f - || fatal "Secrets: Failed to apply argocd/home-ops-git"
 }
 
 apply_root_application() {
@@ -414,7 +431,7 @@ bootstrap_flow() {
     patch_kubeconfig_endpoint
     ensure_nodes_ready
     strip_kindnet_resources
-    ensure_sealed_secrets_key_secret
+    apply_central_secret_manifest
     deploy_argocd
     ensure_git_repo_secret
     apply_root_application
