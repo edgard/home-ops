@@ -12,9 +12,14 @@ ARGOCD_NAMESPACE ?= argocd
 ARGO_ROOT_APP  ?= home-ops-root
 
 APP            ?= $(ARGO_ROOT_APP)
+SOPS           ?= sops
+SOPS_AGE_KEY_FILE ?= $(REPO_ROOT).sops.agekey
+CENTRAL_SECRETS_SOPS ?= $(REPO_ROOT)bootstrap/central-secrets.sops.yaml
+CENTRAL_SECRETS_TEMPLATE ?= $(REPO_ROOT)bootstrap/central-secrets.template.yaml
+AGE_KEYGEN     ?= age-keygen
 
 .PHONY: help bootstrap bootstrap-delete bootstrap-recreate kind-create kind-delete kind-recreate kind-status \
-    argo-apps argo-sync argo-port-forward
+    argo-apps argo-sync argo-port-forward secrets-edit secrets-apply secrets-create-key
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_\-]+:.*?## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -53,3 +58,41 @@ argo-sync: ## Force a hard refresh of APP (default $(ARGO_ROOT_APP))
 
 argo-port-forward: ## Forward Argo CD UI to localhost:8080
 	$(KUBECTL) -n $(ARGOCD_NAMESPACE) port-forward svc/argocd-server 8080:80
+
+secrets-edit: ## Create or edit the encrypted central secrets with SOPS
+	@if [ ! -f "$(CENTRAL_SECRETS_SOPS)" ]; then \
+		if [ ! -f "$(CENTRAL_SECRETS_TEMPLATE)" ]; then \
+			echo "Template $(CENTRAL_SECRETS_TEMPLATE) not found"; \
+			exit 1; \
+		fi; \
+		cp "$(CENTRAL_SECRETS_TEMPLATE)" "$(CENTRAL_SECRETS_SOPS)"; \
+		echo "Created $(CENTRAL_SECRETS_SOPS) from template"; \
+	fi
+	@if [ ! -f "$(SOPS_AGE_KEY_FILE)" ]; then \
+		echo "Missing age key $(SOPS_AGE_KEY_FILE); run 'make secrets-create-key' first"; \
+		exit 1; \
+	fi
+	@status=0; \
+	SOPS_AGE_KEY_FILE="$(SOPS_AGE_KEY_FILE)" $(SOPS) "$(CENTRAL_SECRETS_SOPS)" || status=$$?; \
+	if [ $$status -ne 0 ] && [ $$status -ne 200 ]; then \
+		exit $$status; \
+	fi
+
+secrets-apply: ## Decrypt the central secrets and apply them to the cluster
+	@if [ ! -f "$(CENTRAL_SECRETS_SOPS)" ]; then \
+		echo "Missing $(CENTRAL_SECRETS_SOPS); run 'make secrets-edit' first"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(SOPS_AGE_KEY_FILE)" ]; then \
+		echo "Missing age key $(SOPS_AGE_KEY_FILE); run 'make secrets-create-key' first"; \
+		exit 1; \
+	fi
+	SOPS_AGE_KEY_FILE="$(SOPS_AGE_KEY_FILE)" $(SOPS) -d "$(CENTRAL_SECRETS_SOPS)" | $(KUBECTL) apply -f -
+
+secrets-create-key: ## Generate an age key for SOPS (prints the recipient)
+	@if [ -f "$(SOPS_AGE_KEY_FILE)" ]; then \
+		echo "Age key already exists at $(SOPS_AGE_KEY_FILE)"; \
+	else \
+		$(AGE_KEYGEN) -o "$(SOPS_AGE_KEY_FILE)"; \
+		echo "Created $(SOPS_AGE_KEY_FILE)"; \
+	fi
