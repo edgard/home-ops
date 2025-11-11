@@ -9,5 +9,5 @@ serviceAccount:
 rbac:
   create: true
 
-podAnnotations:
+deploymentAnnotations:
   reloader.stakater.com/auto: "true"

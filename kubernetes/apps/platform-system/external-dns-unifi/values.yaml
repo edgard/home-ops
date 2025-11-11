@@ -67,7 +67,7 @@ provider:
       timeoutSeconds: 5
       failureThreshold: 3
 
-podAnnotations:
+deploymentAnnotations:
   reloader.stakater.com/auto: "true"
 
 serviceMonitor:

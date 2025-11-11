@@ -65,7 +65,7 @@ readinessProbe:
   failureThreshold: 3
   successThreshold: 1
 
-podAnnotations:
+deploymentAnnotations:
   reloader.stakater.com/auto: "true"
 
 serviceMonitor:
