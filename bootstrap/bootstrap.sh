@@ -14,9 +14,9 @@ readonly ARGO_HELM_VERSION="${ARGO_HELM_VERSION:-9.1.0}"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 readonly KIND_CONFIG_PATH="${REPO_ROOT}/bootstrap/cluster-config.yaml"
-readonly CENTRAL_SECRETS_SOPS_FILE="${REPO_ROOT}/bootstrap/central-secrets.sops.yaml"
+readonly CLUSTER_SECRETS_SOPS_FILE="${REPO_ROOT}/bootstrap/cluster-secrets.sops.yaml"
 readonly DEFAULT_SOPS_AGE_KEY_FILE="${REPO_ROOT}/.sops.agekey"
-readonly CENTRAL_SECRETS_REL_PATH="${CENTRAL_SECRETS_SOPS_FILE#"${REPO_ROOT}/"}"
+readonly CLUSTER_SECRETS_REL_PATH="${CLUSTER_SECRETS_SOPS_FILE#"${REPO_ROOT}/"}"
 readonly ARGO_HELM_VALUES="${REPO_ROOT}/bootstrap/argocd-values.yaml"
 
 # Global variables
@@ -29,7 +29,7 @@ ADVERTISE_HOST=""
 TEMP_CONFIG=""
 ARGO_HELM_SECRET_VALUES=""
 ORIGINAL_CONTEXT=""
-CENTRAL_SECRETS_DEC_FILE=""
+CLUSTER_SECRETS_DEC_FILE=""
 
 # Color codes for output
 readonly RED='\033[0;31m'
@@ -131,7 +131,7 @@ inspect_docker_host() {
 cleanup() {
     [[ -n "${TEMP_CONFIG:-}" ]] && rm -f "${TEMP_CONFIG}"
     [[ -n "${ARGO_HELM_SECRET_VALUES:-}" ]] && rm -f "${ARGO_HELM_SECRET_VALUES}"
-    [[ -n "${CENTRAL_SECRETS_DEC_FILE:-}" ]] && rm -f "${CENTRAL_SECRETS_DEC_FILE}"
+    [[ -n "${CLUSTER_SECRETS_DEC_FILE:-}" ]] && rm -f "${CLUSTER_SECRETS_DEC_FILE}"
     [[ -n "${ORIGINAL_CONTEXT:-}" ]] && docker context use "${ORIGINAL_CONTEXT}" 2>/dev/null || true
 }
 
@@ -145,12 +145,12 @@ use_docker_context() {
     fi
 }
 
-load_central_secrets() {
-    if [[ -n "${CENTRAL_SECRETS_DEC_FILE:-}" ]]; then
+load_cluster_secrets() {
+    if [[ -n "${CLUSTER_SECRETS_DEC_FILE:-}" ]]; then
         return 0
     fi
 
-    if [[ ! -f "${CENTRAL_SECRETS_SOPS_FILE}" ]]; then
+    if [[ ! -f "${CLUSTER_SECRETS_SOPS_FILE}" ]]; then
         return 1
     fi
 
@@ -160,15 +160,15 @@ load_central_secrets() {
         key_file="${DEFAULT_SOPS_AGE_KEY_FILE}"
     fi
 
-    CENTRAL_SECRETS_DEC_FILE=$(mktemp)
+    CLUSTER_SECRETS_DEC_FILE=$(mktemp)
 
     if [[ -n "${key_file}" ]]; then
-        if ! SOPS_AGE_KEY_FILE="${key_file}" sops --decrypt "${CENTRAL_SECRETS_SOPS_FILE}" >"${CENTRAL_SECRETS_DEC_FILE}"; then
-            fatal "[Secrets] Failed to decrypt ${CENTRAL_SECRETS_REL_PATH}"
+        if ! SOPS_AGE_KEY_FILE="${key_file}" sops --decrypt "${CLUSTER_SECRETS_SOPS_FILE}" >"${CLUSTER_SECRETS_DEC_FILE}"; then
+            fatal "[Secrets] Failed to decrypt ${CLUSTER_SECRETS_REL_PATH}"
         fi
     else
-        if ! sops --decrypt "${CENTRAL_SECRETS_SOPS_FILE}" >"${CENTRAL_SECRETS_DEC_FILE}"; then
-            fatal "[Secrets] Failed to decrypt ${CENTRAL_SECRETS_REL_PATH}"
+        if ! sops --decrypt "${CLUSTER_SECRETS_SOPS_FILE}" >"${CLUSTER_SECRETS_DEC_FILE}"; then
+            fatal "[Secrets] Failed to decrypt ${CLUSTER_SECRETS_REL_PATH}"
         fi
     fi
 
@@ -247,20 +247,20 @@ patch_kubeconfig_endpoint() {
 # Argo CD deployment helpers
 # -----------------------------------------------------------------------------
 ensure_argocd_admin_password_override() {
-    if ! ensure_central_secrets "Argo admin password"; then
-        fatal "[Argo] Central secrets are required to set the admin password"
+    if ! ensure_cluster_secrets "Argo admin password"; then
+        fatal "[Argo] Cluster secrets are required to set the admin password"
     fi
 
     local admin_hash
-    admin_hash=$(yq -r '.stringData.argocd_admin_password // ""' "${CENTRAL_SECRETS_DEC_FILE}")
+    admin_hash=$(yq -r '.stringData.argocd_admin_password // ""' "${CLUSTER_SECRETS_DEC_FILE}")
     if [[ -z "${admin_hash}" || "${admin_hash}" == "null" ]]; then
-        fatal "[Argo] argocd_admin_password is required inside ${CENTRAL_SECRETS_REL_PATH} (decrypted)"
+        fatal "[Argo] argocd_admin_password is required inside ${CLUSTER_SECRETS_REL_PATH} (decrypted)"
     fi
 
     ARGO_HELM_SECRET_VALUES=$(mktemp)
     HASH="${admin_hash}" yq -n '.configs.secret.argocdServerAdminPassword = env(HASH)' >"${ARGO_HELM_SECRET_VALUES}"
 
-    log "[Argo] Using admin password from ${CENTRAL_SECRETS_REL_PATH} (decrypted)"
+    log "[Argo] Using admin password from ${CLUSTER_SECRETS_REL_PATH} (decrypted)"
 }
 
 deploy_argocd() {
@@ -280,29 +280,29 @@ deploy_argocd() {
     log "[Argo] Helm install completed"
 }
 
-ensure_central_secrets() {
-    local subject="${1:-Central secrets}"
+ensure_cluster_secrets() {
+    local subject="${1:-Cluster secrets}"
 
-    if load_central_secrets; then
+    if load_cluster_secrets; then
         return 0
     fi
 
-    log_warn "[Secrets] ${subject} skipped because ${CENTRAL_SECRETS_REL_PATH} is missing"
+    log_warn "[Secrets] ${subject} skipped because ${CLUSTER_SECRETS_REL_PATH} is missing"
     return 1
 }
 
-apply_central_secrets() {
-    if ! ensure_central_secrets "Central secret manifest"; then
+apply_cluster_secrets() {
+    if ! ensure_cluster_secrets "Cluster secret manifest"; then
         return
     fi
 
-    local display="${CENTRAL_SECRETS_REL_PATH} (decrypted)"
+    local display="${CLUSTER_SECRETS_REL_PATH} (decrypted)"
     log "[Secrets] Applying ${display}"
-    kubectl apply -f "${CENTRAL_SECRETS_DEC_FILE}" || fatal "[Secrets] Failed to apply ${display}"
+    kubectl apply -f "${CLUSTER_SECRETS_DEC_FILE}" || fatal "[Secrets] Failed to apply ${display}"
 }
 
 apply_git_repo_secret() {
-    if ! ensure_central_secrets "Homelab-git secret"; then
+    if ! ensure_cluster_secrets "Homelab-git secret"; then
         return
     fi
 
@@ -311,18 +311,18 @@ apply_git_repo_secret() {
         .stringData.argocd_repo_url // "",
         .stringData.argocd_repo_username // "",
         .stringData.argocd_repo_password // ""
-    ] | .[]' "${CENTRAL_SECRETS_DEC_FILE}")
+    ] | .[]' "${CLUSTER_SECRETS_DEC_FILE}")
 
     local repo_url="${repo_fields[0]:-}"
     local repo_username="${repo_fields[1]:-}"
     local repo_password="${repo_fields[2]:-}"
 
     if [[ -z "${repo_url}" || -z "${repo_username}" || -z "${repo_password}" ]]; then
-        log_warn "[Secrets] Required argocd_repo_* keys missing in ${CENTRAL_SECRETS_REL_PATH} (decrypted); skipping homelab-git secret"
+        log_warn "[Secrets] Required argocd_repo_* keys missing in ${CLUSTER_SECRETS_REL_PATH} (decrypted); skipping homelab-git secret"
         return
     fi
 
-    log "[Secrets] Applying argocd/homelab-git from ${CENTRAL_SECRETS_REL_PATH} (decrypted)"
+    log "[Secrets] Applying argocd/homelab-git from ${CLUSTER_SECRETS_REL_PATH} (decrypted)"
     kubectl -n argocd create secret generic homelab-git \
         --type Opaque \
         --from-literal=url="${repo_url}" \
@@ -332,7 +332,7 @@ apply_git_repo_secret() {
         | yq eval '.metadata.labels."argocd.argoproj.io/secret-type" = "repository"' - \
         | kubectl apply -f - || fatal "[Secrets] Failed to apply argocd/homelab-git"
 
-    log "[Secrets] Applying argocd/ghcr-helm creds from ${CENTRAL_SECRETS_REL_PATH} (decrypted)"
+    log "[Secrets] Applying argocd/ghcr-helm creds from ${CLUSTER_SECRETS_REL_PATH} (decrypted)"
     kubectl -n argocd create secret generic ghcr-helm-creds \
         --type Opaque \
         --from-literal=url="oci://ghcr.io" \
@@ -510,7 +510,7 @@ bootstrap_flow() {
     patch_kubeconfig_endpoint
     ensure_nodes_ready
     strip_kindnet_resources
-    apply_central_secrets
+    apply_cluster_secrets
     ensure_argocd_admin_password_override
     deploy_argocd
     apply_git_repo_secret

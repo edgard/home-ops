@@ -6,19 +6,19 @@ Kind hosts the homelab cluster, Argo CD reconciles it, and each workload is a va
 
 - Repo layout: `bootstrap/` holds the Kind + Argo installer, `kubernetes/clusters/homelab/` is the Argo root, and every workload lives under `kubernetes/apps/<namespace>/<app>`.
 - Tooling: install `docker`, `kind`, `kubectl`, `helm`, `yq`, `sops`, and `age`, and point your Docker context at `kind-homelab` (or whatever `bootstrap/cluster-config.yaml` names).
-- Secrets: run `make secrets-create-key` once to create `.sops.agekey`, then manage everything via the encrypted `bootstrap/central-secrets.sops.yaml` (`make secrets-edit` / `make secrets-apply`). The plaintext `.central-secrets.yaml` stays ignored so decrypted copies never get committed.
+- Secrets: run `make secrets-create-key` once to create `.sops.agekey`, then manage everything via the encrypted `bootstrap/cluster-secrets.sops.yaml` (`make secrets-edit` / `make secrets-apply`). The plaintext `.cluster-secrets.yaml` stays ignored so decrypted copies never get committed.
 
 ## Bootstrap workflow
 
 1. Review `bootstrap/cluster-config.yaml` and any workload overrides.
-2. Ensure `bootstrap/central-secrets.sops.yaml` exists (copy `bootstrap/central-secrets.template.yaml` if you need a starting point) and that `.sops.agekey` is present.
-3. Run `make bootstrap`. The script creates the Kind cluster, decrypts and applies the central secrets, installs Argo CD using `bootstrap/argocd-values.yaml`, and applies `kubernetes/clusters/homelab/root-application.yaml`.
+2. Ensure `bootstrap/cluster-secrets.sops.yaml` exists (copy `bootstrap/cluster-secrets.template.yaml` if you need a starting point) and that `.sops.agekey` is present.
+3. Run `make bootstrap`. The script creates the Kind cluster, decrypts and applies the cluster secrets, installs Argo CD using `bootstrap/argocd-values.yaml`, and applies `kubernetes/clusters/homelab/root-application.yaml`.
 4. Watch sync status with `kubectl -n argocd get applications`, `make argo-apps`, or `make argo-port-forward`.
 
 ## Day-to-day
 
 - Workloads: edit the relevant `kubernetes/apps/<ns>/<app>` files and push—Argo reconciles automatically. Use `make argo-sync APP=<name>` for a forced refresh.
-- Secrets: update `bootstrap/central-secrets.sops.yaml` with `make secrets-edit`, then call `make secrets-apply` (or `sops -d … | kubectl apply -f -`) so External Secrets can resync.
+- Secrets: update `bootstrap/cluster-secrets.sops.yaml` with `make secrets-edit`, then call `make secrets-apply` (or `sops -d … | kubectl apply -f -`) so External Secrets can resync.
 - Cleanup/troubleshooting: `make kind-*` manages the Kind cluster, and the Make targets listed below cover the most common actions.
 
 ## Common Make targets
