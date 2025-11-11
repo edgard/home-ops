@@ -331,6 +331,17 @@ apply_git_repo_secret() {
         --dry-run=client -o yaml \
         | yq eval '.metadata.labels."argocd.argoproj.io/secret-type" = "repository"' - \
         | kubectl apply -f - || fatal "[Secrets] Failed to apply argocd/homelab-git"
+
+    log "[Secrets] Applying argocd/ghcr-helm creds from ${CENTRAL_SECRETS_REL_PATH} (decrypted)"
+    kubectl -n argocd create secret generic ghcr-helm-creds \
+        --type Opaque \
+        --from-literal=url="oci://ghcr.io" \
+        --from-literal=username="${repo_username}" \
+        --from-literal=password="${repo_password}" \
+        --from-literal=type="helm" \
+        --dry-run=client -o yaml \
+        | yq eval '.metadata.labels."argocd.argoproj.io/secret-type" = "repository"' - \
+        | kubectl apply -f - || fatal "[Secrets] Failed to apply argocd/ghcr-helm-creds"
 }
 
 apply_root_application() {
