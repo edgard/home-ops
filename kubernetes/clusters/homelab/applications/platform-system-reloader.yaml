@@ -13,7 +13,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: platform-system
   sources:
-    - repoURL: ghcr.io/stakater/charts
+    - repoURL: oci://ghcr.io/stakater/charts
       chart: reloader
       targetRevision: 2.2.5
       helm:

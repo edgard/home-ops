@@ -11,7 +11,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: home-automation
   sources:
-    - repoURL: ghcr.io/bjw-s-labs/helm
+    - repoURL: oci://ghcr.io/bjw-s-labs/helm
       chart: app-template
       targetRevision: 4.4.0
       helm:

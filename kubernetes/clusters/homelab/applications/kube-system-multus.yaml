@@ -13,7 +13,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kube-system
   sources:
-    - repoURL: ghcr.io/bjw-s-labs/helm
+    - repoURL: oci://ghcr.io/bjw-s-labs/helm
       chart: multus
       targetRevision: 1.0.1
       helm:

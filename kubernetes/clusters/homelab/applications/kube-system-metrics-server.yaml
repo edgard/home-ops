@@ -13,7 +13,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kube-system
   sources:
-    - repoURL: ghcr.io/home-operations/charts-mirror
+    - repoURL: oci://ghcr.io/home-operations/charts-mirror
       chart: metrics-server
       targetRevision: 3.13.0
       helm:

@@ -13,7 +13,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: arc
   sources:
-    - repoURL: ghcr.io/actions/actions-runner-controller-charts
+    - repoURL: oci://ghcr.io/actions/actions-runner-controller-charts
       chart: gha-runner-scale-set
       targetRevision: 0.13.0
       helm:
