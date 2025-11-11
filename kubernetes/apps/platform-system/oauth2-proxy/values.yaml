@@ -24,8 +24,8 @@ controllers:
           OAUTH2_PROXY_COOKIE_DOMAINS: .edgard.org
           OAUTH2_PROXY_COOKIE_SECURE: "true"
           OAUTH2_PROXY_COOKIE_SAMESITE: lax
-          OAUTH2_PROXY_COOKIE_REFRESH: 1h
-          OAUTH2_PROXY_COOKIE_EXPIRE: 168h
+          OAUTH2_PROXY_COOKIE_REFRESH: 24h
+          OAUTH2_PROXY_COOKIE_EXPIRE: 720h
           OAUTH2_PROXY_SCOPE: openid profile email
           OAUTH2_PROXY_OIDC_ISSUER_URL: https://id.edgard.org
           OAUTH2_PROXY_OIDC_EMAIL_CLAIM: email

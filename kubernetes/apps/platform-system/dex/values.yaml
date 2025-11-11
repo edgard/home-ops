@@ -83,6 +83,8 @@ persistence:
         readOnly: true
   data:
     enabled: true
-    type: emptyDir
+    type: hostPath
+    hostPath: /mnt/spool/appdata/dex
+    hostPathType: DirectoryOrCreate
     globalMounts:
       - path: /data
