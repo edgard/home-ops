@@ -1,4 +1,4 @@
-# home-ops
+# homelab
 
 Kind hosts the homelab cluster, Argo CD reconciles it, and each workload is a values-only Helm release with optional Kustomize resources (ExternalSecrets, ConfigMaps, middlewares).
 

@@ -1,6 +1,6 @@
 githubConfigUrl: https://github.com/edgard/home-ops
 githubConfigSecret: arc-runners-secret
-runnerScaleSetName: home-ops
+runnerScaleSetName: homelab
 minRunners: 0
 maxRunners: 2
 template:

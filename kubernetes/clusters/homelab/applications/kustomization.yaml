@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
   - argocd-wait-for-external-secrets.yaml
   - argocd-wait-for-multus.yaml
-  - arc-arc-home-ops.yaml
+  - arc-arc-homelab.yaml
   - arc-arc.yaml
   - home-automation-home-assistant.yaml
   - home-automation-mosquitto.yaml

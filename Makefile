@@ -9,7 +9,7 @@ KIND_CONFIG_NAME := $(shell awk '/^name:[[:space:]]*/ {sub(/^name:[[:space:]]*/,
 CLUSTER_NAME   ?= $(if $(KIND_CONFIG_NAME),$(KIND_CONFIG_NAME),homelab)
 KUBECTL        ?= kubectl
 ARGOCD_NAMESPACE ?= argocd
-ARGO_ROOT_APP  ?= home-ops-root
+ARGO_ROOT_APP  ?= homelab-root
 
 APP            ?= $(ARGO_ROOT_APP)
 SOPS           ?= sops

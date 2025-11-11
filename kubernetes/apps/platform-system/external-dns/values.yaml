@@ -24,7 +24,7 @@ sources:
 
 policy: sync
 registry: txt
-txtOwnerId: home-ops
+txtOwnerId: homelab
 txtPrefix: "k8s."
 domainFilters:
   - edgard.org

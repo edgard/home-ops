@@ -28,7 +28,7 @@ extraArgs:
 
 policy: sync
 registry: txt
-txtOwnerId: home-ops-unifi
+txtOwnerId: homelab-unifi
 txtPrefix: "k8s."
 domainFilters:
   - edgard.org

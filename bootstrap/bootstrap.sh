@@ -302,7 +302,7 @@ apply_central_secrets() {
 }
 
 apply_git_repo_secret() {
-    if ! ensure_central_secrets "Home-ops-git secret"; then
+    if ! ensure_central_secrets "Homelab-git secret"; then
         return
     fi
 
@@ -318,29 +318,29 @@ apply_git_repo_secret() {
     local repo_password="${repo_fields[2]:-}"
 
     if [[ -z "${repo_url}" || -z "${repo_username}" || -z "${repo_password}" ]]; then
-        log_warn "[Secrets] Required argocd_repo_* keys missing in ${CENTRAL_SECRETS_REL_PATH} (decrypted); skipping home-ops-git secret"
+        log_warn "[Secrets] Required argocd_repo_* keys missing in ${CENTRAL_SECRETS_REL_PATH} (decrypted); skipping homelab-git secret"
         return
     fi
 
-    log "[Secrets] Applying argocd/home-ops-git from ${CENTRAL_SECRETS_REL_PATH} (decrypted)"
-    kubectl -n argocd create secret generic home-ops-git \
+    log "[Secrets] Applying argocd/homelab-git from ${CENTRAL_SECRETS_REL_PATH} (decrypted)"
+    kubectl -n argocd create secret generic homelab-git \
         --type Opaque \
         --from-literal=url="${repo_url}" \
         --from-literal=username="${repo_username}" \
         --from-literal=password="${repo_password}" \
         --dry-run=client -o yaml \
         | yq eval '.metadata.labels."argocd.argoproj.io/secret-type" = "repository"' - \
-        | kubectl apply -f - || fatal "[Secrets] Failed to apply argocd/home-ops-git"
+        | kubectl apply -f - || fatal "[Secrets] Failed to apply argocd/homelab-git"
 }
 
 apply_root_application() {
     local root_app="${REPO_ROOT}/kubernetes/clusters/homelab/root-application.yaml"
-    log "[Argo] Applying home-ops root application"
+    log "[Argo] Applying homelab root application"
     kubectl apply -f "${root_app}" || fatal "[Argo] Failed to apply root application"
 }
 
 wait_for_root_application() {
-    local app_name="home-ops-root"
+    local app_name="homelab-root"
     local namespace="argocd"
     local attempts=30
 
