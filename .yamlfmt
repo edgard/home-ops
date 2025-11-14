@@ -1,0 +1,19 @@
+# Run `yamlfmt` without positional args (docs/paths.md) so include/exclude below apply.
+line_ending: lf           # K8s repos are LF-only
+extensions:
+  - yaml
+  - yml
+gitignore_excludes: true      # respect .gitignore (decrypted secrets, scratch files, etc.)
+include:
+  - apps
+  - cluster
+  - infra
+exclude:
+  - cluster/config/cluster-secrets.sops.yaml # sops keeps this encrypted; don't reformat outside the sops CLI
+formatter:
+  type: basic
+  indent: 2              # Kubernetes style guide uses 2 spaces
+  indentless_arrays: true # makes nested lists align with the parent key
+  force_array_style: block
+  trim_trailing_whitespace: true
+  eof_newline: true

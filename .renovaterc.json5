@@ -1,0 +1,107 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    ':semanticCommits',
+    ':automergeBranch',
+    ':timezone(Europe/Warsaw)',
+    ':prHourlyLimitNone',
+    'docker:enableMajor',
+    'helpers:pinGitHubActionDigests',
+  ],
+  dependencyDashboardTitle: 'Renovate Dashboard 🤖',
+  flux: {
+    managerFilePatterns: [
+      '/^apps\/[^\/]+\/[^\/]+\/app\/helmrelease\.ya?ml$/',
+      '/^infra\/[^\/]+\/app\/helmrelease\.ya?ml$/',
+      '/^cluster\/flux\/.+\.ya?ml$/',
+    ],
+  },
+  customManagers: [
+    {
+      customType: 'regex',
+      description: 'Track Kind node images used by bootstrap',
+      managerFilePatterns: [
+        '/^cluster\/config\/cluster-config\.yaml$/',
+      ],
+      matchStrings: [
+        'image:\s*(?<depName>kindest/node):(?<currentValue>[0-9A-Za-z_.-]+)',
+      ],
+      datasourceTemplate: 'docker',
+    },
+    {
+      customType: 'regex',
+      description: 'Track inline image references inside HelmRelease specs',
+      managerFilePatterns: [
+        '/^apps\/[^\/]+\/[^\/]+\/app\/helmrelease\.ya?ml$/',
+        '/^infra\/[^\/]+\/app\/helmrelease\.ya?ml$/',
+      ],
+      matchStrings: [
+        'image:\s*(?<depName>[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*):(?<currentValue>[A-Za-z0-9_.\-]+)',
+      ],
+      datasourceTemplate: 'docker',
+    },
+    {
+      customType: 'regex',
+      description: 'Track inline image references inside Flux resource manifests (hooks, jobs, etc.)',
+      managerFilePatterns: [
+        '/^apps\/[^\/]+\/[^\/]+\/config\/.+\.ya?ml$/',
+        '/^infra\/[^\/]+\/config\/.+\.ya?ml$/',
+        '/^cluster\/flux\/.+\.ya?ml$/',
+      ],
+      matchStrings: [
+        'image:\s*(?<depName>[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*):(?<currentValue>[A-Za-z0-9_.\-]+)',
+      ],
+      datasourceTemplate: 'docker',
+    },
+  ],
+  packageRules: [
+    {
+      description: 'Auto-merge all non-major dependency updates',
+      automerge: true,
+      automergeType: 'branch',
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+        'digest',
+        'pin',
+        'rollback',
+      ],
+      ignoreTests: true,
+    },
+    {
+      description: 'Require manual review for major upgrades',
+      automerge: false,
+      matchUpdateTypes: [
+        'major',
+      ],
+      addLabels: [
+        'renovate/manual-review',
+      ],
+    },
+    {
+      description: 'Treat Kind node tags as loose versions',
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'kindest/node',
+      ],
+      versioning: 'loose',
+    },
+    {
+      description: 'Group Kind cluster node updates into a single PR',
+      matchFileNames: [
+        'cluster/config/cluster-config.yaml',
+      ],
+      groupName: 'kind-nodes',
+    },
+    {
+      description: 'Only consider semver Jellyfin tags',
+      matchPackageNames: [
+        'lscr.io/linuxserver/jellyfin',
+      ],
+      allowedVersions: '/^(?:[0-9]|[1-9][0-9])\.\d+\.\d+$/',
+    },
+  ],
+}
