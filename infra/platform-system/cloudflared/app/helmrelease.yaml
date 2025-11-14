@@ -1,0 +1,106 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cloudflared
+  namespace: platform-system
+spec:
+  releaseName: cloudflared
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: cloudflared
+  values:
+    configMaps:
+      config:
+        data:
+          config.yaml: |-
+            ingress:
+              - hostname: "*.edgard.org"
+                originRequest:
+                  http2Origin: true
+                  originServerName: tunnel.edgard.org
+                service: https://envoy-external.platform-system.svc.cluster.local:443
+              - hostname: edgard.org
+                originRequest:
+                  http2Origin: true
+                  originServerName: edgard.org
+                service: https://envoy-external.platform-system.svc.cluster.local:443
+              - service: http_status:404
+    controllers:
+      main:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        type: deployment
+        replicas: 2
+        strategy: RollingUpdate
+        pod:
+          securityContext:
+            runAsUser: 2000
+            runAsGroup: 2000
+            runAsNonRoot: true
+        containers:
+          main:
+            image:
+              repository: docker.io/cloudflare/cloudflared
+              tag: 2025.11.1
+            args:
+              - tunnel
+              - run
+            env:
+              NO_AUTOUPDATE: "true"
+              TUNNEL_METRICS: 0.0.0.0:8080
+              TUNNEL_POST_QUANTUM: true
+              TUNNEL_TRANSPORT_PROTOCOL: quic
+            envFrom:
+              - secretRef:
+                  name: cloudflared-secret
+            ports:
+              - name: http
+                containerPort: 8080
+            probes:
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ready
+                    port: 8080
+                  initialDelaySeconds: 15
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ready
+                    port: 8080
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+    persistence:
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /etc/cloudflared/config.yaml
+            subPath: config.yaml
+    service:
+      main:
+        controller: main
+        type: ClusterIP
+        ports:
+          http:
+            port: 8080
+            targetPort: http

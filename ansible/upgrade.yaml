@@ -1,5 +1,0 @@
----
-- name: Upgrade apt packages
-  hosts: all:!devl_servers
-  roles:
-    - task_apt_upgrade

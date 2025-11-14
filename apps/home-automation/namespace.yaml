@@ -1,0 +1,7 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    envoy-gateway.edgard.org/oidc-client: "true"
+  name: home-automation

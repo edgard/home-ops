@@ -1,0 +1,19 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: platform-system-cloudflared
+  namespace: platform-system
+spec:
+  interval: 1h
+  timeout: 5m
+  path: ./infra/platform-system/cloudflared/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  dependsOn:
+    - name: platform-system-external-dns-external
+      namespace: platform-system

@@ -1,0 +1,86 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sonarr
+  namespace: media
+spec:
+  releaseName: sonarr
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: sonarr
+  values:
+    controllers:
+      main:
+        type: deployment
+        replicas: 1
+        strategy: Recreate
+        containers:
+          main:
+            image:
+              repository: lscr.io/linuxserver/sonarr
+              tag: 4.0.16
+            env:
+              TZ: Europe/Warsaw
+              PUID: "568"
+              PGID: "568"
+              UMASK: "022"
+              SONARR__AUTH__METHOD: External
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8989
+                  failureThreshold: 30
+                  periodSeconds: 10
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8989
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8989
+                  initialDelaySeconds: 15
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+    service:
+      main:
+        controller: main
+        type: ClusterIP
+        ports:
+          http:
+            enabled: true
+            port: 8989
+            targetPort: 8989
+    ingress:
+      main:
+        enabled: false
+    persistence:
+      config:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/sonarr
+        globalMounts:
+          - path: /config
+      media:
+        type: hostPath
+        hostPath: /mnt/dpool/media
+        globalMounts:
+          - path: /media

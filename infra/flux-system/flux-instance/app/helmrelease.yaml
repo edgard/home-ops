@@ -1,0 +1,38 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: flux
+  namespace: flux-system
+spec:
+  releaseName: flux
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: flux-instance
+  values:
+    instance:
+      distribution:
+        version: "2.x"
+        registry: ghcr.io/fluxcd
+        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:latest
+      components:
+        - source-controller
+        - kustomize-controller
+        - helm-controller
+      cluster:
+        type: kubernetes
+        size: small
+        multitenant: false
+        networkPolicy: true
+        domain: cluster.local
+      sync:
+        kind: GitRepository
+        url: https://github.com/edgard/home-ops.git
+        ref: refs/heads/master
+        path: cluster/flux
+        name: flux-system
+        pullSecret: flux-sync
+        interval: 1h

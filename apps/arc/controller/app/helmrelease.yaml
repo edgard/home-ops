@@ -1,0 +1,16 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: arc
+  namespace: arc
+spec:
+  releaseName: arc
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: arc-controller
+  values:
+    fullnameOverride: arc

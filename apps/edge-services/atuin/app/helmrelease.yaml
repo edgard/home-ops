@@ -1,0 +1,93 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: atuin
+  namespace: edge-services
+spec:
+  releaseName: atuin
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: atuin
+  values:
+    controllers:
+      main:
+        type: deployment
+        replicas: 1
+        strategy: Recreate
+        pod:
+          securityContext:
+            fsGroup: 2000
+            fsGroupChangePolicy: OnRootMismatch
+            runAsUser: 2000
+            runAsGroup: 2000
+            runAsNonRoot: true
+        containers:
+          main:
+            image:
+              repository: ghcr.io/atuinsh/atuin
+              tag: v18.10.0
+            command:
+              - atuin
+            args:
+              - server
+              - start
+            env:
+              ATUIN_DB_URI: sqlite:///config/atuin.db
+              ATUIN_HOST: 0.0.0.0
+              ATUIN_PORT: "8888"
+              ATUIN_OPEN_REGISTRATION: "true"
+            ports:
+              - name: http
+                containerPort: 8888
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: http
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: http
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+    service:
+      main:
+        controller: main
+        type: ClusterIP
+        ports:
+          http:
+            enabled: true
+            port: 8888
+            targetPort: http
+    ingress:
+      main:
+        enabled: false
+    persistence:
+      config:
+        type: hostPath
+        hostPathType: DirectoryOrCreate
+        hostPath: /mnt/spool/appdata/atuin
+        globalMounts:
+          - path: /config

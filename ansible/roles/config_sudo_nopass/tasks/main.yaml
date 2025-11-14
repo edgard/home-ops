@@ -1,7 +1,0 @@
----
-- name: Ensure that sudo group is able to use sudo without password
-  ansible.builtin.lineinfile:
-    path: /etc/sudoers
-    regexp: "^%sudo"
-    line: "%sudo\tALL=(ALL:ALL) NOPASSWD:ALL" # noqa no-tabs
-    validate: "visudo -cf %s"

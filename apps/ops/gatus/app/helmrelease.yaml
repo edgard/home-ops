@@ -1,0 +1,376 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gatus
+  namespace: ops
+spec:
+  releaseName: gatus
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: gatus
+  values:
+    configMaps:
+      config:
+        data:
+          config.yaml: |-
+            metrics: true
+            ui:
+              title: Homelab Status
+              description: Real-time health for homelab services.
+              header: Homelab
+              dark-mode: true
+              default-sort-by: group
+            storage:
+              type: sqlite
+              path: /data/gatus.db
+            connectivity:
+              checker:
+                target: 1.1.1.1:53
+                interval: 30s
+            alerting:
+              telegram:
+                token: ${GATUS_TELEGRAM_TOKEN}
+                id: ${GATUS_TELEGRAM_CHAT_ID}
+                default-alert:
+                  failure-threshold: 3
+                  success-threshold: 1
+                  send-on-resolved: true
+            endpoints:
+              # 00 Ingress perimeter
+              - name: cloudflared
+                group: 00-ingress
+                url: http://cloudflared.platform-system.svc.cluster.local:8080/ready
+                labels:
+                  namespace: platform-system
+                  scope: internal
+                interval: 30s
+                conditions:
+                  - "[STATUS] == 200"
+              - name: envoy-external-https
+                group: 00-ingress
+                url: tcp://envoy-external.platform-system.svc.cluster.local:443
+                labels:
+                  namespace: platform-system
+                  scope: internal
+                interval: 30s
+                conditions:
+                  - "[CONNECTED] == true"
+              - name: envoy-internal-https
+                group: 00-ingress
+                url: tcp://envoy-internal.platform-system.svc.cluster.local:443
+                labels:
+                  namespace: platform-system
+                  scope: internal
+                interval: 30s
+                conditions:
+                  - "[CONNECTED] == true"
+              # 10 Platform controllers
+              - name: flux-operator
+                group: 10-platform
+                url: http://flux-operator.flux-system.svc.cluster.local:8080/metrics
+                labels:
+                  namespace: flux-system
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: gatus
+                group: 10-platform
+                url: http://gatus.ops.svc.cluster.local:8080/health
+                labels:
+                  namespace: ops
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: kopia
+                group: 10-platform
+                url: http://kopia.ops.svc.cluster.local:51515/
+                labels:
+                  namespace: ops
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: dex
+                group: 10-platform
+                url: http://dex.platform-system.svc.cluster.local:5556/healthz
+                labels:
+                  namespace: platform-system
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: dex-external
+                group: 10-platform
+                url: https://id.edgard.org/.well-known/openid-configuration
+                labels:
+                  namespace: platform-system
+                  scope: external
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+                  - '[BODY].issuer == https://id.edgard.org'
+                  - "[CERTIFICATE_EXPIRATION] > 168h"
+
+              # 20 Edge services
+              - name: nginx-external
+                group: 20-edge-services
+                url: https://edgard.org/
+                labels:
+                  namespace: edge-services
+                  scope: external
+                interval: 1m
+                conditions:
+                  - "[STATUS] >= 200"
+                  - "[STATUS] < 400"
+                  - "[CERTIFICATE_EXPIRATION] > 168h"
+              - name: nginx
+                group: 20-edge-services
+                url: http://nginx.edge-services.svc.cluster.local/
+                labels:
+                  namespace: edge-services
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: echo
+                group: 20-edge-services
+                url: http://echo.edge-services.svc.cluster.local/
+                labels:
+                  namespace: edge-services
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: atuin
+                group: 20-edge-services
+                url: http://atuin.edge-services.svc.cluster.local:8888/
+                labels:
+                  namespace: edge-services
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+
+              # 30 Home automation
+              - name: home-assistant
+                group: 30-home
+                url: http://home-assistant.home-automation.svc.cluster.local:8123/
+                labels:
+                  namespace: home-automation
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 500"
+              - name: zigbee2mqtt
+                group: 30-home
+                url: http://zigbee2mqtt.home-automation.svc.cluster.local:8080/
+                labels:
+                  namespace: home-automation
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: mosquitto
+                group: 30-home
+                url: tcp://mosquitto.home-automation.svc.cluster.local:1883
+                labels:
+                  namespace: home-automation
+                  scope: internal
+                interval: 30s
+                conditions:
+                  - "[CONNECTED] == true"
+
+              # 40 Media stack
+              - name: jellyfin
+                group: 40-media
+                url: http://jellyfin.media.svc.cluster.local:8096/health
+                labels:
+                  namespace: media
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[RESPONSE_TIME] < 750"
+              - name: radarr
+                group: 40-media
+                url: http://radarr.media.svc.cluster.local:7878/
+                labels:
+                  namespace: media
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: sonarr
+                group: 40-media
+                url: http://sonarr.media.svc.cluster.local:8989/
+                labels:
+                  namespace: media
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: bazarr
+                group: 40-media
+                url: http://bazarr.media.svc.cluster.local:6767/
+                labels:
+                  namespace: media
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: prowlarr
+                group: 40-media
+                url: http://prowlarr.media.svc.cluster.local:9696/
+                labels:
+                  namespace: media
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: qbittorrent
+                group: 40-media
+                url: http://qbittorrent.media.svc.cluster.local:8080/
+                labels:
+                  namespace: media
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+              - name: flaresolverr
+                group: 40-media
+                url: http://flaresolverr.media.svc.cluster.local:8191/health
+                labels:
+                  namespace: media
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
+
+              # 50 DNS
+              - name: dns-edgard-cloudflare
+                group: 50-dns
+                url: 1.1.1.1
+                dns:
+                  query-name: edgard.org
+                  query-type: A
+                labels:
+                  namespace: network
+                  scope: external
+                interval: 1m
+                conditions:
+                  - "[DNS_RCODE] == NOERROR"
+              - name: dns-edgard-google
+                group: 50-dns
+                url: 8.8.8.8
+                dns:
+                  query-name: edgard.org
+                  query-type: A
+                labels:
+                  namespace: network
+                  scope: external
+                interval: 1m
+                conditions:
+                  - "[DNS_RCODE] == NOERROR"
+
+              # 60 Connectivity
+              - name: ping-google
+                group: 60-connectivity
+                url: icmp://www.google.com
+                labels:
+                  namespace: network
+                  scope: external
+                interval: 1m
+                conditions:
+                  - "[CONNECTED] == true"
+              - name: ping-microsoft
+                group: 60-connectivity
+                url: icmp://www.microsoft.com
+                labels:
+                  namespace: network
+                  scope: external
+                interval: 1m
+                conditions:
+                  - "[CONNECTED] == true"
+              - name: ping-amazon
+                group: 60-connectivity
+                url: icmp://www.amazon.com
+                labels:
+                  namespace: network
+                  scope: external
+                interval: 1m
+                conditions:
+                  - "[CONNECTED] == true"
+    controllers:
+      main:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        type: deployment
+        replicas: 1
+        strategy: Recreate
+        containers:
+          main:
+            image:
+              repository: ghcr.io/twin/gatus
+              tag: v5.31.0
+            env:
+              TZ: Europe/Warsaw
+              GATUS_CONFIG_PATH: /config
+            envFrom:
+              - secretRef:
+                  name: gatus-telegram
+            ports:
+              - name: http
+                containerPort: 8080
+            probes:
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: http
+                  initialDelaySeconds: 15
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: http
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+    service:
+      main:
+        controller: main
+        type: ClusterIP
+        ports:
+          http:
+            port: 8080
+            targetPort: http
+    ingress:
+      main:
+        enabled: false
+    persistence:
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /config
+      data:
+        type: hostPath
+        hostPathType: DirectoryOrCreate
+        hostPath: /mnt/spool/appdata/gatus
+        globalMounts:
+          - path: /data

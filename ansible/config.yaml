@@ -1,9 +1,0 @@
----
-- name: Generate config files
-  hosts: localhost
-  gather_facts: false
-
-  tasks:
-    - name: Generate config files
-      ansible.builtin.include_role:
-        name: task_generate_config

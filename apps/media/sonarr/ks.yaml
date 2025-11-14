@@ -1,0 +1,19 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: media-sonarr
+  namespace: media
+spec:
+  interval: 1h
+  timeout: 5m
+  path: ./apps/media/sonarr/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  dependsOn:
+    - name: media-qbittorrent
+      namespace: media

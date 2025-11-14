@@ -1,0 +1,22 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: multus
+  namespace: platform-system
+spec:
+  releaseName: multus
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: multus
+  values:
+    controllers:
+      multus:
+        serviceAccount:
+          identifier: multus
+        pod:
+          nodeSelector:
+            kubernetes.io/os: linux

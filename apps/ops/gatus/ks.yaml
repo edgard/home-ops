@@ -1,0 +1,16 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: ops-gatus
+  namespace: ops
+spec:
+  interval: 1h
+  timeout: 5m
+  path: ./apps/ops/gatus/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
