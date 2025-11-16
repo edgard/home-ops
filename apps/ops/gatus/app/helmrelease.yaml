@@ -156,6 +156,15 @@ spec:
                 interval: 1m
                 conditions:
                   - "[STATUS] == 200"
+              - name: changedetection
+                group: 20-edge-services
+                url: http://changedetection.edge-services.svc.cluster.local:5000/
+                labels:
+                  namespace: edge-services
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
 
               # 30 Home automation
               - name: home-assistant

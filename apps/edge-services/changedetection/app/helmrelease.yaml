@@ -1,0 +1,95 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: changedetection
+  namespace: edge-services
+spec:
+  releaseName: changedetection
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: changedetection
+  values:
+    controllers:
+      main:
+        type: deployment
+        replicas: 1
+        strategy: Recreate
+        containers:
+          main:
+            image:
+              repository: ghcr.io/dgtlmoon/changedetection.io
+              tag: 0.51.1
+            env:
+              TZ: Europe/Warsaw
+              BASE_URL: https://changedetection.edgard.org
+              USE_X_SETTINGS: "1"
+              HIDE_REFERER: "true"
+              FETCH_WORKERS: "10"
+              PLAYWRIGHT_DRIVER_URL: ws://127.0.0.1:3000
+              DISABLE_VERSION_CHECK: "true"
+            ports:
+              - name: http
+                containerPort: 5000
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: http
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: http
+                  initialDelaySeconds: 15
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+          browser-sockpuppet-chrome:
+            image:
+              repository: dgtlmoon/sockpuppetbrowser
+              tag: latest
+            env:
+              TZ: Europe/Warsaw
+              SCREEN_WIDTH: "1920"
+              SCREEN_HEIGHT: "1080"
+              SCREEN_DEPTH: "16"
+              MAX_CONCURRENT_CHROME_PROCESSES: "5"
+            securityContext:
+              capabilities:
+                add:
+                  - SYS_ADMIN
+            ports:
+              - name: websocket
+                containerPort: 3000
+    service:
+      main:
+        controller: main
+        type: ClusterIP
+        ports:
+          http:
+            enabled: true
+            port: 5000
+            targetPort: http
+    ingress:
+      main:
+        enabled: false
+    persistence:
+      datastore:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/changedetection
+        hostPathType: DirectoryOrCreate
+        globalMounts:
+          - path: /datastore

@@ -6,3 +6,4 @@ resources:
   - ./echo/ks.yaml
   - ./nginx/ks.yaml
   - ./atuin/ks.yaml
+  - ./changedetection/ks.yaml
