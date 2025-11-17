@@ -195,6 +195,15 @@ spec:
                 interval: 30s
                 conditions:
                   - "[CONNECTED] == true"
+              - name: matterbridge
+                group: 30-home
+                url: http://matterbridge.home-automation.svc.cluster.local:8283/health
+                labels:
+                  namespace: home-automation
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
 
               # 40 Media stack
               - name: jellyfin

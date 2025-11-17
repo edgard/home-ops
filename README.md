@@ -12,16 +12,17 @@
 ## Quickstart
 1. Install `docker`, `kind`, `kubectl`, `helm`, `python3` (with `pyyaml`), `sops`, and `age`.
 2. Run `make secrets-create-key` (creates `.sops.agekey`).
-3. Copy `cluster/config/cluster-secrets.template.yaml` to `cluster/config/cluster-secrets.sops.yaml` and fill the placeholders (Flux sync creds, Dex config, Envoy OIDC secret, Cloudflare + UniFi API tokens, `cloudflared_tunnel_token`, Kopia password, qbittorrent WireGuard data, Unpackerr API keys, Telegram tokens, ARC GitHub App creds, etc.).
+3. Copy `cluster/config/cluster-secrets.template.yaml` to `cluster/config/cluster-secrets.sops.yaml` and fill the placeholders (Flux sync creds, Dex config, Envoy OIDC secret, Cloudflare + UniFi API tokens, `cloudflared_tunnel_token`, Kopia password, qbittorrent WireGuard data, Unpackerr API keys, Telegram tokens, ARC GitHub App creds, the Matterbridge `matterbridge_hass_config`, etc.).
 4. Manage the encrypted bundle with `make secrets-edit` / `make secrets-apply`; bootstrap decrypts it transiently when ESO mirrors the values.
 5. Run `make bootstrap`. The helper in `scripts/bootstrap.py` prepares/validates the Docker context, creates or updates Kind from `cluster/config/cluster-config.yaml`, attaches worker nodes to the `kind-<cluster>-net` macvlan (parent `br0` by default), ensures the `platform-system` namespace exists, applies `cluster-secrets.sops.yaml`, installs `flux-operator@0.33.0` + `flux-instance@0.33.0` into `flux-system`, creates the optional `flux-sync` Secret when the repo is private, renders the FluxInstance manifest from `infra/flux-system/flux-instance/app/helmrelease.yaml`, and stops once the FluxInstance reports Ready so Flux can reconcile `cluster/flux`.
 6. Need a different LAN bridge or subnet? Export `MULTUS_PARENT_IFACE`, `MULTUS_PARENT_SUBNET`, `MULTUS_PARENT_GATEWAY`, or `MULTUS_PARENT_IP_RANGE` before step 5.
 
 ## Networking & ingress
-- `infra/platform-system/multus/config/lan-macvlan.yaml` declares the static macvlan interface on `eth1` inside the nodes (bridge mode). Reserve MAC/IP pairs ahead of time—Envoy internal (192.168.1.241/24, `02:42:c0:a8:01:f1`), jellyfin (192.168.1.245/24, `02:42:c0:a8:01:f5`), and home-assistant (192.168.1.246/24, `02:42:c0:a8:01:f6`) already consume leases.
+- `infra/platform-system/multus/config/lan-macvlan.yaml` declares the static macvlan interface on `eth1` inside the nodes (bridge mode). Reserve MAC/IP pairs ahead of time—Envoy internal (192.168.1.241/24, `02:42:c0:a8:01:f1`), matterbridge (192.168.1.244/24, `02:42:c0:a8:01:f4`), jellyfin (192.168.1.245/24, `02:42:c0:a8:01:f5`), and home-assistant (192.168.1.246/24, `02:42:c0:a8:01:f6`) already consume leases.
 - Envoy Gateway v1.6.0 installs via `infra/platform-system/envoy-gateway` plus `infra/platform-system/envoy-gateway/config`. Two Gateways (`external`, `internal`), EnvoyProxy definitions, HTTP→HTTPS redirects, ReferenceGrants, shared policies, Services, and the Envoy OIDC client ClusterExternalSecret all live there.
 - Every workload ships external/internal HTTPRoutes. External routes target the `external` Gateway, add `external-dns.edgard.org/scope: external`, and carry a `gateway.envoyproxy.io/v1alpha1` `SecurityPolicy` when OAuth-protected (Dex at `https://id.edgard.org` using the shared `envoy-oidc-client` secret). Internal routes target the `internal` Gateway, carry the `internal` label, and skip auth.
 - `infra/platform-system/cert-manager` (chart v1.19.1) issues `wildcard-edgard-org` via the `letsencrypt-cloudflare` ClusterIssuer. `infra/platform-system/external-dns-external` pushes proxied records into Cloudflare, while `infra/platform-system/external-dns-internal` (UniFi webhook v0.7.0) publishes split-horizon DNS. `infra/platform-system/cloudflared` runs `cloudflare/cloudflared:2025.11.1`, terminates the tunnel for `*.edgard.org`/`edgard.org`, and ships a `DNSEndpoint` so ExternalDNS knows about `tunnel.edgard.org`.
+- A new `matterbridge` workload in `home-automation` runs `docker.io/luligu/matterbridge:3.3.8`, mounts `/mnt/spool/appdata/matterbridge` as `/root/Matterbridge`, `/mnt/spool/appdata/matterbridge/.matterbridge` as `/root/.matterbridge`, and `/mnt/spool/appdata/matterbridge/certs` as `/root/.mattercert`, copies the rendered `matterbridge-hass.config.json` (from the `matterbridge_hass_config` secret) into `/root/.matterbridge/` on startup, and runs `matterbridge -add matterbridge-hass` once before launching the daemon with `-frontend 8283 -docker` so the Home Assistant plugin loads as soon as the service is up.
 
 ## Flux topology & dependencies
 - `cluster-infra` renders `infra/kustomization.yaml`; `cluster-apps` depends on it and renders `apps/kustomization.yaml`.
@@ -54,6 +55,7 @@
 | --- | --- | --- |
 | `home-automation` | `home-automation-zigbee2mqtt` | `home-automation-mosquitto` |
 | `home-automation` | `home-automation-home-assistant` | `home-automation-zigbee2mqtt` |
+| `home-automation` | `home-automation-matterbridge` | `home-automation-home-assistant` |
 | `media` | `media-radarr` | `media-qbittorrent` |
 | `media` | `media-sonarr` | `media-qbittorrent` |
 | `media` | `media-prowlarr` | `media-flaresolverr` |
