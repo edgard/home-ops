@@ -1,0 +1,97 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: matterbridge
+  namespace: home-automation
+spec:
+  releaseName: matterbridge
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: matterbridge
+  values:
+    controllers:
+      main:
+        type: deployment
+        replicas: 1
+        strategy: Recreate
+        pod:
+          annotations:
+            k8s.v1.cni.cncf.io/networks: |-
+              [
+                {
+                  "name": "lan-macvlan",
+                  "namespace": "platform-system",
+                  "ips": ["192.168.1.244/24"],
+                  "mac": "02:42:c0:a8:01:f4",
+                  "gateway": ["192.168.1.1"]
+                }
+              ]
+        containers:
+          main:
+            image:
+              repository: docker.io/luligu/matterbridge
+              tag: 3.3.8
+            env:
+              TZ: Europe/Warsaw
+            ports:
+              - name: http
+                containerPort: 8283
+            probes:
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8283
+                  initialDelaySeconds: 15
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8283
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+    service:
+      main:
+        controller: main
+        type: ClusterIP
+        ports:
+          http:
+            enabled: true
+            port: 8283
+            targetPort: http
+            protocol: TCP
+    ingress:
+      main:
+        enabled: false
+    persistence:
+      plugins:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/matterbridge
+        hostPathType: DirectoryOrCreate
+        globalMounts:
+          - path: /root/Matterbridge
+      storage:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/matterbridge/.matterbridge
+        hostPathType: DirectoryOrCreate
+        globalMounts:
+          - path: /root/.matterbridge
+      certs:
+        type: hostPath
+        hostPath: /mnt/spool/appdata/matterbridge/certs
+        hostPathType: DirectoryOrCreate
+        globalMounts:
+          - path: /root/.mattercert
