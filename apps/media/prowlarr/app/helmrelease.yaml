@@ -22,7 +22,7 @@ spec:
           main:
             image:
               repository: lscr.io/linuxserver/prowlarr
-              tag: 2.1.5
+              tag: 2.3.0
             env:
               TZ: Europe/Warsaw
               PUID: "568"
