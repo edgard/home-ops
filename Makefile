@@ -97,5 +97,5 @@ flux-reconcile: ## Force the root Flux Kustomization to reconcile with a fresh s
 
 lint: ## Format all YAML with prettier, yamlfmt, then lint with yamllint
 	$(PRETTIER) --write "**/*.{yaml,yml}"
-	$(YAMLFMT) .
+	$(YAMLFMT) "**/*.{yaml,yml}"
 	$(YAMLLINT) .

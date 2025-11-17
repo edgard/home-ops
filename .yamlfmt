@@ -1,4 +1,5 @@
 ---
+doublestar: true
 gitignore_excludes: true
 exclude:
   - "**/*.sops.yaml"
