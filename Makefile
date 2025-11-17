@@ -23,7 +23,7 @@ PRETTIER       ?= prettier
 YAMLFMT        ?= yamlfmt
 YAMLLINT       ?= yamllint
 .PHONY: help bootstrap bootstrap-delete bootstrap-recreate kind-create kind-delete kind-recreate kind-status \
-    secrets-edit secrets-apply secrets-create-key flux-reconcile yaml-check
+    secrets-edit secrets-apply secrets-create-key flux-reconcile
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_\-]+:.*?## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
