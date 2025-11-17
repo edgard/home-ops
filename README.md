@@ -13,7 +13,7 @@
 1. Install `docker`, `kind`, `kubectl`, `helm`, `python3` (with `pyyaml`), `sops`, and `age`.
 2. Run `make secrets-create-key` (creates `.sops.agekey`).
 3. Copy `cluster/config/cluster-secrets.template.yaml` to `cluster/config/cluster-secrets.sops.yaml` and fill the placeholders (Flux sync creds, Dex config, Envoy OIDC secret, Cloudflare + UniFi API tokens, `cloudflared_tunnel_token`, Kopia password, qbittorrent WireGuard data, Unpackerr API keys, Telegram tokens, ARC GitHub App creds, etc.).
-4. Manage the encrypted bundle with `make secrets-edit` / `make secrets-apply`. Never commit the decrypted `.cluster-secrets.yaml`—bootstrap decrypts it temporarily so ESO can mirror the values.
+4. Manage the encrypted bundle with `make secrets-edit` / `make secrets-apply`; bootstrap decrypts it transiently when ESO mirrors the values.
 5. Run `make bootstrap`. The helper in `scripts/bootstrap.py` prepares/validates the Docker context, creates or updates Kind from `cluster/config/cluster-config.yaml`, attaches worker nodes to the `kind-<cluster>-net` macvlan (parent `br0` by default), ensures the `platform-system` namespace exists, applies `cluster-secrets.sops.yaml`, installs `flux-operator@0.33.0` + `flux-instance@0.33.0` into `flux-system`, creates the optional `flux-sync` Secret when the repo is private, renders the FluxInstance manifest from `infra/flux-system/flux-instance/app/helmrelease.yaml`, and stops once the FluxInstance reports Ready so Flux can reconcile `cluster/flux`.
 6. Need a different LAN bridge or subnet? Export `MULTUS_PARENT_IFACE`, `MULTUS_PARENT_SUBNET`, `MULTUS_PARENT_GATEWAY`, or `MULTUS_PARENT_IP_RANGE` before step 5.
 
@@ -69,7 +69,7 @@ Other workloads reconcile independently.
 - Treat `make bootstrap` as the integration test. After structural changes or chart bumps, rerun it (or at least `make flux-reconcile`) and wait for Flux to report `Ready` before merging. There is no ArgoCD—Flux is the single source of truth.
 
 ## Security & automation
-- Keep `cluster-secrets.sops.yaml` encrypted, `.cluster-secrets.yaml` gitignored, and `.sops.agekey` private. Update `.sops.yaml` + re-encrypt if you relocate keys.
+- Keep `cluster-secrets.sops.yaml` encrypted and `.sops.agekey` private. Update `.sops.yaml` + re-encrypt if you relocate keys.
 - Populate `flux_sync_username` / `flux_sync_password` when the repo is private so bootstrap can create the `flux-sync` Secret consumed by the FluxInstance Helm values.
 - Regenerate Dex bcrypt hashes with `htpasswd -nbB user pass`, update `dex_config_yaml`, and rerun `make secrets-apply` + `make flux-reconcile` after rotations.
 - Renovate tracks container images, Helm charts, the Kind node image, and GitHub Actions workflows. Validate its PRs with `make bootstrap` / `make flux-reconcile` and only merge once Flux reports healthy `Ready` status for the touched `Kustomization` objects.
