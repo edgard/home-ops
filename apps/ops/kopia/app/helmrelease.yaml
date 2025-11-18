@@ -19,7 +19,7 @@ spec:
           repo-init:
             image:
               repository: ghcr.io/home-operations/kopia
-              tag: 0.21.1
+              tag: 0.22.0
               pullPolicy: IfNotPresent
             env:
               TZ: Europe/Warsaw
@@ -74,7 +74,7 @@ spec:
           main:
             image:
               repository: ghcr.io/home-operations/kopia
-              tag: 0.21.1
+              tag: 0.22.0
               pullPolicy: IfNotPresent
             env:
               - name: TZ
