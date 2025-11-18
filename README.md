@@ -11,7 +11,7 @@ Kind v1.34.0 runs a control-plane + worker pair, Flux keeps it reconciled, Multu
 
 ## Bootstrap
 1. Install `docker`, `kind`, `kubectl`, `helm`, `python3` + `pyyaml`, `sops`, and `age`.
-2. Generate `.sops.agekey` (`make secrets-create-key`), copy `cluster-secrets.template.yaml` to `cluster-secrets.sops.yaml`, and fill the required values (Flux sync creds, Dex config, Envoy OIDC secret, Cloudflare/UniFi tokens, `cloudflared_tunnel_token`, Kopia password, qbittorrent WireGuard data, Unpackerr keys, Telegram tokens, ARC GitHub App creds, etc.).
+2. Generate `.sops.agekey` (`make secrets-create-key`), copy `cluster-secrets.template.yaml` to `cluster-secrets.sops.yaml`, and fill the required values (Flux sync creds, Dex admin bcrypt hash, Envoy OIDC secret, Cloudflare/UniFi tokens, `cloudflared_tunnel_token`, Kopia password, qbittorrent WireGuard data, Unpackerr keys, Telegram tokens, ARC GitHub App creds, etc.).
 3. Edit/apply the encrypted bundle with `make secrets-edit` / `make secrets-apply`.
 4. Run `make bootstrap`. The helper ensures prerequisites, creates or upgrades Kind from `cluster/config/cluster-config.yaml`, attaches the worker to `kind-<cluster>-net`, sets kubecontext, decrypts/applies `cluster-secrets.sops.yaml`, installs `flux-operator@0.33.0`, renders the FluxInstance HelmRelease, waits for the FluxInstance to become Ready, and hands control to Flux so it reconciles `cluster/flux`.
 5. Override LAN plumbing by exporting `MULTUS_PARENT_IFACE`, `MULTUS_PARENT_SUBNET`, `MULTUS_PARENT_GATEWAY`, and/or `MULTUS_PARENT_IP_RANGE` before running bootstrap.
@@ -24,7 +24,7 @@ Kind v1.34.0 runs a control-plane + worker pair, Flux keeps it reconciled, Multu
 ## Namespaces
 - `kube-system` – managed by Kind; bootstrap leaves it untouched.
 - `flux-system` – Flux operator + FluxInstance plus root `cluster-infra` / `cluster-apps`.
-- `platform-system` – Multus/macvlan, External Secrets + ClusterSecretStore, metrics-server, Reloader, cert-manager (v1.19.1 + `letsencrypt-cloudflare` issuer), Envoy Gateway v1.6.0 (external/internal Gateways + EnvoyProxy + OIDC secret fan-out), External DNS (Cloudflare + UniFi webhook), cloudflared tunnel (2025.11.1) with `tunnel.edgard.org` `DNSEndpoint`, and Dex.
+- `platform-system` – Multus/macvlan, External Secrets + ClusterSecretStore, metrics-server, Reloader, cert-manager (v1.19.1 + `letsencrypt-cloudflare` issuer), Envoy Gateway v1.6.0 (external/internal Gateways + EnvoyProxy + OIDC secret fan-out), External DNS (Cloudflare + UniFi webhook), cloudflared tunnel (2025.11.1) with `tunnel.edgard.org` `DNSEndpoint`, and Dex (config is versioned in `infra/platform-system/dex/app/helmrelease.yaml`, secrets come from `envoy-oidc-client` + `dex-static-password`).
 - `ops` – gatus (status.edgard.org) and kopia (kopia.edgard.org) with Dex-protected HTTPRoutes.
 - `home-automation` – Mosquitto, Zigbee2MQTT (privileged, `/dev/ttyUSB0`), and Home Assistant on Multus (`192.168.1.246/24`) with internal/external HTTPRoutes.
 - `media` – LinuxServer apps (bazarr, radarr, sonarr, prowlarr), qbittorrent+gluetun, jellyfin on Multus (`192.168.1.245/24`), recyclarr, unpackerr.

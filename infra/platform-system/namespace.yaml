@@ -4,4 +4,6 @@ kind: Namespace
 metadata:
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    envoy-gateway.edgard.org/oidc-client: "true"
   name: platform-system
