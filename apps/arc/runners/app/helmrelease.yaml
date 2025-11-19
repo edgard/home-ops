@@ -25,7 +25,7 @@ spec:
       spec:
         initContainers:
           - name: init-dind-externals
-            image: ghcr.io/actions/actions-runner:2.329.0
+            image: ghcr.io/actions/actions-runner:2.330.0
             command:
               - cp
               - -r
@@ -63,7 +63,7 @@ spec:
               - name: dind-externals
                 mountPath: /home/runner/externals
           - name: runner
-            image: ghcr.io/actions/actions-runner:2.329.0
+            image: ghcr.io/actions/actions-runner:2.330.0
             command:
               - /home/runner/run.sh
             env:
