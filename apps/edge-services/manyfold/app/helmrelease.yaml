@@ -44,8 +44,10 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  tcpSocket:
+                  httpGet:
+                    path: /health
                     port: http
+                    scheme: HTTP
                   initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
@@ -54,8 +56,10 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  tcpSocket:
+                  httpGet:
+                    path: /health
                     port: http
+                    scheme: HTTP
                   initialDelaySeconds: 15
                   periodSeconds: 15
                   timeoutSeconds: 5

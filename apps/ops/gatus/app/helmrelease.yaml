@@ -167,7 +167,7 @@ spec:
                   - "[STATUS] == 200"
               - name: manyfold
                 group: 20-edge-services
-                url: http://manyfold.edge-services.svc.cluster.local:3214/
+                url: http://manyfold.edge-services.svc.cluster.local:3214/health
                 labels:
                   namespace: edge-services
                   scope: internal
