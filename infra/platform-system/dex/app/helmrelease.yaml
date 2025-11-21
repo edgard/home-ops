@@ -52,6 +52,7 @@ spec:
                   - https://kopia.edgard.org/oauth2/callback
                   - https://echo.edgard.org/oauth2/callback
                   - https://changedetection.edgard.org/oauth2/callback
+                  - https://manyfold.edgard.org/oauth2/callback
                 secretEnv: ENVOY_GATEWAY_CLIENT_SECRET
     controllers:
       main:

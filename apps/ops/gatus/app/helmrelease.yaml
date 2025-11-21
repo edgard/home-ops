@@ -165,6 +165,15 @@ spec:
                 interval: 1m
                 conditions:
                   - "[STATUS] == 200"
+              - name: manyfold
+                group: 20-edge-services
+                url: http://manyfold.edge-services.svc.cluster.local:3214/
+                labels:
+                  namespace: edge-services
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
 
               # 30 Home automation
               - name: home-assistant
