@@ -4,5 +4,7 @@ kind: Kustomization
 resources:
   - ocirepository.yaml
   - gateway.yaml
+  - gatus-generator.configmap.yaml
+  - gatus-generator.rbac.yaml
   - gatus-telegram.externalsecret.yaml
   - helmrelease.yaml

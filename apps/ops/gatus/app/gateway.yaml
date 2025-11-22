@@ -6,6 +6,8 @@ metadata:
   namespace: ops
   labels:
     external-dns.edgard.org/scope: external
+    hajimari.edgard.org/icon: heart-pulse
+    hajimari.edgard.org/enabled: "true"
 spec:
   parentRefs:
     - name: external

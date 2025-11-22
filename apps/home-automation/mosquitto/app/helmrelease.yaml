@@ -50,6 +50,8 @@ spec:
       main:
         controller: main
         type: ClusterIP
+        labels:
+          gatus.edgard.org/enabled: "true"
         ports:
           mqtt:
             enabled: true

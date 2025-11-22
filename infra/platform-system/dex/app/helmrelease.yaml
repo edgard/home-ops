@@ -13,48 +13,6 @@ spec:
     kind: OCIRepository
     name: dex
   values:
-    configMaps:
-      config:
-        data:
-          config.yaml: |-
-            issuer: https://id.edgard.org
-            storage:
-              type: sqlite3
-              config:
-                file: /data/dex.db
-            web:
-              http: 0.0.0.0:5556
-            telemetry:
-              http: 0.0.0.0:5558
-            logger:
-              level: info
-            frontend:
-              issuer: Homelab Identity
-            oauth2:
-              skipApprovalScreen: true
-            enablePasswordDB: true
-            staticPasswords:
-              - email: castro@edgard.org
-                username: edgard
-                hashFromEnv: DEX_STATIC_PASSWORD_ADMIN_HASH
-            staticClients:
-              - id: envoy-gateway
-                name: Envoy Gateway
-                redirectURIs:
-                  - https://status.edgard.org/oauth2/callback
-                  - https://zigbee2mqtt.edgard.org/oauth2/callback
-                  - https://bazarr.edgard.org/oauth2/callback
-                  - https://radarr.edgard.org/oauth2/callback
-                  - https://sonarr.edgard.org/oauth2/callback
-                  - https://prowlarr.edgard.org/oauth2/callback
-                  - https://qbittorrent.edgard.org/oauth2/callback
-                  - https://jellyfin.edgard.org/oauth2/callback
-                  - https://kopia.edgard.org/oauth2/callback
-                  - https://echo.edgard.org/oauth2/callback
-                  - https://changedetection.edgard.org/oauth2/callback
-                  - https://manyfold.edgard.org/oauth2/callback
-                  - https://apps.edgard.org/oauth2/callback
-                secretEnv: ENVOY_GATEWAY_CLIENT_SECRET
     controllers:
       main:
         annotations:
@@ -62,6 +20,26 @@ spec:
         type: deployment
         replicas: 1
         strategy: Recreate
+        serviceAccount:
+          name: dex-generator
+          create: false
+        initContainers:
+          generator:
+            image:
+              repository: python
+              tag: "3.12-alpine"
+            command:
+              - /bin/sh
+              - -c
+              - |
+                set -euo pipefail
+                pip install --no-cache-dir --quiet pyyaml
+                python /opt/generator/generator.py
+            env:
+              - name: CONFIG_TEMPLATE
+                value: /generator/base.yaml
+              - name: CONFIG_OUT
+                value: /etc/dex/config.yaml
         containers:
           main:
             image:
@@ -113,6 +91,8 @@ spec:
       main:
         controller: main
         type: ClusterIP
+        labels:
+          gatus.edgard.org/enabled: "true"
         ports:
           http:
             port: 5556
@@ -122,11 +102,16 @@ spec:
         enabled: false
     persistence:
       config:
-        type: configMap
-        identifier: config
+        type: emptyDir
         globalMounts:
           - path: /etc/dex
-            readOnly: true
+      generator:
+        type: configMap
+        name: dex-generator
+        defaultMode: 0555
+        globalMounts:
+          - path: /generator
+          - path: /opt/generator
       data:
         enabled: true
         type: hostPath

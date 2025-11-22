@@ -1,0 +1,351 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gatus-generator
+  namespace: ops
+data:
+  base.yaml: |-
+    metrics: true
+    ui:
+      title: Homelab Status
+      description: Real-time health for homelab services.
+      header: Homelab
+      dark-mode: true
+      default-sort-by: group
+    storage:
+      type: sqlite
+      path: /data/gatus.db
+    connectivity:
+      checker:
+        target: 1.1.1.1:53
+        interval: 30s
+    alerting:
+      telegram:
+        token: ${GATUS_TELEGRAM_TOKEN}
+        id: ${GATUS_TELEGRAM_CHAT_ID}
+        default-alert:
+          failure-threshold: 3
+          success-threshold: 1
+          send-on-resolved: true
+  static-endpoints.yaml: |-
+    # Static-only checks (no in-cluster objects to discover)
+    - name: dns-edgard-cloudflare
+      group: 01-dns
+      url: 1.1.1.1
+      dns:
+        query-name: edgard.org
+        query-type: A
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[DNS_RCODE] == NOERROR"
+    - name: dns-edgard-google
+      group: 01-dns
+      url: 8.8.8.8
+      dns:
+        query-name: edgard.org
+        query-type: A
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[DNS_RCODE] == NOERROR"
+    - name: ping-google
+      group: 02-connectivity
+      url: icmp://www.google.com
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+    - name: ping-microsoft
+      group: 02-connectivity
+      url: icmp://www.microsoft.com
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+    - name: ping-amazon
+      group: 02-connectivity
+      url: icmp://www.amazon.com
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+    - name: envoy-external
+      group: 03-gateway
+      url: tcp://envoy-external.platform-system.svc.cluster.local:443
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 30s
+      conditions:
+        - "[CONNECTED] == true"
+    - name: envoy-internal
+      group: 03-gateway
+      url: tcp://envoy-internal.platform-system.svc.cluster.local:443
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 30s
+      conditions:
+        - "[CONNECTED] == true"
+    - name: envoy-external-https
+      group: 03-gateway
+      url: https://id.edgard.org/
+      labels:
+        namespace: platform-system
+        scope: external
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 400"
+        - "[CERTIFICATE_EXPIRATION] > 168h"
+    - name: envoy-internal-https
+      group: 03-gateway
+      url: https://id.edgard.org/
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 400"
+        - "[CERTIFICATE_EXPIRATION] > 168h"
+  generator.py: |-
+    import os
+    import sys
+    from pathlib import Path
+
+    try:
+        import yaml
+    except ImportError:  # pragma: no cover - handled in init container shell
+        sys.exit("PyYAML is required")
+
+
+    def load_yaml(path: Path):
+        if not path.exists():
+            return {}
+        text = path.read_text(encoding="utf-8")
+        if not text.strip():
+            return {}
+        return yaml.safe_load(text)
+
+
+    def kube_get(path, token, ca_path, host, port):
+        import json
+        import ssl
+        import urllib.request
+
+        ctx = ssl.create_default_context(cafile=ca_path)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        url = f"https://{host}:{port}{path}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, context=ctx) as resp:
+            return json.loads(resp.read())
+
+
+    def guess_scheme(port_name, port_number):
+        name = (port_name or "").lower()
+        if "http" in name or port_number == 80:
+            return "http"
+        if "https" in name or port_number == 443:
+            return "https"
+        if "tcp" in name:
+            return "tcp"
+        if "icmp" in name:
+            return "icmp"
+        return "tcp"
+
+
+    def list_workloads(namespaces, token, ca_path, host, port):
+        workloads = {}
+        paths = [
+            "/apis/apps/v1/deployments",
+            "/apis/apps/v1/statefulsets",
+        ]
+        for path in paths:
+            data = kube_get(path, token, ca_path, host, port)
+            for item in data.get("items", []):
+                ns = item.get("metadata", {}).get("namespace")
+                if ns not in namespaces:
+                    continue
+                tmpl = item.get("spec", {}).get("template", {}) or {}
+                labels = tmpl.get("metadata", {}).get("labels", {}) or {}
+                pod_spec = tmpl.get("spec", {}) or {}
+                containers = pod_spec.get("containers", []) or []
+
+                port_map = {}
+                for c in containers:
+                    for p in c.get("ports", []) or []:
+                        if p.get("name"):
+                            port_map[p["name"]] = p.get("containerPort")
+
+                probes = []
+                for c in containers:
+                    for probe in [c.get("readinessProbe"), c.get("livenessProbe")]:
+                        if not probe:
+                            continue
+                        probes.append(probe)
+
+                workloads.setdefault(ns, []).append(
+                    {"labels": labels, "port_map": port_map, "probes": probes}
+                )
+        return workloads
+
+
+    def match_probe(service_selector, workload):
+        # service selector must be subset of workload labels
+        if not service_selector:
+            return None
+        wl_labels = workload["labels"]
+        for key, val in service_selector.items():
+            if wl_labels.get(key) != val:
+                return None
+        # pick first probe
+        for probe in workload["probes"]:
+            if "httpGet" in probe:
+                http = probe["httpGet"]
+                port = http.get("port")
+                if isinstance(port, str):
+                    port = workload["port_map"].get(port)
+                return {
+                    "scheme": http.get("scheme", "HTTP").lower(),
+                    "path": http.get("path", "/"),
+                    "port": port,
+                    "periodSeconds": probe.get("periodSeconds"),
+                }
+            if "tcpSocket" in probe:
+                tcp = probe["tcpSocket"]
+                port = tcp.get("port")
+                if isinstance(port, str):
+                    port = workload["port_map"].get(port)
+                return {"scheme": "tcp", "port": port, "periodSeconds": probe.get("periodSeconds")}
+        return None
+
+
+    def discover_services(label_selector, token, ca_path, host, port):
+        data = kube_get(f"/api/v1/services?labelSelector={label_selector}", token, ca_path, host, port)
+        services = []
+        namespaces = {item.get("metadata", {}).get("namespace") for item in data.get("items", [])}
+        workloads = list_workloads(namespaces, token, ca_path, host, port)
+        for item in data.get("items", []):
+            meta = item.get("metadata", {})
+            spec = item.get("spec", {})
+            name = meta.get("name")
+            namespace = meta.get("namespace")
+            labels = meta.get("labels", {})
+            if labels.get("gatus.edgard.org/enabled") != "true":
+                continue
+            svc_selector = spec.get("selector") or {}
+
+            ports = spec.get("ports", []) or []
+            if not ports:
+                continue
+            port_entry = ports[0]
+            port_number = port_entry.get("port")
+            port_name = port_entry.get("name")
+            scheme = guess_scheme(port_name, port_number)
+            path = "/"
+
+            probe = None
+            for wl in workloads.get(namespace, []):
+                probe = match_probe(svc_selector, wl)
+                if probe:
+                    break
+
+            if probe:
+                scheme = probe.get("scheme", scheme)
+                port_number = probe.get("port", port_number)
+                path = probe.get("path", "/")
+                period = probe.get("periodSeconds")
+            else:
+                path = "/"
+                period = None
+
+            if scheme == "tcp":
+                url = f"tcp://{name}.{namespace}.svc.cluster.local:{port_number}"
+            elif scheme == "icmp":
+                url = f"icmp://{name}.{namespace}.svc.cluster.local"
+            else:
+                url = f"{scheme}://{name}.{namespace}.svc.cluster.local:{port_number}{path}"
+
+            friendly_name = name
+            group = namespace
+            interval = f"{period}s" if period else "1m"
+
+            conditions = ["[STATUS] == 200"] if scheme in ("http", "https") else ["[CONNECTED] == true"]
+
+            services.append(
+                {
+                    "name": friendly_name,
+                    "group": group,
+                    "url": url,
+                    "labels": {
+                        "namespace": namespace,
+                        "scope": "internal",
+                    },
+                    "interval": interval,
+                    "conditions": conditions,
+                }
+            )
+        return services
+
+
+    def main():
+        template_path = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
+        static_path = Path(os.environ.get("CONFIG_STATIC", "/templates/static-endpoints.yaml"))
+        output_path = Path(os.environ.get("CONFIG_OUT", "/config/config.yaml"))
+        svc_selector = "gatus.edgard.org/enabled=true"
+
+        base = load_yaml(template_path) or {}
+        static_endpoints = load_yaml(static_path) or []
+
+        if not isinstance(base, dict):
+            raise SystemExit(f"base config must be a mapping, got {type(base)}")
+        if static_endpoints and not isinstance(static_endpoints, list):
+            raise SystemExit(f"static endpoints must be a list, got {type(static_endpoints)}")
+
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+        token = token_path.read_text(encoding="utf-8").strip()
+
+        try:
+            discovered_services = discover_services(svc_selector, token, str(ca_path), host, port)
+        except Exception as exc:  # pragma: no cover
+            print(f"service discovery failed: {exc}", file=sys.stderr)
+            discovered_services = []
+
+        endpoints = static_endpoints + discovered_services
+        base["endpoints"] = endpoints
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            yaml.safe_dump(base, sort_keys=False),
+            encoding="utf-8",
+        )
+        print(
+            f"wrote {len(endpoints)} endpoints to {output_path} "
+            f"({len(discovered_services)} services, {len(static_endpoints)} static)"
+        )
+
+
+    if __name__ == "__main__":
+        main()

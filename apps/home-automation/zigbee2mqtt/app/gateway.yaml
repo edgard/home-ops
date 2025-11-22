@@ -6,6 +6,8 @@ metadata:
   namespace: home-automation
   labels:
     external-dns.edgard.org/scope: external
+    hajimari.edgard.org/enabled: "true"
+    hajimari.edgard.org/icon: zigbee
 spec:
   parentRefs:
     - name: external

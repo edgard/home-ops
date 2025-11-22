@@ -6,6 +6,8 @@ metadata:
   namespace: media
   labels:
     external-dns.edgard.org/scope: external
+    hajimari.edgard.org/icon: television
+    hajimari.edgard.org/enabled: "true"
 spec:
   parentRefs:
     - name: external
