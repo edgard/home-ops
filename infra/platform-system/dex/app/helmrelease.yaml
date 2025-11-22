@@ -27,7 +27,7 @@ spec:
           generator:
             image:
               repository: python
-              tag: "3.12-alpine"
+              tag: "3.14-alpine"
             command:
               - /bin/sh
               - -c
