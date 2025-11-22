@@ -82,7 +82,7 @@ data:
       conditions:
         - "[CONNECTED] == true"
     - name: envoy-external
-      group: 03-ingress
+      group: 03-gateway
       url: tcp://envoy-external.platform-system.svc.cluster.local:443
       labels:
         namespace: platform-system
@@ -91,7 +91,7 @@ data:
       conditions:
         - "[CONNECTED] == true"
     - name: envoy-internal
-      group: 03-ingress
+      group: 03-gateway
       url: tcp://envoy-internal.platform-system.svc.cluster.local:443
       labels:
         namespace: platform-system
@@ -100,7 +100,7 @@ data:
       conditions:
         - "[CONNECTED] == true"
     - name: envoy-external-https
-      group: 03-ingress
+      group: 03-gateway
       url: https://id.edgard.org/
       labels:
         namespace: platform-system
@@ -111,7 +111,7 @@ data:
         - "[STATUS] < 400"
         - "[CERTIFICATE_EXPIRATION] > 168h"
     - name: envoy-internal-https
-      group: 03-ingress
+      group: 03-gateway
       url: https://id.edgard.org/
       labels:
         namespace: platform-system
