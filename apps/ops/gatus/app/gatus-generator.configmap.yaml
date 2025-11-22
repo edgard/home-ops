@@ -166,9 +166,10 @@ data:
                 ns = item.get("metadata", {}).get("namespace")
                 if ns not in namespaces:
                     continue
-                tmpl = item.get("spec", {}).get("template", {}).get("spec", {})
+                tmpl = item.get("spec", {}).get("template", {}) or {}
                 labels = tmpl.get("metadata", {}).get("labels", {}) or {}
-                containers = tmpl.get("containers", []) or []
+                pod_spec = tmpl.get("spec", {}) or {}
+                containers = pod_spec.get("containers", []) or []
 
                 port_map = {}
                 for c in containers:
