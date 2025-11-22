@@ -101,24 +101,6 @@ data:
       interval: 1m
       conditions:
         - "[CONNECTED] == true"
-    - name: envoy-external
-      group: platform-system
-      url: tcp://envoy-external.platform-system.svc.cluster.local:443
-      labels:
-        namespace: platform-system
-        scope: internal
-      interval: 30s
-      conditions:
-        - "[CONNECTED] == true"
-    - name: envoy-internal
-      group: platform-system
-      url: tcp://envoy-internal.platform-system.svc.cluster.local:443
-      labels:
-        namespace: platform-system
-        scope: internal
-      interval: 30s
-      conditions:
-        - "[CONNECTED] == true"
   generator.py: |-
     import os
     import sys
@@ -252,6 +234,22 @@ data:
             if labels.get("gatus.edgard.org/enabled") != "true":
                 continue
             svc_selector = spec.get("selector") or {}
+
+            if namespace == "platform-system" and name in ("envoy-external", "envoy-internal"):
+                services.append(
+                    {
+                        "name": name,
+                        "group": "platform-system",
+                        "url": f"tcp://{name}.platform-system.svc.cluster.local:443",
+                        "labels": {
+                            "namespace": namespace,
+                            "scope": "internal",
+                        },
+                        "interval": "30s",
+                        "conditions": ["[CONNECTED] == true"],
+                    }
+                )
+                continue
 
             ports = spec.get("ports", []) or []
             if not ports:
