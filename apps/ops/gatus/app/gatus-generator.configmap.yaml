@@ -30,26 +30,6 @@ data:
           send-on-resolved: true
   static-endpoints.yaml: |-
     # Static-only checks (no in-cluster objects to discover)
-    - name: dex-external
-      group: 03-ingress
-      url: https://id.edgard.org/.well-known/openid-configuration
-      labels:
-        namespace: platform-system
-        scope: external
-      interval: 1m
-      conditions:
-        - "[STATUS] == 200"
-        - "[CERTIFICATE_EXPIRATION] > 168h"
-    - name: nginx-external
-      group: 03-ingress
-      url: https://edgard.org/
-      labels:
-        namespace: edge-services
-        scope: external
-      interval: 1m
-      conditions:
-        - "[STATUS] == 200"
-        - "[CERTIFICATE_EXPIRATION] > 168h"
     - name: dns-edgard-cloudflare
       group: 01-dns
       url: 1.1.1.1
@@ -119,6 +99,27 @@ data:
       interval: 30s
       conditions:
         - "[CONNECTED] == true"
+    - name: envoy-external-https
+      group: 03-ingress
+      url: https://id.edgard.org/
+      labels:
+        namespace: platform-system
+        scope: external
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 400"
+        - "[CERTIFICATE_EXPIRATION] > 168h"
+    - name: envoy-internal-https
+      group: 03-ingress
+      url: https://id.edgard.org/
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 400"
   generator.py: |-
     import os
     import sys
