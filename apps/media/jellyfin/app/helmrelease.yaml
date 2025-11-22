@@ -78,6 +78,8 @@ spec:
       main:
         controller: main
         type: ClusterIP
+        labels:
+          gatus.edgard.org/enabled: "true"
         ports:
           http:
             enabled: true
