@@ -32,7 +32,7 @@ spec:
               ATUIN_DB_URI: sqlite:///config/atuin.db
               ATUIN_HOST: 0.0.0.0
               ATUIN_PORT: "8888"
-              ATUIN_OPEN_REGISTRATION: "true"
+              ATUIN_OPEN_REGISTRATION: "false"
             ports:
               - name: http
                 containerPort: 8888
