@@ -105,16 +105,21 @@ data:
 
     def build_config(entries, base):
         groups = {}
-        seen = set()
+        seen_hosts = set()
+        seen_names = set()
         for entry in entries:
             key = entry.host.lower()
-            if key in seen:
+            if key in seen_hosts:
                 continue
-            seen.add(key)
+            name = display_name(entry.host)
+            if name in seen_names:
+                continue
+            seen_hosts.add(key)
+            seen_names.add(name)
             grp = groups.setdefault(entry.namespace, {"apps": []})
             grp["apps"].append(
                 {
-                    "name": display_name(entry.host),
+                    "name": name,
                     "url": f"https://{entry.host}",
                     "icon": display_icon(entry.icon),
                     "info": f"{entry.namespace}/{entry.routename}",
