@@ -103,7 +103,7 @@ data:
       interval: 1m
       conditions:
         - "[CONNECTED] == true"
-  configgen.py: |-
+  generator.py: |-
     import os
     import sys
     from pathlib import Path

@@ -24,7 +24,7 @@ spec:
           name: gatus-generator
           create: false
         initContainers:
-          configgen:
+          generator:
             image:
               repository: python
               tag: "3.12-alpine"
@@ -34,12 +34,12 @@ spec:
               - |
                 set -euo pipefail
                 pip install --no-cache-dir --quiet pyyaml
-                python /opt/configgen/configgen.py
+                python /opt/generator/generator.py
             env:
               - name: CONFIG_TEMPLATE
-                value: /templates/base.yaml
+                value: /generator/base.yaml
               - name: CONFIG_STATIC
-                value: /templates/static-endpoints.yaml
+                value: /generator/static-endpoints.yaml
               - name: CONFIG_OUT
                 value: /config/config.yaml
         containers:
@@ -101,8 +101,8 @@ spec:
         type: configMap
         name: gatus-generator
         globalMounts:
-          - path: /templates
-          - path: /opt/configgen
+          - path: /generator
+          - path: /opt/generator
       data:
         type: hostPath
         hostPathType: DirectoryOrCreate
