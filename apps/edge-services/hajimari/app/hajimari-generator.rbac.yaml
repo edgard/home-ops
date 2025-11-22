@@ -18,14 +18,6 @@ rules:
       - "get"
       - "list"
       - "watch"
-  - apiGroups:
-      - "externaldns.k8s.io"
-    resources:
-      - "dnsendpoints"
-    verbs:
-      - "get"
-      - "list"
-      - "watch"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
