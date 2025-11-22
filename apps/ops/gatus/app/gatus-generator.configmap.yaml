@@ -53,7 +53,7 @@ data:
         - "[STATUS] < 400"
         - "[CERTIFICATE_EXPIRATION] > 168h"
     - name: dns-edgard-cloudflare
-      group: 98-dns
+      group: 01-dns
       url: 1.1.1.1
       dns:
         query-name: edgard.org
@@ -65,7 +65,7 @@ data:
       conditions:
         - "[DNS_RCODE] == NOERROR"
     - name: dns-edgard-google
-      group: 98-dns
+      group: 01-dns
       url: 8.8.8.8
       dns:
         query-name: edgard.org
@@ -77,7 +77,7 @@ data:
       conditions:
         - "[DNS_RCODE] == NOERROR"
     - name: ping-google
-      group: 99-connectivity
+      group: 02-connectivity
       url: icmp://www.google.com
       labels:
         namespace: network
@@ -86,7 +86,7 @@ data:
       conditions:
         - "[CONNECTED] == true"
     - name: ping-microsoft
-      group: 99-connectivity
+      group: 02-connectivity
       url: icmp://www.microsoft.com
       labels:
         namespace: network
@@ -95,7 +95,7 @@ data:
       conditions:
         - "[CONNECTED] == true"
     - name: ping-amazon
-      group: 99-connectivity
+      group: 02-connectivity
       url: icmp://www.amazon.com
       labels:
         namespace: network
