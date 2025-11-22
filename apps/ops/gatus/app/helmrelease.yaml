@@ -336,7 +336,7 @@ spec:
           main:
             image:
               repository: ghcr.io/twin/gatus
-              tag: v5.32.0
+              tag: v5.33.0
             env:
               TZ: Europe/Warsaw
               GATUS_CONFIG_PATH: /config
