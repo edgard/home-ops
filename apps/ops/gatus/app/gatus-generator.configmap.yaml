@@ -31,7 +31,7 @@ data:
   static-endpoints.yaml: |-
     # Static-only checks (no in-cluster objects to discover)
     - name: dex-external
-      group: platform-system
+      group: 03-ingress
       url: https://id.edgard.org/.well-known/openid-configuration
       labels:
         namespace: platform-system
@@ -41,7 +41,7 @@ data:
         - "[STATUS] == 200"
         - "[CERTIFICATE_EXPIRATION] > 168h"
     - name: nginx-external
-      group: edge-services
+      group: 03-ingress
       url: https://edgard.org/
       labels:
         namespace: edge-services
@@ -99,6 +99,24 @@ data:
         namespace: network
         scope: external
       interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+    - name: envoy-external
+      group: 03-ingress
+      url: tcp://envoy-external.platform-system.svc.cluster.local:443
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 30s
+      conditions:
+        - "[CONNECTED] == true"
+    - name: envoy-internal
+      group: 03-ingress
+      url: tcp://envoy-internal.platform-system.svc.cluster.local:443
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 30s
       conditions:
         - "[CONNECTED] == true"
   generator.py: |-
@@ -234,22 +252,6 @@ data:
             if labels.get("gatus.edgard.org/enabled") != "true":
                 continue
             svc_selector = spec.get("selector") or {}
-
-            if namespace == "platform-system" and name in ("envoy-external", "envoy-internal"):
-                services.append(
-                    {
-                        "name": name,
-                        "group": "platform-system",
-                        "url": f"tcp://{name}.platform-system.svc.cluster.local:443",
-                        "labels": {
-                            "namespace": namespace,
-                            "scope": "internal",
-                        },
-                        "interval": "30s",
-                        "conditions": ["[CONNECTED] == true"],
-                    }
-                )
-                continue
 
             ports = spec.get("ports", []) or []
             if not ports:
