@@ -5,4 +5,6 @@ resources:
   - ocirepository.yaml
   - dex-static-password.externalsecret.yaml
   - gateway.yaml
+  - dex-generator.configmap.yaml
+  - dex-generator.rbac.yaml
   - helmrelease.yaml
