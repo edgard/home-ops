@@ -18,6 +18,12 @@ spec:
         type: deployment
         replicas: 1
         strategy: Recreate
+        pod:
+          securityContext:
+            fsGroup: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
         containers:
           main:
             image:
@@ -28,6 +34,12 @@ spec:
             args:
               - server
               - start
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
             env:
               ATUIN_DB_URI: sqlite:///config/atuin.db
               ATUIN_HOST: 0.0.0.0
