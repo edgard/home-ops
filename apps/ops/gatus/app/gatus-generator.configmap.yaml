@@ -41,16 +41,16 @@ data:
         - "[STATUS] == 200"
         - "[BODY].issuer == https://id.edgard.org"
         - "[CERTIFICATE_EXPIRATION] > 168h"
-    - name: edgard-external
+    - name: nginx-external
       group: edge-services
-      url: https://edgard.org/
+      url: https://www.edgard.org/
       labels:
         namespace: edge-services
         scope: external
       interval: 1m
       conditions:
-        - "[STATUS] >= 200"
-        - "[STATUS] < 400"
+        - "[STATUS] == 200"
+        - "[BODY].issuer == https://www.edgard.org"
         - "[CERTIFICATE_EXPIRATION] > 168h"
     - name: dns-edgard-cloudflare
       group: 01-dns
