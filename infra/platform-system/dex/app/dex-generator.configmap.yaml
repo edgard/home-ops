@@ -85,19 +85,25 @@ data:
                 continue
             if issuer and expected_issuer and issuer != expected_issuer:
                 continue
+            policy_ns = (item.get("metadata", {}) or {}).get("namespace")
             for tref in spec.get("targetRefs", []) or []:
                 if tref.get("group") == "gateway.networking.k8s.io" and tref.get("kind") == "HTTPRoute":
-                    targets.add((tref.get("namespace"), tref.get("name")))
+                    ns = tref.get("namespace") or policy_ns
+                    name = tref.get("name")
+                    if ns and name:
+                        targets.add((ns, name))
         return targets
 
 
     def fetch_route(host, port, token, ctx, namespace, name):
+        if not namespace or not name:
+            return None
         return fetch_json(
             host,
             port,
             token,
             ctx,
-            f"/apis/gateway.networking.k8s.io/v1/httproutes/{namespace}/{name}",
+            f"/apis/gateway.networking.k8s.io/v1/namespaces/{namespace}/httproutes/{name}",
         )
 
 
