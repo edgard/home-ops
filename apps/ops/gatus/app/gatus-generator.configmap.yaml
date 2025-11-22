@@ -31,7 +31,7 @@ data:
   static-endpoints.yaml: |-
     # Static-only checks (no in-cluster objects to discover)
     - name: dex-external
-      group: 10-platform
+      group: platform-system
       url: https://id.edgard.org/.well-known/openid-configuration
       labels:
         namespace: platform-system
@@ -42,7 +42,7 @@ data:
         - "[BODY].issuer == https://id.edgard.org"
         - "[CERTIFICATE_EXPIRATION] > 168h"
     - name: edgard-external
-      group: 20-edge-services
+      group: edge-services
       url: https://edgard.org/
       labels:
         namespace: edge-services
@@ -53,7 +53,7 @@ data:
         - "[STATUS] < 400"
         - "[CERTIFICATE_EXPIRATION] > 168h"
     - name: dns-edgard-cloudflare
-      group: 50-dns
+      group: dns
       url: 1.1.1.1
       dns:
         query-name: edgard.org
@@ -65,7 +65,7 @@ data:
       conditions:
         - "[DNS_RCODE] == NOERROR"
     - name: dns-edgard-google
-      group: 50-dns
+      group: dns
       url: 8.8.8.8
       dns:
         query-name: edgard.org
@@ -77,7 +77,7 @@ data:
       conditions:
         - "[DNS_RCODE] == NOERROR"
     - name: ping-google
-      group: 60-connectivity
+      group: connectivity
       url: icmp://www.google.com
       labels:
         namespace: network
@@ -86,7 +86,7 @@ data:
       conditions:
         - "[CONNECTED] == true"
     - name: ping-microsoft
-      group: 60-connectivity
+      group: connectivity
       url: icmp://www.microsoft.com
       labels:
         namespace: network
@@ -95,7 +95,7 @@ data:
       conditions:
         - "[CONNECTED] == true"
     - name: ping-amazon
-      group: 60-connectivity
+      group: connectivity
       url: icmp://www.amazon.com
       labels:
         namespace: network
