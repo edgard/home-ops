@@ -80,11 +80,9 @@ spec:
               - secretRef:
                   name: qbittorrent-gluetun
             securityContext:
-              privileged: true
               capabilities:
                 add:
                   - NET_ADMIN
-                  - SYS_MODULE
     service:
       main:
         controller: main

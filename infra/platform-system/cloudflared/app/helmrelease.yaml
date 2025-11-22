@@ -36,11 +36,6 @@ spec:
         type: deployment
         replicas: 2
         strategy: RollingUpdate
-        pod:
-          securityContext:
-            runAsUser: 2000
-            runAsGroup: 2000
-            runAsNonRoot: true
         containers:
           main:
             image:
@@ -83,12 +78,6 @@ spec:
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 5
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities:
-                drop:
-                  - ALL
     persistence:
       config:
         type: configMap

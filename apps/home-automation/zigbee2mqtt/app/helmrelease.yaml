@@ -18,10 +18,6 @@ spec:
         type: deployment
         replicas: 1
         strategy: Recreate
-        pod:
-          securityContext:
-            supplementalGroups:
-              - 20
         containers:
           main:
             securityContext:

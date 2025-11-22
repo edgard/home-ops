@@ -110,10 +110,6 @@ spec:
               SCREEN_HEIGHT: "1080"
               SCREEN_DEPTH: "16"
               MAX_CONCURRENT_CHROME_PROCESSES: "5"
-            securityContext:
-              capabilities:
-                add:
-                  - SYS_ADMIN
             ports:
               - name: websocket
                 containerPort: 3000

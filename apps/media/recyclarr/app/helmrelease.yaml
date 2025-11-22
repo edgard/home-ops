@@ -18,11 +18,6 @@ spec:
         type: deployment
         replicas: 1
         strategy: Recreate
-        pod:
-          securityContext:
-            runAsUser: 568
-            runAsGroup: 568
-            fsGroup: 568
         containers:
           main:
             image:
