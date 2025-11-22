@@ -6,8 +6,8 @@ metadata:
   namespace: edge-services
   labels:
     external-dns.edgard.org/scope: external
-    hajimari.edgard.org/icon: mdi:key
     hajimari.edgard.org/enabled: "true"
+    hajimari.edgard.org/icon: key
 spec:
   parentRefs:
     - name: external

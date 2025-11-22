@@ -56,7 +56,7 @@ data:
 
 
     def display_icon(icon_override: str | None) -> str:
-        return icon_override or DEFAULT_ICON
+        return f"mdi:{icon_override}" if icon_override else DEFAULT_ICON
 
 
     def fetch_json(host, port, token, ctx, path, ignore_404=True):
@@ -93,11 +93,12 @@ data:
         for item in data.get("items", []):
             meta = item.get("metadata", {}) or {}
             labels = meta.get("labels", {}) or {}
+            annotations = meta.get("annotations", {}) or {}
             if labels.get("hajimari.edgard.org/enabled") != "true":
                 continue
             ns = meta.get("namespace")
             name = meta.get("name")
-            icon = labels.get("hajimari.edgard.org/icon")
+            icon = annotations.get("hajimari.edgard.org/icon")
             for host in item.get("spec", {}).get("hostnames", []) or []:
                 entries.append(Entry(host=host, namespace=ns, routename=name, icon=icon))
         return entries
@@ -156,7 +157,7 @@ data:
         final_cfg = build_config(entries, base)
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(json.dumps(final_cfg, indent=2), encoding="utf-8")
+        out_path.write_text(yaml.safe_dump(final_cfg, sort_keys=False), encoding="utf-8")
 
 
     if __name__ == "__main__":

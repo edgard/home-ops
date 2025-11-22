@@ -6,7 +6,7 @@ metadata:
   namespace: ops
   labels:
     external-dns.edgard.org/scope: external
-    hajimari.edgard.org/icon: mdi:backup-restore
+    hajimari.edgard.org/icon: backup-restore
     hajimari.edgard.org/enabled: "true"
 spec:
   parentRefs:
