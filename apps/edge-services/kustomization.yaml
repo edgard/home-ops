@@ -7,4 +7,5 @@ resources:
   - ./nginx/ks.yaml
   - ./atuin/ks.yaml
   - ./changedetection/ks.yaml
+  - ./hajimari/ks.yaml
   - ./manyfold/ks.yaml

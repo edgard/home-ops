@@ -27,7 +27,7 @@ Kind v1.34.0 runs a control-plane + worker pair. The worker mounts `/mnt/spool`,
 - `ops` – gatus (status.edgard.org) and kopia (kopia.edgard.org), both Dex-protected.
 - `home-automation` – Mosquitto, Zigbee2MQTT (privileged, `/dev/ttyUSB0`), Home Assistant on Multus `192.168.1.246/24`; HTTPRoutes skip Dex to use native auth.
 - `media` – LinuxServer apps (bazarr/radarr/sonarr/prowlarr), flaresolverr, qbittorrent+gluetun (`/dev/net/tun`), jellyfin on Multus `192.168.1.245/24`, recyclarr, unpackerr.
-- `edge-services` – nginx (`edgard.org`/`www`), echo, atuin (auth handled by CLI), changedetection with Chrome sidecar and postStart-seeded notifications (no CronJob), manyfold; Dex policies on external routes where applicable.
+- `edge-services` – nginx (`edgard.org`/`www`), hajimari dashboard at `apps.edgard.org` (Dex on external route), echo, atuin (auth handled by CLI), changedetection with Chrome sidecar and postStart-seeded notifications (no CronJob), manyfold; Dex policies on external routes where applicable.
 - `arc` – GitHub Actions runner controller and the `arc-homelab` scale set (DinD sidecar, ARC secrets).
 
 ## Validation & Operations

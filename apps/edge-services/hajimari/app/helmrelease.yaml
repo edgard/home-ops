@@ -1,0 +1,223 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: hajimari
+  namespace: edge-services
+spec:
+  releaseName: hajimari
+  interval: 30m
+  driftDetection:
+    mode: enabled
+  chartRef:
+    kind: OCIRepository
+    name: hajimari-app-template
+  values:
+    controllers:
+      hajimari:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        replicas: 1
+        strategy: Recreate
+        serviceAccount:
+          name: hajimari-sync
+        containers:
+          hajimari:
+            image:
+              repository: ghcr.io/toboshii/hajimari
+              tag: v0.3.1
+            env:
+              - name: TZ
+                value: Europe/Warsaw
+        initContainers:
+          generator:
+            image:
+              repository: python
+              tag: "3.12-alpine"
+            command:
+              - python
+              - -c
+              - |
+                import json, os, ssl, sys, urllib.error, urllib.request
+                from pathlib import Path
+
+                host = os.environ.get("KUBERNETES_SERVICE_HOST")
+                port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+                token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+                ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+                out_path = Path("/config/config.yaml")
+
+                if not host:
+                    sys.exit("missing KUBERNETES_SERVICE_HOST")
+
+                with open(token_path, "r", encoding="utf-8") as fh:
+                    token = fh.read().strip()
+
+                ctx = ssl.create_default_context(cafile=ca_path)
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+
+                def api(path):
+                    url = f"https://{host}:{port}{path}"
+                    req = urllib.request.Request(url, headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/json",
+                    })
+                    with urllib.request.urlopen(req, context=ctx) as resp:
+                        return json.loads(resp.read())
+
+                ICON_MAP = {
+                    "jellyfin": "mdi:play-circle",
+                    "sonarr": "mdi:television",
+                    "radarr": "mdi:movie",
+                    "prowlarr": "mdi:movie-search",
+                    "bazarr": "mdi:subtitles",
+                    "qbittorrent": "mdi:download",
+                    "home-assistant": "mdi:home-assistant",
+                    "zigbee2mqtt": "mdi:zigbee",
+                    "gatus": "mdi:heart-pulse",
+                    "status": "mdi:heart-pulse",
+                    "kopia": "mdi:backup-restore",
+                    "changedetection": "mdi:bell-ring",
+                    "manyfold": "mdi:printer-3d",
+                    "echo": "mdi:webhook",
+                    "nginx": "mdi:web",
+                    "www": "mdi:web",
+                    "tunnel": "mdi:tunnel",
+                    "hajimari": "mdi:view-dashboard",
+                }
+                GROUP_NAME_MAP = {
+                    "edge-services": "Edge Services", "home-automation": "Home Automation",
+                    "media": "Media", "ops": "Operations", "platform-system": "Platform",
+                }
+                APP_NAME_MAP = {
+                    "home-assistant": "Home Assistant", "zigbee2mqtt": "Zigbee2MQTT",
+                    "changedetection": "Change Detection", "qbittorrent": "qBittorrent",
+                }
+
+                def get_app_icon(hostname):
+                    host_lower = hostname.lower().replace(".edgard.org", "")
+                    if host_lower in ICON_MAP:
+                        return ICON_MAP[host_lower]
+                    for key, icon in ICON_MAP.items():
+                        if key in host_lower:
+                            return icon
+                    return "mdi:web"
+
+                def get_app_name(hostname):
+                    name = hostname.replace(".edgard.org", "")
+                    if name in ["www", "edgard.org"]:
+                        return "Website"
+                    if name in APP_NAME_MAP:
+                        return APP_NAME_MAP[name]
+                    return name.replace("-", " ").title()
+
+                def get_group_name(namespace):
+                    return GROUP_NAME_MAP.get(namespace, namespace.replace("-", " ").title())
+
+                hosts = []
+                try:
+                    routes = api("/apis/gateway.networking.k8s.io/v1/httproutes?labelSelector=external-dns.edgard.org%2Fscope%3Dexternal")
+                    for item in routes.get("items", []):
+                        ns = item["metadata"]["namespace"]
+                        name = item["metadata"]["name"]
+                        for host in item.get("spec", {}).get("hostnames", []) or []:
+                            if host.lower() not in ("edgard.org", "apps.edgard.org", "atuin.edgard.org", "id.edgard.org"):
+                                hosts.append((host, ns, name))
+                except urllib.error.HTTPError as err:
+                    if err.code != 404:
+                        raise
+                try:
+                    dns = api("/apis/externaldns.k8s.io/v1alpha1/dnsendpoints?labelSelector=external-dns.edgard.org%2Fscope%3Dexternal")
+                    for item in dns.get("items", []):
+                        ns = item["metadata"]["namespace"]
+                        name = item["metadata"]["name"]
+                        for endpoint in item.get("spec", {}).get("endpoints", []) or []:
+                            dns_name = endpoint.get("dnsName")
+                            if dns_name:
+                                for host in dns_name.split(","):
+                                    host = host.strip()
+                                    if host and host.lower() != "edgard.org":
+                                        hosts.append((host, ns, name))
+                except urllib.error.HTTPError as err:
+                    if err.code != 404:
+                        raise
+
+                groups = {}
+                seen = {}
+                for host, ns, name in hosts:
+                    key = host.lower()
+                    grp = groups.setdefault(ns, {"apps": []})
+                    ns_seen = seen.setdefault(ns, set())
+                    if key in ns_seen:
+                        continue
+                    ns_seen.add(key)
+                    app_name = get_app_name(host)
+                    grp["apps"].append({
+                        "name": app_name,
+                        "url": f"https://{host}",
+                        "icon": get_app_icon(host),
+                        "info": f"{ns}/{name}",
+                        "targetBlank": False,
+                    })
+
+                # Sort apps within each group alphabetically
+                for grp in groups.values():
+                    grp["apps"].sort(key=lambda x: x["name"].lower())
+
+                # Define group priority for ordering
+                GROUP_ORDER = {
+                    "Operations": 1,
+                    "Platform": 2,
+                    "Home Automation": 3,
+                    "Edge Services": 4,
+                    "Media": 5,
+                }
+
+                custom_apps = [
+                    {"group": get_group_name(ns), "apps": grp["apps"]}
+                    for ns, grp in sorted(
+                        groups.items(),
+                        key=lambda x: GROUP_ORDER.get(get_group_name(x[0]), 99)
+                    )
+                ]
+
+                config = {
+                    "title": "Homelab",
+                    "defaultEnable": True,
+                    "showRecent": True,
+                    "showAppGroups": True,
+                    "showGreeting": False,
+                    "showSearch": False,
+                    "showBookmarks": False,
+                    "showBookmarkGroups": False,
+                    "showAppUrls": False,
+                    "showAppInfo": False,
+                    "showAppStatus": False,
+                    "lightTheme": "paper",
+                    "darkTheme": "chalk",
+                    "customApps": custom_apps,
+                }
+
+                out_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+            env:
+              - name: TZ
+                value: Europe/Warsaw
+
+    service:
+      hajimari:
+        controller: hajimari
+        ports:
+          http:
+            port: 3000
+
+    persistence:
+      config:
+        enabled: true
+        type: emptyDir
+        globalMounts:
+          - path: /config
+
+    ingress:
+      main:
+        enabled: false

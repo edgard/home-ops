@@ -1,0 +1,70 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hajimari-sync
+  namespace: edge-services
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hajimari-sync
+rules:
+  - apiGroups:
+      - "gateway.networking.k8s.io"
+    resources:
+      - "httproutes"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+  - apiGroups:
+      - "externaldns.k8s.io"
+    resources:
+      - "dnsendpoints"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hajimari-sync
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hajimari-sync
+subjects:
+  - kind: ServiceAccount
+    name: hajimari-sync
+    namespace: edge-services
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hajimari-sync
+  namespace: edge-services
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - "configmaps"
+    verbs:
+      - "get"
+      - "create"
+      - "update"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hajimari-sync
+  namespace: edge-services
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hajimari-sync
+subjects:
+  - kind: ServiceAccount
+    name: hajimari-sync
+    namespace: edge-services

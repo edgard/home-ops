@@ -174,6 +174,15 @@ spec:
                 interval: 1m
                 conditions:
                   - "[STATUS] == 200"
+              - name: hajimari
+                group: 20-edge-services
+                url: http://hajimari.edge-services.svc.cluster.local:3000/
+                labels:
+                  namespace: edge-services
+                  scope: internal
+                interval: 1m
+                conditions:
+                  - "[STATUS] == 200"
 
               # 30 Home automation
               - name: home-assistant

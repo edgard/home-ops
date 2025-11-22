@@ -53,6 +53,7 @@ spec:
                   - https://echo.edgard.org/oauth2/callback
                   - https://changedetection.edgard.org/oauth2/callback
                   - https://manyfold.edgard.org/oauth2/callback
+                  - https://apps.edgard.org/oauth2/callback
                 secretEnv: ENVOY_GATEWAY_CLIENT_SECRET
     controllers:
       main:
