@@ -60,7 +60,7 @@ spec:
           browser-sockpuppet-chrome:
             image:
               repository: dgtlmoon/sockpuppetbrowser
-              tag: latest
+              tag: "0.0.3"
             env:
               TZ: Europe/Warsaw
               SCREEN_WIDTH: "1920"

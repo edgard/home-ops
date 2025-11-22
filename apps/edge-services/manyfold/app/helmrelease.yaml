@@ -23,7 +23,7 @@ spec:
           main:
             image:
               repository: ghcr.io/manyfold3d/manyfold-solo
-              tag: latest
+              tag: "0.124.0"
             securityContext:
               readOnlyRootFilesystem: false
             env:
