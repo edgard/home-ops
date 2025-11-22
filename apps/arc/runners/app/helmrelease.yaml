@@ -19,9 +19,6 @@ spec:
     minRunners: 0
     maxRunners: 2
     template:
-      metadata:
-        annotations:
-          reloader.stakater.com/auto: "true"
       spec:
         initContainers:
           - name: init-dind-externals

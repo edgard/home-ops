@@ -18,7 +18,8 @@ spec:
         type: deployment
         replicas: 1
         strategy: Recreate
-        pod:
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           main:
             image:
