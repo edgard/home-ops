@@ -4,8 +4,6 @@ kind: Service
 metadata:
   name: envoy-external
   namespace: platform-system
-  labels:
-    gatus.edgard.org/enabled: "true"
 spec:
   selector:
     app.kubernetes.io/component: proxy

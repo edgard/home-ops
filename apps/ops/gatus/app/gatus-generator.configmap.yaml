@@ -101,6 +101,24 @@ data:
       interval: 1m
       conditions:
         - "[CONNECTED] == true"
+    - name: envoy-external
+      group: platform-system
+      url: tcp://envoy-external.platform-system.svc.cluster.local:443
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 30s
+      conditions:
+        - "[CONNECTED] == true"
+    - name: envoy-internal
+      group: platform-system
+      url: tcp://envoy-internal.platform-system.svc.cluster.local:443
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 30s
+      conditions:
+        - "[CONNECTED] == true"
   generator.py: |-
     import os
     import sys
