@@ -50,7 +50,7 @@ data:
       interval: 1m
       conditions:
         - "[STATUS] == 200"
-        - "[BODY].issuer == https://edgard.org"
+        - "[BODY].issuer == https://id.edgard.org"
         - "[CERTIFICATE_EXPIRATION] > 168h"
     - name: dns-edgard-cloudflare
       group: 01-dns
