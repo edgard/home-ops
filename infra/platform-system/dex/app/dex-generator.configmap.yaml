@@ -43,7 +43,7 @@ data:
     import yaml
 
 
-    def fetch_json(host, port, token, ctx, path, ignore_404=True):
+    def fetch_json(host, port, token, ctx, path, ignore_errors=(404, 403)):
         url = f"https://{host}:{port}{path}"
         req = urllib.request.Request(
             url,
@@ -56,18 +56,20 @@ data:
             with urllib.request.urlopen(req, context=ctx) as resp:
                 return yaml.safe_load(resp.read())
         except urllib.error.HTTPError as err:
-            if ignore_404 and err.code == 404:
+            if err.code in ignore_errors:
+                print(f"warn: {path} -> HTTP {err.code}")
                 return None
             raise
 
 
-    def list_security_policies(host, port, token, ctx):
+    def list_security_policies(host, port, token, ctx, namespace=None):
+        ns = f"/namespaces/{namespace}" if namespace else ""
         return fetch_json(
             host,
             port,
             token,
             ctx,
-            "/apis/gateway.envoyproxy.io/v1alpha1/securitypolicies",
+            f"/apis/gateway.envoyproxy.io/v1alpha1{ns}/securitypolicies",
         ) or {}
 
 
@@ -81,7 +83,7 @@ data:
             issuer = provider.get("issuer")
             if client_id != expected_client:
                 continue
-            if issuer and issuer != expected_issuer:
+            if issuer and expected_issuer and issuer != expected_issuer:
                 continue
             for tref in spec.get("targetRefs", []) or []:
                 if tref.get("group") == "gateway.networking.k8s.io" and tref.get("kind") == "HTTPRoute":
@@ -125,7 +127,7 @@ data:
         token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
         ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
         base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/generator/base.yaml"))
-        out_path = Path(os.environ.get("CONFIG_OUT", "/config/config.yaml"))
+        out_path = Path(os.environ.get("CONFIG_OUT", "/etc/dex/config.yaml"))
 
         if not host:
             sys.exit("missing KUBERNETES_SERVICE_HOST")
