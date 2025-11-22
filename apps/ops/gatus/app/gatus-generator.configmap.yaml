@@ -145,13 +145,15 @@ data:
 
     def guess_scheme(port_name, port_number):
         name = (port_name or "").lower()
+        if "http" in name or port_number == 80:
+            return "http"
         if "https" in name or port_number == 443:
             return "https"
         if "tcp" in name:
             return "tcp"
         if "icmp" in name:
             return "icmp"
-        return "http"
+        return "tcp"
 
 
     def list_workloads(namespaces, token, ca_path, host, port):
