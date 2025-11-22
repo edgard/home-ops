@@ -93,12 +93,11 @@ data:
         for item in data.get("items", []):
             meta = item.get("metadata", {}) or {}
             labels = meta.get("labels", {}) or {}
-            annotations = meta.get("annotations", {}) or {}
             if labels.get("hajimari.edgard.org/enabled") != "true":
                 continue
             ns = meta.get("namespace")
             name = meta.get("name")
-            icon = annotations.get("hajimari.edgard.org/icon")
+            icon = labels.get("hajimari.edgard.org/icon")
             for host in item.get("spec", {}).get("hostnames", []) or []:
                 entries.append(Entry(host=host, namespace=ns, routename=name, icon=icon))
         return entries
