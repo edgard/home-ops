@@ -6,4 +6,3 @@ resources:
   - helmrelease.yaml
   - gateway.yaml
   - changedetection-credentials.externalsecret.yaml
-  - notifications-cronjob.yaml
