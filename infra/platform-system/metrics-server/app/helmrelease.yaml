@@ -13,6 +13,9 @@ spec:
     kind: OCIRepository
     name: metrics-server
   values:
+    replicas: 1
+    updateStrategy:
+      type: Recreate
     fullnameOverride: metrics-server
     postRenderers:
       - kustomize:

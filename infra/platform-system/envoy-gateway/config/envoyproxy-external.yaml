@@ -11,6 +11,8 @@ spec:
       useListenerPortAsContainerPort: true
       envoyDeployment:
         replicas: 1
+        strategy:
+          type: Recreate
         container:
           securityContext:
             capabilities:

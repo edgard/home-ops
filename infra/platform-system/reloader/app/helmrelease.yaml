@@ -15,6 +15,7 @@ spec:
   values:
     fullnameOverride: reloader
     reloader:
+      replicas: 1
       reloadStrategy: annotations
       livenessProbe:
         initialDelaySeconds: 30

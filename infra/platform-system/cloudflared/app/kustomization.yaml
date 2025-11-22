@@ -6,3 +6,4 @@ resources:
   - cloudflared-dnsendpoint.yaml
   - cloudflared.externalsecret.yaml
   - helmrelease.yaml
+  - cloudflared.pdb.yaml
