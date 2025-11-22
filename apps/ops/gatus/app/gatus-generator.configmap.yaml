@@ -241,7 +241,7 @@ data:
             port_number = port_entry.get("port")
             port_name = port_entry.get("name")
             scheme = guess_scheme(port_name, port_number)
-            path = guess_path(name)
+            path = "/"
 
             probe = None
             for wl in workloads.get(namespace, []):
