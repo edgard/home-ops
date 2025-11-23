@@ -1,0 +1,14 @@
+---
+apiVersion: homelab.edgard.org/v1alpha1
+kind: GatusConfig
+metadata:
+  name: gatus-config
+  namespace: ops
+  labels:
+    app.kubernetes.io/name: gatus-config
+    app.kubernetes.io/part-of: gatus
+spec:
+  outputConfigMap: gatus-config-generated
+  outputKey: config.yaml
+  serviceSelector: gatus.edgard.org/enabled=true
+  resyncSeconds: 120

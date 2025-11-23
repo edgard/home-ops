@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hajimari-config-defaults
+  namespace: edge-services
+data:
+  base.yaml: |-
+    title: Homelab
+    defaultEnable: true
+    showRecent: true
+    showAppGroups: true
+    showGreeting: false
+    showSearch: false
+    showBookmarks: true
+    showBookmarkGroups: false
+    showGlobalBookmarks: true
+    showAppUrls: false
+    showAppInfo: false
+    showAppStatus: false
+    lightTheme: paper
+    darkTheme: chalk
+  static-bookmarks.yaml: |-
+    - group: Quick Links
+      bookmarks:
+        - name: Reddit
+          url: https://www.reddit.com/
+          icon: mdi:reddit
+        - name: Hacker News
+          url: https://news.ycombinator.com/
+          icon: mdi:hackernews
+        - name: Google News
+          url: https://news.google.com/home
+          icon: mdi:google
+        - name: Instagram
+          url: https://www.instagram.com/
+          icon: mdi:instagram
+        - name: Kraków Webcams
+          url: https://www.edgard.org/krakow-webcam/
+          icon: mdi:webcam

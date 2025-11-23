@@ -1,36 +1,60 @@
 ---
 controllers:
-  hajimari:
+  main:
     annotations:
       reloader.stakater.com/auto: "true"
+    type: deployment
     replicas: 1
     strategy: Recreate
     containers:
-      hajimari:
+      main:
         image:
           repository: ghcr.io/toboshii/hajimari
           tag: v0.3.1
         env:
           - name: TZ
             value: Europe/Warsaw
-
+        ports:
+          - name: http
+            containerPort: 3000
+        probes:
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: http
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: http
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
 service:
-  hajimari:
-    controller: hajimari
+  main:
+    controller: main
+    type: ClusterIP
     labels:
       gatus.edgard.org/enabled: "true"
     ports:
       http:
         port: 3000
-
-persistence:
-  hajimari-generated:
-    enabled: true
-    type: configMap
-    name: hajimari-generated
-    globalMounts:
-      - path: /config
-
 ingress:
   main:
     enabled: false
+persistence:
+  config:
+    type: configMap
+    name: hajimari-config-generated
+    globalMounts:
+      - path: /config

@@ -2,19 +2,19 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: hajimaridashboards.homelab.edgard.org
+  name: gatusconfigs.homelab.edgard.org
   labels:
-    app.kubernetes.io/name: hajimari-dashboard
-    app.kubernetes.io/part-of: hajimari
+    app.kubernetes.io/name: gatus-config
+    app.kubernetes.io/part-of: gatus
 spec:
   group: homelab.edgard.org
   scope: Namespaced
   names:
-    plural: hajimaridashboards
-    singular: hajimaridashboard
-    kind: HajimariDashboard
+    plural: gatusconfigs
+    singular: gatusconfig
+    kind: GatusConfig
     shortNames:
-      - hdashboard
+      - gcfg
   versions:
     - name: v1alpha1
       served: true
@@ -28,16 +28,16 @@ spec:
               properties:
                 outputConfigMap:
                   type: string
-                  description: Name of the ConfigMap to write rendered Hajimari config into.
+                  description: Name of the ConfigMap to write rendered Gatus config into.
                 outputKey:
                   type: string
                   description: Key inside the ConfigMap containing the rendered config.
-                routeSelector:
+                serviceSelector:
                   type: string
-                  description: Label selector for HTTPRoutes to expose in Hajimari.
+                  description: Label selector for Services to expose in Gatus.
                 resyncSeconds:
                   type: integer
-                  description: Force resync interval for the dashboard generator.
+                  description: Force resync interval for the config generator.
             status:
               type: object
               properties:
@@ -45,6 +45,12 @@ spec:
                   type: string
                   format: date-time
                 appCount:
+                  type: integer
+                endpointCount:
+                  type: integer
+                discovered:
+                  type: integer
+                static:
                   type: integer
                 configHash:
                   type: string

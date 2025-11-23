@@ -1,0 +1,448 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gatus-config-sync-scripts
+  namespace: ops
+data:
+  generator.py: |-
+    import copy
+    import os
+    import sys
+    import logging
+    from pathlib import Path
+
+    try:
+        import yaml
+    except ImportError:  # pragma: no cover - handled in init container shell
+        sys.exit("PyYAML is required")
+
+    def setup_logging():
+        level = os.environ.get("LOG_LEVEL", "INFO").upper()
+        logging.basicConfig(
+            level=getattr(logging, level, logging.INFO),
+            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        )
+        return logging.getLogger("gatus-generator")
+
+    def load_yaml(path: Path):
+        if not path.exists():
+            return {}
+        text = path.read_text(encoding="utf-8")
+        if not text.strip():
+            return {}
+        return yaml.safe_load(text)
+
+    def kube_get(path, token, ca_path, host, port):
+        import json
+        import ssl
+        import urllib.request
+
+        ctx = ssl.create_default_context(cafile=ca_path)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        url = f"https://{host}:{port}{path}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, context=ctx) as resp:
+            return json.loads(resp.read())
+
+    def guess_scheme(port_name, port_number):
+        name = (port_name or "").lower()
+        if "http" in name or port_number == 80:
+            return "http"
+        if "https" in name or port_number == 443:
+            return "https"
+        if "tcp" in name:
+            return "tcp"
+        if "icmp" in name:
+            return "icmp"
+        return "tcp"
+
+    def list_workloads(namespaces, token, ca_path, host, port):
+        workloads = {}
+        paths = [
+            "/apis/apps/v1/deployments",
+            "/apis/apps/v1/statefulsets",
+        ]
+        for path in paths:
+            data = kube_get(path, token, ca_path, host, port)
+            for item in data.get("items", []):
+                ns = item.get("metadata", {}).get("namespace")
+                if ns not in namespaces:
+                    continue
+                tmpl = item.get("spec", {}).get("template", {}) or {}
+                labels = tmpl.get("metadata", {}).get("labels", {}) or {}
+                pod_spec = tmpl.get("spec", {}) or {}
+                containers = pod_spec.get("containers", []) or []
+
+                port_map = {}
+                for c in containers:
+                    for p in c.get("ports", []) or []:
+                        if p.get("name"):
+                            port_map[p["name"]] = p.get("containerPort")
+
+                probes = []
+                for c in containers:
+                    for probe in [c.get("readinessProbe"), c.get("livenessProbe")]:
+                        if not probe:
+                            continue
+                        probes.append(probe)
+
+                workloads.setdefault(ns, []).append(
+                    {"labels": labels, "port_map": port_map, "probes": probes}
+                )
+        return workloads
+
+    def match_probe(service_selector, workload):
+        # service selector must be subset of workload labels
+        if not service_selector:
+            return None
+        wl_labels = workload["labels"]
+        for key, val in service_selector.items():
+            if wl_labels.get(key) != val:
+                return None
+        # pick first probe
+        for probe in workload["probes"]:
+            if "httpGet" in probe:
+                http = probe["httpGet"]
+                port = http.get("port")
+                if isinstance(port, str):
+                    port = workload["port_map"].get(port)
+                return {
+                    "scheme": http.get("scheme", "HTTP").lower(),
+                    "path": http.get("path", "/"),
+                    "port": port,
+                    "periodSeconds": probe.get("periodSeconds"),
+                }
+            if "tcpSocket" in probe:
+                tcp = probe["tcpSocket"]
+                port = tcp.get("port")
+                if isinstance(port, str):
+                    port = workload["port_map"].get(port)
+                return {"scheme": "tcp", "port": port, "periodSeconds": probe.get("periodSeconds")}
+        return None
+
+    def discover_services(label_selector, token, ca_path, host, port, logger):
+        data = kube_get(f"/api/v1/services?labelSelector={label_selector}", token, ca_path, host, port)
+        services = []
+        namespaces = {item.get("metadata", {}).get("namespace") for item in data.get("items", [])}
+        workloads = list_workloads(namespaces, token, ca_path, host, port)
+        for item in data.get("items", []):
+            meta = item.get("metadata", {})
+            spec = item.get("spec", {})
+            name = meta.get("name")
+            namespace = meta.get("namespace")
+            labels = meta.get("labels", {})
+            if labels.get("gatus.edgard.org/enabled") != "true":
+                continue
+            if labels.get("metacontroller.edgard.org/managed") == "gatus":
+                continue
+            svc_selector = spec.get("selector") or {}
+
+            ports = spec.get("ports", []) or []
+            if not ports:
+                continue
+            port_entry = ports[0]
+            port_number = port_entry.get("port")
+            port_name = port_entry.get("name")
+            scheme = guess_scheme(port_name, port_number)
+            path = "/"
+
+            probe = None
+            for wl in workloads.get(namespace, []):
+                probe = match_probe(svc_selector, wl)
+                if probe:
+                    break
+
+            if probe:
+                scheme = probe.get("scheme", scheme)
+                port_number = probe.get("port", port_number)
+                path = probe.get("path", "/")
+                period = probe.get("periodSeconds")
+                if port_number is None:
+                    port_number = port_entry.get("port")
+            else:
+                path = "/"
+                period = None
+
+            if port_number is None:
+                # if we still have no port, skip this service to avoid invalid endpoints
+                continue
+
+            if scheme == "tcp":
+                url = f"tcp://{name}.{namespace}.svc.cluster.local:{port_number}"
+            elif scheme == "icmp":
+                url = f"icmp://{name}.{namespace}.svc.cluster.local"
+            else:
+                url = f"{scheme}://{name}.{namespace}.svc.cluster.local:{port_number}{path}"
+
+            friendly_name = name
+            group = namespace
+            interval = f"{period}s" if period else "1m"
+
+            conditions = ["[STATUS] == 200"] if scheme in ("http", "https") else ["[CONNECTED] == true"]
+
+            services.append(
+                {
+                    "name": friendly_name,
+                    "group": group,
+                    "url": url,
+                    "labels": {
+                        "namespace": namespace,
+                        "scope": "internal",
+                    },
+                    "interval": interval,
+                    "conditions": conditions,
+                }
+            )
+        return services
+
+    def render_config(base_path: Path, static_path: Path, selector: str, host: str, port: str, token: str, ca_path: str, logger):
+        base = load_yaml(base_path) or {}
+        static_endpoints = load_yaml(static_path) or []
+
+        if not isinstance(base, dict):
+            raise SystemExit(f"base config must be a mapping, got {type(base)}")
+        if static_endpoints and not isinstance(static_endpoints, list):
+            raise SystemExit(f"static endpoints must be a list, got {type(static_endpoints)}")
+
+        discovered_services = discover_services(selector, token, str(ca_path), host, port, logger)
+
+        endpoints = static_endpoints + discovered_services
+        cfg = copy.deepcopy(base)
+        cfg["endpoints"] = endpoints
+
+        stats = {
+            "appCount": len(endpoints),
+            "endpointCount": len(endpoints),
+            "discoveredCount": len(discovered_services),
+            "staticCount": len(static_endpoints),
+        }
+        logger.debug(
+            "rendered gatus config endpoints=%s discovered=%s static=%s selector=%s",
+            stats["endpointCount"],
+            stats["discoveredCount"],
+            stats["staticCount"],
+            selector,
+        )
+
+        return cfg, stats
+
+    def main():
+        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
+        static_path = Path(os.environ.get("CONFIG_STATIC", "/templates/static-endpoints.yaml"))
+        output_path = Path(os.environ.get("CONFIG_OUT", "/config/config.yaml"))
+        selector = os.environ.get("SERVICE_SELECTOR", "gatus.edgard.org/enabled=true")
+
+        logger = setup_logging()
+
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        if not host:
+            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+
+        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+        token = token_path.read_text(encoding="utf-8").strip()
+
+        config, stats = render_config(base_path, static_path, selector, host, port, token, ca_path, logger)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            yaml.safe_dump(config, sort_keys=False),
+            encoding="utf-8",
+        )
+        logger.debug(
+            "generated gatus config apps=%s endpoints=%s discovered=%s static=%s selector=%s path=%s",
+            stats.get("appCount"),
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
+            stats.get("staticCount"),
+            selector,
+            str(output_path),
+        )
+
+    if __name__ == "__main__":
+        main()
+  webhook.py: |-
+    import hashlib
+    import json
+    import os
+    import ssl
+    import logging
+    from datetime import datetime, timezone
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from pathlib import Path
+
+    import yaml
+
+    import generator
+
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+    CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+    BASE_PATH = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
+    STATIC_PATH = Path(os.environ.get("CONFIG_STATIC", "/templates/static-endpoints.yaml"))
+    DEFAULT_SELECTOR = os.environ.get("SERVICE_SELECTOR", "gatus.edgard.org/enabled=true")
+    DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "120"))
+    DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "gatus-config-generated")
+    DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
+    SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
+
+    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, parent_status: dict, logger):
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        if not host:
+            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+
+        token = TOKEN_PATH.read_text(encoding="utf-8").strip()
+        config, stats = generator.render_config(
+            base_path=BASE_PATH,
+            static_path=STATIC_PATH,
+            selector=selector,
+            host=host,
+            port=port,
+            token=token,
+            ca_path=CA_PATH,
+            logger=logger,
+        )
+
+        cfg_yaml = yaml.safe_dump(config, sort_keys=False)
+        cfg_hash = hashlib.sha256(cfg_yaml.encode("utf-8")).hexdigest()
+
+        endpoints = stats.get("endpointCount", 0)
+        discovered = stats.get("discoveredCount", 0)
+        static = stats.get("staticCount", 0)
+        app_count = stats.get("appCount", endpoints)
+
+        prev_status = parent_status or {}
+        prev_hash = prev_status.get("configHash")
+
+        if prev_hash == cfg_hash:
+            status = prev_status
+        else:
+            now = datetime.now(timezone.utc).isoformat()
+            status = {
+                "lastSync": now,
+                "appCount": app_count,
+                "endpointCount": endpoints,
+                "discovered": discovered,
+                "static": static,
+                "configHash": cfg_hash,
+                "conditions": [
+                    {
+                        "type": "Ready",
+                        "status": "True",
+                        "reason": "SyncSuccessful",
+                        "message": f"Rendered {endpoints} endpoints ({discovered} discovered, {static} static)",
+                        "lastTransitionTime": now,
+                    }
+                ],
+            }
+
+        logger.info(
+            "sync successful ns=%s cm=%s apps=%s endpoints=%s discovered=%s static=%s selector=%s",
+            namespace,
+            output_name,
+            app_count,
+            endpoints,
+            discovered,
+            static,
+            selector,
+        )
+
+        return {
+            "children": [
+                {
+                    "apiVersion": "v1",
+                    "kind": "ConfigMap",
+                    "metadata": {
+                        "name": output_name,
+                        "namespace": namespace,
+                        "labels": {
+                            "app.kubernetes.io/name": "gatus",
+                            "app.kubernetes.io/part-of": "gatus",
+                            "metacontroller.edgard.org/managed": "gatus",
+                        },
+                    },
+                    "data": {output_key: cfg_yaml},
+                }
+            ],
+            "status": status,
+            "resyncAfterSeconds": resync,
+        }
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802 - metacontroller expects POST
+            if self.path != "/sync":
+                self.send_error(404, "not found")
+                return
+
+            length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(length) if length else b"{}"
+            body = json.loads(raw_body or b"{}")
+            parent = body.get("parent") or {}
+            metadata = parent.get("metadata") or {}
+            status = parent.get("status") or {}
+            spec = parent.get("spec") or {}
+
+            namespace = metadata.get("namespace") or "ops"
+            output_name = spec.get("outputConfigMap") or DEFAULT_OUTPUT_CM
+            output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
+            selector = spec.get("serviceSelector") or DEFAULT_SELECTOR
+            resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+            logger = logging.getLogger("gatus-webhook")
+
+            try:
+                response = build_response(namespace, output_name, output_key, selector, resync, status, logger)
+                self._write_json(200, response)
+            except Exception as exc:  # pragma: no cover - surfaced via status
+                now = datetime.now(timezone.utc).isoformat()
+                logging.exception("sync error")
+                self._write_json(
+                    200,
+                    {
+                        "status": {
+                            "lastSync": now,
+                            "endpointCount": 0,
+                            "discovered": 0,
+                            "static": 0,
+                            "configHash": None,
+                            "conditions": [
+                                {
+                                    "type": "Ready",
+                                    "status": "False",
+                                    "reason": "SyncError",
+                                    "message": str(exc),
+                                    "lastTransitionTime": now,
+                                }
+                            ],
+                        },
+                        "resyncAfterSeconds": resync,
+                    },
+                )
+
+        def log_message(self, fmt, *args):  # pragma: no cover - quiet logs
+            return
+
+        def _write_json(self, code, payload):
+            data = json.dumps(payload).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+    if __name__ == "__main__":
+        server = HTTPServer(("", SERVER_PORT), Handler)
+        server.serve_forever()

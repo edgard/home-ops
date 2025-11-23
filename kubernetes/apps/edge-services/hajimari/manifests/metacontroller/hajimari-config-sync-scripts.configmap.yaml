@@ -2,31 +2,15 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hajimari-dashboard-generator
+  name: hajimari-config-sync-scripts
   namespace: edge-services
-  labels:
-    app.kubernetes.io/name: hajimari-dashboard
-    app.kubernetes.io/part-of: hajimari
 data:
-  base.yaml: |-
-    title: Homelab
-    defaultEnable: true
-    showRecent: true
-    showAppGroups: true
-    showGreeting: false
-    showSearch: false
-    showBookmarks: false
-    showBookmarkGroups: false
-    showAppUrls: false
-    showAppInfo: false
-    showAppStatus: false
-    lightTheme: paper
-    darkTheme: chalk
   generator.py: |-
     import json
     import os
     import ssl
     import sys
+    import logging
     import urllib.error
     import urllib.parse
     import urllib.request
@@ -38,6 +22,14 @@ data:
         import yaml
     except ImportError:  # pragma: no cover - handled in container entrypoint
         sys.exit("PyYAML is required")
+
+    def setup_logging():
+        level = os.environ.get("LOG_LEVEL", "INFO").upper()
+        logging.basicConfig(
+            level=getattr(logging, level, logging.INFO),
+            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        )
+        return logging.getLogger("hajimari-generator")
 
     DEFAULT_ROUTE_SELECTOR = "hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external"
     DEFAULT_ICON = "mdi:web"
@@ -92,6 +84,8 @@ data:
         for item in data.get("items", []):
             meta = item.get("metadata", {}) or {}
             labels = meta.get("labels", {}) or {}
+            if labels.get("metacontroller.edgard.org/managed") == "hajimari":
+                continue
             if labels.get("hajimari.edgard.org/enabled") != "true":
                 continue
             ns = meta.get("namespace")
@@ -136,22 +130,69 @@ data:
         base["customApps"] = custom_apps
         return base
 
-    def render_config(base: dict, host: str, port: str, token: str, ctx, selector: str) -> dict:
+    def render_config(base_path: Path, selector: str, host: str, port: str, token: str, ctx, logger, static_apps_path: Path, static_bookmarks_path: Path):
+        base = yaml.safe_load(base_path.read_text(encoding="utf-8")) or {}
         entries = load_routes(host, port, token, ctx, selector)
-        return build_config(entries, base)
+        cfg = build_config(entries, base)
+        discovered_apps = cfg.get("customApps", []) or []
+        static_apps = yaml.safe_load(static_apps_path.read_text(encoding="utf-8")) if static_apps_path.exists() else []
+        if static_apps and not isinstance(static_apps, list):
+            raise SystemExit(f"static apps must be a list, got {type(static_apps)}")
+
+        static_bookmarks_raw = yaml.safe_load(static_bookmarks_path.read_text(encoding="utf-8")) if static_bookmarks_path.exists() else []
+        if static_bookmarks_raw and not isinstance(static_bookmarks_raw, list):
+            raise SystemExit(f"static bookmarks must be a list, got {type(static_bookmarks_raw)}")
+
+        cfg["customApps"] = discovered_apps + static_apps
+
+        bookmark_groups = []
+        for group in static_bookmarks_raw or []:
+            if not isinstance(group, dict) or "bookmarks" not in group or "group" not in group:
+                raise SystemExit("static bookmarks must be a list of {group, bookmarks}")
+            if not isinstance(group["bookmarks"], list):
+                raise SystemExit("static bookmarks 'bookmarks' must be a list")
+            bookmark_groups.append({"group": group["group"], "bookmarks": group["bookmarks"]})
+
+        if bookmark_groups:
+            cfg["globalBookmarks"] = bookmark_groups
+
+        discovered_count = sum(len(g.get("apps", [])) for g in discovered_apps)
+        static_count = sum(len(g.get("apps", [])) for g in static_apps) if static_apps else 0
+        bookmark_count = sum(len(g.get("bookmarks", [])) for g in bookmark_groups) if bookmark_groups else 0
+        app_count = discovered_count + static_count
+        stats = {
+            "appCount": app_count,
+            "endpointCount": app_count,
+            "discoveredCount": discovered_count,
+            "staticCount": static_count,
+            "bookmarkCount": bookmark_count,
+        }
+        logger.debug(
+            "rendered hajimari config apps=%s discovered=%s static=%s bookmarks=%s selector=%s",
+            app_count,
+            discovered_count,
+            static_count,
+            bookmark_count,
+            selector,
+        )
+        return cfg, stats
 
     def write_config(config: dict, out_path: Path):
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 
     def main():
+        logger = setup_logging()
+
         host = os.environ.get("KUBERNETES_SERVICE_HOST")
         port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
         out_path = Path(os.environ.get("CONFIG_OUT", "/config/config.yaml"))
-        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/generator/base.yaml"))
+        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
         selector = os.environ.get("ROUTE_SELECTOR", DEFAULT_ROUTE_SELECTOR)
         token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
         ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        static_apps_path = Path(os.environ.get("CONFIG_STATIC", "/templates/static-apps.yaml"))
+        static_bookmarks_path = Path(os.environ.get("CONFIG_BOOKMARKS", "/templates/static-bookmarks.yaml"))
 
         if not host:
             sys.exit("missing KUBERNETES_SERVICE_HOST")
@@ -162,15 +203,18 @@ data:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
-        base = yaml.safe_load(base_path.read_text(encoding="utf-8")) or {}
-        final_cfg = render_config(base, host, port, token, ctx, selector)
+        final_cfg, stats = render_config(base_path, selector, host, port, token, ctx, logger, static_apps_path, static_bookmarks_path)
 
         write_config(final_cfg, out_path)
-        total_apps = sum(len(g.get("apps", [])) for g in final_cfg.get("customApps", []))
-        print(
-            f"[generator] wrote {total_apps} apps to {out_path} "
-            f"(routes selector='{selector}')",
-            flush=True,
+        logger.debug(
+            "generated hajimari config apps=%s endpoints=%s discovered=%s static=%s bookmarks=%s selector=%s path=%s",
+            stats.get("appCount"),
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
+            stats.get("staticCount"),
+            stats.get("bookmarkCount"),
+            selector,
+            str(out_path),
         )
 
     if __name__ == "__main__":
@@ -179,6 +223,7 @@ data:
     import json
     import os
     import ssl
+    import logging
     from datetime import datetime, timezone
     import hashlib
     from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -188,24 +233,24 @@ data:
 
     import generator
 
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+
     TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
     CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-    BASE_PATH = Path(os.environ.get("CONFIG_TEMPLATE", "/generator/base.yaml"))
+    BASE_PATH = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
+    STATIC_PATH = Path(os.environ.get("CONFIG_STATIC", "/templates/static-apps.yaml"))
+    STATIC_BOOKMARKS_PATH = Path(os.environ.get("CONFIG_BOOKMARKS", "/templates/static-bookmarks.yaml"))
     DEFAULT_SELECTOR = os.environ.get("ROUTE_SELECTOR", generator.DEFAULT_ROUTE_SELECTOR)
-    DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "60"))
-    DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "hajimari-generated")
+    DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "120"))
+    DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "hajimari-config-generated")
     DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
     SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
 
-    def load_base(path: Path) -> dict:
-        if not path.exists():
-            return {}
-        text = path.read_text(encoding="utf-8")
-        if not text.strip():
-            return {}
-        return yaml.safe_load(text) or {}
-
-    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, parent_meta: dict, parent_status: dict):
+    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, parent_meta: dict, parent_status: dict, logger):
         host = os.environ.get("KUBERNETES_SERVICE_HOST")
         port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
         if not host:
@@ -216,14 +261,11 @@ data:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
-        base = load_base(BASE_PATH)
-        config = generator.render_config(base, host, port, token, ctx, selector)
+        config, stats = generator.render_config(BASE_PATH, selector, host, port, token, ctx, logger, STATIC_PATH, STATIC_BOOKMARKS_PATH)
         cfg_yaml = yaml.safe_dump(config, sort_keys=False)
         cfg_hash = hashlib.sha256(cfg_yaml.encode("utf-8")).hexdigest()
 
-        apps = 0
-        for grp in config.get("customApps", []):
-            apps += len(grp.get("apps", []))
+        apps = stats.get("appCount", 0)
 
         prev_status = parent_status or {}
         prev_hash = prev_status.get("configHash")
@@ -236,20 +278,35 @@ data:
                 "lastSync": now,
                 "configHash": cfg_hash,
                 "appCount": apps,
+                "endpointCount": stats.get("endpointCount", apps),
+                "discovered": stats.get("discoveredCount", 0),
+                "static": stats.get("staticCount", 0),
                 "conditions": [
                     {
                         "type": "Ready",
                         "status": "True",
                         "reason": "SyncSuccessful",
-                        "message": f"Rendered {apps} apps",
+                        "message": (
+                            f"Rendered {apps} endpoints "
+                            f"({stats.get('discoveredCount', 0)} discovered, "
+                            f"{stats.get('staticCount', 0)} static, "
+                            f"{stats.get('bookmarkCount', 0)} bookmarks)"
+                        ),
                         "lastTransitionTime": now,
                     }
                 ],
             }
 
-        print(
-            f"[webhook] sync ok: {apps} apps -> {namespace}/{output_name}:{output_key} selector='{selector}'",
-            flush=True,
+        logger.info(
+            "sync successful ns=%s cm=%s apps=%s bookmarks=%s endpoints=%s discovered=%s static=%s selector=%s",
+            namespace,
+            output_name,
+            apps,
+            stats.get("bookmarkCount", 0),
+            stats.get("endpointCount", apps),
+            stats.get("discoveredCount", 0),
+            stats.get("staticCount", 0),
+            selector,
         )
         payload = {
             "children": [
@@ -260,8 +317,9 @@ data:
                         "name": output_name,
                         "namespace": namespace,
                         "labels": {
-                            "app.kubernetes.io/name": "hajimari-dashboard",
+                            "app.kubernetes.io/name": "hajimari",
                             "app.kubernetes.io/part-of": "hajimari",
+                            "metacontroller.edgard.org/managed": "hajimari",
                         },
                     },
                     "data": {
@@ -295,17 +353,20 @@ data:
             resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
 
             try:
-                response = build_response(namespace, output_name, output_key, selector, resync, parent.get("metadata") or {}, status)
+                response = build_response(namespace, output_name, output_key, selector, resync, parent.get("metadata") or {}, status, logging.getLogger("hajimari-webhook"))
                 self._write_json(200, response)
             except Exception as exc:  # pragma: no cover - surfaced via status
                 now = datetime.now(timezone.utc).isoformat()
-                print(f"[webhook] sync error: {exc}", flush=True)
+                logging.exception("sync error")
                 self._write_json(
                     200,
                     {
                         "status": {
                             "lastSync": now,
                             "appCount": 0,
+                            "endpointCount": 0,
+                            "discovered": 0,
+                            "static": 0,
                             "conditions": [
                                 {
                                     "type": "Ready",
