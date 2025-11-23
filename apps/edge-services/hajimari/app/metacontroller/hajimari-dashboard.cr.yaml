@@ -1,0 +1,14 @@
+---
+apiVersion: homelab.edgard.org/v1alpha1
+kind: HajimariDashboard
+metadata:
+  name: hajimari-dashboard
+  namespace: edge-services
+  labels:
+    app.kubernetes.io/name: hajimari-dashboard
+    app.kubernetes.io/part-of: hajimari
+spec:
+  outputConfigMap: hajimari-generated
+  outputKey: config.yaml
+  routeSelector: hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external
+  resyncSeconds: 60

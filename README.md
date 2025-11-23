@@ -5,7 +5,7 @@ Kind v1.34.0 runs a control-plane + worker pair. The worker mounts `/mnt/spool`,
 ## Layout
 - `cluster/config/` – Kind config plus the encrypted `cluster-secrets.sops.yaml` bundle.
 - `cluster/flux/ks.yaml` – roots the `cluster-infra` / `cluster-apps` Flux `Kustomization` pair and injects the shared HelmRelease patch.
-- `infra/<namespace>/<app>/` – infrastructure controllers (Flux operator/instance, Multus, ESO, cert-manager, Envoy Gateway, External DNS controllers, cloudflared, Dex, metrics-server, Reloader) with `namespace.yaml`, `app/`, and `ks.yaml`.
+- `infra/<namespace>/<app>/` – infrastructure controllers (Flux operator/instance, Multus, ESO, cert-manager, Envoy Gateway, External DNS controllers, cloudflared, Dex, metrics-server, Metacontroller, Reloader) with `namespace.yaml`, `app/`, and `ks.yaml`.
 - `apps/<namespace>/<app>/` – workloads follow the same pattern; each namespace has `namespace.yaml`, per-app `app/` directories, and a namespace `kustomization.yaml`.
 - `Makefile` – entry points for bootstrap, Kind helpers, secrets flow, linting, and Flux reconcile. Helper targets are single-cluster scoped; there is no `CLUSTER` override.
 
@@ -18,16 +18,16 @@ Kind v1.34.0 runs a control-plane + worker pair. The worker mounts `/mnt/spool`,
 
 ## Flux Topology
 - Roots: `cluster-infra` applies `infra/kustomization.yaml`; `cluster-apps` depends on it and applies `apps/kustomization.yaml`.
-- Platform chain in `platform-system`: Multus → Multus config → External Secrets → External Secrets config → cert-manager → cert-manager config → Envoy Gateway → Envoy Gateway config → External DNS (Cloudflare + UniFi webhook) → cloudflared → Dex; metrics-server and Reloader also hang off Multus config.
+- Platform chain in `platform-system`: Multus → Multus config → External Secrets → External Secrets config → cert-manager → cert-manager config → Envoy Gateway → Envoy Gateway config → External DNS (Cloudflare + UniFi webhook) → cloudflared → Dex; metrics-server, Metacontroller, and Reloader also hang off Multus config.
 - Namespace `ks.yaml` files use `<namespace>-<app>` names so `flux get kustomizations` is readable. App dependencies stay explicit (Zigbee2MQTT → Mosquitto, Home Assistant → Zigbee2MQTT, Radarr/Sonarr → qbittorrent, Prowlarr → flaresolverr, ARC runners → controller).
 
 ## Namespaces
 - `flux-system` – flux-operator, FluxInstance, GitRepository (`flux-system` source), `cluster-infra` / `cluster-apps`.
-- `platform-system` – Multus (lan-macvlan NAD), External Secrets + ClusterSecretStore, metrics-server (drops requests, `--kubelet-insecure-tls`), Reloader, cert-manager v1.19.1 + `letsencrypt-cloudflare` issuer and `wildcard-edgard-org` certificate, Envoy Gateway v1.6.0 (external/internal Gateways and EnvoyProxy), External DNS (Cloudflare + UniFi webhook), cloudflared 2025.11.1 with `tunnel.edgard.org` `DNSEndpoint`, Dex (`envoy-oidc-client` Secret fans to labeled namespaces).
+- `platform-system` – Multus (lan-macvlan NAD), External Secrets + ClusterSecretStore, metrics-server (drops requests, `--kubelet-insecure-tls`), Metacontroller, Reloader, cert-manager v1.19.1 + `letsencrypt-cloudflare` issuer and `wildcard-edgard-org` certificate, Envoy Gateway v1.6.0 (external/internal Gateways and EnvoyProxy), External DNS (Cloudflare + UniFi webhook), cloudflared 2025.11.1 with `tunnel.edgard.org` `DNSEndpoint`, Dex (`envoy-oidc-client` Secret fans to labeled namespaces).
 - `ops` – gatus (status.edgard.org) and kopia (kopia.edgard.org), both Dex-protected.
 - `home-automation` – Mosquitto, Zigbee2MQTT (privileged, `/dev/ttyUSB0`), Home Assistant on Multus `192.168.1.246/24`; HTTPRoutes skip Dex to use native auth.
 - `media` – LinuxServer apps (bazarr/radarr/sonarr/prowlarr), flaresolverr, qbittorrent+gluetun (`/dev/net/tun`), jellyfin on Multus `192.168.1.245/24`, recyclarr, unpackerr.
-- `edge-services` – nginx (`edgard.org`/`www`), hajimari dashboard at `apps.edgard.org` (Dex on external route), echo, atuin (auth handled by CLI), changedetection with Chrome sidecar and postStart-seeded notifications (no CronJob), manyfold; Dex policies on external routes where applicable.
+- `edge-services` – nginx (`edgard.org`/`www`), hajimari dashboard at `apps.edgard.org` (Dex on external route) now rendered by a Metacontroller-managed `HajimariDashboard` CR + webhook instead of an init container, echo, atuin (auth handled by CLI), changedetection with Chrome sidecar and postStart-seeded notifications (no CronJob), manyfold; Dex policies on external routes where applicable.
 - `arc` – GitHub Actions runner controller and the `arc-homelab` scale set (DinD sidecar, ARC secrets).
 
 ## Validation & Operations

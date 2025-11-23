@@ -1,0 +1,336 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hajimari-dashboard-generator
+  namespace: edge-services
+  labels:
+    app.kubernetes.io/name: hajimari-dashboard
+    app.kubernetes.io/part-of: hajimari
+data:
+  base.yaml: |-
+    title: Homelab
+    defaultEnable: true
+    showRecent: true
+    showAppGroups: true
+    showGreeting: false
+    showSearch: false
+    showBookmarks: false
+    showBookmarkGroups: false
+    showAppUrls: false
+    showAppInfo: false
+    showAppStatus: false
+    lightTheme: paper
+    darkTheme: chalk
+  generator.py: |-
+    import json
+    import os
+    import ssl
+    import sys
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    from dataclasses import dataclass
+    from pathlib import Path
+    from typing import Iterable, Optional
+
+    try:
+        import yaml
+    except ImportError:  # pragma: no cover - handled in container entrypoint
+        sys.exit("PyYAML is required")
+
+    DEFAULT_ROUTE_SELECTOR = "hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external"
+    DEFAULT_ICON = "mdi:web"
+
+    @dataclass
+    class Entry:
+        host: str
+        namespace: str
+        routename: str
+        icon: Optional[str]
+
+    def display_name(hostname: str) -> str:
+        clean = hostname.replace(".edgard.org", "")
+        if clean in ("www", "edgard.org"):
+            return "Website"
+        left = clean.split(".")[0]
+        return left.replace("-", " ").title()
+
+    def display_icon(icon_override: Optional[str]) -> str:
+        return f"mdi:{icon_override}" if icon_override else DEFAULT_ICON
+
+    def fetch_json(host, port, token, ctx, path, ignore_404=True):
+        url = f"https://{host}:{port}{path}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, context=ctx) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as err:
+            if ignore_404 and err.code == 404:
+                return None
+            raise
+
+    def load_routes(host, port, token, ctx, selector: str):
+        quoted = urllib.parse.quote(selector, safe="=,")
+        data = fetch_json(
+            host,
+            port,
+            token,
+            ctx,
+            f"/apis/gateway.networking.k8s.io/v1/httproutes?labelSelector={quoted}",
+        )
+        if not data:
+            return []
+
+        entries = []
+        for item in data.get("items", []):
+            meta = item.get("metadata", {}) or {}
+            labels = meta.get("labels", {}) or {}
+            if labels.get("hajimari.edgard.org/enabled") != "true":
+                continue
+            ns = meta.get("namespace")
+            name = meta.get("name")
+            icon = labels.get("hajimari.edgard.org/icon")
+            for host in item.get("spec", {}).get("hostnames", []) or []:
+                entries.append(Entry(host=host, namespace=ns, routename=name, icon=icon))
+        return entries
+
+    def build_config(entries: Iterable[Entry], base: dict) -> dict:
+        groups = {}
+        seen_hosts = set()
+        seen_names = set()
+        for entry in entries:
+            key = entry.host.lower()
+            if key in seen_hosts:
+                continue
+            name = display_name(entry.host)
+            if name in seen_names:
+                continue
+            seen_hosts.add(key)
+            seen_names.add(name)
+            grp = groups.setdefault(entry.namespace, {"apps": []})
+            grp["apps"].append(
+                {
+                    "name": name,
+                    "url": f"https://{entry.host}",
+                    "icon": display_icon(entry.icon),
+                    "info": f"{entry.namespace}/{entry.routename}",
+                    "targetBlank": False,
+                }
+            )
+
+        for grp in groups.values():
+            grp["apps"].sort(key=lambda x: x["name"].lower())
+
+        custom_apps = [
+            {"group": ns.replace("-", " ").title(), "apps": grp["apps"]}
+            for ns, grp in sorted(groups.items(), key=lambda x: x[0])
+        ]
+
+        base["customApps"] = custom_apps
+        return base
+
+    def render_config(base: dict, host: str, port: str, token: str, ctx, selector: str) -> dict:
+        entries = load_routes(host, port, token, ctx, selector)
+        return build_config(entries, base)
+
+    def write_config(config: dict, out_path: Path):
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    def main():
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        out_path = Path(os.environ.get("CONFIG_OUT", "/config/config.yaml"))
+        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/generator/base.yaml"))
+        selector = os.environ.get("ROUTE_SELECTOR", DEFAULT_ROUTE_SELECTOR)
+        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+        if not host:
+            sys.exit("missing KUBERNETES_SERVICE_HOST")
+
+        token = token_path.read_text(encoding="utf-8").strip()
+
+        ctx = ssl.create_default_context(cafile=ca_path)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        base = yaml.safe_load(base_path.read_text(encoding="utf-8")) or {}
+        final_cfg = render_config(base, host, port, token, ctx, selector)
+
+        write_config(final_cfg, out_path)
+        total_apps = sum(len(g.get("apps", [])) for g in final_cfg.get("customApps", []))
+        print(
+            f"[generator] wrote {total_apps} apps to {out_path} "
+            f"(routes selector='{selector}')",
+            flush=True,
+        )
+
+    if __name__ == "__main__":
+        main()
+  webhook.py: |-
+    import json
+    import os
+    import ssl
+    from datetime import datetime, timezone
+    import hashlib
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from pathlib import Path
+
+    import yaml
+
+    import generator
+
+    TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+    CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+    BASE_PATH = Path(os.environ.get("CONFIG_TEMPLATE", "/generator/base.yaml"))
+    DEFAULT_SELECTOR = os.environ.get("ROUTE_SELECTOR", generator.DEFAULT_ROUTE_SELECTOR)
+    DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "60"))
+    DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "hajimari-generated")
+    DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
+    SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
+
+    def load_base(path: Path) -> dict:
+        if not path.exists():
+            return {}
+        text = path.read_text(encoding="utf-8")
+        if not text.strip():
+            return {}
+        return yaml.safe_load(text) or {}
+
+    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, parent_meta: dict, parent_status: dict):
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        if not host:
+            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+
+        token = TOKEN_PATH.read_text(encoding="utf-8").strip()
+        ctx = ssl.create_default_context(cafile=CA_PATH)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        base = load_base(BASE_PATH)
+        config = generator.render_config(base, host, port, token, ctx, selector)
+        cfg_yaml = yaml.safe_dump(config, sort_keys=False)
+        cfg_hash = hashlib.sha256(cfg_yaml.encode("utf-8")).hexdigest()
+
+        apps = 0
+        for grp in config.get("customApps", []):
+            apps += len(grp.get("apps", []))
+
+        prev_status = parent_status or {}
+        prev_hash = prev_status.get("configHash")
+
+        if prev_hash == cfg_hash:
+            status = prev_status
+        else:
+            now = datetime.now(timezone.utc).isoformat()
+            status = {
+                "lastSync": now,
+                "configHash": cfg_hash,
+                "appCount": apps,
+                "conditions": [
+                    {
+                        "type": "Ready",
+                        "status": "True",
+                        "reason": "SyncSuccessful",
+                        "message": f"Rendered {apps} apps",
+                        "lastTransitionTime": now,
+                    }
+                ],
+            }
+
+        print(
+            f"[webhook] sync ok: {apps} apps -> {namespace}/{output_name}:{output_key} selector='{selector}'",
+            flush=True,
+        )
+        payload = {
+            "children": [
+                {
+                    "apiVersion": "v1",
+                    "kind": "ConfigMap",
+                    "metadata": {
+                        "name": output_name,
+                        "namespace": namespace,
+                        "labels": {
+                            "app.kubernetes.io/name": "hajimari-dashboard",
+                            "app.kubernetes.io/part-of": "hajimari",
+                        },
+                    },
+                    "data": {
+                        output_key: cfg_yaml,
+                    },
+                }
+            ],
+            "status": status,
+            "resyncAfterSeconds": resync,
+        }
+        return payload
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802 - metacontroller expects POST
+            if self.path != "/sync":
+                self.send_error(404, "not found")
+                return
+
+            length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(length) if length else b"{}"
+            body = json.loads(raw_body or "{}")
+            parent = body.get("parent") or {}
+            metadata = parent.get("metadata") or {}
+            status = parent.get("status") or {}
+            spec = parent.get("spec") or {}
+
+            namespace = metadata.get("namespace") or "edge-services"
+            output_name = spec.get("outputConfigMap") or DEFAULT_OUTPUT_CM
+            output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
+            selector = spec.get("routeSelector") or DEFAULT_SELECTOR
+            resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+
+            try:
+                response = build_response(namespace, output_name, output_key, selector, resync, parent.get("metadata") or {}, status)
+                self._write_json(200, response)
+            except Exception as exc:  # pragma: no cover - surfaced via status
+                now = datetime.now(timezone.utc).isoformat()
+                print(f"[webhook] sync error: {exc}", flush=True)
+                self._write_json(
+                    200,
+                    {
+                        "status": {
+                            "lastSync": now,
+                            "appCount": 0,
+                            "conditions": [
+                                {
+                                    "type": "Ready",
+                                    "status": "False",
+                                    "reason": "SyncError",
+                                    "message": str(exc),
+                                    "lastTransitionTime": now,
+                                }
+                            ],
+                        },
+                        "resyncAfterSeconds": resync,
+                    },
+                )
+
+        def log_message(self, fmt, *args):  # pragma: no cover - quiet logs
+            return
+
+        def _write_json(self, code, payload):
+            data = json.dumps(payload).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+    if __name__ == "__main__":
+        server = HTTPServer(("", SERVER_PORT), Handler)
+        server.serve_forever()

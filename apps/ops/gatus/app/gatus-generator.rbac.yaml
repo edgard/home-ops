@@ -10,15 +10,23 @@ kind: ClusterRole
 metadata:
   name: gatus-generator
 rules:
-  - apiGroups: [""]
+  - apiGroups:
+      - ""
     resources:
       - services
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["apps"]
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+  - apiGroups:
+      - "apps"
     resources:
       - deployments
       - statefulsets
-    verbs: ["get", "list", "watch"]
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

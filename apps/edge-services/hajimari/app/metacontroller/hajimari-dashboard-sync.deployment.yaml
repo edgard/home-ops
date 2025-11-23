@@ -1,0 +1,72 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hajimari-dashboard-sync
+  namespace: edge-services
+  labels:
+    app.kubernetes.io/name: hajimari-dashboard-sync
+    app.kubernetes.io/part-of: hajimari
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hajimari-dashboard-sync
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hajimari-dashboard-sync
+        app.kubernetes.io/part-of: hajimari
+    spec:
+      restartPolicy: Always
+      serviceAccountName: hajimari-dashboard-sync
+      containers:
+        - name: webhook
+          image: python:3.14-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              pip install --no-cache-dir --quiet pyyaml
+              python /generator/webhook.py
+          env:
+            - name: TZ
+              value: Europe/Warsaw
+            - name: CONFIG_TEMPLATE
+              value: /generator/base.yaml
+            - name: ROUTE_SELECTOR
+              value: hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external
+            - name: WEBHOOK_PORT
+              value: "8080"
+            - name: RESYNC_SECONDS
+              value: "60"
+            - name: OUTPUT_CONFIGMAP
+              value: hajimari-generated
+            - name: OUTPUT_KEY
+              value: config.yaml
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: generator
+              mountPath: /generator
+              readOnly: true
+      volumes:
+        - name: generator
+          configMap:
+            name: hajimari-dashboard-generator
+            defaultMode: 0444

@@ -42,7 +42,6 @@ data:
 
     import yaml
 
-
     def fetch_json(host, port, token, ctx, path, ignore_errors=(404, 403)):
         url = f"https://{host}:{port}{path}"
         req = urllib.request.Request(
@@ -61,7 +60,6 @@ data:
                 return None
             raise
 
-
     def list_security_policies(host, port, token, ctx, namespace=None):
         ns = f"/namespaces/{namespace}" if namespace else ""
         return fetch_json(
@@ -71,7 +69,6 @@ data:
             ctx,
             f"/apis/gateway.envoyproxy.io/v1alpha1{ns}/securitypolicies",
         ) or {}
-
 
     def get_routes_from_policies(policies, expected_client, expected_issuer):
         targets = set()
@@ -94,7 +91,6 @@ data:
                         targets.add((ns, name))
         return targets
 
-
     def fetch_route(host, port, token, ctx, namespace, name):
         if not namespace or not name:
             return None
@@ -106,7 +102,6 @@ data:
             f"/apis/gateway.networking.k8s.io/v1/namespaces/{namespace}/httproutes/{name}",
         )
 
-
     def collect_hosts(host, port, token, ctx, targets):
         hostnames = set()
         for ns, name in targets:
@@ -117,7 +112,6 @@ data:
                 hostnames.add(h.lower())
         return sorted(hostnames)
 
-
     def build_config(base, hosts):
         redirects = [f"https://{h}/oauth2/callback" for h in hosts]
         clients = base.get("staticClients", [])
@@ -125,7 +119,6 @@ data:
             raise SystemExit("base config missing staticClients")
         clients[0]["redirectURIs"] = redirects
         return base
-
 
     def main():
         host = os.environ.get("KUBERNETES_SERVICE_HOST")
@@ -155,7 +148,6 @@ data:
         final_cfg = build_config(base, hosts)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(yaml.safe_dump(final_cfg, sort_keys=False), encoding="utf-8")
-
 
     if __name__ == "__main__":
         main()

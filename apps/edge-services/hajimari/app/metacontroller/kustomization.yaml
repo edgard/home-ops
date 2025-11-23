@@ -1,0 +1,9 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - hajimari-dashboard-generator.configmap.yaml
+  - hajimari-dashboard-sync.rbac.yaml
+  - hajimari-dashboard.cr.yaml
+  - hajimari-dashboard-sync.deployment.yaml
+  - hajimari-dashboard-sync.service.yaml

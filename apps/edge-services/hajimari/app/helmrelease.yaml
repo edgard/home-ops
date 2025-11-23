@@ -19,8 +19,6 @@ spec:
           reloader.stakater.com/auto: "true"
         replicas: 1
         strategy: Recreate
-        serviceAccount:
-          name: hajimari-sync
         containers:
           hajimari:
             image:
@@ -29,25 +27,6 @@ spec:
             env:
               - name: TZ
                 value: Europe/Warsaw
-        initContainers:
-          generator:
-            image:
-              repository: python
-              tag: "3.14-alpine"
-            command:
-              - /bin/sh
-              - -c
-              - |
-                set -euo pipefail
-                pip install --no-cache-dir --quiet pyyaml
-                python /opt/generator/generator.py
-            env:
-              - name: TZ
-                value: Europe/Warsaw
-              - name: CONFIG_TEMPLATE
-                value: /generator/base.yaml
-              - name: CONFIG_OUT
-                value: /config/config.yaml
 
     service:
       hajimari:
@@ -59,17 +38,12 @@ spec:
             port: 3000
 
     persistence:
-      config:
+      hajimari-generated:
         enabled: true
-        type: emptyDir
+        type: configMap
+        name: hajimari-generated
         globalMounts:
           - path: /config
-      generator:
-        type: configMap
-        name: hajimari-generator
-        globalMounts:
-          - path: /generator
-          - path: /opt/generator
 
     ingress:
       main:

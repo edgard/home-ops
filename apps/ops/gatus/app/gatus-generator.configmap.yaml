@@ -131,7 +131,6 @@ data:
     except ImportError:  # pragma: no cover - handled in init container shell
         sys.exit("PyYAML is required")
 
-
     def load_yaml(path: Path):
         if not path.exists():
             return {}
@@ -139,7 +138,6 @@ data:
         if not text.strip():
             return {}
         return yaml.safe_load(text)
-
 
     def kube_get(path, token, ca_path, host, port):
         import json
@@ -160,7 +158,6 @@ data:
         with urllib.request.urlopen(req, context=ctx) as resp:
             return json.loads(resp.read())
 
-
     def guess_scheme(port_name, port_number):
         name = (port_name or "").lower()
         if "http" in name or port_number == 80:
@@ -172,7 +169,6 @@ data:
         if "icmp" in name:
             return "icmp"
         return "tcp"
-
 
     def list_workloads(namespaces, token, ca_path, host, port):
         workloads = {}
@@ -209,7 +205,6 @@ data:
                 )
         return workloads
 
-
     def match_probe(service_selector, workload):
         # service selector must be subset of workload labels
         if not service_selector:
@@ -238,7 +233,6 @@ data:
                     port = workload["port_map"].get(port)
                 return {"scheme": "tcp", "port": port, "periodSeconds": probe.get("periodSeconds")}
         return None
-
 
     def discover_services(label_selector, token, ca_path, host, port):
         data = kube_get(f"/api/v1/services?labelSelector={label_selector}", token, ca_path, host, port)
@@ -307,7 +301,6 @@ data:
             )
         return services
 
-
     def main():
         template_path = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
         static_path = Path(os.environ.get("CONFIG_STATIC", "/templates/static-endpoints.yaml"))
@@ -345,7 +338,6 @@ data:
             f"wrote {len(endpoints)} endpoints to {output_path} "
             f"({len(discovered_services)} services, {len(static_endpoints)} static)"
         )
-
 
     if __name__ == "__main__":
         main()
