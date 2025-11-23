@@ -1,0 +1,35 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-system
+  labels:
+    envoy-gateway.edgard.org/oidc-client: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edge-services
+  labels:
+    envoy-gateway.edgard.org/oidc-client: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: media
+  labels:
+    envoy-gateway.edgard.org/oidc-client: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: home-automation
+  labels:
+    envoy-gateway.edgard.org/oidc-client: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ops
+  labels:
+    envoy-gateway.edgard.org/oidc-client: "true"

@@ -1,0 +1,45 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: zigbee2mqtt
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: home-automation
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 8
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  sources:
+    - repoURL: oci://ghcr.io/bjw-s-labs/helm/app-template
+      targetRevision: 4.4.0
+      helm:
+        valueFiles:
+          - $values/kubernetes/apps/home-automation/zigbee2mqtt/values.yaml
+      path: .
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: HEAD
+      ref: values
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: HEAD
+      path: kubernetes/apps/home-automation/zigbee2mqtt/manifests
+      directory:
+        recurse: true

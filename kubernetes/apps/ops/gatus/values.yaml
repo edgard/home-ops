@@ -1,0 +1,97 @@
+---
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    serviceAccount:
+      name: gatus-generator
+      create: false
+    initContainers:
+      generator:
+        image:
+          repository: python
+          tag: "3.14-alpine"
+        command:
+          - /bin/sh
+          - -c
+          - |
+            set -euo pipefail
+            pip install --no-cache-dir --quiet pyyaml
+            python /opt/generator/generator.py
+        env:
+          - name: CONFIG_TEMPLATE
+            value: /generator/base.yaml
+          - name: CONFIG_STATIC
+            value: /generator/static-endpoints.yaml
+          - name: CONFIG_OUT
+            value: /config/config.yaml
+    containers:
+      main:
+        image:
+          repository: ghcr.io/twin/gatus
+          tag: v5.33.0
+        env:
+          TZ: Europe/Warsaw
+          GATUS_CONFIG_PATH: /config
+        envFrom:
+          - secretRef:
+              name: gatus-telegram
+        ports:
+          - name: http
+            containerPort: 8080
+        probes:
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: http
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: http
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    labels:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      http:
+        port: 8080
+        targetPort: http
+ingress:
+  main:
+    enabled: false
+persistence:
+  config:
+    type: emptyDir
+    globalMounts:
+      - path: /config
+  templates:
+    type: configMap
+    name: gatus-generator
+    globalMounts:
+      - path: /generator
+      - path: /opt/generator
+  data:
+    type: hostPath
+    hostPathType: DirectoryOrCreate
+    hostPath: /mnt/spool/appdata/gatus
+    globalMounts:
+      - path: /data

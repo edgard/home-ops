@@ -1,7 +1,0 @@
----
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - clusterissuer.yaml
-  - cloudflare-api-cert-manager.externalsecret.yaml
-  - wildcard-certificate.yaml

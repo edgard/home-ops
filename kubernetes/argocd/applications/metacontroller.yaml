@@ -1,0 +1,55 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metacontroller
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "-8"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-system
+  ignoreDifferences:
+    - group: external-secrets.io
+      kind: ExternalSecret
+      jqPathExpressions:
+        - .spec.data[].remoteRef.conversionStrategy
+        - .spec.data[].remoteRef.decodingStrategy
+        - .spec.data[].remoteRef.metadataPolicy
+    - group: external-secrets.io
+      kind: ClusterExternalSecret
+      jqPathExpressions:
+        - .spec.externalSecretSpec.data[].remoteRef.conversionStrategy
+        - .spec.externalSecretSpec.data[].remoteRef.decodingStrategy
+        - .spec.externalSecretSpec.data[].remoteRef.metadataPolicy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 8
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  sources:
+    - repoURL: oci://ghcr.io/metacontroller/metacontroller-helm
+      targetRevision: 4.12.5
+      helm:
+        valueFiles:
+          - $values/kubernetes/apps/platform-system/metacontroller/values.yaml
+      path: .
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: HEAD
+      ref: values

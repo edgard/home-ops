@@ -1,0 +1,43 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jellyfin
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: media
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 8
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  sources:
+    - repoURL: oci://ghcr.io/bjw-s-labs/helm/app-template
+      targetRevision: 4.4.0
+      helm:
+        valueFiles:
+          - $values/kubernetes/apps/media/jellyfin/values.yaml
+      path: .
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: HEAD
+      ref: values
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: HEAD
+      path: kubernetes/apps/media/jellyfin/manifests
+      directory:
+        recurse: true

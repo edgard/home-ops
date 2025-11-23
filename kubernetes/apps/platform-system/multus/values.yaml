@@ -1,0 +1,6 @@
+---
+# Multus Helm chart only supports the image/resource toggles below.
+# Leave empty to use upstream defaults.
+cni-plugins: {}
+multus: {}
+cni: {}

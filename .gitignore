@@ -1,2 +1,3 @@
-.sops.agekey
+/.venv
+/.sops.agekey
 *.agekey

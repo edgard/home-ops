@@ -1,4 +1,4 @@
-# ---- Makefile for Flux-managed Kind homelab ------------------------------
+# ---- Makefile for ArgoCD-managed Kind homelab ------------------------------
 .DEFAULT_GOAL := help
 
 REPO_ROOT      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -11,9 +11,6 @@ KIND_CONFIG    ?= $(CLUSTER_CONFIG_DIR)/cluster-config.yaml
 KIND_CONFIG_NAME := $(shell awk '/^name:[[:space:]]*/ {sub(/^name:[[:space:]]*/, ""); print; exit}' "$(KIND_CONFIG)" 2>/dev/null)
 CLUSTER_NAME   := $(if $(KIND_CONFIG_NAME),$(KIND_CONFIG_NAME),homelab)
 KUBECTL        ?= kubectl
-FLUX           ?= flux
-FLUX_NAMESPACE ?= flux-system
-FLUX_ROOT_KUSTOMIZATION ?= flux-system
 SOPS           ?= sops
 SOPS_AGE_KEY_FILE ?= $(REPO_ROOT).sops.agekey
 CLUSTER_SECRETS_SOPS := $(CLUSTER_CONFIG_DIR)/cluster-secrets.sops.yaml
@@ -22,8 +19,9 @@ AGE_KEYGEN     ?= age-keygen
 PRETTIER       ?= prettier
 YAMLFMT        ?= yamlfmt
 YAMLLINT       ?= yamllint
+ARGOCD_SELECTOR ?=
 .PHONY: help bootstrap bootstrap-delete bootstrap-recreate kind-create kind-delete kind-recreate kind-status \
-    secrets-edit secrets-apply secrets-create-key flux-reconcile
+    secrets-edit secrets-apply secrets-create-key argo-sync
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_\-]+:.*?## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -31,7 +29,7 @@ help: ## Show this help
 	@echo "  CLUSTER_DIR=$(CLUSTER_DIR)"
 	@echo "  CLUSTER_NAME=$(CLUSTER_NAME)  KIND_CONFIG=$(KIND_CONFIG)"
 
-bootstrap: ## Provision Kind cluster on remote Docker host and install Flux
+bootstrap: ## Provision Kind cluster on remote Docker host and install Argo CD
 	$(BOOTSTRAP)
 
 bootstrap-delete: ## Delete the Kind cluster via the bootstrap script
@@ -92,10 +90,13 @@ secrets-create-key: ## Generate an age key for SOPS (prints the recipient)
 		echo "Created $(SOPS_AGE_KEY_FILE)"; \
 	fi
 
-flux-reconcile: ## Force the root Flux Kustomization to reconcile with a fresh source
-	$(FLUX) reconcile kustomization "flux-system" --namespace "$(FLUX_NAMESPACE)" --with-source
-
 lint: ## Format all YAML with prettier, yamlfmt, then lint with yamllint
 	$(PRETTIER) --write "**/*.{yaml,yml}"
 	$(YAMLFMT) "**/*.{yaml,yml}"
 	$(YAMLLINT) .
+
+argo-sync: ## Force Argo CD Apps to refresh (kubectl; no argocd CLI). Use ARGOCD_SELECTOR=key=value to limit scope.
+	@selector="$(ARGOCD_SELECTOR)"; \
+	apps="$$( $(KUBECTL) -n argocd get applications $$([ -n "$$selector" ] && printf -- '-l %s' "$$selector") -o name )"; \
+	if [ -z "$$apps" ]; then echo "No Applications matched."; exit 0; fi; \
+	echo "$$apps" | xargs -n1 -I{} $(KUBECTL) -n argocd patch {} --type merge -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' >/dev/null

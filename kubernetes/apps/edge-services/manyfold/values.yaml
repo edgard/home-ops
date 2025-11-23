@@ -1,0 +1,78 @@
+---
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      main:
+        image:
+          repository: ghcr.io/manyfold3d/manyfold-solo
+          tag: "0.129.2"
+        env:
+          TZ: Europe/Warsaw
+          PUID: "568"
+          PGID: "568"
+          DATABASE_URL: sqlite3:/config/manyfold.sqlite3
+          SECRET_KEY_BASE:
+            valueFrom:
+              secretKeyRef:
+                name: manyfold-secret
+                key: SECRET_KEY_BASE
+        ports:
+          - name: http
+            containerPort: 3214
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: http
+                scheme: HTTP
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: http
+                scheme: HTTP
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    labels:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      http:
+        enabled: true
+        port: 3214
+        targetPort: http
+ingress:
+  main:
+    enabled: false
+persistence:
+  config:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/manyfold/config
+    hostPathType: DirectoryOrCreate
+    globalMounts:
+      - path: /config
+  libraries:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/manyfold/libraries
+    hostPathType: DirectoryOrCreate
+    globalMounts:
+      - path: /libraries

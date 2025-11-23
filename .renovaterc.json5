@@ -3,21 +3,34 @@
   extends: [
     'config:recommended',
     ':semanticCommits',
-    ':automergeBranch',
     ':timezone(Europe/Warsaw)',
     ':prHourlyLimitNone',
     'docker:enableMajor',
-    'helpers:pinGitHubActionDigests',
   ],
-  dependencyDashboardTitle: 'Renovate Dashboard 🤖',
-  flux: {
+  ignorePaths: [
+    '**/*.sops.yaml',
+    '**/*.sops.yml',
+  ],
+  argocd: {
     managerFilePatterns: [
-      '/^apps\/.+\.ya?ml$/',
-      '/^infra\/.+\.ya?ml$/',
-      '/^cluster\/.+\.ya?ml$/',
+      '/^kubernetes\/argocd\/.*\.ya?ml$/',
     ],
   },
   customManagers: [
+    {
+      customType: 'regex',
+      description: 'Track inline container images across kubernetes manifests and values',
+      managerFilePatterns: [
+        '/^kubernetes\/apps\/.+\.ya?ml$/',
+        '/^kubernetes\/argocd\/applications\/.+\.ya?ml$/',
+        '/^cluster\/.+\.ya?ml$/',
+      ],
+      matchStrings: [
+        'repository:\s*["\']?(?<depName>[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*)["\']?\s*\n\s*tag:\s*["\']?(?<currentValue>[A-Za-z0-9_.\-]+)["\']?',
+        'image:\s*["\']?(?<depName>[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*):(?<currentValue>[A-Za-z0-9_.\-]+)["\']?',
+      ],
+      datasourceTemplate: 'docker',
+    },
     {
       customType: 'regex',
       description: 'Track Kind node images referenced by cluster/config/cluster-config.yaml',
@@ -29,35 +42,18 @@
       ],
       datasourceTemplate: 'docker',
     },
-    {
-      customType: 'regex',
-      description: 'Track all inline container images across apps/, infra/, and cluster/ manifests',
-      managerFilePatterns: [
-        '/^apps/.+\.ya?ml$/',
-        '/^infra/.+\.ya?ml$/',
-        '/^cluster/.+\.ya?ml$/',
-      ],
-      matchStrings: [
-        'repository:\s*(?<depName>[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*)\s*\n\s*tag:\s*(?<currentValue>[A-Za-z0-9_.\-]+)',
-        'image:\s*(?<depName>[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*):(?<currentValue>[A-Za-z0-9_.\-]+)',
-      ],
-      datasourceTemplate: 'docker',
-    },
-    {
-      customType: 'regex',
-      description: 'Track oci:// artifact references (Helm charts, templates, bundles)',
-      managerFilePatterns: [
-        '/^apps/.+\.ya?ml$/',
-        '/^infra/.+\.ya?ml$/',
-        '/^cluster/.+\.ya?ml$/',
-      ],
-      matchStrings: [
-        'oci://(?<depName>[^:]+):(?<currentValue>[^\s]+)',
-      ],
-      datasourceTemplate: 'docker',
-    },
   ],
   packageRules: [
+    {
+      description: 'Require manual review for major upgrades',
+      automerge: false,
+      matchUpdateTypes: [
+        'major',
+      ],
+      addLabels: [
+        'renovate/manual-review',
+      ],
+    },
     {
       description: 'Auto-merge all non-major dependency updates',
       automerge: true,
@@ -70,26 +66,6 @@
         'rollback',
       ],
       ignoreTests: true,
-    },
-    {
-      description: 'Require manual review for major upgrades',
-      automerge: false,
-      matchUpdateTypes: [
-        'major',
-      ],
-      addLabels: [
-        'renovate/manual-review',
-      ],
-    },
-    {
-      description: 'Treat Kind node tags as loose versions',
-      matchDatasources: [
-        'docker',
-      ],
-      matchPackageNames: [
-        'kindest/node',
-      ],
-      versioning: 'loose',
     },
     {
       description: 'Group Kind cluster node updates into a single PR',

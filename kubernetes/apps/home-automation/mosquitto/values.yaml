@@ -1,0 +1,62 @@
+---
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: eclipse-mosquitto
+          tag: 2.0.22
+        env:
+          TZ: Europe/Warsaw
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              tcpSocket:
+                port: 1883
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              tcpSocket:
+                port: 1883
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    labels:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      mqtt:
+        enabled: true
+        port: 1883
+        protocol: TCP
+        targetPort: 1883
+persistence:
+  config:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/mosquitto/config
+    globalMounts:
+      - path: /mosquitto/config
+  data:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/mosquitto/data
+    globalMounts:
+      - path: /mosquitto/data
+  log:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/mosquitto/log
+    globalMounts:
+      - path: /mosquitto/log

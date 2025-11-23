@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bootstrap the Kind-based homelab cluster and Flux Operator install."""
+"""Bootstrap the Kind-based homelab cluster and Argo CD install."""
 
 from __future__ import annotations
 
@@ -76,9 +76,14 @@ class Bootstrapper:
         self.cluster_secrets_sops_path = self.cluster_config_root / "cluster-secrets.sops.yaml"
         self.default_kubeconfig = Path.home() / ".kube/config"
         self.default_age_key = self.project_root / ".sops.agekey"
-        self.flux_instance_values_path = self.project_root / "infra" / "flux-system" / "flux-instance" / "app" / "helmrelease.yaml"
-        self.flux_operator_helmrelease_path = self.project_root / "infra" / "flux-system" / "flux-operator" / "app" / "helmrelease.yaml"
-        self.flux_operator_repo_path = self.project_root / "infra" / "flux-system" / "flux-operator" / "app" / "ocirepository.yaml"
+        self.argocd_bootstrap_path = self.project_root / "kubernetes" / "argocd" / "bootstrap.yaml"
+        self.argocd_values_path = self.project_root / "kubernetes" / "apps" / "argocd" / "argocd" / "values.yaml"
+        self.argocd_app_path = self.project_root / "kubernetes" / "argocd" / "applications" / "argocd.yaml"
+        self.multus_app_path = self.project_root / "kubernetes" / "argocd" / "applications" / "multus.yaml"
+        self.multus_values_path = self.project_root / "kubernetes" / "apps" / "platform-system" / "multus" / "values.yaml"
+        self.multus_manifests_path = (
+            self.project_root / "kubernetes" / "apps" / "platform-system" / "multus" / "manifests"
+        )
 
         # Runtime/cache state
         self.cluster_name = ""
@@ -89,10 +94,6 @@ class Bootstrapper:
         self.original_docker_context: Optional[str] = None
         self.cluster_secrets_data: Optional[Dict[str, Any]] = None
         self.decrypted_secrets_path: Optional[Path] = None
-        self.flux_instance_name: Optional[str] = None
-        self.flux_instance_namespace: Optional[str] = None
-        self.flux_namespace: Optional[str] = None
-        self.flux_sync_secret_name: Optional[str] = None
         self._temp_dir = tempfile.TemporaryDirectory(prefix="homelab-")
 
         self.env = os.environ.copy()
@@ -131,6 +132,36 @@ class Bootstrapper:
         if fallback:
             return None, int(fallback.group(1))
         return None, None
+
+    def get_chart_version(self, app_path: Path, repo_suffix: str, label: str) -> str:
+        """Read an Application manifest and return targetRevision for the given OCI repo suffix."""
+        if not app_path.exists():
+            raise BootstrapError(f"[{label}] Application manifest not found at {app_path}")
+
+        try:
+            with app_path.open(encoding="utf-8") as handle:
+                app = yaml.safe_load(handle) or {}
+        except Exception as exc:  # pragma: no cover - defensive
+            raise BootstrapError(f"[{label}] Failed to read {app_path}: {exc}") from exc
+
+        spec = app.get("spec", {})
+        sources = spec.get("sources") or ([] if spec.get("source") is None else [spec.get("source")])
+
+        for src in sources:
+            if not isinstance(src, dict):
+                continue
+            repo = src.get("repoURL", "")
+            target = src.get("targetRevision")
+            if repo.endswith(repo_suffix) and target:
+                return str(target)
+
+        raise BootstrapError(f"[{label}] No source ending with {repo_suffix} found in {app_path}")
+
+    def get_argocd_chart_version(self) -> str:
+        return self.get_chart_version(self.argocd_app_path, "/argo-cd", "ArgoCD")
+
+    def get_multus_chart_version(self) -> str:
+        return self.get_chart_version(self.multus_app_path, "/multus", "Multus")
 
     def ensure_command(self, name: str) -> None:
         if shutil.which(name) is None:
@@ -227,11 +258,11 @@ class Bootstrapper:
         self.use_kube_context()
         self.ensure_nodes_ready()
         self.strip_kindnet_resources()
+        self.install_multus()
         self.apply_cluster_secrets()
-        self.deploy_flux_operator()
-        self.apply_flux_sync_secret()
-        self.apply_flux_instance()
-        self.wait_for_flux_instance()
+        self.install_argocd()
+        self.create_argocd_repo_secret()
+        self.apply_argocd_bootstrap()
         self.logger.info(f"[Bootstrap] Complete; kubectl context is kind-{self.cluster_name}")
 
     # ---------------------------------------------------------- Cluster ops
@@ -482,7 +513,7 @@ class Bootstrapper:
         self.logger.info(f"[Kubernetes] Creating namespace {namespace}")
         self.run(["kubectl", "create", "namespace", namespace])
 
-    # ---------------------------------------------------------- Secrets & Flux
+    # -------------------------------------------------------- Secrets & ArgoCD
     def ensure_cluster_secrets_loaded(self) -> bool:
         if self.cluster_secrets_data is not None:
             return True
@@ -517,146 +548,98 @@ class Bootstrapper:
         self.logger.info(f"[Secrets] Applying {self.cluster_secrets_sops_path} (decrypted)")
         self.run(["kubectl", "apply", "-f", str(self.decrypted_secrets_path)])
 
-    def apply_flux_sync_secret(self) -> None:
+    def create_argocd_repo_secret(self) -> None:
         if not self.ensure_cluster_secrets_loaded():
-            self.logger.warning("[Flux] Skipping Git credentials secret because cluster secrets are missing")
-            return
-        string_data = (self.cluster_secrets_data or {}).get("stringData") or {}
-        username = string_data.get("flux_sync_username")
-        password = string_data.get("flux_sync_password")
-        if not username or not password:
-            self.logger.info("[Flux] flux_sync_username/password not defined; assuming repository is public")
+            self.logger.warning("[ArgoCD] Skipping repo secret because cluster secrets are missing")
             return
 
-        secret_name = self.get_flux_sync_secret_name()
-        namespace = self.get_flux_namespace()
-        secret_manifest = {
+        string_data = (self.cluster_secrets_data or {}).get("stringData") or {}
+        username = string_data.get("argo_sync_username")
+        password = string_data.get("argo_sync_password")
+        if not username or not password:
+            self.logger.warning("[ArgoCD] Skipping repo secret; argo_sync_username/password not found in cluster secrets")
+            return
+
+        self.ensure_namespace_exists("argocd")
+        secret = {
             "apiVersion": "v1",
             "kind": "Secret",
             "metadata": {
-                "name": secret_name,
-                "namespace": namespace,
+                "name": "argocd-repo-home-ops",
+                "namespace": "argocd",
+                "labels": {
+                    "argocd.argoproj.io/secret-type": "repository",
+                },
             },
-            "type": "kubernetes.io/basic-auth",
+            "type": "Opaque",
             "stringData": {
-                "username": username,
-                "password": password,
+                "url": "https://github.com/edgard/home-ops.git",
+                "username": str(username),
+                "password": str(password),
             },
         }
-        tmp = self.make_temp_file(suffix=".yaml")
-        with tmp.open("w", encoding="utf-8") as handle:
-            yaml.safe_dump(secret_manifest, handle, sort_keys=False)
-        self.logger.info(f"[Flux] Applying Git credentials secret {secret_name} in {namespace}")
-        self.run(["kubectl", "apply", "-f", str(tmp)])
 
-    def deploy_flux_operator(self) -> None:
-        chart, version = self.load_flux_operator_chart_info()
-        namespace = self.get_flux_namespace()
-        self.logger.info(f"[Flux] Installing flux-operator@{version} into namespace {namespace}")
+        tmp_secret = self.make_temp_file(suffix=".yaml")
+        with tmp_secret.open("w", encoding="utf-8") as handle:
+            yaml.safe_dump(secret, handle, sort_keys=False)
+
+        self.logger.info("[ArgoCD] Applying repository credentials secret argocd-repo-home-ops")
+        self.run(["kubectl", "apply", "-f", str(tmp_secret)])
+
+    def install_argocd(self) -> None:
+        self.logger.info("[ArgoCD] Installing ArgoCD via Helm...")
+        self.ensure_namespace_exists("argocd")
+        chart_version = self.get_argocd_chart_version()
         self.run(
             [
                 "helm",
                 "upgrade",
                 "--install",
-                "flux-operator",
-                chart,
+                "argocd",
+                "oci://ghcr.io/argoproj/argo-helm/argo-cd",
                 "--namespace",
-                namespace,
+                "argocd",
                 "--create-namespace",
                 "--version",
-                version,
+                chart_version,
                 "--wait",
+                "--wait-for-jobs",
+                "-f",
+                str(self.argocd_values_path),
             ]
         )
-        self.logger.info("[Flux] Flux Operator installation completed")
 
-    def load_flux_operator_chart_info(self) -> Tuple[str, str]:
-        if not self.flux_operator_repo_path.exists():
-            raise BootstrapError(f"[Flux] OCIRepository manifest not found at {self.flux_operator_repo_path}; expected infra/flux-system/flux-operator/app/ocirepository.yaml")
-        with self.flux_operator_repo_path.open("r", encoding="utf-8") as handle:
-            data = yaml.safe_load(handle) or {}
-        spec = data.get("spec") or {}
-        chart = spec.get("url")
-        version = (spec.get("ref") or {}).get("tag")
-        if not chart or not version:
-            raise BootstrapError(f"[Flux] OCIRepository {self.flux_operator_repo_path} must define spec.url and spec.ref.tag")
-        return str(chart), str(version)
-
-    def get_flux_namespace(self) -> str:
-        if self.flux_namespace:
-            return self.flux_namespace
-        if not self.flux_operator_helmrelease_path.exists():
-            raise BootstrapError(f"[Flux] Flux operator HelmRelease not found at {self.flux_operator_helmrelease_path}")
-        with self.flux_operator_helmrelease_path.open("r", encoding="utf-8") as handle:
-            release = yaml.safe_load(handle) or {}
-        metadata = release.get("metadata") or {}
-        namespace = metadata.get("namespace", "flux-system")
-        self.flux_namespace = str(namespace)
-        return self.flux_namespace
-
-    def render_flux_instance(self) -> Dict[str, Any]:
-        if not self.flux_instance_values_path.exists():
-            raise BootstrapError(f"[Flux] HelmRelease values missing at {self.flux_instance_values_path}; ensure infra/flux-system/flux-instance/app/helmrelease.yaml exists")
-        with self.flux_instance_values_path.open("r", encoding="utf-8") as handle:
-            release = yaml.safe_load(handle) or {}
-        values = (((release.get("spec") or {}).get("values") or {}).get("instance")) or {}
-        if not values:
-            raise BootstrapError(f"[Flux] HelmRelease {self.flux_instance_values_path} must define spec.values.instance")
-        metadata = release.get("metadata") or {}
-        name = metadata.get("name", "flux")
-        namespace = metadata.get("namespace", self.get_flux_namespace())
-        self.flux_instance_name = name
-        self.flux_instance_namespace = namespace
-        if not self.flux_sync_secret_name:
-            pull_secret = ((values.get("sync") or {}).get("pullSecret")) or "flux-sync"
-            self.flux_sync_secret_name = str(pull_secret)
-        return {
-            "apiVersion": "fluxcd.controlplane.io/v1",
-            "kind": "FluxInstance",
-            "metadata": {"name": name, "namespace": namespace},
-            "spec": values,
-        }
-
-    def get_flux_sync_secret_name(self) -> str:
-        if self.flux_sync_secret_name:
-            return self.flux_sync_secret_name
-        self.render_flux_instance()
-        assert self.flux_sync_secret_name is not None
-        return self.flux_sync_secret_name
-
-    def apply_flux_instance(self) -> None:
-        manifest = self.render_flux_instance()
-        assert self.flux_instance_name is not None
-        assert self.flux_instance_namespace is not None
-        self.logger.info(f"[Flux] Applying FluxInstance {self.flux_instance_name} in namespace {self.flux_instance_namespace}")
-        temp_file = self.make_temp_file()
-        temp_file.write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
-        try:
-            self.run(["kubectl", "apply", "-f", str(temp_file)])
-        finally:
-            try:
-                temp_file.unlink()
-            except FileNotFoundError:  # pragma: no cover - best effort cleanup
-                pass
-
-    def wait_for_flux_instance(self) -> None:
-        if not self.flux_instance_name or not self.flux_instance_namespace:
-            self.render_flux_instance()
-        assert self.flux_instance_name is not None
-        assert self.flux_instance_namespace is not None
-        self.logger.info(f"[Flux] Waiting for FluxInstance {self.flux_instance_name} in {self.flux_instance_namespace} to become Ready")
+    def install_multus(self) -> None:
+        self.logger.info("[Multus] Installing Multus via Helm...")
+        self.ensure_namespace_exists("platform-system")
+        chart_version = self.get_multus_chart_version()
         self.run(
             [
-                "kubectl",
-                "-n",
-                self.flux_instance_namespace,
-                "wait",
-                "--for=condition=Ready",
-                f"fluxinstance/{self.flux_instance_name}",
-                "--timeout=600s",
+                "helm",
+                "upgrade",
+                "--install",
+                "multus",
+                "oci://ghcr.io/bjw-s-labs/helm/multus",
+                "--namespace",
+                "platform-system",
+                "--create-namespace",
+                "--version",
+                chart_version,
+                "--wait",
+                "--wait-for-jobs",
+                "-f",
+                str(self.multus_values_path),
             ]
         )
-        self.logger.info("[Flux] FluxInstance reports Ready")
+        if self.multus_manifests_path.exists():
+            self.run(["kubectl", "apply", "-f", str(self.multus_manifests_path)])
+
+    def apply_argocd_bootstrap(self) -> None:
+        if not self.argocd_bootstrap_path.exists():
+            raise BootstrapError(f"[ArgoCD] Bootstrap manifest not found at {self.argocd_bootstrap_path}")
+
+        self.logger.info(f"[ArgoCD] Applying bootstrap application from {self.argocd_bootstrap_path}")
+        self.run(["kubectl", "apply", "-f", str(self.argocd_bootstrap_path)])
 
     # ------------------------------------------------------------- Delete flow
     def teardown_cluster(self) -> None:

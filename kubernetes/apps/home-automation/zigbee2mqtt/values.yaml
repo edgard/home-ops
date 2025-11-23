@@ -1,0 +1,70 @@
+---
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        securityContext:
+          privileged: true
+        image:
+          repository: koenkk/zigbee2mqtt
+          tag: 2.6.3
+        env:
+          TZ: Europe/Warsaw
+          ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mosquitto.home-automation.svc.cluster.local:1883
+          ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyUSB0
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+        ports:
+          - name: http
+            containerPort: 8080
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    labels:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      http:
+        enabled: true
+        port: 8080
+        protocol: TCP
+        targetPort: 8080
+ingress:
+  main:
+    enabled: false
+persistence:
+  data:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/zigbee2mqtt/data
+    globalMounts:
+      - path: /app/data
+  usb:
+    type: hostPath
+    hostPath: /dev/ttyUSB0
+    hostPathType: CharDevice
+    globalMounts:
+      - path: /dev/ttyUSB0

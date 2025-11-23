@@ -1,0 +1,30 @@
+---
+replicaCount: 1
+strategy:
+  type: Recreate
+installCRDs: true
+global:
+  leaderElection:
+    namespace: platform-system
+livenessProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 5
+webhook:
+  replicaCount: 1
+  strategy:
+    type: Recreate
+  livenessProbe:
+    failureThreshold: 5
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 5
+  readinessProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 15
+    timeoutSeconds: 5
+cainjector:
+  replicaCount: 1
+  strategy:
+    type: Recreate
