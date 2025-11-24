@@ -1,85 +1,48 @@
 {
-  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
-    'config:recommended',
-    ':semanticCommits',
-    ':timezone(Europe/Warsaw)',
-    ':prHourlyLimitNone',
-    'docker:enableMajor',
+    "config:recommended",
+    ":semanticCommits",
+    ":timezone(Europe/Warsaw)",
+    ":prHourlyLimitNone",
+    "docker:enableMajor",
   ],
-  ignorePaths: [
-    '**/*.sops.yaml',
-    '**/*.sops.yml',
-  ],
-  argocd: {
-    managerFilePatterns: [
-      '/^kubernetes\/argocd\/.*\.ya?ml$/',
-    ],
-  },
+  ignorePaths: ["**/*.sops.yaml", "**/*.sops.yml"],
+  argocd: { managerFilePatterns: ["/^kubernetes/argocd/.*\\.ya?ml$/"] },
   customManagers: [
     {
-      customType: 'regex',
-      description: 'Track inline container images across kubernetes manifests and values',
-      managerFilePatterns: [
-        '/^kubernetes\/apps\/.+\.ya?ml$/',
-        '/^kubernetes\/argocd\/applications\/.+\.ya?ml$/',
-        '/^cluster\/.+\.ya?ml$/',
-      ],
+      customType: "regex",
+      description: "Track Kind node images referenced by cluster/config/cluster-config.yaml",
+      managerFilePatterns: ["/^cluster/config/cluster-config\\.ya?ml$/"],
       matchStrings: [
-        'repository:\s*["\']?(?<depName>[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*)["\']?\s*\n\s*tag:\s*["\']?(?<currentValue>[A-Za-z0-9_.\-]+)["\']?',
-        'image:\s*["\']?(?<depName>[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*):(?<currentValue>[A-Za-z0-9_.\-]+)["\']?',
+        "image:\\s*(?:&\\S+\\s+)?(?<depName>kindest/node):(?<currentValue>[0-9A-Za-z_.\\-]+)",
       ],
-      datasourceTemplate: 'docker',
-    },
-    {
-      customType: 'regex',
-      description: 'Track Kind node images referenced by cluster/config/cluster-config.yaml',
-      managerFilePatterns: [
-        '/^cluster\/config\/cluster-config\.yaml$/',
-      ],
-      matchStrings: [
-        'image:\s*(?<depName>kindest/node):(?<currentValue>[0-9A-Za-z_.\-]+)',
-      ],
-      datasourceTemplate: 'docker',
+      datasourceTemplate: "docker",
     },
   ],
   packageRules: [
     {
-      description: 'Require manual review for major upgrades',
+      description: "Require manual review for major upgrades",
       automerge: false,
-      matchUpdateTypes: [
-        'major',
-      ],
-      addLabels: [
-        'renovate/manual-review',
-      ],
+      matchUpdateTypes: ["major"],
+      addLabels: ["renovate/manual-review"],
     },
     {
-      description: 'Auto-merge all non-major dependency updates',
+      description: "Auto-merge all non-major dependency updates",
       automerge: true,
-      automergeType: 'branch',
-      matchUpdateTypes: [
-        'minor',
-        'patch',
-        'digest',
-        'pin',
-        'rollback',
-      ],
+      automergeType: "branch",
+      matchUpdateTypes: ["minor", "patch", "digest", "pin", "rollback"],
       ignoreTests: true,
     },
     {
-      description: 'Group Kind cluster node updates into a single PR',
-      matchFileNames: [
-        'cluster/config/cluster-config.yaml',
-      ],
-      groupName: 'kind-nodes',
+      description: "Group Kind cluster node updates into a single PR",
+      matchFileNames: ["cluster/config/cluster-config.yaml"],
+      groupName: "kind-nodes",
     },
     {
-      description: 'Only consider semver Jellyfin tags',
-      matchPackageNames: [
-        'lscr.io/linuxserver/jellyfin',
-      ],
-      allowedVersions: '/^(?:[0-9]|[1-9][0-9])\.\d+\.\d+$/',
+      description: "Only consider semver Jellyfin tags",
+      matchPackageNames: ["lscr.io/linuxserver/jellyfin"],
+      allowedVersions: "/^(?:[0-9]|[1-9][0-9]).d+.d+$/",
     },
   ],
 }
