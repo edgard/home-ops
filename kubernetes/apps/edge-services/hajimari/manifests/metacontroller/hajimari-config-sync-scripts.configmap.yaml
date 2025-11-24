@@ -130,19 +130,24 @@ data:
         base["customApps"] = custom_apps
         return base
 
-    def render_config(base_path: Path, selector: str, host: str, port: str, token: str, ctx, logger, static_apps_path: Path, static_bookmarks_path: Path):
-        base = yaml.safe_load(base_path.read_text(encoding="utf-8")) or {}
-        entries = load_routes(host, port, token, ctx, selector)
-        cfg = build_config(entries, base)
-        discovered_apps = cfg.get("customApps", []) or []
-        static_apps = yaml.safe_load(static_apps_path.read_text(encoding="utf-8")) if static_apps_path.exists() else []
+    def render_config(base: dict, selector: str, host: str, port: str, token: str, ctx, logger, static_apps: list, static_bookmarks_raw: list):
+        if not base:
+            raise SystemExit("base config is required")
+        if not isinstance(base, dict):
+            raise SystemExit(f"base config must be a mapping, got {type(base)}")
+        if static_apps is None:
+            static_apps = []
         if static_apps and not isinstance(static_apps, list):
             raise SystemExit(f"static apps must be a list, got {type(static_apps)}")
 
-        static_bookmarks_raw = yaml.safe_load(static_bookmarks_path.read_text(encoding="utf-8")) if static_bookmarks_path.exists() else []
+        if static_bookmarks_raw is None:
+            static_bookmarks_raw = []
         if static_bookmarks_raw and not isinstance(static_bookmarks_raw, list):
             raise SystemExit(f"static bookmarks must be a list, got {type(static_bookmarks_raw)}")
 
+        entries = load_routes(host, port, token, ctx, selector)
+        cfg = build_config(entries, base)
+        discovered_apps = cfg.get("customApps", []) or []
         cfg["customApps"] = discovered_apps + static_apps
 
         bookmark_groups = []
@@ -203,7 +208,11 @@ data:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
-        final_cfg, stats = render_config(base_path, selector, host, port, token, ctx, logger, static_apps_path, static_bookmarks_path)
+        base = yaml.safe_load(base_path.read_text(encoding="utf-8")) if base_path.exists() else {}
+        static_apps = yaml.safe_load(static_apps_path.read_text(encoding="utf-8")) if static_apps_path.exists() else []
+        static_bookmarks = yaml.safe_load(static_bookmarks_path.read_text(encoding="utf-8")) if static_bookmarks_path.exists() else []
+
+        final_cfg, stats = render_config(base, selector, host, port, token, ctx, logger, static_apps, static_bookmarks)
 
         write_config(final_cfg, out_path)
         logger.debug(
@@ -241,16 +250,13 @@ data:
 
     TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
     CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-    BASE_PATH = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
-    STATIC_PATH = Path(os.environ.get("CONFIG_STATIC", "/templates/static-apps.yaml"))
-    STATIC_BOOKMARKS_PATH = Path(os.environ.get("CONFIG_BOOKMARKS", "/templates/static-bookmarks.yaml"))
     DEFAULT_SELECTOR = os.environ.get("ROUTE_SELECTOR", generator.DEFAULT_ROUTE_SELECTOR)
     DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "120"))
     DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "hajimari-config-generated")
     DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
     SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
 
-    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, parent_meta: dict, parent_status: dict, logger):
+    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, base: dict, static_apps: list, static_bookmarks: list, parent_meta: dict, parent_status: dict, logger):
         host = os.environ.get("KUBERNETES_SERVICE_HOST")
         port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
         if not host:
@@ -261,7 +267,7 @@ data:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
-        config, stats = generator.render_config(BASE_PATH, selector, host, port, token, ctx, logger, STATIC_PATH, STATIC_BOOKMARKS_PATH)
+        config, stats = generator.render_config(base, selector, host, port, token, ctx, logger, static_apps, static_bookmarks)
         cfg_yaml = yaml.safe_dump(config, sort_keys=False)
         cfg_hash = hashlib.sha256(cfg_yaml.encode("utf-8")).hexdigest()
 
@@ -351,9 +357,12 @@ data:
             output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
             selector = spec.get("routeSelector") or DEFAULT_SELECTOR
             resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+            base = spec.get("base") or {}
+            static_apps = spec.get("staticApps") or []
+            static_bookmarks = spec.get("staticBookmarks") or []
 
             try:
-                response = build_response(namespace, output_name, output_key, selector, resync, parent.get("metadata") or {}, status, logging.getLogger("hajimari-webhook"))
+                response = build_response(namespace, output_name, output_key, selector, resync, base, static_apps, static_bookmarks, parent.get("metadata") or {}, status, logging.getLogger("hajimari-webhook"))
                 self._write_json(200, response)
             except Exception as exc:  # pragma: no cover - surfaced via status
                 now = datetime.now(timezone.utc).isoformat()

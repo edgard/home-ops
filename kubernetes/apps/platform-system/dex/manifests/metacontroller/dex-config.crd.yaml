@@ -26,6 +26,10 @@ spec:
             spec:
               type: object
               properties:
+                base:
+                  type: object
+                  description: Inline Dex config template.
+                  x-kubernetes-preserve-unknown-fields: true
                 outputConfigMap:
                   type: string
                   description: Name of the ConfigMap to write rendered Dex config into.

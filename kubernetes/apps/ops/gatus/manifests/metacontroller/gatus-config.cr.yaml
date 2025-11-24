@@ -8,6 +8,121 @@ metadata:
     app.kubernetes.io/name: gatus-config
     app.kubernetes.io/part-of: gatus
 spec:
+  base:
+    metrics: true
+    ui:
+      title: Homelab Status
+      description: Real-time health for homelab services.
+      header: Homelab
+      dark-mode: true
+      default-sort-by: group
+    storage:
+      type: sqlite
+      path: /data/gatus.db
+    connectivity:
+      checker:
+        target: 1.1.1.1:53
+        interval: 30s
+    alerting:
+      telegram:
+        token: ${GATUS_TELEGRAM_TOKEN}
+        id: ${GATUS_TELEGRAM_CHAT_ID}
+        default-alert:
+          failure-threshold: 3
+          success-threshold: 1
+          send-on-resolved: true
+  staticEndpoints:
+    - name: dns-edgard-cloudflare
+      group: 01-dns
+      url: 1.1.1.1
+      dns:
+        query-name: edgard.org
+        query-type: A
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[DNS_RCODE] == NOERROR"
+    - name: dns-edgard-google
+      group: 01-dns
+      url: 8.8.8.8
+      dns:
+        query-name: edgard.org
+        query-type: A
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[DNS_RCODE] == NOERROR"
+    - name: ping-google
+      group: 02-connectivity
+      url: icmp://www.google.com
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+    - name: ping-microsoft
+      group: 02-connectivity
+      url: icmp://www.microsoft.com
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+    - name: ping-amazon
+      group: 02-connectivity
+      url: icmp://www.amazon.com
+      labels:
+        namespace: network
+        scope: external
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+    - name: envoy-external
+      group: 03-gateway
+      url: tcp://envoy-external.platform-system.svc.cluster.local:443
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 30s
+      conditions:
+        - "[CONNECTED] == true"
+    - name: envoy-internal
+      group: 03-gateway
+      url: tcp://envoy-internal.platform-system.svc.cluster.local:443
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 30s
+      conditions:
+        - "[CONNECTED] == true"
+    - name: envoy-external-https
+      group: 03-gateway
+      url: https://id.edgard.org/
+      labels:
+        namespace: platform-system
+        scope: external
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 400"
+        - "[CERTIFICATE_EXPIRATION] > 168h"
+    - name: envoy-internal-https
+      group: 03-gateway
+      url: https://id.edgard.org/
+      labels:
+        namespace: platform-system
+        scope: internal
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 400"
+        - "[CERTIFICATE_EXPIRATION] > 168h"
   outputConfigMap: gatus-config-generated
   outputKey: config.yaml
   serviceSelector: gatus.edgard.org/enabled=true

@@ -36,8 +36,6 @@ spec:
           env:
             - name: TZ
               value: Europe/Warsaw
-            - name: CONFIG_TEMPLATE
-              value: /templates/base.yaml
             - name: WEBHOOK_PORT
               value: "8080"
             - name: RESYNC_SECONDS
@@ -65,15 +63,8 @@ spec:
             - name: scripts
               mountPath: /scripts
               readOnly: true
-            - name: templates
-              mountPath: /templates
-              readOnly: true
       volumes:
         - name: scripts
           configMap:
             name: dex-config-sync-scripts
-            defaultMode: 0444
-        - name: templates
-          configMap:
-            name: dex-config-defaults
             defaultMode: 0444

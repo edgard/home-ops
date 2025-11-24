@@ -203,12 +203,13 @@ data:
             )
         return services
 
-    def render_config(base_path: Path, static_path: Path, selector: str, host: str, port: str, token: str, ca_path: str, logger):
-        base = load_yaml(base_path) or {}
-        static_endpoints = load_yaml(static_path) or []
-
+    def render_config(base: dict, static_endpoints: list, selector: str, host: str, port: str, token: str, ca_path: str, logger):
+        if not base:
+            raise SystemExit("base config is required")
         if not isinstance(base, dict):
             raise SystemExit(f"base config must be a mapping, got {type(base)}")
+        if static_endpoints is None:
+            static_endpoints = []
         if static_endpoints and not isinstance(static_endpoints, list):
             raise SystemExit(f"static endpoints must be a list, got {type(static_endpoints)}")
 
@@ -251,7 +252,9 @@ data:
         ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
         token = token_path.read_text(encoding="utf-8").strip()
 
-        config, stats = render_config(base_path, static_path, selector, host, port, token, ca_path, logger)
+        base = load_yaml(base_path) or {}
+        static_endpoints = load_yaml(static_path) or []
+        config, stats = render_config(base, static_endpoints, selector, host, port, token, ca_path, logger)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(
@@ -291,15 +294,13 @@ data:
     )
     TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
     CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-    BASE_PATH = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
-    STATIC_PATH = Path(os.environ.get("CONFIG_STATIC", "/templates/static-endpoints.yaml"))
     DEFAULT_SELECTOR = os.environ.get("SERVICE_SELECTOR", "gatus.edgard.org/enabled=true")
     DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "120"))
     DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "gatus-config-generated")
     DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
     SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
 
-    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, parent_status: dict, logger):
+    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, base: dict, static_endpoints: list, parent_status: dict, logger):
         host = os.environ.get("KUBERNETES_SERVICE_HOST")
         port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
         if not host:
@@ -307,8 +308,8 @@ data:
 
         token = TOKEN_PATH.read_text(encoding="utf-8").strip()
         config, stats = generator.render_config(
-            base_path=BASE_PATH,
-            static_path=STATIC_PATH,
+            base=base,
+            static_endpoints=static_endpoints,
             selector=selector,
             host=host,
             port=port,
@@ -401,10 +402,12 @@ data:
             output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
             selector = spec.get("serviceSelector") or DEFAULT_SELECTOR
             resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+            base = spec.get("base") or {}
+            static_endpoints = spec.get("staticEndpoints") or []
             logger = logging.getLogger("gatus-webhook")
 
             try:
-                response = build_response(namespace, output_name, output_key, selector, resync, status, logger)
+                response = build_response(namespace, output_name, output_key, selector, resync, base, static_endpoints, status, logger)
                 self._write_json(200, response)
             except Exception as exc:  # pragma: no cover - surfaced via status
                 now = datetime.now(timezone.utc).isoformat()

@@ -36,10 +36,6 @@ spec:
           env:
             - name: TZ
               value: Europe/Warsaw
-            - name: CONFIG_TEMPLATE
-              value: /templates/base.yaml
-            - name: CONFIG_STATIC
-              value: /templates/static-endpoints.yaml
             - name: SERVICE_SELECTOR
               value: gatus.edgard.org/enabled=true
             - name: WEBHOOK_PORT
@@ -69,15 +65,8 @@ spec:
             - name: scripts
               mountPath: /scripts
               readOnly: true
-            - name: templates
-              mountPath: /templates
-              readOnly: true
       volumes:
         - name: scripts
           configMap:
             name: gatus-config-sync-scripts
-            defaultMode: 0444
-        - name: templates
-          configMap:
-            name: gatus-config-defaults
             defaultMode: 0444

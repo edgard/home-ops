@@ -116,8 +116,9 @@ data:
             "redirectCount": len(redirects),
         }
 
-    def render_config(base_path: Path, host: str, port: str, token: str, ca_path: str, logger):
-        base = yaml.safe_load(base_path.read_text(encoding="utf-8")) or {}
+    def render_config(base: dict, host: str, port: str, token: str, ca_path: str, logger):
+        if not base:
+            raise SystemExit("base config is required")
         if not isinstance(base, dict):
             raise SystemExit(f"base config must be a mapping, got {type(base)}")
 
@@ -161,7 +162,8 @@ data:
         ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
         token = token_path.read_text(encoding="utf-8").strip()
 
-        cfg, stats = render_config(base_path, host, port, token, ca_path, logger)
+        base = yaml.safe_load(base_path.read_text(encoding="utf-8")) if base_path.exists() else {}
+        cfg, stats = render_config(base, host, port, token, ca_path, logger)
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
@@ -197,13 +199,12 @@ data:
 
     TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
     CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-    BASE_PATH = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
     DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "120"))
     DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "dex-config-generated")
     DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
     SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
 
-    def build_response(namespace: str, output_name: str, output_key: str, resync: int, parent_status: dict, logger):
+    def build_response(namespace: str, output_name: str, output_key: str, resync: int, base: dict, parent_status: dict, logger):
         host = os.environ.get("KUBERNETES_SERVICE_HOST")
         port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
         if not host:
@@ -211,7 +212,7 @@ data:
 
         token = TOKEN_PATH.read_text(encoding="utf-8").strip()
         config, stats = generator.render_config(
-            base_path=BASE_PATH,
+            base=base,
             host=host,
             port=port,
             token=token,
@@ -301,10 +302,11 @@ data:
             output_name = spec.get("outputConfigMap") or DEFAULT_OUTPUT_CM
             output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
             resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+            base = spec.get("base") or {}
             logger = logging.getLogger("dex-webhook")
 
             try:
-                response = build_response(namespace, output_name, output_key, resync, status, logger)
+                response = build_response(namespace, output_name, output_key, resync, base, status, logger)
                 self._write_json(200, response)
             except Exception as exc:  # pragma: no cover - surfaced via status
                 now = datetime.now(timezone.utc).isoformat()

@@ -26,6 +26,16 @@ spec:
             spec:
               type: object
               properties:
+                base:
+                  type: object
+                  description: Inline Gatus base config.
+                  x-kubernetes-preserve-unknown-fields: true
+                staticEndpoints:
+                  type: array
+                  description: Static endpoints to merge with discovered services.
+                  items:
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                 outputConfigMap:
                   type: string
                   description: Name of the ConfigMap to write rendered Gatus config into.
