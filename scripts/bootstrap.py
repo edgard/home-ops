@@ -7,7 +7,6 @@ import argparse
 import json
 import logging
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -43,9 +42,9 @@ class ColorFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         base = super().format(record)
         if not self.use_color:
-            return f"\n{base}"
+            return base
         color = self.COLORS.get(record.levelno, "")
-        return f"\n{color}{base}{self.RESET}"
+        return f"{color}{base}{self.RESET}"
 
 
 def build_logger() -> logging.Logger:
@@ -81,14 +80,10 @@ class Bootstrapper:
         self.argocd_app_path = self.project_root / "kubernetes" / "argocd" / "applications" / "argocd.yaml"
         self.multus_app_path = self.project_root / "kubernetes" / "argocd" / "applications" / "multus.yaml"
         self.multus_values_path = self.project_root / "kubernetes" / "apps" / "platform-system" / "multus" / "values.yaml"
-        self.multus_manifests_path = (
-            self.project_root / "kubernetes" / "apps" / "platform-system" / "multus" / "manifests"
-        )
+        self.multus_manifests_path = self.project_root / "kubernetes" / "apps" / "platform-system" / "multus" / "manifests"
 
         # Runtime/cache state
         self.cluster_name = ""
-        self.docker_context = ""
-        self.multus_network = ""
         self.bind_address = ""
         self.advertise_host = ""
         self.original_docker_context: Optional[str] = None
@@ -99,39 +94,17 @@ class Bootstrapper:
         self.env = os.environ.copy()
         self.logger = build_logger()
 
-    # ------------------------------------------------------------ Core helpers
-    def run(
-        self,
-        cmd: List[str],
-        *,
-        check: bool = True,
-        capture_output: bool = False,
-        env: Optional[Dict[str, str]] = None,
-        stdout=None,
-    ) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            cmd,
-            check=check,
-            text=True,
-            capture_output=capture_output,
-            env=env or self.env,
-            stdout=stdout,
-        )
+    @property
+    def kind_context(self) -> str:
+        return f"kind-{self.cluster_name}"
 
-    @staticmethod
-    def parse_host_port(server: str) -> Tuple[Optional[str], Optional[int]]:
-        parsed = urlparse(server)
-        if parsed.scheme and parsed.hostname and parsed.port:
-            return parsed.hostname, parsed.port
+    @property
+    def docker_context(self) -> str:
+        return self.kind_context
 
-        match = re.match(r"https?://([^:/]+):(\d+)", server)
-        if match:
-            return match.group(1), int(match.group(2))
-
-        fallback = re.match(r".*:(\d+)$", server)
-        if fallback:
-            return None, int(fallback.group(1))
-        return None, None
+    @property
+    def multus_network(self) -> str:
+        return f"{self.kind_context}-net"
 
     def get_chart_version(self, app_path: Path, repo_suffix: str, label: str) -> str:
         """Read an Application manifest and return targetRevision for the given OCI repo suffix."""
@@ -181,14 +154,14 @@ class Bootstrapper:
         os.close(fd)
         return Path(path)
 
-    # -------------------------------------------------------------- Entry point
+    # --------------------------------------------------------- Execution flow
     def execute(self) -> None:
         self.init_environment()
 
         if self.delete_mode:
-            self.logger.info(f"[Bootstrap] Starting delete workflow for cluster {self.cluster_name}")
+            self.logger.info(f"[Bootstrap] Starting delete workflow cluster={self.cluster_name}")
             self.teardown_cluster()
-            self.logger.info(f"[Bootstrap] Delete workflow complete for cluster {self.cluster_name}")
+            self.logger.info(f"[Bootstrap] Delete workflow complete cluster={self.cluster_name}")
             return
 
         self.bootstrap_flow()
@@ -204,11 +177,9 @@ class Bootstrapper:
                 check=False,
             )
 
-    # ---------------------------------------------------- Environment bootstrap
+    # ---------------------------------------------------- Environment & dependencies
     def init_environment(self) -> None:
         self.cluster_name = self.load_cluster_name()
-        self.docker_context = f"kind-{self.cluster_name}"
-        self.multus_network = f"kind-{self.cluster_name}-net"
 
         required = ["docker", "kind", "sops"]
         if not self.delete_mode:
@@ -221,19 +192,19 @@ class Bootstrapper:
         self.set_env_path("KUBECONFIG", self.default_kubeconfig)
         self.set_env_path("SOPS_AGE_KEY_FILE", self.default_age_key)
 
-        self.logger.info(f"[Bootstrap] Targeting cluster {self.cluster_name} (context {self.docker_context})")
-        self.logger.info(f"[Network] Using Multus iface={self.multus_iface}, subnet={self.multus_subnet}, " f"gateway={self.multus_gateway}, range={self.multus_ip_range}")
+        self.logger.info(f"[Bootstrap] Targeting cluster name={self.cluster_name} context={self.docker_context}")
+        self.logger.info(f"[Network] Using Multus iface={self.multus_iface} subnet={self.multus_subnet} " f"gateway={self.multus_gateway} range={self.multus_ip_range}")
 
     def prepare_docker_context(self) -> None:
         contexts_output = self.run(["docker", "context", "ls", "--format", "{{.Name}}"], capture_output=True).stdout
         contexts = [ctx.strip() for ctx in contexts_output.splitlines()]
         if self.docker_context not in contexts:
-            raise BootstrapError(f"[Docker] Context '{self.docker_context}' not found; create it before running bootstrap")
+            raise BootstrapError(f"[Docker] Context not found name={self.docker_context} action=create-context-before-bootstrap")
 
         current = (self.run(["docker", "context", "show"], check=False, capture_output=True).stdout or "default").strip()
         self.original_docker_context = current
         if current != self.docker_context:
-            self.logger.info(f"[Docker] Switching context to {self.docker_context}")
+            self.logger.info(f"[Docker] Switching context to context={self.docker_context}")
             self.run(["docker", "context", "use", self.docker_context])
 
     def load_cluster_name(self) -> str:
@@ -248,9 +219,9 @@ class Bootstrapper:
             raise BootstrapError(f"[Config] Kind config {self.kind_config_path} does not define a cluster name")
         return str(name)
 
-    # ------------------------------------------------------- Main create flow
+    # ------------------------------------------------------- Create workflow
     def bootstrap_flow(self) -> None:
-        self.logger.info(f"[Bootstrap] Starting create workflow for cluster {self.cluster_name}")
+        self.logger.info(f"[Bootstrap] Starting create workflow cluster={self.cluster_name}")
         self.detect_api_endpoint_settings()
         self.create_cluster()
         self.configure_macvlan_network()
@@ -263,9 +234,9 @@ class Bootstrapper:
         self.install_argocd()
         self.create_argocd_repo_secret()
         self.apply_argocd_bootstrap()
-        self.logger.info(f"[Bootstrap] Complete; kubectl context is kind-{self.cluster_name}")
+        self.logger.info(f"[Bootstrap] Complete kubectl-context={self.kind_context}")
 
-    # ---------------------------------------------------------- Cluster ops
+    # -------------------------------------------------- Cluster & networking
     def detect_api_endpoint_settings(self) -> None:
         if self.advertise_host:
             return
@@ -279,13 +250,11 @@ class Bootstrapper:
         self.bind_address = "0.0.0.0" if host else ""
 
         if host:
-            self.logger.info(f"[API] Exposing control plane on {host} (bind {self.bind_address})")
+            self.logger.info(f"[API] Exposing control plane host={host} bind={self.bind_address}")
         else:
             self.logger.info("[API] Using local control plane endpoint")
 
     def use_kube_context(self) -> None:
-        context = f"kind-{self.cluster_name}"
-
         current = (
             self.run(
                 ["kubectl", "config", "current-context"],
@@ -294,8 +263,8 @@ class Bootstrapper:
             ).stdout
             or ""
         ).strip()
-        if current == context:
-            self.logger.info(f"[Kubeconfig] Using context {context}")
+        if current == self.kind_context:
+            self.logger.info(f"[Kubeconfig] Using context={self.kind_context}")
             return
 
         contexts_output = self.run(
@@ -304,11 +273,11 @@ class Bootstrapper:
             capture_output=True,
         ).stdout
         contexts = [line.strip() for line in contexts_output.splitlines() if line.strip()]
-        if context not in contexts:
-            raise BootstrapError(f"[Kubeconfig] Context '{context}' not found. Create the Kind cluster first or rerun bootstrap.")
+        if self.kind_context not in contexts:
+            raise BootstrapError(f"[Kubeconfig] Context '{self.kind_context}' not found. Create the Kind cluster first or rerun bootstrap.")
 
-        self.logger.info(f"[Kubeconfig] Switching kubectl context to {context}")
-        self.run(["kubectl", "config", "use-context", context])
+        self.logger.info(f"[Kubeconfig] Switching kubectl context to context={self.kind_context}")
+        self.run(["kubectl", "config", "use-context", self.kind_context])
 
     def inspect_docker_host(self, context: str) -> str:
         output = self.run(["docker", "context", "inspect", context], check=False, capture_output=True).stdout
@@ -336,7 +305,6 @@ class Bootstrapper:
         return without_scheme.split(":")[0]
 
     def create_cluster(self) -> None:
-        tmp_config = self.make_temp_file(suffix=".yaml")
         with self.kind_config_path.open("r", encoding="utf-8") as handle:
             config = yaml.safe_load(handle)
 
@@ -347,19 +315,27 @@ class Bootstrapper:
         if not nodes or not nodes[0].get("kubeadmConfigPatches"):
             raise BootstrapError(f"[Config] {self.kind_config_path} must define nodes[0].kubeadmConfigPatches for the control plane")
 
+        config_path: Path = self.kind_config_path
         if self.bind_address:
+            tmp_config = self.make_temp_file(suffix=".yaml")
             networking = config.setdefault("networking", {})
             networking["apiServerAddress"] = self.bind_address
-            self.logger.info(f"[Config] Setting Kind apiServerAddress override to {self.bind_address}")
-
-        with tmp_config.open("w", encoding="utf-8") as handle:
-            yaml.safe_dump(config, handle, sort_keys=False)
+            self.logger.info(f"[Config] Setting Kind apiServerAddress={self.bind_address}")
+            with tmp_config.open("w", encoding="utf-8") as handle:
+                yaml.safe_dump(config, handle, sort_keys=False)
+            config_path = tmp_config
 
         if not self.cluster_exists():
-            self.logger.info(f"[Cluster] Creating Kind cluster {self.cluster_name}")
-            self.run(["kind", "create", "cluster", "--config", str(tmp_config)])
-        elif self.bind_address or self.advertise_host:
-            self.logger.warning(f"[Cluster] {self.cluster_name} already exists; rerun with --delete to apply updated API exposure settings")
+            self.logger.info(f"[Cluster] Creating Kind cluster name={self.cluster_name}")
+            self.run(["kind", "create", "cluster", "--config", str(config_path)])
+        else:
+            if self.bind_address or self.advertise_host:
+                current_host, _ = self.current_api_server_endpoint()
+                if current_host and current_host != self.advertise_host:
+                    raise BootstrapError(f"[Cluster] API host mismatch name={self.cluster_name} current={current_host} " f"expected={self.advertise_host} action=recreate-with-delete")
+                if current_host is None:
+                    raise BootstrapError(f"[Cluster] API host unknown name={self.cluster_name} action=recreate-with-delete")
+            self.logger.info(f"[Cluster] Skipping create reason=cluster-exists name={self.cluster_name}")
 
     def cluster_exists(self) -> bool:
         clusters = self.run(["kind", "get", "clusters"], check=False, capture_output=True).stdout.splitlines()
@@ -369,9 +345,9 @@ class Bootstrapper:
         network_name = self.multus_network
         networks = self.run(["docker", "network", "ls", "--format", "{{.Name}}"], capture_output=True).stdout.splitlines()
         if network_name in networks:
-            self.logger.info(f"[Network] Reusing Docker macvlan {network_name}")
+            self.logger.info(f"[Network] Reusing Docker macvlan name={network_name}")
         else:
-            self.logger.info(f"[Network] Creating Docker macvlan {network_name} on {self.multus_iface} " f"(subnet {self.multus_subnet}, ip-range {self.multus_ip_range})")
+            self.logger.info(f"[Network] Creating Docker macvlan name={network_name} iface={self.multus_iface} " f"subnet={self.multus_subnet} gateway={self.multus_gateway} ip-range={self.multus_ip_range}")
             self.run(
                 [
                     "docker",
@@ -391,19 +367,28 @@ class Bootstrapper:
                 ]
             )
 
+        members_output = self.run(
+            ["docker", "network", "inspect", network_name, "-f", "{{range .Containers}}{{.Name}} {{end}}"],
+            check=False,
+            capture_output=True,
+        ).stdout
+        already_attached = set(members_output.split()) if members_output else set()
+
         result = self.run(
             ["kind", "get", "nodes", "--name", self.cluster_name],
             check=False,
             capture_output=True,
         ).stdout
         if not result:
-            self.logger.warning(f"[Network] No nodes reported for cluster {self.cluster_name}; skipping macvlan attachment")
-            return
+            raise BootstrapError(f"[Network] No nodes reported name={self.cluster_name} action=abort-macvlan-attachment")
 
-        attached, unchanged = [], []
+        attached, already, failed = [], [], []
         for node in result.splitlines():
             node = node.strip()
             if not node or "control-plane" in node:
+                continue
+            if node in already_attached:
+                already.append(node)
                 continue
             completed = self.run(
                 ["docker", "network", "connect", network_name, node],
@@ -412,58 +397,61 @@ class Bootstrapper:
             if completed.returncode == 0:
                 attached.append(node)
             else:
-                unchanged.append(node)
+                failed.append(node)
 
         if attached:
-            self.logger.info(f"[Network] Attached workers {' '.join(attached)} to {network_name}")
-        if unchanged:
-            self.logger.warning(f"[Network] Workers already attached to {network_name}: {' '.join(unchanged)}")
-        if not attached and not unchanged:
+            self.logger.info(f"[Network] Workers attached network={network_name} nodes={' '.join(attached)}")
+        if already:
+            self.logger.info(f"[Network] Workers already attached network={network_name} nodes={' '.join(already)}")
+        if failed:
+            raise BootstrapError(f"[Network] Failed to attach workers network={network_name} nodes={' '.join(failed)} " "detail=docker-network-connect-output")
+        if not attached and not already and not failed:
             self.logger.info("[Network] No worker nodes eligible for macvlan attachment")
 
     def patch_kubeconfig_endpoint(self) -> None:
         if not self.advertise_host or not self.cluster_exists():
             return
 
-        cluster_context = f"kind-{self.cluster_name}"
+        current_host, port = self.current_api_server_endpoint()
+        if port is None:
+            self.logger.warning("[Kubeconfig] Skipping patch reason=missing-api-server-port")
+            return
+        if current_host == self.advertise_host:
+            return
+
+        new_server = f"https://{self.advertise_host}:{port}"
+        self.logger.info(f"[Kubeconfig] Patching server endpoint server={new_server}")
+        self.run(
+            [
+                "kubectl",
+                "config",
+                "set-cluster",
+                self.kind_context,
+                f"--server={new_server}",
+            ]
+        )
+        return
+
+    def current_api_server_endpoint(self) -> Tuple[Optional[str], Optional[int]]:
         raw = self.run(
             ["kubectl", "config", "view", "--raw", "-o", "json"],
             check=False,
             capture_output=True,
         ).stdout
         if not raw:
-            return
+            return None, None
 
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
-            return
+            return None, None
 
         for cluster in data.get("clusters", []):
-            if cluster.get("name") != cluster_context:
+            if cluster.get("name") != self.kind_context:
                 continue
             server = cluster.get("cluster", {}).get("server", "")
-            current_host, port = self.parse_host_port(server)
-
-            if port is None:
-                self.logger.warning(f"[Kubeconfig] Unable to parse API server port from '{server}'")
-                return
-
-            if current_host == self.advertise_host:
-                return
-
-            new_server = f"https://{self.advertise_host}:{port}"
-            self.logger.info(f"[Kubeconfig] Patching server endpoint to {new_server}")
-            self.run(
-                [
-                    "kubectl",
-                    "config",
-                    "set-cluster",
-                    cluster_context,
-                    f"--server={new_server}",
-                ]
-            )
-            return
+            return self.parse_host_port(server)
+        return None, None
 
     def ensure_nodes_ready(self) -> None:
         self.logger.info("[Nodes] Waiting for all nodes to become Ready")
@@ -480,7 +468,26 @@ class Bootstrapper:
         self.logger.info("[Nodes] All nodes are Ready")
 
     def strip_kindnet_resources(self) -> None:
-        self.logger.info("[Network] Patching Kindnet to remove resource requests and limits")
+        current = self.run(
+            [
+                "kubectl",
+                "-n",
+                "kube-system",
+                "get",
+                "ds",
+                "kindnet",
+                "-o",
+                "jsonpath={.spec.template.spec.containers[0].resources}",
+            ],
+            check=False,
+            capture_output=True,
+        ).stdout.strip()
+
+        if not current or current in ("map[]", "{}"):
+            self.logger.info("[Network] Skipping Kindnet patch reason=resources-already-removed")
+            return
+
+        self.logger.info("[Network] Removing Kindnet resource requests/limits")
         result = self.run(
             [
                 "kubectl",
@@ -497,7 +504,7 @@ class Bootstrapper:
             capture_output=True,
         )
         if result.returncode != 0:
-            self.logger.warning("[Network] Failed to patch Kindnet (resources may already be absent)")
+            self.logger.warning("[Network] Failed to patch Kindnet reason=resources-maybe-absent")
 
     def ensure_namespace_exists(self, namespace: str) -> None:
         namespace = (namespace or "").strip()
@@ -510,7 +517,7 @@ class Bootstrapper:
         )
         if result.returncode == 0:
             return
-        self.logger.info(f"[Kubernetes] Creating namespace {namespace}")
+        self.logger.info(f"[Kubernetes] Creating namespace name={namespace}")
         self.run(["kubectl", "create", "namespace", namespace])
 
     # -------------------------------------------------------- Secrets & ArgoCD
@@ -539,25 +546,25 @@ class Bootstrapper:
 
     def apply_cluster_secrets(self) -> None:
         if not self.ensure_cluster_secrets_loaded():
-            self.logger.warning(f"[Secrets] Cluster secret manifest skipped because {self.cluster_secrets_sops_path} is missing")
+            self.logger.warning(f"[Secrets] Skipping cluster secrets reason=missing-file path={self.cluster_secrets_sops_path}")
             return
         assert self.decrypted_secrets_path is not None
         metadata = (self.cluster_secrets_data or {}).get("metadata") or {}
         namespace = str(metadata.get("namespace") or "platform-system")
         self.ensure_namespace_exists(namespace)
-        self.logger.info(f"[Secrets] Applying {self.cluster_secrets_sops_path} (decrypted)")
+        self.logger.info("[Secrets] Applying cluster secrets secret=cluster-secrets decrypted=true")
         self.run(["kubectl", "apply", "-f", str(self.decrypted_secrets_path)])
 
     def create_argocd_repo_secret(self) -> None:
         if not self.ensure_cluster_secrets_loaded():
-            self.logger.warning("[ArgoCD] Skipping repo secret because cluster secrets are missing")
+            self.logger.warning("[ArgoCD] Skipping repo secret reason=missing-cluster-secrets")
             return
 
         string_data = (self.cluster_secrets_data or {}).get("stringData") or {}
         username = string_data.get("argo_sync_username")
         password = string_data.get("argo_sync_password")
         if not username or not password:
-            self.logger.warning("[ArgoCD] Skipping repo secret; argo_sync_username/password not found in cluster secrets")
+            self.logger.warning("[ArgoCD] Skipping repo secret reason=missing-argo-sync-credentials")
             return
 
         self.ensure_namespace_exists("argocd")
@@ -583,53 +590,70 @@ class Bootstrapper:
         with tmp_secret.open("w", encoding="utf-8") as handle:
             yaml.safe_dump(secret, handle, sort_keys=False)
 
-        self.logger.info("[ArgoCD] Applying repository credentials secret argocd-repo-home-ops")
+        self.logger.info("[ArgoCD] Applying repository credentials secret=argocd-repo-home-ops")
         self.run(["kubectl", "apply", "-f", str(tmp_secret)])
 
-    def install_argocd(self) -> None:
-        self.logger.info("[ArgoCD] Installing ArgoCD via Helm...")
-        self.ensure_namespace_exists("argocd")
-        chart_version = self.get_argocd_chart_version()
+    # ---------------------------------------------------------- Helm installs
+    def install_chart(self, release: str, chart: str, namespace: str, values_path: Path, version: str) -> None:
+        if self.application_exists(release):
+            self.logger.info(f"[Helm] Skipping install release={release} reason=argocd-application-present")
+            return
+        self.ensure_namespace_exists(namespace)
         self.run(
             [
                 "helm",
                 "upgrade",
                 "--install",
-                "argocd",
-                "oci://ghcr.io/argoproj/argo-helm/argo-cd",
+                release,
+                chart,
                 "--namespace",
-                "argocd",
+                namespace,
                 "--create-namespace",
                 "--version",
-                chart_version,
+                version,
+                "--server-side=false",
                 "--wait",
                 "--wait-for-jobs",
                 "-f",
-                str(self.argocd_values_path),
+                str(values_path),
             ]
         )
 
+    def application_exists(self, name: str) -> bool:
+        """Return True if an ArgoCD Application with the given name exists in argocd namespace."""
+        result = self.run(
+            ["kubectl", "-n", "argocd", "get", "applications.argoproj.io", name],
+            check=False,
+            capture_output=True,
+        )
+        return result.returncode == 0
+
+    def install_argocd(self) -> None:
+        if self.application_exists("argocd"):
+            self.logger.info("[ArgoCD] Skipping Helm install reason=argocd-application-present")
+            return
+        chart_version = self.get_argocd_chart_version()
+        self.logger.info(f"[ArgoCD] Ensuring ArgoCD via Helm chart={chart_version}")
+        self.install_chart(
+            "argocd",
+            "oci://ghcr.io/argoproj/argo-helm/argo-cd",
+            "argocd",
+            self.argocd_values_path,
+            chart_version,
+        )
+
     def install_multus(self) -> None:
-        self.logger.info("[Multus] Installing Multus via Helm...")
-        self.ensure_namespace_exists("platform-system")
+        if self.application_exists("multus"):
+            self.logger.info("[Multus] Skipping Helm install reason=argocd-application-present")
+            return
         chart_version = self.get_multus_chart_version()
-        self.run(
-            [
-                "helm",
-                "upgrade",
-                "--install",
-                "multus",
-                "oci://ghcr.io/bjw-s-labs/helm/multus",
-                "--namespace",
-                "platform-system",
-                "--create-namespace",
-                "--version",
-                chart_version,
-                "--wait",
-                "--wait-for-jobs",
-                "-f",
-                str(self.multus_values_path),
-            ]
+        self.logger.info(f"[Multus] Ensuring Multus via Helm chart={chart_version}")
+        self.install_chart(
+            "multus",
+            "oci://ghcr.io/bjw-s-labs/helm/multus",
+            "platform-system",
+            self.multus_values_path,
+            chart_version,
         )
         if self.multus_manifests_path.exists():
             self.run(["kubectl", "apply", "-f", str(self.multus_manifests_path)])
@@ -638,16 +662,16 @@ class Bootstrapper:
         if not self.argocd_bootstrap_path.exists():
             raise BootstrapError(f"[ArgoCD] Bootstrap manifest not found at {self.argocd_bootstrap_path}")
 
-        self.logger.info(f"[ArgoCD] Applying bootstrap application from {self.argocd_bootstrap_path}")
+        self.logger.info("[ArgoCD] Applying bootstrap application app=bootstrap")
         self.run(["kubectl", "apply", "-f", str(self.argocd_bootstrap_path)])
 
     # ------------------------------------------------------------- Delete flow
     def teardown_cluster(self) -> None:
         if self.cluster_exists():
-            self.logger.info(f"[Cluster] Deleting Kind cluster {self.cluster_name}")
+            self.logger.info(f"[Cluster] Deleting Kind cluster name={self.cluster_name}")
             self.run(["kind", "delete", "cluster", "--name", self.cluster_name], check=False)
         else:
-            self.logger.info(f"[Cluster] Skipping delete; cluster {self.cluster_name} not found")
+            self.logger.info(f"[Cluster] Skipping delete reason=cluster-not-found name={self.cluster_name}")
 
         if self.multus_network:
             result = self.run(
@@ -656,9 +680,43 @@ class Bootstrapper:
                 capture_output=True,
             )
             if result.returncode == 0:
-                self.logger.info(f"[Network] Removed Docker macvlan {self.multus_network}")
+                self.logger.info(f"[Network] Removed Docker macvlan name={self.multus_network}")
             else:
-                self.logger.info(f"[Network] Skipping removal; Docker network {self.multus_network} not found")
+                self.logger.info(f"[Network] Skipping removal reason=docker-network-not-found name={self.multus_network}")
+
+    # --------------------------------------------------------------- Helpers
+    def run(
+        self,
+        cmd: List[str],
+        *,
+        check: bool = True,
+        capture_output: bool = False,
+        env: Optional[Dict[str, str]] = None,
+        stdout=None,
+    ) -> subprocess.CompletedProcess[str]:
+        merged_env = self.env.copy()
+        if env:
+            merged_env.update(env)
+        return subprocess.run(
+            cmd,
+            check=check,
+            text=True,
+            capture_output=capture_output,
+            env=merged_env,
+            stdout=stdout,
+        )
+
+    @staticmethod
+    def parse_host_port(server: str) -> Tuple[Optional[str], Optional[int]]:
+        parsed = urlparse(server)
+        if parsed.hostname or parsed.port:
+            return parsed.hostname, parsed.port
+
+        if ":" in server:
+            host, port = server.rsplit(":", 1)
+            if port.isdigit():
+                return (host or None), int(port)
+        return None, None
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -681,7 +739,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         message = str(exc)
         if isinstance(exc, subprocess.CalledProcessError) and exc.stderr:
             message = f"{message}\n{exc.stderr.strip()}"
-        bootstrapper.logger.error(message)
+        bootstrapper.logger.exception(message)
         raise SystemExit(1) from exc
     finally:
         bootstrapper.cleanup()
