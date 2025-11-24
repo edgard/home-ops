@@ -1,0 +1,33 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex-config-defaults
+  namespace: platform-system
+data:
+  base.yaml: |-
+    issuer: https://id.edgard.org
+    storage:
+      type: sqlite3
+      config:
+        file: /data/dex.db
+    web:
+      http: 0.0.0.0:5556
+    telemetry:
+      http: 0.0.0.0:5558
+    logger:
+      level: info
+    frontend:
+      issuer: Homelab Identity
+    oauth2:
+      skipApprovalScreen: true
+    enablePasswordDB: true
+    staticPasswords:
+      - email: castro@edgard.org
+        username: edgard
+        hashFromEnv: DEX_STATIC_PASSWORD_ADMIN_HASH
+    staticClients:
+      - id: envoy-gateway
+        name: Envoy Gateway
+        redirectURIs: []
+        secretEnv: ENVOY_GATEWAY_CLIENT_SECRET

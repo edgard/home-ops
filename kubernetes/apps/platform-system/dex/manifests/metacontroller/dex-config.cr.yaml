@@ -1,0 +1,13 @@
+---
+apiVersion: homelab.edgard.org/v1alpha1
+kind: DexConfig
+metadata:
+  name: dex-config
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: dex-config
+    app.kubernetes.io/part-of: dex
+spec:
+  outputConfigMap: dex-config-generated
+  outputKey: config.yaml
+  resyncSeconds: 120

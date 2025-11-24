@@ -1,0 +1,71 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: dexconfigs.homelab.edgard.org
+  labels:
+    app.kubernetes.io/name: dex-config
+    app.kubernetes.io/part-of: dex
+spec:
+  group: homelab.edgard.org
+  scope: Namespaced
+  names:
+    plural: dexconfigs
+    singular: dexconfig
+    kind: DexConfig
+    shortNames:
+      - dcfg
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                outputConfigMap:
+                  type: string
+                  description: Name of the ConfigMap to write rendered Dex config into.
+                outputKey:
+                  type: string
+                  description: Key inside the ConfigMap containing the rendered config.
+                resyncSeconds:
+                  type: integer
+                  description: Force resync interval for the Dex config generator.
+            status:
+              type: object
+              properties:
+                lastSync:
+                  type: string
+                  format: date-time
+                appCount:
+                  type: integer
+                endpointCount:
+                  type: integer
+                discovered:
+                  type: integer
+                static:
+                  type: integer
+                configHash:
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}

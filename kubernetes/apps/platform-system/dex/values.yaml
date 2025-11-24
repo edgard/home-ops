@@ -6,26 +6,6 @@ controllers:
     type: deployment
     replicas: 1
     strategy: Recreate
-    serviceAccount:
-      name: dex-generator
-      create: false
-    initContainers:
-      generator:
-        image:
-          repository: python
-          tag: "3.14-alpine"
-        command:
-          - /bin/sh
-          - -c
-          - |
-            set -euo pipefail
-            pip install --no-cache-dir --quiet pyyaml
-            python /opt/generator/generator.py
-        env:
-          - name: CONFIG_TEMPLATE
-            value: /generator/base.yaml
-          - name: CONFIG_OUT
-            value: /etc/dex/config.yaml
     containers:
       main:
         image:
@@ -88,16 +68,10 @@ ingress:
     enabled: false
 persistence:
   config:
-    type: emptyDir
+    type: configMap
+    name: dex-config-generated
     globalMounts:
       - path: /etc/dex
-  generator:
-    type: configMap
-    name: dex-generator
-    defaultMode: 0555
-    globalMounts:
-      - path: /generator
-      - path: /opt/generator
   data:
     enabled: true
     type: hostPath
