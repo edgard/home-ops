@@ -3,7 +3,7 @@
 
 REPO_ROOT      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 PYTHON         ?= python3
-CLUSTER_DIR    := $(REPO_ROOT)cluster
+CLUSTER_DIR    := $(REPO_ROOT)bootstrap
 CLUSTER_CONFIG_DIR := $(CLUSTER_DIR)/config
 BOOTSTRAP      := $(PYTHON) $(REPO_ROOT)scripts/bootstrap.py
 KIND           ?= kind

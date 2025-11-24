@@ -70,12 +70,12 @@ class Bootstrapper:
 
         # Filesystem layout
         self.project_root = Path(__file__).resolve().parent.parent
-        self.cluster_config_root = self.project_root / "cluster" / "config"
+        self.cluster_config_root = self.project_root / "bootstrap" / "config"
         self.kind_config_path = self.cluster_config_root / "cluster-config.yaml"
         self.cluster_secrets_sops_path = self.cluster_config_root / "cluster-secrets.sops.yaml"
         self.default_kubeconfig = Path.home() / ".kube/config"
         self.default_age_key = self.project_root / ".sops.agekey"
-        self.argocd_bootstrap_path = self.project_root / "kubernetes" / "argocd" / "bootstrap.yaml"
+        self.argocd_bootstrap_path = self.project_root / "kubernetes" / "argocd" / "root-app.yaml"
         self.argocd_values_path = self.project_root / "kubernetes" / "apps" / "argocd" / "argocd" / "values.yaml"
         self.argocd_app_path = self.project_root / "kubernetes" / "argocd" / "applications" / "argocd.yaml"
         self.multus_app_path = self.project_root / "kubernetes" / "argocd" / "applications" / "multus.yaml"
@@ -662,7 +662,7 @@ class Bootstrapper:
         if not self.argocd_bootstrap_path.exists():
             raise BootstrapError(f"[ArgoCD] Bootstrap manifest not found at {self.argocd_bootstrap_path}")
 
-        self.logger.info("[ArgoCD] Applying bootstrap application app=bootstrap")
+        self.logger.info("[ArgoCD] Applying bootstrap application app=root")
         self.run(["kubectl", "apply", "-f", str(self.argocd_bootstrap_path)])
 
     # ------------------------------------------------------------- Delete flow

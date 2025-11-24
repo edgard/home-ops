@@ -5,7 +5,7 @@ Kubernetes homelab repo managed by Argo CD and bootstrapped with Kind. Manifests
 ## Quick Start
 - Install: `python3`, `kind`, `kubectl`, `sops`, `age-keygen`, `prettier`, `yamlfmt`, `yamllint`.
 - Generate an Age key (kept local): `make secrets-create-key`.
-- Create/edit encrypted secrets: `make secrets-edit` (writes `cluster/config/cluster-secrets.sops.yaml`).
+- Create/edit encrypted secrets: `make secrets-edit` (writes `bootstrap/config/cluster-secrets.sops.yaml`).
 - Bootstrap remote/target cluster: `make bootstrap` (uses `scripts/bootstrap.py`, installs Argo CD, syncs apps).
 - Remove cluster: `make bootstrap-delete`; rebuild: `make bootstrap-recreate`.
 
@@ -20,8 +20,8 @@ Kubernetes homelab repo managed by Argo CD and bootstrapped with Kind. Manifests
 - Keep YAML 2-space indented and align filenames with the chart/app they configure.
 
 ## Layout
-- `cluster/config/`: Kind cluster config plus SOPS-encrypted secrets and template.
-- `kubernetes/argocd/`: Argo CD bootstrap and Application definitions.
+- `bootstrap/config/`: Kind cluster config plus SOPS-encrypted secrets and template.
+- `kubernetes/argocd/`: Argo CD bootstrap (`root-app.yaml`) and Application definitions.
 - `kubernetes/apps/`: App groups (edge-services, platform-system, ops, media, home-automation, arc, argocd) with Helm values/manifests.
 - `scripts/bootstrap.py`: Cluster bootstrap automation.
 - `Makefile`: Tasks for bootstrap, Kind management, secrets, linting, Argo sync.
