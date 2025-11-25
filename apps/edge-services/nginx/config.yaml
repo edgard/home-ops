@@ -1,0 +1,6 @@
+---
+# Helm chart configuration (using default bjw-s app-template)
+helm:
+  repoURL: oci://ghcr.io/bjw-s-labs/helm/app-template
+  path: .
+  targetRevision: 4.4.0

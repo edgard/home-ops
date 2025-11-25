@@ -1,0 +1,11 @@
+---
+# Helm chart configuration
+helm:
+  repoURL: oci://ghcr.io/external-secrets/charts/external-secrets
+  path: .
+  targetRevision: 1.1.0
+
+# Sync configuration
+syncWave: "-8"
+syncPolicy:
+  serverSideApply: true

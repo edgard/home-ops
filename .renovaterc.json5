@@ -8,16 +8,34 @@
     "docker:enableMajor",
   ],
   ignorePaths: ["**/*.sops.yaml", "**/*.sops.yml"],
-  argocd: { managerFilePatterns: ["/^kubernetes/argocd/.*\\.ya?ml$/"] },
   customManagers: [
     {
       customType: "regex",
-      description: "Track Kind node images referenced by bootstrap/config/cluster-config.yaml",
+      description: "Track Kind node images in bootstrap/config/cluster-config.yaml",
       managerFilePatterns: ["/^bootstrap/config/cluster-config\\.ya?ml$/"],
       matchStrings: [
         "image:\\s*(?:&\\S+\\s+)?(?<depName>kindest/node):(?<currentValue>[0-9A-Za-z_.\\-]+)",
       ],
       datasourceTemplate: "docker",
+    },
+    {
+      customType: "regex",
+      description: "Track OCI Helm charts in apps/*/*/config.yaml (using path: .)",
+      managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
+      matchStrings: [
+        "repoURL:\\s*(?<registryUrl>oci://[^\\s]+)/(?<depName>[^/\\s]+)\\s+path:\\s*\\.\\s+targetRevision:\\s*(?<currentValue>\\S+)",
+      ],
+      datasourceTemplate: "helm",
+      depNameTemplate: "{{{depName}}}",
+    },
+    {
+      customType: "regex",
+      description: "Track HTTPS Helm charts in apps/*/*/config.yaml (using chart:)",
+      managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
+      matchStrings: [
+        "repoURL:\\s*(?<registryUrl>https://[^\\s]+)\\s+chart:\\s*(?<depName>\\S+)\\s+targetRevision:\\s*(?<currentValue>\\S+)",
+      ],
+      datasourceTemplate: "helm",
     },
   ],
   packageRules: [
@@ -42,7 +60,7 @@
     {
       description: "Only consider semver Jellyfin tags",
       matchPackageNames: ["lscr.io/linuxserver/jellyfin"],
-      allowedVersions: "/^(?:[0-9]|[1-9][0-9]).d+.d+$/",
+      allowedVersions: "/^(?:[0-9]|[1-9][0-9])\\d+\\.\\d+$/",
     },
   ],
 }

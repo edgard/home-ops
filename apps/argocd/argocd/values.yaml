@@ -1,0 +1,11 @@
+---
+fullnameOverride: argocd
+
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+applicationSet:
+  enabled: true

@@ -1,0 +1,11 @@
+---
+# Helm chart configuration
+helm:
+  repoURL: oci://ghcr.io/metacontroller/metacontroller-helm
+  path: .
+  targetRevision: 4.12.5
+
+# Sync configuration
+syncWave: "-8"
+syncPolicy:
+  serverSideApply: true

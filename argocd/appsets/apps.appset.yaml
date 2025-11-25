@@ -1,0 +1,99 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/tracking-method: annotation+label
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=zero
+  syncPolicy:
+    preserveResourcesOnDeletion: false
+
+  generators:
+    - git:
+        repoURL: https://github.com/edgard/home-ops.git
+        revision: HEAD
+        files:
+          - path: "apps/*/*/config.yaml"
+
+  template:
+    metadata:
+      name: "{{ index .path.segments 2 }}"
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: "{{ index .path.segments 2 }}"
+        app.kubernetes.io/instance: "{{ index .path.segments 1 }}-{{ index .path.segments 2 }}"
+        app.kubernetes.io/part-of: "{{ index .path.segments 1 }}"
+        app.kubernetes.io/component: application
+        app.kubernetes.io/managed-by: argocd-appset
+      annotations:
+        argocd.argoproj.io/tracking-method: annotation+label
+        argocd.argoproj.io/sync-wave: "{{ .syncWave | default \"0\" }}"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+
+    spec:
+      project: "{{ .project | default \"default\" }}"
+      destination:
+        server: "{{ if .destination }}{{ .destination.server | default \"https://kubernetes.default.svc\" }}{{ else }}https://kubernetes.default.svc{{ end }}"
+        namespace: "{{ if .destination }}{{ .destination.namespace | default (index .path.segments 1) }}{{ else }}{{ index .path.segments 1 }}{{ end }}"
+
+      sources:
+        # Helm chart source
+        - repoURL: "{{ .helm.repoURL }}"
+          chart: "{{ .helm.chart | default \"\" }}"
+          path: "{{ .helm.path | default \"\" }}"
+          targetRevision: "{{ .helm.targetRevision | default \"*\" }}"
+          helm:
+            valueFiles:
+              - $values/{{ .path.path }}/values.yaml
+
+        # Values reference for Helm
+        - repoURL: https://github.com/edgard/home-ops.git
+          targetRevision: HEAD
+          ref: values
+
+        # Additional manifests
+        - repoURL: https://github.com/edgard/home-ops.git
+          targetRevision: HEAD
+          path: "{{ .path.path }}/manifests"
+          directory:
+            recurse: true
+            include: "*.yaml"
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - RespectIgnoreDifferences=true
+          - Replace=false
+          - "ServerSideApply={{ if .syncPolicy }}{{ .syncPolicy.serverSideApply | default false }}{{ else }}false{{ end }}"
+        retry:
+          limit: 8
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .spec.data[].remoteRef.conversionStrategy
+            - .spec.data[].remoteRef.decodingStrategy
+            - .spec.data[].remoteRef.metadataPolicy
+        - group: external-secrets.io
+          kind: ClusterExternalSecret
+          jqPathExpressions:
+            - .spec.externalSecretSpec.data[].remoteRef.conversionStrategy
+            - .spec.externalSecretSpec.data[].remoteRef.decodingStrategy
+            - .spec.externalSecretSpec.data[].remoteRef.metadataPolicy

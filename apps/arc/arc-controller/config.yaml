@@ -1,0 +1,11 @@
+---
+# Helm chart configuration
+helm:
+  repoURL: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
+  path: .
+  targetRevision: 0.13.0
+
+# Sync configuration
+syncWave: "-2"
+syncPolicy:
+  serverSideApply: true

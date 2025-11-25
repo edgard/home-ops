@@ -1,0 +1,9 @@
+---
+# Helm chart configuration
+helm:
+  repoURL: oci://ghcr.io/bjw-s-labs/helm/app-template
+  path: .
+  targetRevision: 4.4.0
+
+# Sync configuration
+syncWave: "-5"

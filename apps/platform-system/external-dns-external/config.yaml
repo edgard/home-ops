@@ -1,0 +1,11 @@
+---
+# Helm chart configuration
+helm:
+  repoURL: https://kubernetes-sigs.github.io/external-dns
+  chart: external-dns
+  targetRevision: 1.19.0
+
+# Sync configuration
+syncWave: "-4"
+syncPolicy:
+  serverSideApply: true

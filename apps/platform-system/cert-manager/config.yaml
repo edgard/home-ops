@@ -1,0 +1,11 @@
+---
+# Helm chart configuration
+helm:
+  repoURL: oci://quay.io/jetstack/charts/cert-manager
+  path: .
+  targetRevision: v1.19.1
+
+# Sync configuration
+syncWave: "-7"
+syncPolicy:
+  serverSideApply: true

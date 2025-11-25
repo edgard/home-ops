@@ -1,0 +1,11 @@
+---
+# Helm chart configuration
+helm:
+  repoURL: oci://registry-1.docker.io/envoyproxy/gateway-helm
+  path: .
+  targetRevision: 1.6.0
+
+# Sync configuration
+syncWave: "-6"
+syncPolicy:
+  serverSideApply: true
