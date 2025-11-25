@@ -12,8 +12,8 @@
   customManagers: [
     {
       customType: "regex",
-      description: "Track Kind node images referenced by cluster/config/cluster-config.yaml",
-      managerFilePatterns: ["/^cluster/config/cluster-config\\.ya?ml$/"],
+      description: "Track Kind node images referenced by bootstrap/config/cluster-config.yaml",
+      managerFilePatterns: ["/^bootstrap/config/cluster-config\\.ya?ml$/"],
       matchStrings: [
         "image:\\s*(?:&\\S+\\s+)?(?<depName>kindest/node):(?<currentValue>[0-9A-Za-z_.\\-]+)",
       ],
@@ -36,7 +36,7 @@
     },
     {
       description: "Group Kind cluster node updates into a single PR",
-      matchFileNames: ["cluster/config/cluster-config.yaml"],
+      matchFileNames: ["bootstrap/config/cluster-config.yaml"],
       groupName: "kind-nodes",
     },
     {
