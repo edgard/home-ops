@@ -20,17 +20,16 @@
     },
     {
       customType: "regex",
-      description: "Track OCI Helm charts in apps/*/*/config.yaml (using path: .)",
+      description: "Track OCI Helm charts in apps/*/*/config.yaml",
       managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
       matchStrings: [
-        "repoURL:\\s*(?<registryUrl>oci://[^\\s]+)/(?<depName>[^/\\s]+)\\s+path:\\s*\\.\\s+targetRevision:\\s*(?<currentValue>\\S+)",
+        "repoURL:\\s*oci://(?<packageName>[^\\s]+)\\s+path:\\s*\\.\\s+targetRevision:\\s*(?<currentValue>\\S+)",
       ],
-      datasourceTemplate: "helm",
-      depNameTemplate: "{{{depName}}}",
+      datasourceTemplate: "docker",
     },
     {
       customType: "regex",
-      description: "Track HTTPS Helm charts in apps/*/*/config.yaml (using chart:)",
+      description: "Track HTTPS Helm charts in apps/*/*/config.yaml",
       managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
       matchStrings: [
         "repoURL:\\s*(?<registryUrl>https://[^\\s]+)\\s+chart:\\s*(?<depName>\\S+)\\s+targetRevision:\\s*(?<currentValue>\\S+)",
