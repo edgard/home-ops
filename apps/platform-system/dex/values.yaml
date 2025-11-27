@@ -11,11 +11,6 @@ controllers:
         image:
           repository: ghcr.io/dexidp/dex
           tag: v2.44.0
-        command:
-          - dex
-        args:
-          - serve
-          - /etc/dex/config.yaml
         env:
           - name: ENVOY_GATEWAY_CLIENT_SECRET
             valueFrom:
@@ -71,7 +66,9 @@ persistence:
     type: configMap
     name: dex-config-generated
     globalMounts:
-      - path: /etc/dex
+      - path: /etc/dex/config.docker.yaml
+        subPath: config.yaml
+        readOnly: true
   data:
     enabled: true
     type: hostPath

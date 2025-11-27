@@ -13,7 +13,6 @@ controllers:
           tag: v5.33.0
         env:
           TZ: Europe/Warsaw
-          GATUS_CONFIG_PATH: /config
         envFrom:
           - secretRef:
               name: gatus-telegram
@@ -59,7 +58,9 @@ persistence:
     type: configMap
     name: gatus-config-generated
     globalMounts:
-      - path: /config
+      - path: /config/config.yaml
+        subPath: config.yaml
+        readOnly: true
   data:
     type: hostPath
     hostPathType: DirectoryOrCreate
