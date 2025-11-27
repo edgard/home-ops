@@ -9,14 +9,14 @@ metadata:
 spec:
   goTemplate: true
   goTemplateOptions:
-    - missingkey=zero
+    - missingkey=error
   syncPolicy:
     preserveResourcesOnDeletion: false
 
   generators:
     - git:
         repoURL: https://github.com/edgard/home-ops.git
-        revision: HEAD
+        revision: master
         files:
           - path: "apps/*/*/config.yaml"
 
@@ -32,34 +32,34 @@ spec:
         app.kubernetes.io/managed-by: argocd-appset
       annotations:
         argocd.argoproj.io/tracking-method: annotation+label
-        argocd.argoproj.io/sync-wave: "{{ .syncWave | default \"0\" }}"
+        argocd.argoproj.io/sync-wave: "{{ dig \"syncWave\" \"0\" . }}"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
 
     spec:
-      project: "{{ .project | default \"default\" }}"
+      project: "{{ dig \"project\" \"default\" . }}"
       destination:
-        server: "{{ if .destination }}{{ .destination.server | default \"https://kubernetes.default.svc\" }}{{ else }}https://kubernetes.default.svc{{ end }}"
-        namespace: "{{ if .destination }}{{ .destination.namespace | default (index .path.segments 1) }}{{ else }}{{ index .path.segments 1 }}{{ end }}"
+        server: "{{ dig \"destination\" \"server\" \"https://kubernetes.default.svc\" . }}"
+        namespace: "{{ dig \"destination\" \"namespace\" (index .path.segments 1) . }}"
 
       sources:
         # Helm chart source
-        - repoURL: "{{ .helm.repoURL }}"
-          chart: "{{ .helm.chart | default \"\" }}"
-          path: "{{ .helm.path | default \"\" }}"
-          targetRevision: "{{ .helm.targetRevision | default \"*\" }}"
+        - repoURL: "{{ if (dig \"helm\" \"repoURL\" \"\" .) }}{{ dig \"helm\" \"repoURL\" \"\" . }}{{ else }}{{ fail \"helm.repoURL is required\" }}{{ end }}"
+          chart: "{{ if or (dig \"helm\" \"chart\" \"\" .) (dig \"helm\" \"path\" \"\" .) }}{{ dig \"helm\" \"chart\" \"\" . }}{{ else }}{{ fail \"helm.chart or helm.path is required\" }}{{ end }}"
+          path: "{{ if or (dig \"helm\" \"chart\" \"\" .) (dig \"helm\" \"path\" \"\" .) }}{{ dig \"helm\" \"path\" \"\" . }}{{ else }}{{ fail \"helm.chart or helm.path is required\" }}{{ end }}"
+          targetRevision: "{{ if (dig \"helm\" \"targetRevision\" \"\" .) }}{{ dig \"helm\" \"targetRevision\" \"\" . }}{{ else }}{{ fail \"helm.targetRevision is required\" }}{{ end }}"
           helm:
             valueFiles:
               - $values/{{ .path.path }}/values.yaml
 
         # Values reference for Helm
         - repoURL: https://github.com/edgard/home-ops.git
-          targetRevision: HEAD
+          targetRevision: master
           ref: values
 
         # Additional manifests
         - repoURL: https://github.com/edgard/home-ops.git
-          targetRevision: HEAD
+          targetRevision: master
           path: "{{ .path.path }}/manifests"
           directory:
             recurse: true
@@ -76,7 +76,7 @@ spec:
           - PruneLast=true
           - RespectIgnoreDifferences=true
           - Replace=false
-          - "ServerSideApply={{ if .syncPolicy }}{{ .syncPolicy.serverSideApply | default false }}{{ else }}false{{ end }}"
+          - "ServerSideApply={{ dig \"syncPolicy\" \"serverSideApply\" false . }}"
         retry:
           limit: 8
           backoff:

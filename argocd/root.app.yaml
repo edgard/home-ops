@@ -6,10 +6,13 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://github.com/edgard/home-ops.git
-    targetRevision: HEAD
-    path: argocd/appsets
+  sources:
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      path: argocd/namespaces
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
+      path: argocd/appsets
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
