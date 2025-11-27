@@ -13,9 +13,6 @@ controllers:
           tag: v5.33.0
         env:
           TZ: Europe/Warsaw
-        envFrom:
-          - secretRef:
-              name: gatus-telegram
         ports:
           - name: http
             containerPort: 8080

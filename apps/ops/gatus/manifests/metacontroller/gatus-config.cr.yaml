@@ -23,14 +23,6 @@ spec:
       checker:
         target: 1.1.1.1:53
         interval: 30s
-    alerting:
-      telegram:
-        token: ${GATUS_TELEGRAM_TOKEN}
-        id: ${GATUS_TELEGRAM_CHAT_ID}
-        default-alert:
-          failure-threshold: 3
-          success-threshold: 1
-          send-on-resolved: true
   staticEndpoints:
     - name: dns-edgard-cloudflare
       group: 01-dns
