@@ -1,0 +1,23 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: sonarr-internal
+  namespace: media
+  labels:
+    external-dns.edgard.org/scope: internal
+spec:
+  parentRefs:
+    - name: internal
+      namespace: platform-system
+      sectionName: https
+  hostnames:
+    - sonarr.edgard.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: sonarr
+          port: 8989

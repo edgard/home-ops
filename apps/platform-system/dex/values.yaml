@@ -15,7 +15,7 @@ controllers:
           - name: ENVOY_GATEWAY_CLIENT_SECRET
             valueFrom:
               secretKeyRef:
-                name: envoy-oidc-client
+                name: envoy-gateway-oidc-client
                 key: client-secret
           - name: DEX_STATIC_PASSWORD_ADMIN_HASH
             valueFrom:

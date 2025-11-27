@@ -1,0 +1,27 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nginx-internal
+  namespace: edge-services
+  labels:
+    external-dns.edgard.org/scope: internal
+spec:
+  parentRefs:
+    - name: internal
+      namespace: platform-system
+      sectionName: https
+    - name: internal
+      namespace: platform-system
+      sectionName: https-root
+  hostnames:
+    - www.edgard.org
+    - edgard.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: nginx
+          port: 80

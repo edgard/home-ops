@@ -1,0 +1,25 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: gatus-external
+  namespace: ops
+  labels:
+    external-dns.edgard.org/scope: external
+    hajimari.edgard.org/icon: heart-pulse
+    hajimari.edgard.org/enabled: "true"
+spec:
+  parentRefs:
+    - name: external
+      namespace: platform-system
+      sectionName: https
+  hostnames:
+    - status.edgard.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: gatus
+          port: 8080

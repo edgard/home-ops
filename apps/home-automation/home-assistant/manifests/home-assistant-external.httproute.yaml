@@ -1,0 +1,25 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: home-assistant-external
+  namespace: home-automation
+  labels:
+    external-dns.edgard.org/scope: external
+    hajimari.edgard.org/enabled: "true"
+    hajimari.edgard.org/icon: home-assistant
+spec:
+  parentRefs:
+    - name: external
+      namespace: platform-system
+      sectionName: https
+  hostnames:
+    - home-assistant.edgard.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: home-assistant
+          port: 8123
