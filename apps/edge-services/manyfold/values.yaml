@@ -10,7 +10,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/manyfold3d/manyfold-solo
-          tag: "0.129.3"
+          tag: "0.129.4"
         env:
           TZ: Europe/Warsaw
           PUID: "568"
