@@ -24,40 +24,32 @@ spec:
       serviceAccountName: hajimari-config-sync
       containers:
         - name: webhook
-          image: python:3.14-alpine
+          image: python:3.14-slim
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
             - -c
             - |
               set -euo pipefail
-              pip install --no-cache-dir --quiet pyyaml
+              pip install --no-cache-dir --quiet pyyaml >/tmp/pip.log 2>&1
               python /scripts/webhook.py
           env:
+            - name: PIP_ROOT_USER_ACTION
+              value: ignore
             - name: TZ
               value: Europe/Warsaw
-            - name: ROUTE_SELECTOR
-              value: hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external
-            - name: WEBHOOK_PORT
-              value: "8080"
-            - name: RESYNC_SECONDS
-              value: "120"
-            - name: OUTPUT_CONFIGMAP
-              value: hajimari-config-generated
-            - name: OUTPUT_KEY
-              value: config.yaml
-            - name: LOG_LEVEL
-              value: INFO
           ports:
             - name: http
               containerPort: 8080
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /healthz
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /healthz
               port: http
             initialDelaySeconds: 10
             periodSeconds: 20

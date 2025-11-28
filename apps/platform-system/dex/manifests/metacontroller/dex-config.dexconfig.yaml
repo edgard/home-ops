@@ -4,9 +4,6 @@ kind: DexConfig
 metadata:
   name: dex-config
   namespace: platform-system
-  labels:
-    app.kubernetes.io/name: dex-config
-    app.kubernetes.io/part-of: dex
 spec:
   base:
     issuer: https://id.edgard.org
@@ -34,6 +31,3 @@ spec:
         name: Envoy Gateway
         redirectURIs: []
         secretEnv: ENVOY_GATEWAY_CLIENT_SECRET
-  outputConfigMap: dex-config-generated
-  outputKey: config.yaml
-  resyncSeconds: 120

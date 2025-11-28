@@ -33,12 +33,21 @@ spec:
                 outputConfigMap:
                   type: string
                   description: Name of the ConfigMap to write rendered Dex config into.
+                  default: dex-config-generated
                 outputKey:
                   type: string
                   description: Key inside the ConfigMap containing the rendered config.
+                  default: config.yaml
+                discoverySelector:
+                  type: string
+                  description: Label selector for routes used to build Dex redirect URIs.
+                  default: ""
                 resyncSeconds:
                   type: integer
                   description: Force resync interval for the Dex config generator.
+                  default: 120
+              required:
+                - base
             status:
               type: object
               properties:
@@ -50,8 +59,6 @@ spec:
                 endpointCount:
                   type: integer
                 discovered:
-                  type: integer
-                static:
                   type: integer
                 configHash:
                   type: string

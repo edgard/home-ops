@@ -7,15 +7,32 @@ metadata:
 data:
   generator.py: |-
     import copy
+    import logging
     import os
     import sys
-    import logging
+    import time
+    import urllib.parse
+    import urllib.request
+    from dataclasses import dataclass
     from pathlib import Path
+    from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TypedDict
 
     try:
         import yaml
-    except ImportError:  # pragma: no cover - handled in init container shell
+    except ImportError:
         sys.exit("PyYAML is required")
+
+    KUBE_TIMEOUT = float(os.environ.get("KUBE_TIMEOUT", "5"))
+    KUBE_RETRIES = int(os.environ.get("KUBE_RETRIES", "2"))
+    KUBE_BACKOFF = float(os.environ.get("KUBE_BACKOFF", "0.5"))
+
+    DEFAULT_SELECTOR = os.environ.get("DISCOVERY_SELECTOR", "")
+
+    class ClusterContext(TypedDict):
+        host: str
+        port: str
+        token: str
+        ca_path: Path
 
     def setup_logging():
         level = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -23,117 +40,208 @@ data:
             level=getattr(logging, level, logging.INFO),
             format="%(asctime)s %(levelname)s %(name)s %(message)s",
         )
-        return logging.getLogger("gatus-generator")
+        return logging.getLogger("generator")
 
-    def load_yaml(path: Path):
-        if not path.exists():
-            return {}
-        text = path.read_text(encoding="utf-8")
-        if not text.strip():
-            return {}
-        return yaml.safe_load(text)
+    def cluster_context() -> ClusterContext:
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        if not host:
+            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+        token = token_path.read_text(encoding="utf-8").strip()
+        return {"host": host, "port": port, "token": token, "ca_path": ca_path}
 
-    def kube_get(path, token, ca_path, host, port):
-        import json
+    def kube_get(path: str, ctx: ClusterContext, *, timeout: float | None = None, retries: int | None = None, backoff: float | None = None):
         import ssl
-        import urllib.request
+        from urllib.error import HTTPError, URLError
 
-        ctx = ssl.create_default_context(cafile=ca_path)
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        url = f"https://{host}:{port}{path}"
+        retries = KUBE_RETRIES if retries is None else retries
+        backoff = KUBE_BACKOFF if backoff is None else backoff
+
+        url = f"https://{ctx['host']}:{ctx['port']}{path}"
         req = urllib.request.Request(
             url,
             headers={
-                "Authorization": f"Bearer {token}",
+                "Authorization": f"Bearer {ctx['token']}",
                 "Accept": "application/json",
             },
         )
-        with urllib.request.urlopen(req, context=ctx) as resp:
-            return json.loads(resp.read())
+        ssl_ctx = ssl.create_default_context(cafile=str(ctx["ca_path"]))
+        ssl_ctx.check_hostname = False
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                with urllib.request.urlopen(req, context=ssl_ctx, timeout=timeout or KUBE_TIMEOUT) as resp:
+                    return yaml.safe_load(resp.read())
+            except (HTTPError, URLError) as exc:
+                if attempt > retries:
+                    raise RuntimeError(f"failed to GET {path}: {exc}") from exc
+                time.sleep(backoff * attempt)
 
-    def guess_scheme(port_name, port_number):
-        name = (port_name or "").lower()
-        if "http" in name or port_number == 80:
-            return "http"
-        if "https" in name or port_number == 443:
-            return "https"
-        if "tcp" in name:
-            return "tcp"
-        if "icmp" in name:
-            return "icmp"
-        return "tcp"
+    def discover(selector: str, logger, ctx: ClusterContext):
+        selector = selector or "gatus.edgard.org/enabled=true"
 
-    def list_workloads(namespaces, token, ca_path, host, port):
-        workloads = {}
-        paths = [
-            "/apis/apps/v1/deployments",
-            "/apis/apps/v1/statefulsets",
+        static_endpoints = [
+            {
+                "name": "dns-edgard-cloudflare",
+                "group": "01-dns",
+                "url": "1.1.1.1",
+                "dns": {"query-name": "edgard.org", "query-type": "A"},
+                "labels": {"namespace": "network", "scope": "external"},
+                "interval": "1m",
+                "conditions": ["[DNS_RCODE] == NOERROR"],
+            },
+            {
+                "name": "dns-edgard-google",
+                "group": "01-dns",
+                "url": "8.8.8.8",
+                "dns": {"query-name": "edgard.org", "query-type": "A"},
+                "labels": {"namespace": "network", "scope": "external"},
+                "interval": "1m",
+                "conditions": ["[DNS_RCODE] == NOERROR"],
+            },
+            {
+                "name": "ping-google",
+                "group": "02-connectivity",
+                "url": "icmp://www.google.com",
+                "labels": {"namespace": "network", "scope": "external"},
+                "interval": "1m",
+                "conditions": ["[CONNECTED] == true"],
+            },
+            {
+                "name": "ping-microsoft",
+                "group": "02-connectivity",
+                "url": "icmp://www.microsoft.com",
+                "labels": {"namespace": "network", "scope": "external"},
+                "interval": "1m",
+                "conditions": ["[CONNECTED] == true"],
+            },
+            {
+                "name": "ping-amazon",
+                "group": "02-connectivity",
+                "url": "icmp://www.amazon.com",
+                "labels": {"namespace": "network", "scope": "external"},
+                "interval": "1m",
+                "conditions": ["[CONNECTED] == true"],
+            },
+            {
+                "name": "envoy-external",
+                "group": "03-gateway",
+                "url": "tcp://envoy-external.platform-system.svc.cluster.local:443",
+                "labels": {"namespace": "platform-system", "scope": "internal"},
+                "interval": "30s",
+                "conditions": ["[CONNECTED] == true"],
+            },
+            {
+                "name": "envoy-internal",
+                "group": "03-gateway",
+                "url": "tcp://envoy-internal.platform-system.svc.cluster.local:443",
+                "labels": {"namespace": "platform-system", "scope": "internal"},
+                "interval": "30s",
+                "conditions": ["[CONNECTED] == true"],
+            },
+            {
+                "name": "envoy-external-https",
+                "group": "03-gateway",
+                "url": "https://id.edgard.org/",
+                "labels": {"namespace": "platform-system", "scope": "external"},
+                "interval": "1m",
+                "conditions": ["[STATUS] >= 200", "[STATUS] < 400", "[CERTIFICATE_EXPIRATION] > 168h"],
+            },
+            {
+                "name": "envoy-internal-https",
+                "group": "03-gateway",
+                "url": "https://id.edgard.org/",
+                "labels": {"namespace": "platform-system", "scope": "internal"},
+                "interval": "1m",
+                "conditions": ["[STATUS] >= 200", "[STATUS] < 400", "[CERTIFICATE_EXPIRATION] > 168h"],
+            },
         ]
-        for path in paths:
-            data = kube_get(path, token, ca_path, host, port)
-            for item in data.get("items", []):
-                ns = item.get("metadata", {}).get("namespace")
-                if ns not in namespaces:
-                    continue
-                tmpl = item.get("spec", {}).get("template", {}) or {}
-                labels = tmpl.get("metadata", {}).get("labels", {}) or {}
-                pod_spec = tmpl.get("spec", {}) or {}
-                containers = pod_spec.get("containers", []) or []
 
-                port_map = {}
-                for c in containers:
-                    for p in c.get("ports", []) or []:
-                        if p.get("name"):
-                            port_map[p["name"]] = p.get("containerPort")
+        def guess_scheme(port_name, port_number):
+            name = (port_name or "").lower()
+            if "https" in name or port_number == 443:
+                return "https"
+            if "http" in name or port_number == 80:
+                return "http"
+            if "tcp" in name:
+                return "tcp"
+            if "icmp" in name:
+                return "icmp"
+            return "tcp"
 
-                probes = []
-                for c in containers:
-                    for probe in [c.get("readinessProbe"), c.get("livenessProbe")]:
-                        if not probe:
-                            continue
-                        probes.append(probe)
+        def list_workloads(namespaces: Iterable[str]) -> Dict[str, List[dict]]:
+            workloads: Dict[str, List[dict]] = {}
+            for path in ["/apis/apps/v1/deployments", "/apis/apps/v1/statefulsets"]:
+                data = kube_get(path, ctx)
+                for item in data.get("items", []):
+                    ns = item.get("metadata", {}).get("namespace")
+                    if ns not in namespaces:
+                        continue
+                    tmpl = item.get("spec", {}).get("template", {}) or {}
+                    labels = tmpl.get("metadata", {}).get("labels", {}) or {}
+                    pod_spec = tmpl.get("spec", {}) or {}
+                    containers = pod_spec.get("containers", []) or []
+                    port_map = {}
+                    probes = []
+                    for c in containers:
+                        for p in c.get("ports", []) or []:
+                            if p.get("name"):
+                                port_map[p["name"]] = p.get("containerPort")
+                        for probe in [c.get("readinessProbe"), c.get("livenessProbe")]:
+                            if probe:
+                                probes.append(probe)
+                    workloads.setdefault(ns, []).append(
+                        {"labels": labels, "port_map": port_map, "probes": probes}
+                    )
+            return workloads
 
-                workloads.setdefault(ns, []).append(
-                    {"labels": labels, "port_map": port_map, "probes": probes}
-                )
-        return workloads
-
-    def match_probe(service_selector, workload):
-        # service selector must be subset of workload labels
-        if not service_selector:
-            return None
-        wl_labels = workload["labels"]
-        for key, val in service_selector.items():
-            if wl_labels.get(key) != val:
+        def match_probe(service_selector, workload: dict):
+            if not service_selector:
                 return None
-        # pick first probe
-        for probe in workload["probes"]:
-            if "httpGet" in probe:
-                http = probe["httpGet"]
-                port = http.get("port")
-                if isinstance(port, str):
-                    port = workload["port_map"].get(port)
-                return {
-                    "scheme": http.get("scheme", "HTTP").lower(),
-                    "path": http.get("path", "/"),
-                    "port": port,
-                    "periodSeconds": probe.get("periodSeconds"),
-                }
-            if "tcpSocket" in probe:
-                tcp = probe["tcpSocket"]
-                port = tcp.get("port")
-                if isinstance(port, str):
-                    port = workload["port_map"].get(port)
-                return {"scheme": "tcp", "port": port, "periodSeconds": probe.get("periodSeconds")}
-        return None
+            wl_labels = workload.get("labels", {})
+            for key, val in service_selector.items():
+                if wl_labels.get(key) != val:
+                    return None
+            for probe in workload.get("probes", []):
+                if "httpGet" in probe:
+                    http = probe["httpGet"]
+                    port = http.get("port")
+                    if isinstance(port, str):
+                        port = workload["port_map"].get(port)
+                    return {
+                        "scheme": http.get("scheme", "HTTP").lower(),
+                        "path": http.get("path", "/"),
+                        "port": port,
+                        "periodSeconds": probe.get("periodSeconds"),
+                    }
+                if "tcpSocket" in probe:
+                    tcp = probe["tcpSocket"]
+                    port = tcp.get("port")
+                    if isinstance(port, str):
+                        port = workload["port_map"].get(port)
+                    return {"scheme": "tcp", "port": port, "periodSeconds": probe.get("periodSeconds")}
+            return None
 
-    def discover_services(label_selector, token, ca_path, host, port, logger):
-        data = kube_get(f"/api/v1/services?labelSelector={label_selector}", token, ca_path, host, port)
-        services = []
-        namespaces = {item.get("metadata", {}).get("namespace") for item in data.get("items", [])}
-        workloads = list_workloads(namespaces, token, ca_path, host, port)
-        for item in data.get("items", []):
+        def resolve_port(ports: list, probe_port):
+            if probe_port:
+                return probe_port
+            if not ports:
+                return None
+            return ports[0].get("port")
+
+        from urllib.parse import quote
+        encoded = quote(selector, safe="=,")
+        svc_data = kube_get(f"/api/v1/services?labelSelector={encoded}", ctx)
+        services = svc_data.get("items", []) if svc_data else []
+
+        namespaces = {item.get("metadata", {}).get("namespace") for item in services}
+        workloads = list_workloads(namespaces)
+
+        discovered = []
+        for item in services:
             meta = item.get("metadata", {})
             spec = item.get("spec", {})
             name = meta.get("name")
@@ -141,7 +249,7 @@ data:
             labels = meta.get("labels", {})
             if labels.get("gatus.edgard.org/enabled") != "true":
                 continue
-            if labels.get("metacontroller.edgard.org/managed") == "gatus":
+            if labels.get("homelab.edgard.org/managed") == "gatus":
                 continue
             svc_selector = spec.get("selector") or {}
 
@@ -162,113 +270,92 @@ data:
 
             if probe:
                 scheme = probe.get("scheme", scheme)
-                port_number = probe.get("port", port_number)
+                port_number = resolve_port(ports, probe.get("port"))
                 path = probe.get("path", "/")
                 period = probe.get("periodSeconds")
-                if port_number is None:
-                    port_number = port_entry.get("port")
             else:
-                path = "/"
                 period = None
+                port_number = resolve_port(ports, port_number)
 
             if port_number is None:
-                # if we still have no port, skip this service to avoid invalid endpoints
                 continue
 
             if scheme == "tcp":
                 url = f"tcp://{name}.{namespace}.svc.cluster.local:{port_number}"
+                conditions = ["[CONNECTED] == true"]
             elif scheme == "icmp":
                 url = f"icmp://{name}.{namespace}.svc.cluster.local"
+                conditions = ["[CONNECTED] == true"]
             else:
                 url = f"{scheme}://{name}.{namespace}.svc.cluster.local:{port_number}{path}"
+                conditions = ["[STATUS] == 200"]
 
-            friendly_name = name
-            group = namespace
-            interval = f"{period}s" if period else "1m"
-
-            conditions = ["[STATUS] == 200"] if scheme in ("http", "https") else ["[CONNECTED] == true"]
-
-            services.append(
+            discovered.append(
                 {
-                    "name": friendly_name,
-                    "group": group,
+                    "name": name,
+                    "group": namespace,
                     "url": url,
                     "labels": {
                         "namespace": namespace,
                         "scope": "internal",
                     },
-                    "interval": interval,
+                    "interval": f"{period}s" if period else "1m",
                     "conditions": conditions,
                 }
             )
-        return services
-
-    def render_config(base: dict, static_endpoints: list, selector: str, host: str, port: str, token: str, ca_path: str, logger):
-        if not base:
-            raise SystemExit("base config is required")
-        if not isinstance(base, dict):
-            raise SystemExit(f"base config must be a mapping, got {type(base)}")
-        if static_endpoints is None:
-            static_endpoints = []
-        if static_endpoints and not isinstance(static_endpoints, list):
-            raise SystemExit(f"static endpoints must be a list, got {type(static_endpoints)}")
-
-        discovered_services = discover_services(selector, token, str(ca_path), host, port, logger)
-
-        endpoints = static_endpoints + discovered_services
-        cfg = copy.deepcopy(base)
-        cfg["endpoints"] = endpoints
-
-        stats = {
-            "appCount": len(endpoints),
-            "endpointCount": len(endpoints),
-            "discoveredCount": len(discovered_services),
-            "staticCount": len(static_endpoints),
+        return static_endpoints + discovered, {
+            "endpointCount": len(discovered) + len(static_endpoints),
+            "discoveredCount": len(discovered),
+            "appCount": len(discovered) + len(static_endpoints),
         }
+
+    def patch_config(config: dict, data: list):
+        config['endpoints'] = data
+
+    def render_config(base_config: dict, selector: str, logger, *, ctx: ClusterContext | None = None, trace: str | None = None):
+        if not base_config:
+            raise SystemExit("base config is required")
+        if ctx is None:
+            ctx = cluster_context()
+
+        data_list, stats = discover(selector, logger, ctx)
+
+        cfg = copy.deepcopy(base_config)
+        patch_config(cfg, data_list)
+
         logger.debug(
-            "rendered gatus config endpoints=%s discovered=%s static=%s selector=%s",
-            stats["endpointCount"],
-            stats["discoveredCount"],
-            stats["staticCount"],
+            "rendered config trace=%s endpoints=%s discovered=%s selector=%s",
+            trace or "-",
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
             selector,
         )
-
         return cfg, stats
 
-    def main():
-        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
-        static_path = Path(os.environ.get("CONFIG_STATIC", "/templates/static-endpoints.yaml"))
-        output_path = Path(os.environ.get("CONFIG_OUT", "/config/config.yaml"))
-        selector = os.environ.get("SERVICE_SELECTOR", "gatus.edgard.org/enabled=true")
-
+    def main():  # pragma: no cover - manual execution helper
         logger = setup_logging()
+        ctx = cluster_context()
 
-        host = os.environ.get("KUBERNETES_SERVICE_HOST")
-        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
-        if not host:
-            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/scripts/base.yaml.j2"))
+        out_path = Path(os.environ.get("CONFIG_OUT", "/config/config.yaml"))
 
-        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
-        ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
-        token = token_path.read_text(encoding="utf-8").strip()
+        # Assume base file is valid YAML now (after migration)
+        try:
+            base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+        except Exception:
+            base_config = {}
 
-        base = load_yaml(base_path) or {}
-        static_endpoints = load_yaml(static_path) or []
-        config, stats = render_config(base, static_endpoints, selector, host, port, token, ca_path, logger)
+        cfg, stats = render_config(base_config=base_config, selector=DEFAULT_SELECTOR, logger=logger, ctx=ctx, trace="standalone")
 
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(
-            yaml.safe_dump(config, sort_keys=False),
-            encoding="utf-8",
-        )
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
         logger.debug(
-            "generated gatus config apps=%s endpoints=%s discovered=%s static=%s selector=%s path=%s",
+            "generated config apps=%s endpoints=%s discovered=%s selector=%s path=%s",
             stats.get("appCount"),
             stats.get("endpointCount"),
             stats.get("discoveredCount"),
-            stats.get("staticCount"),
-            selector,
-            str(output_path),
+            DEFAULT_SELECTOR,
+            str(out_path),
         )
 
     if __name__ == "__main__":
@@ -276,9 +363,8 @@ data:
   webhook.py: |-
     import hashlib
     import json
-    import os
-    import ssl
     import logging
+    import os
     from datetime import datetime, timezone
     from http.server import BaseHTTPRequestHandler, HTTPServer
     from pathlib import Path
@@ -292,45 +378,58 @@ data:
         level=getattr(logging, LOG_LEVEL, logging.INFO),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
-    TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
-    CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-    DEFAULT_SELECTOR = os.environ.get("SERVICE_SELECTOR", "gatus.edgard.org/enabled=true")
+
+    DEFAULT_SELECTOR = os.environ.get("DISCOVERY_SELECTOR", generator.DEFAULT_SELECTOR)
     DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "120"))
-    DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "gatus-config-generated")
     DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
     SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
 
-    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, base: dict, static_endpoints: list, parent_status: dict, logger):
-        host = os.environ.get("KUBERNETES_SERVICE_HOST")
-        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
-        if not host:
-            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+    def get_current_namespace():
+        try:
+            return Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read_text().strip()
+        except Exception:
+            return "default"
 
-        token = TOKEN_PATH.read_text(encoding="utf-8").strip()
+    def build_response(parent: dict, logger):
+        metadata = parent.get("metadata") or {}
+        spec = parent.get("spec") or {}
+        parent_status = parent.get("status") or {}
+
+        # Derive managed resource from Kind (e.g. DexConfig -> dex)
+        kind = parent.get("kind", "")
+        managed_resource = kind.replace("Config", "").lower() or "unknown"
+        default_output_cm = f"{managed_resource}-config-generated"
+
+        namespace = metadata.get("namespace") or get_current_namespace()
+        output_name = spec.get("outputConfigMap") or default_output_cm
+        output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
+        selector = spec.get("discoverySelector") or DEFAULT_SELECTOR
+        resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+
+        base_config = spec.get("base", {})
+
+        # Use generator.cluster_context() directly if available, or generic one
+        ctx = generator.cluster_context()
+
         config, stats = generator.render_config(
-            base=base,
-            static_endpoints=static_endpoints,
+            base_config=base_config,
             selector=selector,
-            host=host,
-            port=port,
-            token=token,
-            ca_path=CA_PATH,
             logger=logger,
+            ctx=ctx,
+            trace=f"{namespace}/{metadata.get('name', '')}",
         )
 
         cfg_yaml = yaml.safe_dump(config, sort_keys=False)
         cfg_hash = hashlib.sha256(cfg_yaml.encode("utf-8")).hexdigest()
 
         endpoints = stats.get("endpointCount", 0)
-        discovered = stats.get("discoveredCount", 0)
-        static = stats.get("staticCount", 0)
+        discovered = stats.get("discoveredCount", endpoints)
         app_count = stats.get("appCount", endpoints)
 
-        prev_status = parent_status or {}
-        prev_hash = prev_status.get("configHash")
+        prev_hash = parent_status.get("configHash")
 
         if prev_hash == cfg_hash:
-            status = prev_status
+            status = parent_status
         else:
             now = datetime.now(timezone.utc).isoformat()
             status = {
@@ -338,28 +437,26 @@ data:
                 "appCount": app_count,
                 "endpointCount": endpoints,
                 "discovered": discovered,
-                "static": static,
                 "configHash": cfg_hash,
                 "conditions": [
                     {
                         "type": "Ready",
                         "status": "True",
                         "reason": "SyncSuccessful",
-                        "message": f"Rendered {endpoints} endpoints ({discovered} discovered, {static} static)",
+                        "message": f"Rendered {endpoints} endpoints ({discovered} discovered)",
                         "lastTransitionTime": now,
                     }
                 ],
             }
 
         logger.info(
-            "sync successful ns=%s cm=%s apps=%s endpoints=%s discovered=%s static=%s selector=%s",
+            "sync successful parent=%s/%s cm=%s selector=%s endpoints=%s discovered=%s",
             namespace,
+            metadata.get("name"),
             output_name,
-            app_count,
+            selector,
             endpoints,
             discovered,
-            static,
-            selector,
         )
 
         return {
@@ -371,9 +468,9 @@ data:
                         "name": output_name,
                         "namespace": namespace,
                         "labels": {
-                            "app.kubernetes.io/name": "gatus",
-                            "app.kubernetes.io/part-of": "gatus",
-                            "metacontroller.edgard.org/managed": "gatus",
+                            "app.kubernetes.io/name": managed_resource,
+                            "app.kubernetes.io/part-of": managed_resource,
+                            "homelab.edgard.org/managed": managed_resource,
                         },
                     },
                     "data": {output_key: cfg_yaml},
@@ -391,35 +488,33 @@ data:
 
             length = int(self.headers.get("Content-Length", "0"))
             raw_body = self.rfile.read(length) if length else b"{}"
-            body = json.loads(raw_body or b"{}")
-            parent = body.get("parent") or {}
-            metadata = parent.get("metadata") or {}
-            status = parent.get("status") or {}
-            spec = parent.get("spec") or {}
+            try:
+                body = json.loads(raw_body or b"{}")
+            except json.JSONDecodeError as exc:
+                self._write_json(400, {"error": f"invalid json: {exc}"})
+                return
 
-            namespace = metadata.get("namespace") or "ops"
-            output_name = spec.get("outputConfigMap") or DEFAULT_OUTPUT_CM
-            output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
-            selector = spec.get("serviceSelector") or DEFAULT_SELECTOR
+            parent = body.get("parent") or {}
+            spec = parent.get("spec") or {}
             resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
-            base = spec.get("base") or {}
-            static_endpoints = spec.get("staticEndpoints") or []
-            logger = logging.getLogger("gatus-webhook")
+            logger = logging.getLogger("webhook")
 
             try:
-                response = build_response(namespace, output_name, output_key, selector, resync, base, static_endpoints, status, logger)
+                response = build_response(parent, logger)
                 self._write_json(200, response)
             except Exception as exc:  # pragma: no cover - surfaced via status
                 now = datetime.now(timezone.utc).isoformat()
                 logging.exception("sync error")
+                # Use DEFAULT_RESYNC as fallback if parsing failed
+                resync = DEFAULT_RESYNC
                 self._write_json(
                     200,
                     {
                         "status": {
                             "lastSync": now,
+                            "appCount": 0,
                             "endpointCount": 0,
                             "discovered": 0,
-                            "static": 0,
                             "configHash": None,
                             "conditions": [
                                 {
@@ -446,6 +541,16 @@ data:
             self.end_headers()
             self.wfile.write(data)
 
+        def do_GET(self):
+            if self.path in ("/healthz", "/livez", "/readyz"):
+                self._write_json(200, {"status": "ok"})
+            else:
+                self.send_error(404, "not found")
+
     if __name__ == "__main__":
         server = HTTPServer(("", SERVER_PORT), Handler)
+        logging.getLogger("webhook").info(
+            "starting metacontroller webhook on :%s",
+            SERVER_PORT,
+        )
         server.serve_forever()

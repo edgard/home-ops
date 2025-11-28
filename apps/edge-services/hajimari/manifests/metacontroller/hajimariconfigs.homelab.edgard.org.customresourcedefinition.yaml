@@ -30,30 +30,24 @@ spec:
                   type: object
                   description: Inline Hajimari base config.
                   x-kubernetes-preserve-unknown-fields: true
-                staticApps:
-                  type: array
-                  description: Extra app groups to append.
-                  items:
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                staticBookmarks:
-                  type: array
-                  description: Global bookmark groups to append.
-                  items:
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
                 outputConfigMap:
                   type: string
                   description: Name of the ConfigMap to write rendered Hajimari config into.
+                  default: hajimari-config-generated
                 outputKey:
                   type: string
                   description: Key inside the ConfigMap containing the rendered config.
-                routeSelector:
+                  default: config.yaml
+                discoverySelector:
                   type: string
                   description: Label selector for HTTPRoutes to expose in Hajimari.
+                  default: hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external
                 resyncSeconds:
                   type: integer
                   description: Force resync interval for the dashboard generator.
+                  default: 120
+              required:
+                - base
             status:
               type: object
               properties:
@@ -65,8 +59,6 @@ spec:
                 endpointCount:
                   type: integer
                 discovered:
-                  type: integer
-                static:
                   type: integer
                 configHash:
                   type: string

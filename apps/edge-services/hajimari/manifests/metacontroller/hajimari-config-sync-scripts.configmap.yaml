@@ -6,22 +6,34 @@ metadata:
   namespace: edge-services
 data:
   generator.py: |-
-    import json
-    import os
-    import ssl
-    import sys
+    import copy
     import logging
-    import urllib.error
+    import os
+    import sys
+    import time
     import urllib.parse
     import urllib.request
     from dataclasses import dataclass
     from pathlib import Path
-    from typing import Iterable, Optional
+    from typing import Iterable, Optional, Sequence, TypedDict
 
     try:
         import yaml
     except ImportError:  # pragma: no cover - handled in container entrypoint
         sys.exit("PyYAML is required")
+
+    KUBE_TIMEOUT = float(os.environ.get("KUBE_TIMEOUT", "5"))
+    KUBE_RETRIES = int(os.environ.get("KUBE_RETRIES", "2"))
+    KUBE_BACKOFF = float(os.environ.get("KUBE_BACKOFF", "0.5"))
+
+    DEFAULT_SELECTOR = os.environ.get("DISCOVERY_SELECTOR", "")
+    DEFAULT_ICON = "mdi:web"
+
+    class ClusterContext(TypedDict):
+        host: str
+        port: str
+        token: str
+        ca_path: Path
 
     def setup_logging():
         level = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -29,212 +41,187 @@ data:
             level=getattr(logging, level, logging.INFO),
             format="%(asctime)s %(levelname)s %(name)s %(message)s",
         )
-        return logging.getLogger("hajimari-generator")
+        return logging.getLogger("generator")
 
-    DEFAULT_ROUTE_SELECTOR = "hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external"
-    DEFAULT_ICON = "mdi:web"
+    def cluster_context() -> ClusterContext:
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        if not host:
+            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+        token = token_path.read_text(encoding="utf-8").strip()
+        return {"host": host, "port": port, "token": token, "ca_path": ca_path}
 
-    @dataclass
-    class Entry:
-        host: str
-        namespace: str
-        routename: str
-        icon: Optional[str]
+    def kube_get(path: str, ctx: ClusterContext, *, timeout: float | None = None, retries: int | None = None, backoff: float | None = None):
+        import ssl
+        from urllib.error import HTTPError, URLError
 
-    def display_name(hostname: str) -> str:
-        clean = hostname.replace(".edgard.org", "")
-        if clean in ("www", "edgard.org"):
-            return "Website"
-        left = clean.split(".")[0]
-        return left.replace("-", " ").title()
+        retries = KUBE_RETRIES if retries is None else retries
+        backoff = KUBE_BACKOFF if backoff is None else backoff
 
-    def display_icon(icon_override: Optional[str]) -> str:
-        return f"mdi:{icon_override}" if icon_override else DEFAULT_ICON
-
-    def fetch_json(host, port, token, ctx, path, ignore_404=True):
-        url = f"https://{host}:{port}{path}"
+        url = f"https://{ctx['host']}:{ctx['port']}{path}"
         req = urllib.request.Request(
             url,
             headers={
-                "Authorization": f"Bearer {token}",
+                "Authorization": f"Bearer {ctx['token']}",
                 "Accept": "application/json",
             },
         )
-        try:
-            with urllib.request.urlopen(req, context=ctx) as resp:
-                return json.loads(resp.read())
-        except urllib.error.HTTPError as err:
-            if ignore_404 and err.code == 404:
-                return None
-            raise
+        ssl_ctx = ssl.create_default_context(cafile=str(ctx["ca_path"]))
+        ssl_ctx.check_hostname = False
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                with urllib.request.urlopen(req, context=ssl_ctx, timeout=timeout or KUBE_TIMEOUT) as resp:
+                    return yaml.safe_load(resp.read())
+            except (HTTPError, URLError) as exc:
+                if attempt > retries:
+                    raise RuntimeError(f"failed to GET {path}: {exc}") from exc
+                time.sleep(backoff * attempt)
 
-    def load_routes(host, port, token, ctx, selector: str):
-        quoted = urllib.parse.quote(selector, safe="=,")
-        data = fetch_json(
-            host,
-            port,
-            token,
-            ctx,
-            f"/apis/gateway.networking.k8s.io/v1/httproutes?labelSelector={quoted}",
-        )
-        if not data:
-            return []
+    def discover(selector: str, logger, ctx: ClusterContext):
+        selector = selector or "hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external"
+        DEFAULT_ICON = "mdi:web"
 
-        entries = []
-        for item in data.get("items", []):
-            meta = item.get("metadata", {}) or {}
-            labels = meta.get("labels", {}) or {}
-            if labels.get("metacontroller.edgard.org/managed") == "hajimari":
-                continue
-            if labels.get("hajimari.edgard.org/enabled") != "true":
-                continue
-            ns = meta.get("namespace")
-            name = meta.get("name")
-            icon = labels.get("hajimari.edgard.org/icon")
-            for host in item.get("spec", {}).get("hostnames", []) or []:
-                entries.append(Entry(host=host, namespace=ns, routename=name, icon=icon))
-        return entries
+        @dataclass
+        class Entry:
+            host: str
+            namespace: str
+            routename: str
+            icon: Optional[str]
 
-    def build_config(entries: Iterable[Entry], base: dict) -> dict:
-        groups = {}
-        seen_hosts = set()
-        seen_names = set()
-        for entry in entries:
-            key = entry.host.lower()
-            if key in seen_hosts:
-                continue
-            name = display_name(entry.host)
-            if name in seen_names:
-                continue
-            seen_hosts.add(key)
-            seen_names.add(name)
-            grp = groups.setdefault(entry.namespace, {"apps": []})
-            grp["apps"].append(
-                {
-                    "name": name,
-                    "url": f"https://{entry.host}",
-                    "icon": display_icon(entry.icon),
-                    "info": f"{entry.namespace}/{entry.routename}",
-                    "targetBlank": False,
-                }
+        def routes_to_entries(items: Sequence[dict]):
+            entries = []
+            for item in items or []:
+                meta = item.get("metadata", {}) or {}
+                labels = meta.get("labels", {}) or {}
+                if labels.get("homelab.edgard.org/managed") == "hajimari":
+                    continue
+                if labels.get("hajimari.edgard.org/enabled") != "true":
+                    continue
+                ns = meta.get("namespace")
+                name = meta.get("name")
+                icon = labels.get("hajimari.edgard.org/icon")
+                for host in item.get("spec", {}).get("hostnames", []) or []:
+                    entries.append(Entry(host=host, namespace=ns, routename=name, icon=icon))
+            return entries
+
+        def list_routes(ctx: ClusterContext, selector: str):
+            encoded = urllib.parse.quote(selector, safe="=,")
+            data = kube_get(
+                f"/apis/gateway.networking.k8s.io/v1/httproutes?labelSelector={encoded}",
+                ctx,
             )
+            return data.get("items", []) if data else []
 
-        for grp in groups.values():
-            grp["apps"].sort(key=lambda x: x["name"].lower())
+        def build_config(entries: Iterable[Entry], base: dict) -> dict:
+            groups = {}
+            seen_hosts = set()
+            seen_names = set()
+            for entry in entries:
+                key = entry.host.lower()
+                if key in seen_hosts:
+                    continue
+                name = entry.host.split(".")[0].replace("-", " ").title()
+                if name in seen_names:
+                    continue
+                seen_hosts.add(key)
+                seen_names.add(name)
+                grp = groups.setdefault(entry.namespace, {"apps": []})
+                grp["apps"].append(
+                    {
+                        "name": name,
+                        "url": f"https://{entry.host}",
+                        "icon": f"mdi:{entry.icon}" if entry.icon else DEFAULT_ICON,
+                        "info": f"{entry.namespace}/{entry.routename}",
+                        "targetBlank": False,
+                    }
+                )
 
-        custom_apps = [
-            {"group": ns.replace("-", " ").title(), "apps": grp["apps"]}
-            for ns, grp in sorted(groups.items(), key=lambda x: x[0])
-        ]
+            for grp in groups.values():
+                grp["apps"].sort(key=lambda x: x["name"].lower())
 
-        base["customApps"] = custom_apps
-        return base
+            custom_apps = [
+                {"group": ns.replace("-", " ").title(), "apps": grp["apps"]}
+                for ns, grp in sorted(groups.items(), key=lambda x: x[0])
+            ]
 
-    def render_config(base: dict, selector: str, host: str, port: str, token: str, ctx, logger, static_apps: list, static_bookmarks_raw: list):
-        if not base:
-            raise SystemExit("base config is required")
-        if not isinstance(base, dict):
-            raise SystemExit(f"base config must be a mapping, got {type(base)}")
-        if static_apps is None:
-            static_apps = []
-        if static_apps and not isinstance(static_apps, list):
-            raise SystemExit(f"static apps must be a list, got {type(static_apps)}")
+            base["customApps"] = custom_apps
+            return base
 
-        if static_bookmarks_raw is None:
-            static_bookmarks_raw = []
-        if static_bookmarks_raw and not isinstance(static_bookmarks_raw, list):
-            raise SystemExit(f"static bookmarks must be a list, got {type(static_bookmarks_raw)}")
+        routes = list_routes(ctx, selector)
+        entries = routes_to_entries(routes)
 
-        entries = load_routes(host, port, token, ctx, selector)
-        cfg = build_config(entries, base)
-        discovered_apps = cfg.get("customApps", []) or []
-        cfg["customApps"] = discovered_apps + static_apps
+        cfg = build_config(entries, {})
+        custom_apps = cfg.get("customApps", [])
 
-        bookmark_groups = []
-        for group in static_bookmarks_raw or []:
-            if not isinstance(group, dict) or "bookmarks" not in group or "group" not in group:
-                raise SystemExit("static bookmarks must be a list of {group, bookmarks}")
-            if not isinstance(group["bookmarks"], list):
-                raise SystemExit("static bookmarks 'bookmarks' must be a list")
-            bookmark_groups.append({"group": group["group"], "bookmarks": group["bookmarks"]})
-
-        if bookmark_groups:
-            cfg["globalBookmarks"] = bookmark_groups
-
-        discovered_count = sum(len(g.get("apps", [])) for g in discovered_apps)
-        static_count = sum(len(g.get("apps", [])) for g in static_apps) if static_apps else 0
-        bookmark_count = sum(len(g.get("bookmarks", [])) for g in bookmark_groups) if bookmark_groups else 0
-        app_count = discovered_count + static_count
+        discovered_apps = custom_apps
+        total = sum(len(g.get("apps", [])) for g in discovered_apps)
         stats = {
-            "appCount": app_count,
-            "endpointCount": app_count,
-            "discoveredCount": discovered_count,
-            "staticCount": static_count,
-            "bookmarkCount": bookmark_count,
+            "appCount": total,
+            "endpointCount": total,
+            "discoveredCount": total,
         }
+        return custom_apps, stats
+
+    def patch_config(config: dict, data: list):
+        config['customApps'] = data
+
+    def render_config(base_config: dict, selector: str, logger, *, ctx: ClusterContext | None = None, trace: str | None = None):
+        if not base_config:
+            raise SystemExit("base config is required")
+        if ctx is None:
+            ctx = cluster_context()
+
+        data_list, stats = discover(selector, logger, ctx)
+
+        cfg = copy.deepcopy(base_config)
+        patch_config(cfg, data_list)
+
         logger.debug(
-            "rendered hajimari config apps=%s discovered=%s static=%s bookmarks=%s selector=%s",
-            app_count,
-            discovered_count,
-            static_count,
-            bookmark_count,
+            "rendered config trace=%s endpoints=%s discovered=%s selector=%s",
+            trace or "-",
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
             selector,
         )
         return cfg, stats
 
-    def write_config(config: dict, out_path: Path):
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
-
-    def main():
+    def main():  # pragma: no cover - manual execution helper
         logger = setup_logging()
+        ctx = cluster_context()
 
-        host = os.environ.get("KUBERNETES_SERVICE_HOST")
-        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/scripts/base.yaml.j2"))
         out_path = Path(os.environ.get("CONFIG_OUT", "/config/config.yaml"))
-        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
-        selector = os.environ.get("ROUTE_SELECTOR", DEFAULT_ROUTE_SELECTOR)
-        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
-        ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-        static_apps_path = Path(os.environ.get("CONFIG_STATIC", "/templates/static-apps.yaml"))
-        static_bookmarks_path = Path(os.environ.get("CONFIG_BOOKMARKS", "/templates/static-bookmarks.yaml"))
 
-        if not host:
-            sys.exit("missing KUBERNETES_SERVICE_HOST")
+        try:
+            base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+        except Exception:
+            base_config = {}
 
-        token = token_path.read_text(encoding="utf-8").strip()
+        cfg, stats = render_config(base_config=base_config, selector=DEFAULT_SELECTOR, logger=logger, ctx=ctx, trace="standalone")
 
-        ctx = ssl.create_default_context(cafile=ca_path)
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-
-        base = yaml.safe_load(base_path.read_text(encoding="utf-8")) if base_path.exists() else {}
-        static_apps = yaml.safe_load(static_apps_path.read_text(encoding="utf-8")) if static_apps_path.exists() else []
-        static_bookmarks = yaml.safe_load(static_bookmarks_path.read_text(encoding="utf-8")) if static_bookmarks_path.exists() else []
-
-        final_cfg, stats = render_config(base, selector, host, port, token, ctx, logger, static_apps, static_bookmarks)
-
-        write_config(final_cfg, out_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
         logger.debug(
-            "generated hajimari config apps=%s endpoints=%s discovered=%s static=%s bookmarks=%s selector=%s path=%s",
+            "generated config apps=%s endpoints=%s discovered=%s selector=%s path=%s",
             stats.get("appCount"),
             stats.get("endpointCount"),
             stats.get("discoveredCount"),
-            stats.get("staticCount"),
-            stats.get("bookmarkCount"),
-            selector,
+            DEFAULT_SELECTOR,
             str(out_path),
         )
 
     if __name__ == "__main__":
         main()
   webhook.py: |-
-    import json
-    import os
-    import ssl
-    import logging
-    from datetime import datetime, timezone
     import hashlib
+    import json
+    import logging
+    import os
+    from datetime import datetime, timezone
     from http.server import BaseHTTPRequestHandler, HTTPServer
     from pathlib import Path
 
@@ -248,73 +235,87 @@ data:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
-    CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-    DEFAULT_SELECTOR = os.environ.get("ROUTE_SELECTOR", generator.DEFAULT_ROUTE_SELECTOR)
+    DEFAULT_SELECTOR = os.environ.get("DISCOVERY_SELECTOR", generator.DEFAULT_SELECTOR)
     DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "120"))
-    DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "hajimari-config-generated")
     DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
     SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
 
-    def build_response(namespace: str, output_name: str, output_key: str, selector: str, resync: int, base: dict, static_apps: list, static_bookmarks: list, parent_meta: dict, parent_status: dict, logger):
-        host = os.environ.get("KUBERNETES_SERVICE_HOST")
-        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
-        if not host:
-            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+    def get_current_namespace():
+        try:
+            return Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read_text().strip()
+        except Exception:
+            return "default"
 
-        token = TOKEN_PATH.read_text(encoding="utf-8").strip()
-        ctx = ssl.create_default_context(cafile=CA_PATH)
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+    def build_response(parent: dict, logger):
+        metadata = parent.get("metadata") or {}
+        spec = parent.get("spec") or {}
+        parent_status = parent.get("status") or {}
 
-        config, stats = generator.render_config(base, selector, host, port, token, ctx, logger, static_apps, static_bookmarks)
+        # Derive managed resource from Kind (e.g. DexConfig -> dex)
+        kind = parent.get("kind", "")
+        managed_resource = kind.replace("Config", "").lower() or "unknown"
+        default_output_cm = f"{managed_resource}-config-generated"
+
+        namespace = metadata.get("namespace") or get_current_namespace()
+        output_name = spec.get("outputConfigMap") or default_output_cm
+        output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
+        selector = spec.get("discoverySelector") or DEFAULT_SELECTOR
+        resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+
+        base_config = spec.get("base", {})
+
+        # Use generator.cluster_context() directly if available, or generic one
+        ctx = generator.cluster_context()
+
+        config, stats = generator.render_config(
+            base_config=base_config,
+            selector=selector,
+            logger=logger,
+            ctx=ctx,
+            trace=f"{namespace}/{metadata.get('name', '')}",
+        )
+
         cfg_yaml = yaml.safe_dump(config, sort_keys=False)
         cfg_hash = hashlib.sha256(cfg_yaml.encode("utf-8")).hexdigest()
 
-        apps = stats.get("appCount", 0)
+        endpoints = stats.get("endpointCount", 0)
+        discovered = stats.get("discoveredCount", endpoints)
+        app_count = stats.get("appCount", endpoints)
 
-        prev_status = parent_status or {}
-        prev_hash = prev_status.get("configHash")
+        prev_hash = parent_status.get("configHash")
 
         if prev_hash == cfg_hash:
-            status = prev_status
+            status = parent_status
         else:
             now = datetime.now(timezone.utc).isoformat()
             status = {
                 "lastSync": now,
+                "appCount": app_count,
+                "endpointCount": endpoints,
+                "discovered": discovered,
                 "configHash": cfg_hash,
-                "appCount": apps,
-                "endpointCount": stats.get("endpointCount", apps),
-                "discovered": stats.get("discoveredCount", 0),
-                "static": stats.get("staticCount", 0),
                 "conditions": [
                     {
                         "type": "Ready",
                         "status": "True",
                         "reason": "SyncSuccessful",
-                        "message": (
-                            f"Rendered {apps} endpoints "
-                            f"({stats.get('discoveredCount', 0)} discovered, "
-                            f"{stats.get('staticCount', 0)} static, "
-                            f"{stats.get('bookmarkCount', 0)} bookmarks)"
-                        ),
+                        "message": f"Rendered {endpoints} endpoints ({discovered} discovered)",
                         "lastTransitionTime": now,
                     }
                 ],
             }
 
         logger.info(
-            "sync successful ns=%s cm=%s apps=%s bookmarks=%s endpoints=%s discovered=%s static=%s selector=%s",
+            "sync successful parent=%s/%s cm=%s selector=%s endpoints=%s discovered=%s",
             namespace,
+            metadata.get("name"),
             output_name,
-            apps,
-            stats.get("bookmarkCount", 0),
-            stats.get("endpointCount", apps),
-            stats.get("discoveredCount", 0),
-            stats.get("staticCount", 0),
             selector,
+            endpoints,
+            discovered,
         )
-        payload = {
+
+        return {
             "children": [
                 {
                     "apiVersion": "v1",
@@ -323,20 +324,17 @@ data:
                         "name": output_name,
                         "namespace": namespace,
                         "labels": {
-                            "app.kubernetes.io/name": "hajimari",
-                            "app.kubernetes.io/part-of": "hajimari",
-                            "metacontroller.edgard.org/managed": "hajimari",
+                            "app.kubernetes.io/name": managed_resource,
+                            "app.kubernetes.io/part-of": managed_resource,
+                        "homelab.edgard.org/managed": managed_resource,
                         },
                     },
-                    "data": {
-                        output_key: cfg_yaml,
-                    },
+                    "data": {output_key: cfg_yaml},
                 }
             ],
             "status": status,
             "resyncAfterSeconds": resync,
         }
-        return payload
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):  # noqa: N802 - metacontroller expects POST
@@ -346,27 +344,25 @@ data:
 
             length = int(self.headers.get("Content-Length", "0"))
             raw_body = self.rfile.read(length) if length else b"{}"
-            body = json.loads(raw_body or "{}")
-            parent = body.get("parent") or {}
-            metadata = parent.get("metadata") or {}
-            status = parent.get("status") or {}
-            spec = parent.get("spec") or {}
+            try:
+                body = json.loads(raw_body or b"{}")
+            except json.JSONDecodeError as exc:
+                self._write_json(400, {"error": f"invalid json: {exc}"})
+                return
 
-            namespace = metadata.get("namespace") or "edge-services"
-            output_name = spec.get("outputConfigMap") or DEFAULT_OUTPUT_CM
-            output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
-            selector = spec.get("routeSelector") or DEFAULT_SELECTOR
+            parent = body.get("parent") or {}
+            spec = parent.get("spec") or {}
             resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
-            base = spec.get("base") or {}
-            static_apps = spec.get("staticApps") or []
-            static_bookmarks = spec.get("staticBookmarks") or []
+            logger = logging.getLogger("webhook")
 
             try:
-                response = build_response(namespace, output_name, output_key, selector, resync, base, static_apps, static_bookmarks, parent.get("metadata") or {}, status, logging.getLogger("hajimari-webhook"))
+                response = build_response(parent, logger)
                 self._write_json(200, response)
             except Exception as exc:  # pragma: no cover - surfaced via status
                 now = datetime.now(timezone.utc).isoformat()
                 logging.exception("sync error")
+                # Use DEFAULT_RESYNC as fallback if parsing failed
+                resync = DEFAULT_RESYNC
                 self._write_json(
                     200,
                     {
@@ -375,7 +371,7 @@ data:
                             "appCount": 0,
                             "endpointCount": 0,
                             "discovered": 0,
-                            "static": 0,
+                            "configHash": None,
                             "conditions": [
                                 {
                                     "type": "Ready",
@@ -401,6 +397,16 @@ data:
             self.end_headers()
             self.wfile.write(data)
 
+        def do_GET(self):
+            if self.path in ("/healthz", "/livez", "/readyz"):
+                self._write_json(200, {"status": "ok"})
+            else:
+                self.send_error(404, "not found")
+
     if __name__ == "__main__":
         server = HTTPServer(("", SERVER_PORT), Handler)
+        logging.getLogger("webhook").info(
+            "starting metacontroller webhook on :%s",
+            SERVER_PORT,
+        )
         server.serve_forever()

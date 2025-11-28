@@ -4,9 +4,6 @@ kind: HajimariConfig
 metadata:
   name: hajimari-config
   namespace: edge-services
-  labels:
-    app.kubernetes.io/name: hajimari-config
-    app.kubernetes.io/part-of: hajimari
 spec:
   base:
     title: Homelab
@@ -23,25 +20,22 @@ spec:
     showAppStatus: false
     lightTheme: paper
     darkTheme: chalk
-  staticBookmarks:
-    - group: Quick Links
-      bookmarks:
-        - name: Reddit
-          url: https://www.reddit.com/
-          icon: mdi:reddit
-        - name: Hacker News
-          url: https://news.ycombinator.com/
-          icon: mdi:hackernews
-        - name: Google News
-          url: https://news.google.com/home
-          icon: mdi:google
-        - name: Instagram
-          url: https://www.instagram.com/
-          icon: mdi:instagram
-        - name: Kraków Webcams
-          url: https://www.edgard.org/krakow-webcam/
-          icon: mdi:webcam
-  outputConfigMap: hajimari-config-generated
-  outputKey: config.yaml
-  routeSelector: hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external
-  resyncSeconds: 120
+    customApps: []
+    globalBookmarks:
+      - group: Quick Links
+        bookmarks:
+          - name: Reddit
+            url: https://www.reddit.com/
+            icon: mdi:reddit
+          - name: Hacker News
+            url: https://news.ycombinator.com/
+            icon: mdi:hackernews
+          - name: Google News
+            url: https://news.google.com/home
+            icon: mdi:google
+          - name: Instagram
+            url: https://www.instagram.com/
+            icon: mdi:instagram
+          - name: Kraków Webcams
+            url: https://www.edgard.org/krakow-webcam/
+            icon: mdi:webcam

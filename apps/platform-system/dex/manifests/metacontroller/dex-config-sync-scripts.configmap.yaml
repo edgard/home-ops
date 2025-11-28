@@ -9,18 +9,30 @@ data:
     import copy
     import logging
     import os
-    import ssl
     import sys
-    import urllib.error
+    import time
     import urllib.parse
     import urllib.request
+    from dataclasses import dataclass
     from pathlib import Path
-    from typing import Iterable, List, Sequence, Tuple
+    from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TypedDict
 
     try:
         import yaml
-    except ImportError:  # pragma: no cover - installed in container entrypoint
+    except ImportError:
         sys.exit("PyYAML is required")
+
+    KUBE_TIMEOUT = float(os.environ.get("KUBE_TIMEOUT", "5"))
+    KUBE_RETRIES = int(os.environ.get("KUBE_RETRIES", "2"))
+    KUBE_BACKOFF = float(os.environ.get("KUBE_BACKOFF", "0.5"))
+
+    DEFAULT_SELECTOR = os.environ.get("DISCOVERY_SELECTOR", "")
+
+    class ClusterContext(TypedDict):
+        host: str
+        port: str
+        token: str
+        ca_path: Path
 
     def setup_logging():
         level = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -28,151 +40,159 @@ data:
             level=getattr(logging, level, logging.INFO),
             format="%(asctime)s %(levelname)s %(name)s %(message)s",
         )
-        return logging.getLogger("dex-generator")
+        return logging.getLogger("generator")
 
-    def fetch_json(host: str, port: str, token: str, ca_path: str, path: str, ignore_errors=(404, 403)):
-        ctx = ssl.create_default_context(cafile=ca_path)
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+    def cluster_context() -> ClusterContext:
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        if not host:
+            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+        token = token_path.read_text(encoding="utf-8").strip()
+        return {"host": host, "port": port, "token": token, "ca_path": ca_path}
 
-        url = f"https://{host}:{port}{path}"
+    def kube_get(path: str, ctx: ClusterContext, *, timeout: float | None = None, retries: int | None = None, backoff: float | None = None):
+        import ssl
+        from urllib.error import HTTPError, URLError
+
+        retries = KUBE_RETRIES if retries is None else retries
+        backoff = KUBE_BACKOFF if backoff is None else backoff
+
+        url = f"https://{ctx['host']}:{ctx['port']}{path}"
         req = urllib.request.Request(
             url,
             headers={
-                "Authorization": f"Bearer {token}",
+                "Authorization": f"Bearer {ctx['token']}",
                 "Accept": "application/json",
             },
         )
+        ssl_ctx = ssl.create_default_context(cafile=str(ctx["ca_path"]))
+        ssl_ctx.check_hostname = False
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                with urllib.request.urlopen(req, context=ssl_ctx, timeout=timeout or KUBE_TIMEOUT) as resp:
+                    return yaml.safe_load(resp.read())
+            except (HTTPError, URLError) as exc:
+                if attempt > retries:
+                    raise RuntimeError(f"failed to GET {path}: {exc}") from exc
+                time.sleep(backoff * attempt)
 
-        try:
-            with urllib.request.urlopen(req, context=ctx) as resp:
-                return yaml.safe_load(resp.read())
-        except urllib.error.HTTPError as err:
-            if err.code in ignore_errors:
-                return None
-            raise
+    def discover(selector: str, logger, ctx: ClusterContext):
+        def list_security_policies(ctx):
+            return kube_get("/apis/gateway.envoyproxy.io/v1alpha1/securitypolicies", ctx) or {"items": []}
 
-    def list_security_policies(host: str, port: str, token: str, ca_path: str):
-        return fetch_json(
-            host,
-            port,
-            token,
-            ca_path,
-            "/apis/gateway.envoyproxy.io/v1alpha1/securitypolicies",
-        ) or {}
+        def list_routes(ctx, selector: str | None = None):
+            data = kube_get("/apis/gateway.networking.k8s.io/v1/httproutes", ctx) or {}
+            return data.get("items", [])
 
-    def get_routes_from_policies(policies: dict, expected_client: str, expected_issuer: str) -> List[Tuple[str, str]]:
-        targets = set()
-        for item in policies.get("items", []):
-            spec = item.get("spec", {}) or {}
-            oidc = spec.get("oidc", {}) or {}
-            provider = oidc.get("provider", {}) or {}
-            client_id = oidc.get("clientID")
-            issuer = provider.get("issuer")
-            if expected_client and client_id != expected_client:
-                continue
-            if expected_issuer and issuer and issuer != expected_issuer:
-                continue
-            policy_ns = (item.get("metadata", {}) or {}).get("namespace")
-            for tref in spec.get("targetRefs", []) or []:
-                if tref.get("group") == "gateway.networking.k8s.io" and tref.get("kind") == "HTTPRoute":
-                    ns = tref.get("namespace") or policy_ns
-                    name = tref.get("name")
-                    if ns and name:
-                        targets.add((ns, name))
-        return sorted(targets)
+        def get_targets(policies: dict, expected_client: str) -> List[Tuple[str, str]]:
+            targets = set()
+            for item in policies.get("items", []):
+                spec = item.get("spec", {}) or {}
+                oidc = spec.get("oidc", {}) or {}
+                client_id = oidc.get("clientID")
+                if expected_client and client_id != expected_client:
+                    continue
+                policy_ns = (item.get("metadata", {}) or {}).get("namespace")
+                for tref in spec.get("targetRefs", []) or []:
+                    if tref.get("group") == "gateway.networking.k8s.io" and tref.get("kind") == "HTTPRoute":
+                        ns = tref.get("namespace") or policy_ns
+                        name = tref.get("name")
+                        if ns and name:
+                            targets.add((ns, name))
+            return sorted(targets)
 
-    def fetch_route(host: str, port: str, token: str, ca_path: str, namespace: str, name: str):
-        return fetch_json(
-            host,
-            port,
-            token,
-            ca_path,
-            f"/apis/gateway.networking.k8s.io/v1/namespaces/{namespace}/httproutes/{name}",
-        )
+        def index_routes(items: Sequence[dict]) -> Dict[Tuple[str, str], dict]:
+            idx = {}
+            for item in items or []:
+                meta = item.get("metadata", {}) or {}
+                ns = meta.get("namespace")
+                name = meta.get("name")
+                if ns and name:
+                    idx[(ns, name)] = item
+            return idx
 
-    def collect_hosts(host: str, port: str, token: str, ca_path: str, targets: Sequence[Tuple[str, str]]) -> List[str]:
-        hostnames = set()
-        for ns, name in targets:
-            route = fetch_route(host, port, token, ca_path, ns, name)
-            if not route:
-                continue
-            for hostname in route.get("spec", {}).get("hostnames", []) or []:
-                hostnames.add(hostname.lower())
-        return sorted(hostnames)
+        def collect_hosts(targets: Sequence[Tuple[str, str]], route_index: Dict[Tuple[str, str], dict]) -> List[str]:
+            hostnames = set()
+            for ns, name in targets:
+                route = route_index.get((ns, name))
+                if not route:
+                    continue
+                for hostname in route.get("spec", {}).get("hostnames", []) or []:
+                    hostnames.add(hostname.lower())
+            return sorted(hostnames)
 
-    def build_config(base: dict, hosts: Iterable[str]):
-        cfg = copy.deepcopy(base)
-        clients = cfg.get("staticClients") or []
-        if not clients:
-            raise SystemExit("base config missing staticClients")
+        policies = list_security_policies(ctx)
+        routes = list_routes(ctx, selector)
+
+        # Default expected client if not inferable from old template
+        expected_client = "envoy-gateway"
+
+        targets = get_targets(policies or {}, expected_client)
+        route_index = index_routes(routes or [])
+        hosts = collect_hosts(targets, route_index)
 
         redirects = [f"https://{h}/oauth2/callback" for h in hosts]
-        clients[0]["redirectURIs"] = redirects
-        cfg["staticClients"] = clients
 
-        return cfg, {
-            "clientCount": len(clients),
-            "redirectCount": len(redirects),
+        stats = {
+            "appCount": len(redirects),
+            "endpointCount": len(redirects),
+            "discoveredCount": len(hosts),
         }
+        return redirects, stats
 
-    def render_config(base: dict, host: str, port: str, token: str, ca_path: str, logger):
-        if not base:
+    def patch_config(config: dict, data: list):
+        # data is redirectURIs list
+        for client in config.get('staticClients', []):
+            if client.get('id') == 'envoy-gateway':
+                client['redirectURIs'] = data
+
+    def render_config(base_config: dict, selector: str, logger, *, ctx: ClusterContext | None = None, trace: str | None = None):
+        if not base_config:
             raise SystemExit("base config is required")
-        if not isinstance(base, dict):
-            raise SystemExit(f"base config must be a mapping, got {type(base)}")
+        if ctx is None:
+            ctx = cluster_context()
 
-        expected_client = (base.get("staticClients") or [{}])[0].get("id")
-        expected_issuer = base.get("issuer")
+        data_list, stats = discover(selector, logger, ctx)
 
-        policies = list_security_policies(host, port, token, ca_path)
-        targets = get_routes_from_policies(policies, expected_client, expected_issuer)
-        hosts = collect_hosts(host, port, token, ca_path, targets)
-
-        cfg, stats = build_config(base, hosts)
-        stats.update(
-            {
-                "policyCount": len(policies.get("items", [])),
-                "routeCount": len(targets),
-                "discoveredCount": len(hosts),
-            }
-        )
+        cfg = copy.deepcopy(base_config)
+        patch_config(cfg, data_list)
 
         logger.debug(
-            "rendered dex config clients=%s redirects=%s routes=%s policies=%s",
-            stats.get("clientCount"),
-            stats.get("redirectCount"),
-            stats.get("routeCount"),
-            stats.get("policyCount"),
+            "rendered config trace=%s endpoints=%s discovered=%s selector=%s",
+            trace or "-",
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
+            selector,
         )
         return cfg, stats
 
     def main():  # pragma: no cover - manual execution helper
         logger = setup_logging()
+        ctx = cluster_context()
 
-        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/templates/base.yaml"))
+        base_path = Path(os.environ.get("CONFIG_TEMPLATE", "/scripts/base.yaml.j2"))
         out_path = Path(os.environ.get("CONFIG_OUT", "/config/config.yaml"))
 
-        host = os.environ.get("KUBERNETES_SERVICE_HOST")
-        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
-        if not host:
-            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+        # Try to read base config from file if it exists (for local debugging), else empty
+        try:
+            base_config = yaml.safe_load(base_path.read_text(encoding="utf-8"))
+        except Exception:
+            base_config = {}
 
-        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
-        ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-        token = token_path.read_text(encoding="utf-8").strip()
-
-        base = yaml.safe_load(base_path.read_text(encoding="utf-8")) if base_path.exists() else {}
-        cfg, stats = render_config(base, host, port, token, ca_path, logger)
+        cfg, stats = render_config(base_config=base_config, selector=DEFAULT_SELECTOR, logger=logger, ctx=ctx, trace="standalone")
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
-        logger.info(
-            "generated dex config clients=%s redirects=%s routes=%s policies=%s path=%s",
-            stats.get("clientCount"),
-            stats.get("redirectCount"),
-            stats.get("routeCount"),
-            stats.get("policyCount"),
+        logger.debug(
+            "generated config apps=%s endpoints=%s discovered=%s selector=%s path=%s",
+            stats.get("appCount"),
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
+            DEFAULT_SELECTOR,
             str(out_path),
         )
 
@@ -197,69 +217,84 @@ data:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
-    CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+    DEFAULT_SELECTOR = os.environ.get("DISCOVERY_SELECTOR", generator.DEFAULT_SELECTOR)
     DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "120"))
-    DEFAULT_OUTPUT_CM = os.environ.get("OUTPUT_CONFIGMAP", "dex-config-generated")
     DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
     SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
 
-    def build_response(namespace: str, output_name: str, output_key: str, resync: int, base: dict, parent_status: dict, logger):
-        host = os.environ.get("KUBERNETES_SERVICE_HOST")
-        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
-        if not host:
-            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+    def get_current_namespace():
+        try:
+            return Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read_text().strip()
+        except Exception:
+            return "default"
 
-        token = TOKEN_PATH.read_text(encoding="utf-8").strip()
+    def build_response(parent: dict, logger):
+        metadata = parent.get("metadata") or {}
+        spec = parent.get("spec") or {}
+        parent_status = parent.get("status") or {}
+
+        # Derive managed resource from Kind (e.g. DexConfig -> dex)
+        kind = parent.get("kind", "")
+        managed_resource = kind.replace("Config", "").lower() or "unknown"
+        default_output_cm = f"{managed_resource}-config-generated"
+
+        namespace = metadata.get("namespace") or get_current_namespace()
+        output_name = spec.get("outputConfigMap") or default_output_cm
+        output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
+        selector = spec.get("discoverySelector") or DEFAULT_SELECTOR
+        resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+
+        base_config = spec.get("base", {})
+
+        # Use generator.cluster_context() directly if available, or generic one
+        ctx = generator.cluster_context()
+
         config, stats = generator.render_config(
-            base=base,
-            host=host,
-            port=port,
-            token=token,
-            ca_path=CA_PATH,
+            base_config=base_config,
+            selector=selector,
             logger=logger,
+            ctx=ctx,
+            trace=f"{namespace}/{metadata.get('name', '')}",
         )
 
         cfg_yaml = yaml.safe_dump(config, sort_keys=False)
         cfg_hash = hashlib.sha256(cfg_yaml.encode("utf-8")).hexdigest()
 
-        endpoints = stats.get("redirectCount", 0)
+        endpoints = stats.get("endpointCount", 0)
         discovered = stats.get("discoveredCount", endpoints)
-        clients = stats.get("clientCount", 0)
+        app_count = stats.get("appCount", endpoints)
 
-        prev_status = parent_status or {}
-        prev_hash = prev_status.get("configHash")
+        prev_hash = parent_status.get("configHash")
 
         if prev_hash == cfg_hash:
-            status = prev_status
+            status = parent_status
         else:
             now = datetime.now(timezone.utc).isoformat()
             status = {
                 "lastSync": now,
-                "appCount": clients,
+                "appCount": app_count,
                 "endpointCount": endpoints,
                 "discovered": discovered,
-                "static": 0,
                 "configHash": cfg_hash,
                 "conditions": [
                     {
                         "type": "Ready",
                         "status": "True",
                         "reason": "SyncSuccessful",
-                        "message": f"Rendered {endpoints} redirect URIs across {clients} static clients",
+                        "message": f"Rendered {endpoints} endpoints ({discovered} discovered)",
                         "lastTransitionTime": now,
                     }
                 ],
             }
 
         logger.info(
-            "sync successful ns=%s cm=%s clients=%s redirects=%s policies=%s routes=%s",
+            "sync successful parent=%s/%s cm=%s selector=%s endpoints=%s discovered=%s",
             namespace,
+            metadata.get("name"),
             output_name,
-            clients,
+            selector,
             endpoints,
-            stats.get("policyCount"),
-            stats.get("routeCount"),
+            discovered,
         )
 
         return {
@@ -271,9 +306,9 @@ data:
                         "name": output_name,
                         "namespace": namespace,
                         "labels": {
-                            "app.kubernetes.io/name": "dex",
-                            "app.kubernetes.io/part-of": "dex",
-                            "metacontroller.edgard.org/managed": "dex",
+                            "app.kubernetes.io/name": managed_resource,
+                            "app.kubernetes.io/part-of": managed_resource,
+                            "homelab.edgard.org/managed": managed_resource,
                         },
                     },
                     "data": {output_key: cfg_yaml},
@@ -291,34 +326,33 @@ data:
 
             length = int(self.headers.get("Content-Length", "0"))
             raw_body = self.rfile.read(length) if length else b"{}"
-            body = json.loads(raw_body or b"{}")
+            try:
+                body = json.loads(raw_body or b"{}")
+            except json.JSONDecodeError as exc:
+                self._write_json(400, {"error": f"invalid json: {exc}"})
+                return
 
             parent = body.get("parent") or {}
-            metadata = parent.get("metadata") or {}
-            status = parent.get("status") or {}
             spec = parent.get("spec") or {}
-
-            namespace = metadata.get("namespace") or "platform-system"
-            output_name = spec.get("outputConfigMap") or DEFAULT_OUTPUT_CM
-            output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
             resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
-            base = spec.get("base") or {}
-            logger = logging.getLogger("dex-webhook")
+            logger = logging.getLogger("webhook")
 
             try:
-                response = build_response(namespace, output_name, output_key, resync, base, status, logger)
+                response = build_response(parent, logger)
                 self._write_json(200, response)
             except Exception as exc:  # pragma: no cover - surfaced via status
                 now = datetime.now(timezone.utc).isoformat()
                 logging.exception("sync error")
+                # Use DEFAULT_RESYNC as fallback if parsing failed
+                resync = DEFAULT_RESYNC
                 self._write_json(
                     200,
                     {
                         "status": {
                             "lastSync": now,
+                            "appCount": 0,
                             "endpointCount": 0,
                             "discovered": 0,
-                            "static": 0,
                             "configHash": None,
                             "conditions": [
                                 {
@@ -345,6 +379,16 @@ data:
             self.end_headers()
             self.wfile.write(data)
 
+        def do_GET(self):
+            if self.path in ("/healthz", "/livez", "/readyz"):
+                self._write_json(200, {"status": "ok"})
+            else:
+                self.send_error(404, "not found")
+
     if __name__ == "__main__":
         server = HTTPServer(("", SERVER_PORT), Handler)
+        logging.getLogger("webhook").info(
+            "starting metacontroller webhook on :%s",
+            SERVER_PORT,
+        )
         server.serve_forever()
