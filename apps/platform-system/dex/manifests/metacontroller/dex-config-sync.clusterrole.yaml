@@ -5,6 +5,14 @@ metadata:
   name: dex-config-sync
 rules:
   - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - create
+      - update
+  - apiGroups:
       - gateway.envoyproxy.io
     resources:
       - securitypolicies
