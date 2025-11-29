@@ -1,0 +1,284 @@
+---
+controllers:
+  paperless:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/reload: paperless-secret
+    containers:
+      main:
+        image:
+          repository: ghcr.io/paperless-ngx/paperless-ngx
+          tag: "2.20.0"
+        env:
+          TZ: Europe/Warsaw
+          USERMAP_UID: "568"
+          USERMAP_GID: "568"
+          PAPERLESS_URL: https://paperless.edgard.org
+          PAPERLESS_PORT: "8000"
+          PAPERLESS_TIME_ZONE: Europe/Warsaw
+          PAPERLESS_WEBSERVER_WORKERS: "2"
+          PAPERLESS_TASK_WORKERS: "2"
+          PAPERLESS_BIND_ADDR: 0.0.0.0
+          PAPERLESS_OCR_LANGUAGE: eng
+          PAPERLESS_OCR_LANGUAGES: eng por pol
+          PAPERLESS_ALLOWED_HOSTS: paperless.edgard.org,paperless.edge-services.svc.cluster.local,paperless,localhost,127.0.0.1
+          PAPERLESS_CSRF_TRUSTED_ORIGINS: https://paperless.edgard.org
+          PAPERLESS_PROXY_SSL_HEADER: "[\"HTTP_X_FORWARDED_PROTO\", \"https\"]"
+          PAPERLESS_REDIS: redis://paperless-redis:6379
+          PAPERLESS_TIKA_ENABLED: "1"
+          PAPERLESS_TIKA_ENDPOINT: http://paperless-tika:9998
+          PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://paperless-gotenberg:3000
+          PAPERLESS_CONSUMER_POLLING: "60"
+          PAPERLESS_CONSUMER_RECURSIVE: "true"
+          PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
+          PAPERLESS_CONSUMPTION_DIR: /usr/src/paperless/inbox
+        envFrom:
+          - secretRef:
+              name: paperless-secret
+        ports:
+          - name: http
+            containerPort: 8000
+        probes:
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
+          startup:
+            enabled: true
+            spec:
+              failureThreshold: 30
+              periodSeconds: 5
+
+  gotenberg:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: docker.io/gotenberg/gotenberg
+          tag: "8.25"
+        args:
+          - gotenberg
+          - --chromium-disable-javascript=true
+          - --chromium-allow-list=file:///tmp/.*
+        ports:
+          - name: http
+            containerPort: 3000
+
+  tika:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: docker.io/apache/tika
+          tag: "3.2.3.0"
+        ports:
+          - name: http
+            containerPort: 9998
+
+  redis:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      main:
+        image:
+          repository: docker.io/library/redis
+          tag: "8"
+        args:
+          - redis-server
+          - --save
+          - "60"
+          - "1"
+          - --loglevel
+          - warning
+        ports:
+          - name: redis
+            containerPort: 6379
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              tcpSocket:
+                port: redis
+              initialDelaySeconds: 10
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              tcpSocket:
+                port: redis
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 3
+              failureThreshold: 3
+
+  paperless-ai:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/reload: paperless-ai-secret
+    containers:
+      main:
+        image:
+          repository: docker.io/clusterzx/paperless-ai
+          tag: "3.0.9"
+        env:
+          TZ: Europe/Warsaw
+          PUID: "568"
+          PGID: "568"
+          PAPERLESS_AI_PORT: "3000"
+          PAPERLESS_API_URL: http://paperless.edge-services.svc.cluster.local:8000/api
+          # custom provider lets us override the OpenAI-compatible base (OpenRouter) and model
+          AI_PROVIDER: custom
+          CUSTOM_BASE_URL: https://openrouter.ai/api/v1
+          CUSTOM_MODEL: openai/gpt-5-mini
+        envFrom:
+          - secretRef:
+              name: paperless-ai-secret
+        ports:
+          - name: http
+            containerPort: 3000
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: http
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: http
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+
+service:
+  paperless:
+    controller: paperless
+    type: ClusterIP
+    labels:
+      gatus.edgard.org/enabled: "true"
+    primary: true
+    ports:
+      http:
+        enabled: true
+        port: 8000
+        targetPort: http
+
+  ai:
+    controller: paperless-ai
+    type: ClusterIP
+    labels:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      http:
+        enabled: true
+        port: 3000
+        targetPort: http
+
+  gotenberg:
+    controller: gotenberg
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 3000
+        targetPort: http
+
+  tika:
+    controller: tika
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 9998
+        targetPort: http
+
+  redis:
+    controller: redis
+    type: ClusterIP
+    ports:
+      redis:
+        enabled: true
+        port: 6379
+        targetPort: redis
+
+ingress:
+  main:
+    enabled: false
+
+persistence:
+  data:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/paperless/data
+    hostPathType: DirectoryOrCreate
+    advancedMounts:
+      paperless:
+        main:
+          - path: /usr/src/paperless/data
+
+  media:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/paperless/media
+    hostPathType: DirectoryOrCreate
+    advancedMounts:
+      paperless:
+        main:
+          - path: /usr/src/paperless/media
+
+  export:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/paperless/export
+    hostPathType: DirectoryOrCreate
+    advancedMounts:
+      paperless:
+        main:
+          - path: /usr/src/paperless/export
+
+  consume:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/paperless/inbox
+    hostPathType: DirectoryOrCreate
+    advancedMounts:
+      paperless:
+        main:
+          - path: /usr/src/paperless/inbox
+
+  redis:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/paperless/redis
+    hostPathType: DirectoryOrCreate
+    advancedMounts:
+      redis:
+        main:
+          - path: /data
+
+  ai-data:
+    type: hostPath
+    hostPath: /mnt/spool/appdata/paperless-ai/data
+    hostPathType: DirectoryOrCreate
+    advancedMounts:
+      paperless-ai:
+        main:
+          - path: /app/data
