@@ -32,6 +32,7 @@ spec:
                 - NET_BIND_SERVICE
       envoyService:
         type: ClusterIP
+        name: envoy-gateway-internal
   logging:
     level:
       default: info

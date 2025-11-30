@@ -2,7 +2,7 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: external
+  name: envoy-gateway-external
   namespace: platform-system
   labels:
     external-dns.edgard.org/scope: external

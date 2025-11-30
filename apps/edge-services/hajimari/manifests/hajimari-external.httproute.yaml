@@ -8,7 +8,7 @@ metadata:
     external-dns.edgard.org/scope: external
 spec:
   parentRefs:
-    - name: external
+    - name: envoy-gateway-external
       namespace: platform-system
       sectionName: https
   hostnames:

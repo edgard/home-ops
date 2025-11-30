@@ -18,6 +18,7 @@ spec:
                 - NET_BIND_SERVICE
       envoyService:
         type: ClusterIP
+        name: envoy-gateway-external
   logging:
     level:
       default: info

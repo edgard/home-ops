@@ -10,7 +10,7 @@ metadata:
     hajimari.edgard.org/icon: zigbee
 spec:
   parentRefs:
-    - name: external
+    - name: envoy-gateway-external
       namespace: platform-system
       sectionName: https
   hostnames:

@@ -8,12 +8,12 @@ configMaps:
             originRequest:
               http2Origin: true
               originServerName: tunnel.edgard.org
-            service: https://envoy-external.platform-system.svc.cluster.local:443
+            service: https://envoy-gateway-external.platform-system.svc.cluster.local:443
           - hostname: edgard.org
             originRequest:
               http2Origin: true
               originServerName: edgard.org
-            service: https://envoy-external.platform-system.svc.cluster.local:443
+            service: https://envoy-gateway-external.platform-system.svc.cluster.local:443
           - service: http_status:404
 controllers:
   main:

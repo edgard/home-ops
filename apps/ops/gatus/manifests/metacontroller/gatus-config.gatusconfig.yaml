@@ -72,25 +72,25 @@ spec:
         interval: 1m
         conditions:
           - "[CONNECTED] == true"
-      - name: envoy-external
+      - name: envoy-gateway-external
         group: 03-gateway
-        url: tcp://envoy-external.platform-system.svc.cluster.local:443
+        url: tcp://envoy-gateway-external.platform-system.svc.cluster.local:443
         labels:
           namespace: platform-system
           scope: internal
         interval: 30s
         conditions:
           - "[CONNECTED] == true"
-      - name: envoy-internal
+      - name: envoy-gateway-internal
         group: 03-gateway
-        url: tcp://envoy-internal.platform-system.svc.cluster.local:443
+        url: tcp://envoy-gateway-internal.platform-system.svc.cluster.local:443
         labels:
           namespace: platform-system
           scope: internal
         interval: 30s
         conditions:
           - "[CONNECTED] == true"
-      - name: envoy-external-https
+      - name: envoy-gateway-external-https
         group: 03-gateway
         url: https://id.edgard.org/
         labels:
@@ -101,7 +101,7 @@ spec:
           - "[STATUS] >= 200"
           - "[STATUS] < 400"
           - "[CERTIFICATE_EXPIRATION] > 168h"
-      - name: envoy-internal-https
+      - name: envoy-gateway-internal-https
         group: 03-gateway
         url: https://id.edgard.org/
         labels:

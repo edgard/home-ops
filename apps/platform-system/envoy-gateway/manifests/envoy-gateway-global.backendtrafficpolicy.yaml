@@ -2,7 +2,7 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: BackendTrafficPolicy
 metadata:
-  name: envoy-gateway-backend
+  name: envoy-gateway-global
   namespace: platform-system
 spec:
   compression:
@@ -13,10 +13,10 @@ spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: external
+      name: envoy-gateway-external
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: internal
+      name: envoy-gateway-internal
   tcpKeepalive: {}
   timeout:
     http:
