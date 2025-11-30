@@ -29,6 +29,12 @@ controllers:
         securityContext:
           runAsUser: 0
           runAsGroup: 0
+          runAsNonRoot: false
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+              - ALL
     containers:
       app:
         image:
