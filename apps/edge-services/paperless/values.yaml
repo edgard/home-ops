@@ -26,7 +26,7 @@ controllers:
             TESSDIR=/usr/share/tesseract-ocr/5/tessdata
             mkdir -p "$TESSDIR"
             for lang in eng por pol; do
-              curl -fsSL -o "$TESSDIR/$lang.traineddata" "https://github.com/tesseract-ocr/tessdata_fast/raw/master/${lang}.traineddata"
+              curl -fsSL -o "$TESSDIR/$lang.traineddata" "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/${lang}.traineddata"
             done
             chown -R 568:568 "$TESSDIR"
         securityContext:
