@@ -4,5 +4,3 @@ strategy:
 fullnameOverride: external-secrets
 serviceAccount:
   name: external-secrets
-deploymentAnnotations:
-  reloader.stakater.com/auto: "true"

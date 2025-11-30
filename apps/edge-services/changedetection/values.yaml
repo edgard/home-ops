@@ -2,7 +2,7 @@
 controllers:
   main:
     annotations:
-      reloader.stakater.com/reload: changedetection-credentials
+      reloader.stakater.com/auto: "true"
     type: deployment
     replicas: 1
     strategy: Recreate

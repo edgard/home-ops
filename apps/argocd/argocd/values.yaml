@@ -9,3 +9,17 @@ notifications:
 
 applicationSet:
   enabled: true
+  podAnnotations:
+    reloader.stakater.com/auto: "true"
+
+controller:
+  podAnnotations:
+    reloader.stakater.com/auto: "true"
+
+server:
+  podAnnotations:
+    reloader.stakater.com/auto: "true"
+
+repoServer:
+  podAnnotations:
+    reloader.stakater.com/auto: "true"
