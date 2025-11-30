@@ -142,6 +142,24 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    initContainers:
+      prepare-dirs:
+        image:
+          repository: docker.io/library/busybox
+          tag: "1.37"
+        command: ["/bin/sh","-c"]
+        args:
+          - |
+            set -e
+            for d in /app/data /app/data/.pm2 /app/data/logs /app/data/nltk_data; do
+              mkdir -p "$d"
+              chown 568:568 "$d"
+            done
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          runAsNonRoot: false
+          readOnlyRootFilesystem: false
     containers:
       app:
         image:
