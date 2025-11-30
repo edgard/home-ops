@@ -39,6 +39,11 @@
   ],
   packageRules: [
     {
+      description: "Disable Terraform version updates (using OpenTofu)",
+      enabled: false,
+      matchManagers: ["terraform-version"],
+    },
+    {
       description: "Require manual review for major upgrades",
       automerge: false,
       matchUpdateTypes: ["major"],
