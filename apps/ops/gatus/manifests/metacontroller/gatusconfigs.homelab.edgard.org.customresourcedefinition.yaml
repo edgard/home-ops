@@ -19,6 +19,23 @@ spec:
     - name: v1alpha1
       served: true
       storage: true
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=='Ready')].status
+        - name: Endpoints
+          type: integer
+          jsonPath: .status.endpointCount
+        - name: Discovered
+          type: integer
+          jsonPath: .status.discovered
+        - name: Last Sync
+          type: string
+          format: date-time
+          jsonPath: .status.lastSync
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
       schema:
         openAPIV3Schema:
           type: object
@@ -51,6 +68,8 @@ spec:
             status:
               type: object
               properties:
+                observedGeneration:
+                  type: integer
                 lastSync:
                   type: string
                   format: date-time
