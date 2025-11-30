@@ -14,6 +14,21 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    initContainers:
+      tesseract-langs:
+        image:
+          repository: ghcr.io/paperless-ngx/paperless-ngx
+          tag: "2.20.0"
+        command:
+          - /bin/sh
+          - -c
+          - |
+            apt-get update &&
+            apt-get install -y tesseract-ocr-eng tesseract-ocr-pol tesseract-ocr-por &&
+            rm -rf /var/lib/apt/lists/*
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
     containers:
       app:
         image:
@@ -214,3 +229,12 @@ persistence:
         app:
           - path: /app/data
             subPath: data
+
+  tessdata:
+    type: emptyDir
+    advancedMounts:
+      paperless:
+        tesseract-langs:
+          - path: /usr/share/tesseract-ocr/5/tessdata
+        app:
+          - path: /usr/share/tesseract-ocr/5/tessdata
