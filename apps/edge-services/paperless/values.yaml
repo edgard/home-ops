@@ -21,8 +21,6 @@ controllers:
           tag: "2.20.0"
         env:
           TZ: Europe/Warsaw
-          USERMAP_UID: "568"
-          USERMAP_GID: "568"
           PAPERLESS_URL: https://paperless.edgard.org
           PAPERLESS_PORT: "8000"
           PAPERLESS_TIME_ZONE: Europe/Warsaw
