@@ -30,7 +30,7 @@ Kubernetes homelab managed by Argo CD (app-of-apps) and bootstrapped with Kind. 
 - `apps/{group}/{app}/config.yaml` declares the Helm chart source, targetRevision, and optional sync settings.
 - `apps/{group}/{app}/values.yaml` contains the chart values for that app.
 - `apps/{group}/{app}/manifests/` holds any extra YAML (CRDs, metacontroller templates, routes, etc.).
-- Namespaces follow the group name (edge-services, platform-system, ops, media, home-automation, arc, argocd).
+- Namespaces follow the group name (edge-services, platform-system, ops, media, home-automation, argocd).
 
 ### Bootstrap Assets
 
