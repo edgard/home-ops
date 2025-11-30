@@ -165,6 +165,7 @@ controllers:
         image:
           repository: docker.io/clusterzx/paperless-ai
           tag: "3.0.9"
+        workingDir: /app/data
         env:
           TZ: Europe/Warsaw
           PUID: "568"
