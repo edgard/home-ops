@@ -19,6 +19,7 @@ rules:
   quoted-strings:
     quote-type: double
     required: false
+    allow-quoted-quotes: true
   truthy:
     allowed-values:
       - "true"

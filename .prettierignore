@@ -1,0 +1,6 @@
+# Ignore SOPS files
+*.sops.yaml
+*.sops.yml
+*.sops.yml
+**/*.sops.yaml
+**/*.sops.yml

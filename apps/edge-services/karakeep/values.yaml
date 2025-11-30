@@ -1,22 +1,30 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
 controllers:
-  main:
+  karakeep:
     type: deployment
     replicas: 1
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
     containers:
-      main:
+      app:
         image:
           repository: ghcr.io/karakeep-app/karakeep
-          tag: release
+          tag: "0.29.0"
         env:
           TZ: Europe/Warsaw
           DATA_DIR: /data
           NEXTAUTH_URL: https://karakeep.edgard.org
-          MEILI_ADDR: http://127.0.0.1:7700
-          BROWSER_WEB_URL: http://127.0.0.1:9222
+          MEILI_ADDR: http://karakeep-meilisearch.edge-services.svc.cluster.local:7700
+          BROWSER_WEB_URL: http://karakeep-chrome.edge-services.svc.cluster.local:9222
           CRAWLER_DOWNLOAD_BANNER_IMAGE: "true"
           CRAWLER_ENABLE_ADBLOCKER: "true"
           CRAWLER_STORE_SCREENSHOT: "true"
@@ -45,33 +53,50 @@ controllers:
               secretKeyRef:
                 name: karakeep-secret
                 key: NEXTAUTH_SECRET
-        ports:
-          - name: http
-            containerPort: 3000
+          COREPACK_INTEGRITY_KEYS: 0
         probes:
           liveness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: http
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
           readiness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: http
-              initialDelaySeconds: 15
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
-      meilisearch:
+          startup:
+            enabled: true
+
+  chrome:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      app:
+        image:
+          repository: gcr.io/zenika-hub/alpine-chrome
+          tag: "124"
+        command:
+          - chromium-browser
+        args:
+          - --headless
+          - --no-sandbox
+          - --disable-gpu
+          - --disable-software-rasterizer
+          - --disable-dev-shm-usage
+          - --remote-debugging-address=0.0.0.0
+          - --remote-debugging-port=9222
+          - --hide-scrollbars
+        securityContext:
+          capabilities:
+            drop:
+              - ALL
+
+  meilisearch:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      app:
         image:
           repository: getmeili/meilisearch
           tag: v1.27.0
@@ -85,60 +110,27 @@ controllers:
               secretKeyRef:
                 name: karakeep-secret
                 key: MEILI_MASTER_KEY
-        ports:
-          - name: meili
-            containerPort: 7700
-        probes:
-          liveness:
-            enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /health
-                port: meili
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
-          readiness:
-            enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /health
-                port: meili
-              initialDelaySeconds: 10
-              periodSeconds: 10
-              timeoutSeconds: 3
-              failureThreshold: 3
-      chrome:
-        image:
-          repository: gcr.io/zenika-hub/alpine-chrome
-          tag: "124"
-        args:
-          - --headless
-          - --no-sandbox
-          - --disable-gpu
-          - --disable-software-rasterizer
-          - --disable-dev-shm-usage
-          - --remote-debugging-address=0.0.0.0
-          - --remote-debugging-port=9222
-          - --hide-scrollbars
-        ports:
-          - name: chrome
-            containerPort: 9222
 
 service:
-  main:
-    controller: main
-    type: ClusterIP
+  karakeep:
+    controller: karakeep
+    primary: true
+    forceRename: karakeep
     labels:
       gatus.edgard.org/enabled: "true"
     ports:
       http:
-        enabled: true
         port: 3000
-        targetPort: http
+  chrome:
+    controller: chrome
+    ports:
+      http:
+        port: 9222
+  meilisearch:
+    controller: meilisearch
+    ports:
+      http:
+        port: 7700
 
 ingress:
   main:
@@ -147,17 +139,14 @@ ingress:
 persistence:
   data:
     type: hostPath
-    hostPath: /mnt/spool/appdata/karakeep/data
+    hostPath: /mnt/spool/appdata/karakeep
     hostPathType: DirectoryOrCreate
     advancedMounts:
-      main:
-        main:
+      karakeep:
+        app:
           - path: /data
-  meilisearch:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/karakeep/meilisearch
-    hostPathType: DirectoryOrCreate
-    advancedMounts:
-      main:
-        meilisearch:
+            subPath: data
+      meilisearch:
+        app:
           - path: /meili_data
+            subPath: meilisearch

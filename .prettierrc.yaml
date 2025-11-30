@@ -1,0 +1,5 @@
+---
+singleQuote: false # use double quotes everywhere, including YAML
+endOfLine: lf # matches yamlfmt line_ending: lf
+tabWidth: 2
+useTabs: false
