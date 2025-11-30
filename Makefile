@@ -20,8 +20,11 @@ PRETTIER       ?= prettier
 YAMLFMT        ?= yamlfmt
 YAMLLINT       ?= yamllint
 ARGOCD_SELECTOR ?=
+TERRAFORM_DIR := $(REPO_ROOT)terraform
+TOFU ?= tofu
 .PHONY: help bootstrap bootstrap-delete bootstrap-recreate kind-create kind-delete kind-recreate kind-status \
-    secrets-edit secrets-apply secrets-create-key argo-sync
+    secrets-edit secrets-apply secrets-create-key argo-sync \
+    tf-plan tf-apply tf-validate tf-clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_\-]+:.*?## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -100,3 +103,31 @@ argo-sync: ## Force Argo CD Apps to refresh (kubectl; no argocd CLI). Use ARGOCD
 	apps="$$( $(KUBECTL) -n argocd get applications $$([ -n "$$selector" ] && printf -- '-l %s' "$$selector") -o name )"; \
 	if [ -z "$$apps" ]; then echo "No Applications matched."; exit 0; fi; \
 	echo "$$apps" | xargs -n1 -I{} $(KUBECTL) -n argocd patch {} --type merge -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' >/dev/null
+
+tf-plan: ## Run terraform plan (set TERRAFORM_DIR=path to override, default: terraform/cloudflare)
+	@if [ -z "$$AWS_ACCESS_KEY_ID" ] || [ -z "$$CLOUDFLARE_API_TOKEN" ]; then \
+		echo "Error: Credentials not found. Run: source .envrc"; \
+		exit 1; \
+	fi && \
+	cd $(TERRAFORM_DIR) && \
+	$(TOFU) init && \
+	$(TOFU) plan
+
+tf-apply: ## Run terraform apply (set TERRAFORM_DIR=path to override, default: terraform/cloudflare)
+	@if [ -z "$$AWS_ACCESS_KEY_ID" ] || [ -z "$$CLOUDFLARE_API_TOKEN" ]; then \
+		echo "Error: Credentials not found. Run: source .envrc"; \
+		exit 1; \
+	fi && \
+	cd $(TERRAFORM_DIR) && \
+	$(TOFU) init && \
+	$(TOFU) apply
+
+tf-validate: ## Format and validate terraform files (set TERRAFORM_DIR=path to override)
+	@cd $(TERRAFORM_DIR) && \
+	$(TOFU) fmt -recursive && \
+	$(TOFU) validate
+
+tf-clean: ## Clean terraform state and cache (set TERRAFORM_DIR=path to override)
+	@cd $(TERRAFORM_DIR) && \
+	rm -rf .terraform/ .terraform.lock.hcl terraform.tfstate* *.tfplan && \
+	echo "Cleaned Terraform files in $(TERRAFORM_DIR)"
