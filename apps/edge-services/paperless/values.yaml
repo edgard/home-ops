@@ -156,6 +156,9 @@ controllers:
           AI_PROVIDER: custom
           CUSTOM_BASE_URL: https://openrouter.ai/api/v1
           CUSTOM_MODEL: openai/gpt-5-mini
+          HOME: /app/data
+          PM2_HOME: /app/data/.pm2
+          NLTK_DATA: /app/data/nltk_data
           PAPERLESS_API_TOKEN:
             valueFrom:
               secretKeyRef:
