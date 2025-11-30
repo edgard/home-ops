@@ -3,18 +3,9 @@ replicas: 1
 updateStrategy:
   type: Recreate
 fullnameOverride: metrics-server
-postRenderers:
-  - kustomize:
-      patchesJson6902:
-        - target:
-            group: apps
-            version: v1
-            kind: Deployment
-            name: metrics-server
-            namespace: platform-system
-          patch: |-
-            - op: remove
-              path: /spec/template/spec/containers/0/resources
+resources:
+  limits: null
+  requests: null
 args:
   - --kubelet-insecure-tls
   - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
