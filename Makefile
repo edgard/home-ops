@@ -16,6 +16,7 @@ SOPS_AGE_KEY_FILE ?= $(REPO_ROOT).sops.agekey
 CLUSTER_SECRETS_SOPS := $(CLUSTER_CONFIG_DIR)/cluster-secrets.sops.yaml
 CLUSTER_SECRETS_TEMPLATE := $(CLUSTER_CONFIG_DIR)/cluster-secrets.template.yaml
 AGE_KEYGEN     ?= age-keygen
+PRETTIER       ?= prettier
 YAMLFMT        ?= yamlfmt
 YAMLLINT       ?= yamllint
 ARGOCD_SELECTOR ?=
@@ -89,7 +90,8 @@ secrets-create-key: ## Generate an age key for SOPS (prints the recipient)
 		echo "Created $(SOPS_AGE_KEY_FILE)"; \
 	fi
 
-lint: ## Format all YAML with yamlfmt, then lint with yamllint
+lint: ## Format all YAML with prettier, yamlfmt, then lint with yamllint
+	$(PRETTIER) --write "**/*.{yaml,yml}"
 	$(YAMLFMT) "**/*.{yaml,yml}"
 	$(YAMLLINT) .
 

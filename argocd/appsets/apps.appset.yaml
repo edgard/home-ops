@@ -32,22 +32,22 @@ spec:
         app.kubernetes.io/managed-by: argocd-appset
       annotations:
         argocd.argoproj.io/tracking-method: annotation+label
-        argocd.argoproj.io/sync-wave: "{{ dig \"syncWave\" \"0\" . }}"
+        argocd.argoproj.io/sync-wave: '{{ dig "syncWave" "0" . }}'
       finalizers:
         - resources-finalizer.argocd.argoproj.io
 
     spec:
-      project: "{{ dig \"project\" \"default\" . }}"
+      project: '{{ dig "project" "default" . }}'
       destination:
-        server: "{{ dig \"destination\" \"server\" \"https://kubernetes.default.svc\" . }}"
-        namespace: "{{ dig \"destination\" \"namespace\" (index .path.segments 1) . }}"
+        server: '{{ dig "destination" "server" "https://kubernetes.default.svc" . }}'
+        namespace: '{{ dig "destination" "namespace" (index .path.segments 1) . }}'
 
       sources:
         # Helm chart source
-        - repoURL: "{{ if (dig \"helm\" \"repoURL\" \"\" .) }}{{ dig \"helm\" \"repoURL\" \"\" . }}{{ else }}{{ fail \"helm.repoURL is required\" }}{{ end }}"
-          chart: "{{ if or (dig \"helm\" \"chart\" \"\" .) (dig \"helm\" \"path\" \"\" .) }}{{ dig \"helm\" \"chart\" \"\" . }}{{ else }}{{ fail \"helm.chart or helm.path is required\" }}{{ end }}"
-          path: "{{ if or (dig \"helm\" \"chart\" \"\" .) (dig \"helm\" \"path\" \"\" .) }}{{ dig \"helm\" \"path\" \"\" . }}{{ else }}{{ fail \"helm.chart or helm.path is required\" }}{{ end }}"
-          targetRevision: "{{ if (dig \"helm\" \"targetRevision\" \"\" .) }}{{ dig \"helm\" \"targetRevision\" \"\" . }}{{ else }}{{ fail \"helm.targetRevision is required\" }}{{ end }}"
+        - repoURL: '{{ if (dig "helm" "repoURL" "" .) }}{{ dig "helm" "repoURL" "" . }}{{ else }}{{ fail "helm.repoURL is required" }}{{ end }}'
+          chart: '{{ if or (dig "helm" "chart" "" .) (dig "helm" "path" "" .) }}{{ dig "helm" "chart" "" . }}{{ else }}{{ fail "helm.chart or helm.path is required" }}{{ end }}'
+          path: '{{ if or (dig "helm" "chart" "" .) (dig "helm" "path" "" .) }}{{ dig "helm" "path" "" . }}{{ else }}{{ fail "helm.chart or helm.path is required" }}{{ end }}'
+          targetRevision: '{{ if (dig "helm" "targetRevision" "" .) }}{{ dig "helm" "targetRevision" "" . }}{{ else }}{{ fail "helm.targetRevision is required" }}{{ end }}'
           helm:
             valueFiles:
               - $values/{{ .path.path }}/values.yaml
@@ -76,7 +76,7 @@ spec:
           - PruneLast=true
           - RespectIgnoreDifferences=true
           - Replace=false
-          - "ServerSideApply={{ dig \"syncPolicy\" \"serverSideApply\" false . }}"
+          - 'ServerSideApply={{ dig "syncPolicy" "serverSideApply" false . }}'
         retry:
           limit: 8
           backoff:

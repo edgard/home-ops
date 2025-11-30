@@ -1,78 +1,86 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1001
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1001
+    runAsNonRoot: true
+    runAsUser: 1001
+
 controllers:
-  main:
-    annotations:
-      reloader.stakater.com/auto: "true"
+  dex:
     type: deployment
     replicas: 1
     strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
     containers:
-      main:
+      app:
         image:
           repository: ghcr.io/dexidp/dex
           tag: v2.44.0
         env:
-          - name: ENVOY_GATEWAY_CLIENT_SECRET
+          TZ: Europe/Warsaw
+          ENVOY_GATEWAY_CLIENT_SECRET:
             valueFrom:
               secretKeyRef:
                 name: envoy-gateway-oidc-client
                 key: client-secret
-          - name: DEX_STATIC_PASSWORD_ADMIN_HASH
+          DEX_STATIC_PASSWORD_ADMIN_HASH:
             valueFrom:
               secretKeyRef:
                 name: dex-static-password
                 key: admin-hash
-        ports:
-          - name: http
-            containerPort: 5556
         probes:
-          readiness:
-            enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /healthz
-                port: 5556
-              initialDelaySeconds: 15
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
           liveness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /healthz
-                port: 5556
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
+          readiness:
+            enabled: true
+          startup:
+            enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+
 service:
-  main:
-    controller: main
-    type: ClusterIP
+  dex:
+    controller: dex
+    primary: true
+    forceRename: dex
     labels:
       gatus.edgard.org/enabled: "true"
     ports:
       http:
         port: 5556
-        targetPort: 5556
+
 ingress:
   main:
     enabled: false
+
 persistence:
   config:
     type: configMap
     name: dex-config-generated
-    globalMounts:
-      - path: /etc/dex/config.docker.yaml
-        subPath: config.yaml
-        readOnly: true
+    advancedMounts:
+      dex:
+        app:
+          - path: /etc/dex/config.docker.yaml
+            subPath: config.yaml
+            readOnly: true
   data:
-    enabled: true
     type: hostPath
     hostPath: /mnt/spool/appdata/dex
     hostPathType: DirectoryOrCreate
-    globalMounts:
-      - path: /data
+    advancedMounts:
+      dex:
+        app:
+          - path: /data
+  tmp:
+    type: emptyDir
+    advancedMounts:
+      dex:
+        app:
+          - path: /tmp

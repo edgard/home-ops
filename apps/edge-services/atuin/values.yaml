@@ -1,17 +1,21 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
 controllers:
-  main:
+  atuin:
     type: deployment
     replicas: 1
     strategy: Recreate
-    pod:
-      securityContext:
-        fsGroup: 1000
-        runAsGroup: 1000
-        runAsNonRoot: true
-        runAsUser: 1000
+    annotations:
+      reloader.stakater.com/auto: "true"
     containers:
-      main:
+      app:
         image:
           repository: ghcr.io/atuinsh/atuin
           tag: v18.10.0
@@ -20,13 +24,8 @@ controllers:
         args:
           - server
           - start
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-              - ALL
         env:
+          TZ: Europe/Warsaw
           ATUIN_DB_URI: sqlite:///config/atuin.db
           ATUIN_HOST: 0.0.0.0
           ATUIN_PORT: "8888"
@@ -37,44 +36,37 @@ controllers:
         probes:
           liveness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: http
-              initialDelaySeconds: 0
-              periodSeconds: 10
-              timeoutSeconds: 1
-              failureThreshold: 3
           readiness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: http
-              initialDelaySeconds: 0
-              periodSeconds: 10
-              timeoutSeconds: 1
-              failureThreshold: 3
+          startup:
+            enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
 service:
-  main:
-    controller: main
-    type: ClusterIP
+  atuin:
+    controller: atuin
+    primary: true
+    forceRename: atuin
     labels:
       gatus.edgard.org/enabled: "true"
     ports:
       http:
-        enabled: true
         port: 8888
-        targetPort: http
+
 ingress:
   main:
     enabled: false
+
 persistence:
   config:
     type: hostPath
-    hostPathType: DirectoryOrCreate
     hostPath: /mnt/spool/appdata/atuin
-    globalMounts:
-      - path: /config
+    hostPathType: DirectoryOrCreate
+    advancedMounts:
+      atuin:
+        app:
+          - path: /config
