@@ -17,15 +17,18 @@ controllers:
     initContainers:
       tesseract-langs:
         image:
-          repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: "2.20.0"
-        command:
-          - /bin/sh
-          - -c
+          repository: curlimages/curl
+          tag: "8.11.1"
+        command: ["/bin/sh","-c"]
+        args:
           - |
-            apt-get update &&
-            apt-get install -y tesseract-ocr-eng tesseract-ocr-pol tesseract-ocr-por &&
-            rm -rf /var/lib/apt/lists/*
+            set -e
+            TESSDIR=/usr/share/tesseract-ocr/5/tessdata
+            mkdir -p "$TESSDIR"
+            for lang in eng por pol; do
+              curl -fsSL -o "$TESSDIR/$lang.traineddata" "https://github.com/tesseract-ocr/tessdata_fast/raw/master/${lang}.traineddata"
+            done
+            chown -R 568:568 "$TESSDIR"
         securityContext:
           runAsUser: 0
           runAsGroup: 0
