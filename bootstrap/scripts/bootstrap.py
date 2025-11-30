@@ -573,8 +573,8 @@ class Bootstrapper:
             return
 
         string_data = (self.cluster_secrets_data or {}).get("stringData") or {}
-        username = string_data.get("argo_sync_username")
-        password = string_data.get("argo_sync_password")
+        username = string_data.get("argocd_repo_username")
+        password = string_data.get("argocd_repo_password")
         if not username or not password:
             self.logger.warning("[ArgoCD] Skipping repo secret reason=missing-argo-sync-credentials")
             return
