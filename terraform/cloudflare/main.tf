@@ -1,12 +1,11 @@
 # Cloudflare module - called from root terraform/main.tf
-# This file defines the Cloudflare resources but doesn't configure backend/providers
+# Provider version is defined in root terraform/main.tf
 
 terraform {
   required_providers {
     cloudflare = {
-      source  = "cloudflare/cloudflare"
-      version = "~> 5.0"
+      source = "cloudflare/cloudflare"
+      # Version inherited from root
     }
   }
 }
-
