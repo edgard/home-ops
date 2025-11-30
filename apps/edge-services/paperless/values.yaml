@@ -142,30 +142,11 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
-    initContainers:
-      prepare-dirs:
-        image:
-          repository: docker.io/library/busybox
-          tag: "1.37"
-        command: ["/bin/sh","-c"]
-        args:
-          - |
-            set -e
-            for d in /app/data /app/data/.pm2 /app/data/logs /app/data/nltk_data; do
-              mkdir -p "$d"
-              chown 568:568 "$d"
-            done
-        securityContext:
-          runAsUser: 0
-          runAsGroup: 0
-          runAsNonRoot: false
-          readOnlyRootFilesystem: false
     containers:
       app:
         image:
           repository: docker.io/clusterzx/paperless-ai
           tag: "3.0.9"
-        workingDir: /app/data
         env:
           TZ: Europe/Warsaw
           PUID: "568"
@@ -175,9 +156,6 @@ controllers:
           AI_PROVIDER: custom
           CUSTOM_BASE_URL: https://openrouter.ai/api/v1
           CUSTOM_MODEL: openai/gpt-5-mini
-          HOME: /app/data
-          PM2_HOME: /app/data/.pm2
-          NLTK_DATA: /app/data/nltk_data
           PAPERLESS_API_TOKEN:
             valueFrom:
               secretKeyRef:
@@ -259,6 +237,22 @@ persistence:
         app:
           - path: /app/data
             subPath: data
+          - path: /app/logs
+            subPath: logs
+
+  ai-pm2:
+    type: emptyDir
+    advancedMounts:
+      paperless-ai:
+        app:
+          - path: /.pm2
+
+  ai-nltk:
+    type: emptyDir
+    advancedMounts:
+      paperless-ai:
+        app:
+          - path: /nltk_data
 
   tessdata:
     type: emptyDir
