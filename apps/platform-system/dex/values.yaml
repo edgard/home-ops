@@ -20,7 +20,6 @@ controllers:
           repository: ghcr.io/dexidp/dex
           tag: v2.44.0
         env:
-          TZ: Europe/Warsaw
           ENVOY_GATEWAY_CLIENT_SECRET:
             valueFrom:
               secretKeyRef:

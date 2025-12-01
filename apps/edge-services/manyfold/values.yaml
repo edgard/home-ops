@@ -12,7 +12,6 @@ controllers:
           repository: ghcr.io/manyfold3d/manyfold-solo
           tag: "0.129.4"
         env:
-          TZ: Europe/Warsaw
           PUID: "568"
           PGID: "568"
           DATABASE_URL: sqlite3:/config/manyfold.sqlite3

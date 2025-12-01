@@ -12,7 +12,6 @@ controllers:
           repository: lscr.io/linuxserver/qbittorrent
           tag: 20.04.1
         env:
-          TZ: Europe/Warsaw
           PUID: "568"
           PGID: "568"
           UMASK: "022"
@@ -55,7 +54,6 @@ controllers:
           repository: qmcgaw/gluetun
           tag: v3.40.3
         env:
-          TZ: Europe/Warsaw
           VPN_SERVICE_PROVIDER: mullvad
           VPN_TYPE: wireguard
           FIREWALL_INPUT_PORTS: "8080"

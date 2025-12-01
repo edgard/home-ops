@@ -8,7 +8,6 @@ controllers:
           tag: 0.22.2
           pullPolicy: IfNotPresent
         env:
-          TZ: Europe/Warsaw
           KOPIA_CLIENT_HOSTNAME: homelab
         envFrom:
           - secretRef:
@@ -61,9 +60,6 @@ controllers:
           repository: ghcr.io/home-operations/kopia
           tag: 0.22.2
           pullPolicy: IfNotPresent
-        env:
-          - name: TZ
-            value: Europe/Warsaw
         envFrom:
           - secretRef:
               name: kopia

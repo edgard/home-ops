@@ -10,7 +10,6 @@ controllers:
           repository: ealen/echo-server
           tag: 0.9.2
         env:
-          TZ: Europe/Warsaw
           LOGS__IGNORE__PING: "true"
         probes:
           liveness:

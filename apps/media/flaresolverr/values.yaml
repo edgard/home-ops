@@ -9,8 +9,6 @@ controllers:
         image:
           repository: ghcr.io/flaresolverr/flaresolverr
           tag: v3.4.6
-        env:
-          TZ: Europe/Warsaw
         probes:
           startup:
             enabled: true

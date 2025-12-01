@@ -17,8 +17,6 @@ controllers:
         image:
           repository: nginx
           tag: 1.29.3
-        env:
-          TZ: Europe/Warsaw
         probes:
           liveness:
             enabled: true

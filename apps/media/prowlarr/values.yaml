@@ -10,7 +10,6 @@ controllers:
           repository: lscr.io/linuxserver/prowlarr
           tag: 2.3.0
         env:
-          TZ: Europe/Warsaw
           PUID: "568"
           PGID: "568"
           UMASK: "022"

@@ -11,8 +11,6 @@ controllers:
         image:
           repository: ghcr.io/twin/gatus
           tag: v5.33.0
-        env:
-          TZ: Europe/Warsaw
         ports:
           - name: http
             containerPort: 8080

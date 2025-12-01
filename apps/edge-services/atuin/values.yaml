@@ -23,7 +23,6 @@ controllers:
           - server
           - start
         env:
-          TZ: Europe/Warsaw
           ATUIN_DB_URI: sqlite:///config/atuin.db
           ATUIN_HOST: 0.0.0.0
           ATUIN_PORT: "8888"

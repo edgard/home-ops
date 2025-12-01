@@ -73,7 +73,6 @@ controllers:
           repository: ghcr.io/paperless-ngx/paperless-ngx
           tag: "2.20.0"
         env:
-          TZ: Europe/Warsaw
           XDG_CACHE_HOME: /tmp/.cache
           PAPERLESS_URL: https://paperless.edgard.org
           PAPERLESS_PORT: "8000"
@@ -201,10 +200,6 @@ controllers:
           capabilities:
             drop:
               - ALL
-        env:
-          TZ: Europe/Warsaw
-          PUID: "568"
-          PGID: "568"
         envFrom:
           - secretRef:
               name: paperless-ai-secret

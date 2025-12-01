@@ -36,8 +36,6 @@ spec:
           env:
             - name: PIP_ROOT_USER_ACTION
               value: ignore
-            - name: TZ
-              value: Europe/Warsaw
           ports:
             - name: http
               containerPort: 8080

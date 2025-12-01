@@ -97,3 +97,20 @@ spec:
             - .spec.externalSecretSpec.data[].remoteRef.conversionStrategy
             - .spec.externalSecretSpec.data[].remoteRef.decodingStrategy
             - .spec.externalSecretSpec.data[].remoteRef.metadataPolicy
+        - group: ""
+          kind: Secret
+          name: k8tz-tls
+          namespace: k8tz
+          jsonPointers:
+            - /data
+        - group: admissionregistration.k8s.io
+          kind: MutatingWebhookConfiguration
+          name: k8tz
+          jqPathExpressions:
+            - .webhooks[].clientConfig.caBundle
+        - group: apps
+          kind: Deployment
+          name: k8tz
+          namespace: k8tz
+          jqPathExpressions:
+            - .spec.template.metadata.annotations["checksum/config"]

@@ -10,7 +10,6 @@ controllers:
           repository: ghcr.io/recyclarr/recyclarr
           tag: 7.5.2
         env:
-          TZ: Europe/Warsaw
           CRON_SCHEDULE: "25 2 * * *"
         probes:
           liveness:

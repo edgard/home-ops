@@ -21,8 +21,6 @@ controllers:
         image:
           repository: ghcr.io/home-assistant/home-assistant
           tag: 2025.11.3
-        env:
-          TZ: Europe/Warsaw
         probes:
           startup:
             enabled: true

@@ -1,0 +1,15 @@
+---
+# Namespace managed by ArgoCD, not Helm
+createNamespace: false
+
+# Default timezone for all pods in the cluster
+timezone: Europe/Warsaw
+
+# Injection strategy: initContainer (safer) or hostPath (requires tzdata on nodes)
+injectionStrategy: initContainer
+
+# Inject timezone by default into all pods
+injectAll: true
+
+# Also patch CronJob timezone field
+cronJobTimeZone: true

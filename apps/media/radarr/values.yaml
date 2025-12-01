@@ -10,7 +10,6 @@ controllers:
           repository: lscr.io/linuxserver/radarr
           tag: 6.0.4
         env:
-          TZ: Europe/Warsaw
           PUID: "568"
           PGID: "568"
           UMASK: "022"

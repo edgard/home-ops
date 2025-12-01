@@ -11,9 +11,6 @@ controllers:
         image:
           repository: ghcr.io/toboshii/hajimari
           tag: v0.3.1
-        env:
-          - name: TZ
-            value: Europe/Warsaw
         ports:
           - name: http
             containerPort: 3000

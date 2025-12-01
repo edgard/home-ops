@@ -20,7 +20,6 @@ controllers:
           repository: ghcr.io/karakeep-app/karakeep
           tag: "0.29.0"
         env:
-          TZ: Europe/Warsaw
           DATA_DIR: /data
           NEXTAUTH_URL: https://karakeep.edgard.org
           MEILI_ADDR: http://karakeep-meilisearch.edge-services.svc.cluster.local:7700
@@ -118,7 +117,6 @@ controllers:
       concurrencyPolicy: Forbid
       successfulJobsHistory: 0
       failedJobsHistory: 1
-      timeZone: Europe/Warsaw
     pod:
       restartPolicy: OnFailure
     containers:

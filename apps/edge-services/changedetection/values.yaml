@@ -12,7 +12,6 @@ controllers:
           repository: ghcr.io/dgtlmoon/changedetection.io
           tag: 0.51.4
         env:
-          TZ: Europe/Warsaw
           BASE_URL: https://changedetection.edgard.org
           USE_X_SETTINGS: "1"
           HIDE_REFERER: "true"
@@ -91,7 +90,6 @@ controllers:
           repository: dgtlmoon/sockpuppetbrowser
           tag: "0.0.3"
         env:
-          TZ: Europe/Warsaw
           SCREEN_WIDTH: "1920"
           SCREEN_HEIGHT: "1080"
           SCREEN_DEPTH: "16"

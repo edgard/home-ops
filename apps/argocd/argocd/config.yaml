@@ -6,6 +6,6 @@ helm:
   targetRevision: 9.1.5
 
 # Sync configuration
-syncWave: "-10"
+syncWave: "-11"
 syncPolicy:
   serverSideApply: true

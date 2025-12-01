@@ -12,7 +12,6 @@ controllers:
           repository: koenkk/zigbee2mqtt
           tag: 2.6.3
         env:
-          TZ: Europe/Warsaw
           ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mosquitto.home-automation.svc.cluster.local:1883
           ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyUSB0
         probes:
