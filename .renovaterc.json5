@@ -1,5 +1,7 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  // Base configuration
   extends: [
     "config:recommended",
     ":semanticCommits",
@@ -8,6 +10,8 @@
     "docker:enableMajor",
   ],
   ignorePaths: ["**/*.sops.yaml", "**/*.sops.yml"],
+
+  // Custom managers for non-standard files
   customManagers: [
     {
       customType: "regex",
@@ -37,34 +41,44 @@
       datasourceTemplate: "helm",
     },
   ],
+
   packageRules: [
+    // === Automerge behavior ===
     {
-      description: "Disable Terraform version updates (using OpenTofu)",
-      enabled: false,
-      matchManagers: ["terraform-version"],
+      description: "Auto-merge and group all non-major dependency updates",
+      matchUpdateTypes: ["minor", "patch", "digest", "pin", "rollback"],
+      groupName: "dependencies (non-major)",
+      automerge: true,
+      automergeType: "pr",
+      platformAutomerge: false,
+      ignoreTests: true,
     },
     {
       description: "Require manual review for major upgrades",
-      automerge: false,
       matchUpdateTypes: ["major"],
+      automerge: false,
       addLabels: ["renovate/manual-review"],
     },
-    {
-      description: "Auto-merge all non-major dependency updates",
-      automerge: true,
-      automergeType: "branch",
-      matchUpdateTypes: ["minor", "patch", "digest", "pin", "rollback"],
-      ignoreTests: true,
-    },
+
+    // === Grouping ===
     {
       description: "Group Kind cluster node updates into a single PR",
       matchFileNames: ["bootstrap/config/cluster-config.yaml"],
       groupName: "kind-nodes",
     },
+
+    // === Disabled managers ===
     {
-      description: "Only consider semver Jellyfin tags",
+      description: "Disable Terraform version updates (using OpenTofu)",
+      matchManagers: ["terraform-version"],
+      enabled: false,
+    },
+
+    // === Package-specific overrides ===
+    {
+      description: "Only consider semver Jellyfin tags (ignore dated releases)",
       matchPackageNames: ["lscr.io/linuxserver/jellyfin"],
-      allowedVersions: "/^(?:[0-9]|[1-9][0-9])\\d+\\.\\d+$/",
+      allowedVersions: "/^\\d{1,2}\\.\\d+\\.\\d+$/",
     },
   ],
 }
