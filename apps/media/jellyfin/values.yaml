@@ -22,7 +22,7 @@ controllers:
       main:
         image:
           repository: lscr.io/linuxserver/jellyfin
-          tag: 10.11.2
+          tag: 10.11.4
         env:
           TZ: Europe/Warsaw
           PUID: "568"
