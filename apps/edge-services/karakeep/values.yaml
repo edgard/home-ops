@@ -116,7 +116,7 @@ controllers:
     cronjob:
       schedule: "30 4 * * *"
       concurrencyPolicy: Forbid
-      successfulJobsHistory: 1
+      successfulJobsHistory: 0
       failedJobsHistory: 1
       timeZone: UTC
     pod:
