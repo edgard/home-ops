@@ -1,12 +1,4 @@
 ---
-defaultPodOptions:
-  securityContext:
-    fsGroup: 568
-    fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 568
-    runAsNonRoot: true
-    runAsUser: 568
-
 controllers:
   paperless:
     type: deployment
@@ -14,6 +6,13 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
     initContainers:
       tesseract-langs:
         image:
@@ -49,8 +48,8 @@ controllers:
             mkdir -p "$TESSDIR"
             cp -r /usr/share/tesseract-ocr/5/tessdata/* "$TESSDIR/"
 
-            # Set proper permissions for the app user (568:568)
-            chown -R 568:568 "$TESSDIR"
+            # Set proper permissions for the app user (1000:1000)
+            chown -R 1000:1000 "$TESSDIR"
 
             # List installed languages for debugging
             echo "Installed tesseract data files:"
@@ -73,7 +72,6 @@ controllers:
           repository: ghcr.io/paperless-ngx/paperless-ngx
           tag: "2.20.0"
         env:
-          XDG_CACHE_HOME: /tmp/.cache
           PAPERLESS_URL: https://paperless.edgard.org
           PAPERLESS_PORT: "8000"
           PAPERLESS_TIME_ZONE: Europe/Warsaw
@@ -124,6 +122,13 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
     containers:
       app:
         image:
@@ -140,6 +145,11 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        runAsNonRoot: false
     containers:
       app:
         image:
@@ -152,6 +162,13 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
     containers:
       app:
         image:
@@ -171,6 +188,11 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        runAsNonRoot: false
     initContainers:
       init-config:
         image:
@@ -299,10 +321,3 @@ persistence:
           - path: /shared-tessdata
         app:
           - path: /usr/share/tesseract-ocr/5/tessdata
-
-  cache:
-    type: emptyDir
-    advancedMounts:
-      paperless:
-        app:
-          - path: /tmp/.cache
