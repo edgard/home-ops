@@ -10,16 +10,16 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "terraform-state"
+    bucket = "shadowhausterraform"
     key    = "homelab/terraform.tfstate"
-    region = "auto"
+    region = "eu-central-003"
 
-    # R2 endpoint
+    # Backblaze B2 S3-compatible endpoint (EU)
     endpoints = {
-      s3 = "https://0e9cad60bb63ebd8559dddda9be29bc3.r2.cloudflarestorage.com"
+      s3 = "https://s3.eu-central-003.backblazeb2.com"
     }
 
-    # Required for R2
+    # Required for B2
     skip_credentials_validation = true
     skip_region_validation      = true
     skip_requesting_account_id  = true
