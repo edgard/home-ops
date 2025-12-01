@@ -17,23 +17,50 @@ controllers:
     initContainers:
       tesseract-langs:
         image:
-          repository: curlimages/curl
-          tag: "8.17.0"
+          repository: ghcr.io/paperless-ngx/paperless-ngx
+          tag: "2.20.0"
         env:
           PAPERLESS_OCR_LANGUAGES: eng por pol
         command:
-          - "/bin/sh"
+          - "/bin/bash"
           - "-c"
         args:
           - |
             set -e
-            TESSDIR=/usr/share/tesseract-ocr/5/tessdata
-            mkdir -p "$TESSDIR"
-            set -- $PAPERLESS_OCR_LANGUAGES
-            for lang in "$@"; do
-              curl -fsSL -o "$TESSDIR/$lang.traineddata" "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/${lang}.traineddata"
+
+            echo "Installing tesseract language packages..."
+
+            # Update package lists
+            apt-get update
+
+            # Install languages from PAPERLESS_OCR_LANGUAGES
+            # Convert space-separated list to apt package names (tesseract-ocr-<lang>)
+            PACKAGES="tesseract-ocr"
+            for lang in $PAPERLESS_OCR_LANGUAGES; do
+              PACKAGES="$PACKAGES tesseract-ocr-$lang"
+              echo "  - Adding tesseract-ocr-$lang"
             done
+
+            # Install all packages (this includes osd.traineddata automatically)
+            apt-get install -y --no-install-recommends $PACKAGES
+
+            # Copy installed tessdata to shared volume
+            TESSDIR=/shared-tessdata
+            mkdir -p "$TESSDIR"
+            cp -r /usr/share/tesseract-ocr/5/tessdata/* "$TESSDIR/"
+
+            # Set proper permissions for the app user (568:568)
             chown -R 568:568 "$TESSDIR"
+
+            # List installed languages for debugging
+            echo "Installed tesseract data files:"
+            ls -lh "$TESSDIR"
+
+            # Clean up apt cache to reduce image size impact
+            apt-get clean
+            rm -rf /var/lib/apt/lists/*
+
+            echo "Tesseract language packages installed successfully"
         securityContext:
           runAsUser: 0
           runAsGroup: 0
@@ -47,6 +74,7 @@ controllers:
           tag: "2.20.0"
         env:
           TZ: Europe/Warsaw
+          XDG_CACHE_HOME: /tmp/.cache
           PAPERLESS_URL: https://paperless.edgard.org
           PAPERLESS_PORT: "8000"
           PAPERLESS_TIME_ZONE: Europe/Warsaw
@@ -373,6 +401,13 @@ persistence:
     advancedMounts:
       paperless:
         tesseract-langs:
-          - path: /usr/share/tesseract-ocr/5/tessdata
+          - path: /shared-tessdata
         app:
           - path: /usr/share/tesseract-ocr/5/tessdata
+
+  cache:
+    type: emptyDir
+    advancedMounts:
+      paperless:
+        app:
+          - path: /tmp/.cache
