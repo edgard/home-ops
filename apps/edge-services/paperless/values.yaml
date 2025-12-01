@@ -180,9 +180,14 @@ controllers:
         args:
           - |
             mkdir -p /app/data
-            cp /secret/.env /app/data/.env
-            chown 0:0 /app/data/.env
-            chmod 644 /app/data/.env
+            if [ ! -f /app/data/.env ]; then
+              echo "No .env found, seeding from secret..."
+              cp /secret/.env /app/data/.env
+              chown 0:0 /app/data/.env
+              chmod 644 /app/data/.env
+            else
+              echo ".env already exists, preserving existing config"
+            fi
         securityContext:
           runAsUser: 0
           runAsGroup: 0
