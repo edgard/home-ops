@@ -11,6 +11,7 @@ controllers:
           tag: 7.5.2
         env:
           TZ: Europe/Warsaw
+          CRON_SCHEDULE: "25 2 * * *"
         probes:
           liveness:
             enabled: true

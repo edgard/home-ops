@@ -114,11 +114,11 @@ controllers:
   sorter:
     type: cronjob
     cronjob:
-      schedule: "30 4 * * *"
+      schedule: "15 2 * * *"
       concurrencyPolicy: Forbid
       successfulJobsHistory: 0
       failedJobsHistory: 1
-      timeZone: UTC
+      timeZone: Europe/Warsaw
     pod:
       restartPolicy: OnFailure
     containers:
