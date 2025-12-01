@@ -80,7 +80,7 @@ controllers:
           PAPERLESS_WEBSERVER_WORKERS: "2"
           PAPERLESS_TASK_WORKERS: "2"
           PAPERLESS_BIND_ADDR: 0.0.0.0
-          PAPERLESS_OCR_LANGUAGE: eng
+          PAPERLESS_OCR_LANGUAGE: eng+por+pol
           PAPERLESS_ALLOWED_HOSTS: paperless.edgard.org,paperless.edge-services.svc.cluster.local,paperless,localhost,127.0.0.1
           PAPERLESS_CSRF_TRUSTED_ORIGINS: https://paperless.edgard.org
           PAPERLESS_PROXY_SSL_HEADER: '["HTTP_X_FORWARDED_PROTO", "https"]'
