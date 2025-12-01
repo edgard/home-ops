@@ -3,14 +3,8 @@
 name: Renovate
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - .renovaterc.json5
-      - .github/workflows/renovate.yaml
   schedule:
-    - cron: 0 0 * * *
+    - cron: "17 3 * * *"
   workflow_dispatch:
     inputs:
       dryRun:
@@ -21,10 +15,10 @@ on:
       logLevel:
         description: Log Level
         type: choice
-        default: debug
+        default: info
         options:
-          - debug
           - info
+          - debug
         required: true
       version:
         description: Renovate Version
@@ -36,39 +30,33 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
+  issues: write
+  packages: read
+  pull-requests: write
+  security-events: read
+  statuses: write
 
 jobs:
   main:
     name: Renovate
     runs-on: ubuntu-latest
-    permissions:
-      packages: read
     steps:
-      - name: Generate Token
-        id: app-token
-        uses: actions/create-github-app-token@7e473efe3cb98aa54f8d4bac15400b15fad77d94 # v2.2.0
-        with:
-          app-id: ${{ secrets.BOT_APP_ID }}
-          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
-
       - name: Checkout
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-        with:
-          persist-credentials: false
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Run Renovate
         uses: renovatebot/github-action@03026bd55840025343414baec5d9337c5f9c7ea7 # v44.0.4
         env:
-          LOG_LEVEL: ${{ inputs.logLevel || 'debug' }}
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
           RENOVATE_CONFIG_FILE: .renovaterc.json5
           RENOVATE_AUTODISCOVER: true
           RENOVATE_AUTODISCOVER_FILTER: ${{ github.repository }}
           RENOVATE_DRY_RUN: ${{ inputs.dryRun }}
           RENOVATE_INTERNAL_CHECKS_FILTER: strict
-          RENOVATE_PLATFORM: github
-          RENOVATE_PLATFORM_COMMIT: true
+          RENOVATE_ONBOARDING: false
+          RENOVATE_PLATFORM_COMMIT: enabled
+          RENOVATE_REPOSITORY_CACHE: enabled
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.RENOVATE_TOKEN }}
           renovate-version: ${{ inputs.version || 'latest' }}
