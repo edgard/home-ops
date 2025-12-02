@@ -209,11 +209,3 @@ resource "cloudflare_zone_setting" "cname_flattening" {
   setting_id = "cname_flattening"
   value      = "flatten_at_root"
 }
-
-# ============================================================================
-# DNSSEC
-# ============================================================================
-
-resource "cloudflare_zone_dnssec" "edgard_org" {
-  zone_id = var.zone_id
-}

@@ -15,25 +15,25 @@ resource "cloudflare_ruleset" "firewall_rules" {
       description = "Block bots determined by CF"
       enabled     = true
     },
-    # Rule 2: Block high threat scores
+    # Rule 2: Block empty user agents
     {
       action      = "block"
-      expression  = "cf.threat_score > 14"
-      description = "Block medium threats and higher"
+      expression  = "len(http.user_agent) == 0"
+      description = "Block requests with empty user agent"
       enabled     = true
     },
-    # Rule 3: Challenge non-Polish traffic
+    # Rule 3: Challenge high threat scores
+    {
+      action      = "managed_challenge"
+      expression  = "cf.threat_score > 14"
+      description = "Challenge medium threats and higher"
+      enabled     = true
+    },
+    # Rule 4: Challenge non-Polish traffic
     {
       action      = "managed_challenge"
       expression  = "(ip.geoip.country ne \"PL\")"
       description = "Challenge non-Polish traffic (allows legitimate users, adds friction for attackers)"
-      enabled     = true
-    },
-    # Rule 4: Challenge unverified bots
-    {
-      action      = "managed_challenge"
-      expression  = "(cf.client.bot and not cf.verified_bot_category in {\"Search Engine Crawler\" \"Monitoring & Analytics\" \"Aggregator\"})"
-      description = "Challenge unverified bots (allows Google, etc.)"
       enabled     = true
     }
   ]
