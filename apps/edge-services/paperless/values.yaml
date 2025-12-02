@@ -17,7 +17,7 @@ controllers:
       tesseract-langs:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: "2.20.0"
+          tag: "2.20.1"
         env:
           PAPERLESS_OCR_LANGUAGES: eng por pol
         command:
@@ -70,7 +70,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: "2.20.0"
+          tag: "2.20.1"
         env:
           PAPERLESS_URL: https://paperless.edgard.org
           PAPERLESS_PORT: "8000"
