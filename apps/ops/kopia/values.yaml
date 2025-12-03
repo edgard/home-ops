@@ -5,7 +5,7 @@ controllers:
       repo-init:
         image:
           repository: ghcr.io/home-operations/kopia
-          tag: 0.22.2
+          tag: 0.22.3
           pullPolicy: IfNotPresent
         env:
           KOPIA_CLIENT_HOSTNAME: homelab
@@ -58,7 +58,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/home-operations/kopia
-          tag: 0.22.2
+          tag: 0.22.3
           pullPolicy: IfNotPresent
         envFrom:
           - secretRef:
