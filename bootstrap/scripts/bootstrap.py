@@ -118,13 +118,13 @@ class Bootstrapper:
         except Exception as exc:  # pragma: no cover - defensive
             raise BootstrapError(f"[{label}] Failed to read {config_path}: {exc}") from exc
 
-        # config.yaml format (helm.targetRevision)
-        if isinstance(app, dict) and "helm" in app:
-            helm = app.get("helm") or {}
-            target = helm.get("targetRevision")
+        # config.yaml format used by apps/ (chart.version is required)
+        if isinstance(app, dict) and "chart" in app:
+            chart = app.get("chart") or {}
+            target = chart.get("version")
             if target:
                 return str(target)
-            raise BootstrapError(f"[{label}] helm.targetRevision missing in {config_path}")
+            raise BootstrapError(f"[{label}] chart.version missing in {config_path}")
 
         # Legacy ArgoCD Application manifest format
         spec = app.get("spec", {}) if isinstance(app, dict) else {}

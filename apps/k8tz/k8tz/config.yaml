@@ -1,9 +1,7 @@
 ---
-# Helm chart configuration
-helm:
-  repoURL: oci://ghcr.io/home-operations/charts-mirror/k8tz
-  path: .
-  targetRevision: 0.18.0
-
-# Sync configuration - after multus, before all other apps
-syncWave: "-9"
+chart:
+  repo: oci://ghcr.io/home-operations/charts-mirror/k8tz
+  path: "."
+  version: 0.18.0
+sync:
+  wave: "-9"

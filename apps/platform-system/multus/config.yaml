@@ -1,11 +1,8 @@
 ---
-# Helm chart configuration
-helm:
-  repoURL: oci://ghcr.io/bjw-s-labs/helm/multus
-  path: .
-  targetRevision: 1.0.1
-
-# Sync configuration
-syncWave: "-10"
-syncPolicy:
+chart:
+  repo: oci://ghcr.io/bjw-s-labs/helm/multus
+  path: "."
+  version: 1.0.1
+sync:
+  wave: "-10"
   serverSideApply: true

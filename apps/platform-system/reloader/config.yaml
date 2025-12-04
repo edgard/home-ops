@@ -1,9 +1,7 @@
 ---
-# Helm chart configuration
-helm:
-  repoURL: oci://ghcr.io/stakater/charts/reloader
-  path: .
-  targetRevision: 2.2.5
-
-# Sync configuration
-syncWave: "-8"
+chart:
+  repo: oci://ghcr.io/stakater/charts/reloader
+  path: "."
+  version: 2.2.5
+sync:
+  wave: "-8"

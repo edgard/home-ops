@@ -1,9 +1,7 @@
 ---
-# Helm chart configuration
-helm:
-  repoURL: oci://ghcr.io/home-operations/charts-mirror/metrics-server
-  path: .
-  targetRevision: 3.13.0
-
-# Sync configuration
-syncWave: "-8"
+chart:
+  repo: oci://ghcr.io/home-operations/charts-mirror/metrics-server
+  path: "."
+  version: 3.13.0
+sync:
+  wave: "-8"
