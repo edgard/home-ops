@@ -3,6 +3,7 @@ chart:
   repo: oci://registry-1.docker.io/envoyproxy/gateway-helm
   path: "."
   version: 1.6.0
+rollout:
+  tier: "6"
 sync:
-  wave: "-2"
   serverSideApply: true

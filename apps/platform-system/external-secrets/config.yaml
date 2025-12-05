@@ -3,6 +3,7 @@ chart:
   repo: oci://ghcr.io/external-secrets/charts/external-secrets
   path: "."
   version: 1.1.0
+rollout:
+  tier: "4"
 sync:
-  wave: "-4"
   serverSideApply: true

@@ -27,7 +27,7 @@ Kubernetes homelab managed by Argo CD (app-of-apps) and bootstrapped with Kind. 
 
 ### Apps Directory
 
-- `apps/{group}/{app}/config.yaml` declares the Helm chart source, targetRevision, and optional sync settings.
+- `apps/{group}/{app}/config.yaml` declares the Helm chart source, version, and optional rollout/sync settings.
 - `apps/{group}/{app}/values.yaml` contains the chart values for that app.
 - `apps/{group}/{app}/manifests/` holds any extra YAML (CRDs, metacontroller templates, routes, etc.).
 - Namespaces follow the group name (edge-services, platform-system, ops, media, home-automation, argocd).
@@ -45,30 +45,31 @@ Each app's `config.yaml` contains only what's necessary:
 **OCI Helm repo**:
 
 ```yaml
-helm:
-  repoURL: oci://ghcr.io/bjw-s-labs/helm/app-template
-  path: .
-  targetRevision: 4.4.0
+chart:
+  repo: oci://ghcr.io/bjw-s-labs/helm/app-template
+  path: "."
+  version: 4.4.0
 ```
 
 **HTTPS Helm repo**:
 
 ```yaml
-helm:
-  repoURL: https://kubernetes-sigs.github.io/external-dns
-  chart: external-dns
-  targetRevision: 1.19.0
+chart:
+  repo: https://kubernetes-sigs.github.io/external-dns
+  name: external-dns
+  version: 1.19.0
 ```
 
-**Infrastructure app** (with sync ordering):
+**Infrastructure app** (with progressive rollout tier):
 
 ```yaml
-helm:
-  repoURL: oci://ghcr.io/argoproj/argo-helm/argo-cd
+chart:
+  repo: oci://ghcr.io/argoproj/argo-helm/argo-cd
   path: .
-  targetRevision: 9.1.4
-syncWave: "-10" # Deploy before other apps
-syncPolicy:
+  version: 9.1.4
+rollout:
+  tier: "3" # Lower tiers deploy first (1-8)
+sync:
   serverSideApply: true # Required for CRDs
 ```
 
@@ -76,7 +77,7 @@ syncPolicy:
 
 - Application name comes from the app directory; destination namespace defaults to the group directory unless overridden in `config.yaml`.
 - Additional manifests under `manifests/` are always synced; keep the directory present even if empty.
-- Use `syncWave` (negative for infrastructure-first ordering) and `syncPolicy.serverSideApply` when CRDs are involved.
+- Use `rollout.tier` for progressive rollout ordering (lower tiers deploy first, 1-8) and `sync.serverSideApply` when CRDs are involved.
 - Labels are generated for name, part-of, component, and managed-by to simplify filtering.
 
 ### Dynamic Configs (Metacontroller)

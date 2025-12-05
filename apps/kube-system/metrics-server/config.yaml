@@ -3,6 +3,5 @@ chart:
   repo: oci://ghcr.io/home-operations/charts-mirror/metrics-server
   path: "."
   version: 3.13.0
-sync:
-  wave: "-8"
-
+rollout:
+  tier: "1"

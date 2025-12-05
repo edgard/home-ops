@@ -17,3 +17,20 @@ spec:
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
+  orphanedResources:
+    warn: true
+    ignore:
+      - group: ""
+        kind: ConfigMap
+        name: kube-root-ca.crt
+      - group: ""
+        kind: ServiceAccount
+        name: default
+  syncWindows:
+    # Deny automated syncs during night hours (11pm-7am) to avoid disrupting smart home
+    - kind: deny
+      schedule: "0 23 * * *"
+      duration: 8h
+      applications:
+        - "*"
+      manualSync: true

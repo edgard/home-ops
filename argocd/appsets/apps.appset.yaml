@@ -9,6 +9,47 @@ spec:
   goTemplateOptions:
     - missingkey=error
 
+  # Progressive rollout strategy based on tier labels (1=first, 8=last/default)
+  strategy:
+    type: RollingSync
+    rollingSync:
+      steps:
+        # Tier 1: Core Kubernetes (kube-system)
+        - matchExpressions:
+            - key: tier
+              operator: In
+              values: ["1"]
+        # Tier 3: Network (multus)
+        - matchExpressions:
+            - key: tier
+              operator: In
+              values: ["3"]
+        # Tier 4: Core operators (reloader, metacontroller, external-secrets)
+        - matchExpressions:
+            - key: tier
+              operator: In
+              values: ["4"]
+        # Tier 5: Secondary operators (cert-manager, homelab-controller)
+        - matchExpressions:
+            - key: tier
+              operator: In
+              values: ["5"]
+        # Tier 6: Ingress (envoy-gateway)
+        - matchExpressions:
+            - key: tier
+              operator: In
+              values: ["6"]
+        # Tier 7: Edge services (argocd, cloudflared, dex, external-dns)
+        - matchExpressions:
+            - key: tier
+              operator: In
+              values: ["7"]
+        # Tier 8: Applications (default)
+        - matchExpressions:
+            - key: tier
+              operator: In
+              values: ["8"]
+
   generators:
     - git:
         repoURL: https://github.com/edgard/home-ops.git
@@ -25,8 +66,7 @@ spec:
       namespace: argocd
       labels:
         category: "{{ index .path.segments 1 }}"
-      annotations:
-        argocd.argoproj.io/sync-wave: '{{ dig "sync" "wave" "0" . }}'
+        tier: '{{ dig "rollout" "tier" "8" . }}'
       finalizers:
         - resources-finalizer.argocd.argoproj.io
 

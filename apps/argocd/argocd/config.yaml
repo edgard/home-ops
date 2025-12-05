@@ -3,6 +3,7 @@ chart:
   repo: oci://ghcr.io/argoproj/argo-helm/argo-cd
   path: "."
   version: 9.1.6
+rollout:
+  tier: "7"
 sync:
-  wave: "-7"
   serverSideApply: true
