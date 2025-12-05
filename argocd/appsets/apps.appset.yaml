@@ -9,7 +9,7 @@ spec:
   goTemplateOptions:
     - missingkey=error
 
-  # Progressive rollout strategy based on tier labels (1=first, 8=last/default)
+  # Progressive rollout strategy based on tier labels (1=first, 10=last/default)
   strategy:
     type: RollingSync
     rollingSync:
@@ -19,6 +19,11 @@ spec:
             - key: tier
               operator: In
               values: ["1"]
+        # Tier 2: GitOps (argocd)
+        - matchExpressions:
+            - key: tier
+              operator: In
+              values: ["2"]
         # Tier 3: Network (multus)
         - matchExpressions:
             - key: tier
@@ -39,16 +44,16 @@ spec:
             - key: tier
               operator: In
               values: ["6"]
-        # Tier 7: Edge services (argocd, cloudflared, dex, external-dns)
+        # Tier 7: Edge services (cloudflared, dex, external-dns)
         - matchExpressions:
             - key: tier
               operator: In
               values: ["7"]
-        # Tier 8: Applications (default)
+        # Tier 10: Catch-all default for unlabeled apps
         - matchExpressions:
             - key: tier
               operator: In
-              values: ["8"]
+              values: ["10"]
 
   generators:
     - git:
@@ -66,7 +71,7 @@ spec:
       namespace: argocd
       labels:
         category: "{{ index .path.segments 1 }}"
-        tier: '{{ dig "rollout" "tier" "8" . }}'
+        tier: '{{ dig "rollout" "tier" "10" . }}'
       finalizers:
         - resources-finalizer.argocd.argoproj.io
 

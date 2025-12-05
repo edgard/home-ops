@@ -68,7 +68,7 @@ chart:
   path: .
   version: 9.1.4
 rollout:
-  tier: "3" # Lower tiers deploy first (1-8)
+  tier: "3" # Lower tiers deploy first (1-7); default/unset is 10
 sync:
   serverSideApply: true # Required for CRDs
 ```
@@ -77,7 +77,7 @@ sync:
 
 - Application name comes from the app directory; destination namespace defaults to the group directory unless overridden in `config.yaml`.
 - Additional manifests under `manifests/` are always synced; keep the directory present even if empty.
-- Use `rollout.tier` for progressive rollout ordering (lower tiers deploy first, 1-8) and `sync.serverSideApply` when CRDs are involved.
+- Use `rollout.tier` for progressive rollout ordering (lower tiers deploy first; 1-7 are scheduled steps and 10 is the default catch‑all) and `sync.serverSideApply` when CRDs are involved.
 - Labels are generated for name, part-of, component, and managed-by to simplify filtering.
 
 ### Dynamic Configs (Metacontroller)
