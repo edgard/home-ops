@@ -1,5 +1,6 @@
 ---
-# Namespace managed by ArgoCD, not Helm
+# Use release namespace (kube-system) instead of default k8tz
+namespace: null
 createNamespace: false
 
 # Default timezone for all pods in the cluster
@@ -13,3 +14,4 @@ injectAll: true
 
 # Also patch CronJob timezone field
 cronJobTimeZone: true
+

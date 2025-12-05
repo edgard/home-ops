@@ -21,3 +21,4 @@ readinessProbe:
   initialDelaySeconds: 15
   periodSeconds: 15
   timeoutSeconds: 5
+

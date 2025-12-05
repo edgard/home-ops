@@ -2,14 +2,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: k8tz
+  name: kube-system
   namespace: argocd
 spec:
-  description: Kubernetes timezone injection
+  description: Kubernetes system components
   sourceRepos:
     - "*"
   destinations:
-    - namespace: k8tz
+    - namespace: kube-system
       server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: "*"
@@ -17,3 +17,4 @@ spec:
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
+

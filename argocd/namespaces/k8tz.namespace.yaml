@@ -1,7 +1,0 @@
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: k8tz
-  annotations:
-    argocd.argoproj.io/sync-wave: "-20"
