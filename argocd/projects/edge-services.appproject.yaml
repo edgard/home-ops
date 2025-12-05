@@ -1,0 +1,19 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: edge-services
+  namespace: argocd
+spec:
+  description: Edge services applications
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: edge-services
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

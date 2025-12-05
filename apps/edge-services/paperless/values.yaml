@@ -198,7 +198,9 @@ controllers:
         image:
           repository: busybox
           tag: "1.37.0"
-        command: ["/bin/sh", "-c"]
+        command:
+          - "/bin/sh"
+          - "-c"
         args:
           - |
             mkdir -p /app/data

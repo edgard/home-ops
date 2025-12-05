@@ -1,0 +1,19 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: home-automation
+  namespace: argocd
+spec:
+  description: Home automation applications
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: home-automation
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

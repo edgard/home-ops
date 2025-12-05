@@ -8,12 +8,11 @@ metadata:
     app.kubernetes.io/name: homelab-controller
     app.kubernetes.io/part-of: homelab-controller
 data:
-  dex_generator.py: |
+  dex_generator.py: |-
     import copy
     from typing import Dict, List, Sequence, Tuple
 
     DEFAULT_SELECTOR = ""
-
 
     def discover(selector: str, logger, ctx, kube_get):
         def list_security_policies(ctx):
@@ -85,12 +84,10 @@ data:
         }
         return redirects, stats
 
-
     def patch_config(config: dict, data: list):
         for client in config.get("staticClients", []):
             if client.get("id") == "envoy-gateway":
                 client["redirectURIs"] = data
-
 
     def render_config(
         base_config: dict, selector: str, logger, ctx, kube_get, trace: str | None = None

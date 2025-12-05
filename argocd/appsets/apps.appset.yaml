@@ -31,7 +31,7 @@ spec:
         - resources-finalizer.argocd.argoproj.io
 
     spec:
-      project: default
+      project: "{{ index .path.segments 1 }}"
       destination:
         server: https://kubernetes.default.svc
         namespace: "{{ index .path.segments 1 }}"

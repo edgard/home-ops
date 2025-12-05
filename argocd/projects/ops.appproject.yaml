@@ -1,0 +1,19 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ops
+  namespace: argocd
+spec:
+  description: Operations and monitoring
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: ops
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

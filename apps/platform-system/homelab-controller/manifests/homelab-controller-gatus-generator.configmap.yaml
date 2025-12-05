@@ -8,13 +8,12 @@ metadata:
     app.kubernetes.io/name: homelab-controller
     app.kubernetes.io/part-of: homelab-controller
 data:
-  gatus_generator.py: |
+  gatus_generator.py: |-
     import copy
     import urllib.parse
     from typing import Dict, Iterable, List
 
     DEFAULT_SELECTOR = "gatus.edgard.org/enabled=true"
-
 
     def discover(selector: str, logger, ctx, kube_get):
         selector = selector or DEFAULT_SELECTOR
@@ -171,11 +170,9 @@ data:
             "appCount": len(discovered),
         }
 
-
     def patch_config(config: dict, data: list):
         existing = config.get("endpoints", []) or []
         config["endpoints"] = existing + data
-
 
     def render_config(
         base_config: dict, selector: str, logger, ctx, kube_get, trace: str | None = None

@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/name: homelab-controller
     app.kubernetes.io/part-of: homelab-controller
 data:
-  hajimari_generator.py: |
+  hajimari_generator.py: |-
     import copy
     import urllib.parse
     from dataclasses import dataclass
@@ -17,14 +17,12 @@ data:
     DEFAULT_SELECTOR = "hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external"
     DEFAULT_ICON = "mdi:web"
 
-
     @dataclass
     class Entry:
         host: str
         namespace: str
         routename: str
         icon: Optional[str]
-
 
     def discover(selector: str, logger, ctx, kube_get):
         selector = selector or DEFAULT_SELECTOR
@@ -97,10 +95,8 @@ data:
         }
         return custom_apps, stats
 
-
     def patch_config(config: dict, data: list):
         config["customApps"] = data
-
 
     def render_config(
         base_config: dict, selector: str, logger, ctx, kube_get, trace: str | None = None

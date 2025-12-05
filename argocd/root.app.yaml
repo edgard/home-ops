@@ -12,6 +12,9 @@ spec:
       path: argocd/namespaces
     - repoURL: https://github.com/edgard/home-ops.git
       targetRevision: master
+      path: argocd/projects
+    - repoURL: https://github.com/edgard/home-ops.git
+      targetRevision: master
       path: argocd/appsets
   destination:
     server: https://kubernetes.default.svc

@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/name: homelab-controller
     app.kubernetes.io/part-of: homelab-controller
 data:
-  webhook.py: |
+  webhook.py: |-
     import hashlib
     import json
     import logging
@@ -51,7 +51,6 @@ data:
         "DexConfig": dex_generator,
     }
 
-
     def cluster_context():
         host = os.environ.get("KUBERNETES_SERVICE_HOST")
         port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
@@ -61,7 +60,6 @@ data:
         ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
         token = token_path.read_text(encoding="utf-8").strip()
         return {"host": host, "port": port, "token": token, "ca_path": ca_path}
-
 
     def kube_get(
         path: str,
@@ -97,7 +95,6 @@ data:
                     raise RuntimeError(f"failed to GET {path}: {exc}") from exc
                 time.sleep(backoff * attempt)
 
-
     def get_current_namespace():
         try:
             return (
@@ -107,7 +104,6 @@ data:
             )
         except Exception:
             return "default"
-
 
     def build_response(parent: dict, logger):
         metadata = parent.get("metadata") or {}
@@ -202,7 +198,6 @@ data:
             "resyncAfterSeconds": resync,
         }
 
-
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
             if self.path != "/sync":
@@ -267,7 +262,6 @@ data:
                 self._write_json(200, {"status": "ok"})
             else:
                 self.send_error(404, "not found")
-
 
     if __name__ == "__main__":
         server = HTTPServer(("", SERVER_PORT), Handler)
