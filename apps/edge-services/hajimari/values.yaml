@@ -46,9 +46,34 @@ service:
     ports:
       http:
         port: 3000
-ingress:
-  main:
-    enabled: false
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - apps.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 3000
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - apps.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 3000
+
 persistence:
   config:
     type: configMap

@@ -1,0 +1,113 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-controller-dex-generator
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+data:
+  dex_generator.py: |
+    import copy
+    from typing import Dict, List, Sequence, Tuple
+
+    DEFAULT_SELECTOR = ""
+
+
+    def discover(selector: str, logger, ctx, kube_get):
+        def list_security_policies(ctx):
+            return kube_get(
+                "/apis/gateway.envoyproxy.io/v1alpha1/securitypolicies", ctx
+            ) or {"items": []}
+
+        def list_routes(ctx):
+            data = kube_get("/apis/gateway.networking.k8s.io/v1/httproutes", ctx) or {}
+            return data.get("items", [])
+
+        def get_targets(policies: dict, expected_client: str) -> List[Tuple[str, str]]:
+            targets = set()
+            for item in policies.get("items", []):
+                spec = item.get("spec", {}) or {}
+                oidc = spec.get("oidc", {}) or {}
+                client_id = oidc.get("clientID")
+                if expected_client and client_id != expected_client:
+                    continue
+                policy_ns = (item.get("metadata", {}) or {}).get("namespace")
+                for tref in spec.get("targetRefs", []) or []:
+                    if (
+                        tref.get("group") == "gateway.networking.k8s.io"
+                        and tref.get("kind") == "HTTPRoute"
+                    ):
+                        ns = tref.get("namespace") or policy_ns
+                        name = tref.get("name")
+                        if ns and name:
+                            targets.add((ns, name))
+            return sorted(targets)
+
+        def index_routes(items: Sequence[dict]) -> Dict[Tuple[str, str], dict]:
+            idx = {}
+            for item in items or []:
+                meta = item.get("metadata", {}) or {}
+                ns = meta.get("namespace")
+                name = meta.get("name")
+                if ns and name:
+                    idx[(ns, name)] = item
+            return idx
+
+        def collect_hosts(
+            targets: Sequence[Tuple[str, str]], route_index: Dict[Tuple[str, str], dict]
+        ) -> List[str]:
+            hostnames = set()
+            for ns, name in targets:
+                route = route_index.get((ns, name))
+                if not route:
+                    continue
+                for hostname in route.get("spec", {}).get("hostnames", []) or []:
+                    hostnames.add(hostname.lower())
+            return sorted(hostnames)
+
+        policies = list_security_policies(ctx)
+        routes = list_routes(ctx)
+
+        expected_client = "envoy-gateway"
+
+        targets = get_targets(policies or {}, expected_client)
+        route_index = index_routes(routes or [])
+        hosts = collect_hosts(targets, route_index)
+
+        redirects = [f"https://{h}/oauth2/callback" for h in hosts]
+
+        stats = {
+            "appCount": len(redirects),
+            "endpointCount": len(redirects),
+            "discoveredCount": len(hosts),
+        }
+        return redirects, stats
+
+
+    def patch_config(config: dict, data: list):
+        for client in config.get("staticClients", []):
+            if client.get("id") == "envoy-gateway":
+                client["redirectURIs"] = data
+
+
+    def render_config(
+        base_config: dict, selector: str, logger, ctx, kube_get, trace: str | None = None
+    ):
+        if not base_config:
+            raise ValueError("base config is required")
+
+        data_list, stats = discover(selector, logger, ctx, kube_get)
+
+        cfg = copy.deepcopy(base_config)
+        patch_config(cfg, data_list)
+
+        logger.debug(
+            "rendered dex config trace=%s endpoints=%s discovered=%s selector=%s",
+            trace or "-",
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
+            selector,
+        )
+        return cfg, stats

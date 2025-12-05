@@ -1,0 +1,152 @@
+---
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    serviceAccount:
+      identifier: main
+    containers:
+      main:
+        image:
+          repository: python
+          tag: 3.14-slim
+        command:
+          - /bin/sh
+          - -c
+          - |
+            set -euo pipefail
+            pip install --no-cache-dir --quiet pyyaml >/tmp/pip.log 2>&1
+            python /scripts/webhook.py
+        env:
+          PIP_ROOT_USER_ACTION: ignore
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /healthz
+                port: 8080
+              initialDelaySeconds: 5
+              periodSeconds: 5
+              failureThreshold: 30
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /healthz
+                port: 8080
+              periodSeconds: 10
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /healthz
+                port: 8080
+              periodSeconds: 20
+
+serviceAccount:
+  main:
+    enabled: true
+
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 80
+        targetPort: 8080
+
+rbac:
+  roles:
+    main:
+      type: ClusterRole
+      rules:
+        - apiGroups:
+            - ""
+          resources:
+            - configmaps
+          verbs:
+            - get
+            - create
+            - update
+        - apiGroups:
+            - ""
+          resources:
+            - services
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - apps
+          resources:
+            - deployments
+            - statefulsets
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - gateway.networking.k8s.io
+          resources:
+            - httproutes
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - gateway.envoyproxy.io
+          resources:
+            - securitypolicies
+          verbs:
+            - get
+            - list
+            - watch
+  bindings:
+    main:
+      type: ClusterRoleBinding
+      roleRef:
+        identifier: main
+      subjects:
+        - identifier: main
+          kind: ServiceAccount
+
+persistence:
+  webhook:
+    type: configMap
+    name: homelab-controller-webhook
+    defaultMode: 0444
+    globalMounts:
+      - path: /scripts/webhook.py
+        subPath: webhook.py
+        readOnly: true
+  hajimari-generator:
+    type: configMap
+    name: homelab-controller-hajimari-generator
+    defaultMode: 0444
+    globalMounts:
+      - path: /scripts/hajimari_generator.py
+        subPath: hajimari_generator.py
+        readOnly: true
+  gatus-generator:
+    type: configMap
+    name: homelab-controller-gatus-generator
+    defaultMode: 0444
+    globalMounts:
+      - path: /scripts/gatus_generator.py
+        subPath: gatus_generator.py
+        readOnly: true
+  dex-generator:
+    type: configMap
+    name: homelab-controller-dex-generator
+    defaultMode: 0444
+    globalMounts:
+      - path: /scripts/dex_generator.py
+        subPath: dex_generator.py
+        readOnly: true

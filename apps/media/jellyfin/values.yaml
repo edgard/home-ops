@@ -74,9 +74,36 @@ service:
         enabled: true
         port: 8920
         targetPort: 8920
-ingress:
-  main:
-    enabled: false
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+      hajimari.edgard.org/enabled: "true"
+      hajimari.edgard.org/icon: play-circle
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - jellyfin.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8096
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - jellyfin.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8096
+
 persistence:
   config:
     type: hostPath

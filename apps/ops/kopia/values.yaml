@@ -108,9 +108,36 @@ service:
         port: 51516
         protocol: TCP
         targetPort: 51516
-ingress:
-  main:
-    enabled: false
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+      hajimari.edgard.org/enabled: "true"
+      hajimari.edgard.org/icon: backup-restore
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - kopia.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 51515
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - kopia.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 51515
+
 persistence:
   config:
     type: hostPath

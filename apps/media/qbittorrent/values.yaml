@@ -89,9 +89,36 @@ service:
         port: 6881
         protocol: UDP
         targetPort: 6881
-ingress:
-  main:
-    enabled: false
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+      hajimari.edgard.org/enabled: "true"
+      hajimari.edgard.org/icon: download
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - qbittorrent.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8080
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - qbittorrent.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8080
+
 persistence:
   qb-config:
     type: hostPath

@@ -3,5 +3,3 @@ chart:
   repo: oci://ghcr.io/bjw-s-labs/helm/app-template
   path: "."
   version: 4.5.0
-sync:
-  wave: "-2"

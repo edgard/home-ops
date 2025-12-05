@@ -1,0 +1,278 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-controller-webhook
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+data:
+  webhook.py: |
+    import hashlib
+    import json
+    import logging
+    import os
+    import ssl
+    import sys
+    import time
+    import urllib.request
+    from datetime import datetime, timezone
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from pathlib import Path
+    from urllib.error import HTTPError, URLError
+
+    try:
+        import yaml
+    except ImportError:
+        sys.exit("PyYAML is required")
+
+    import dex_generator
+    import gatus_generator
+    import hajimari_generator
+
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+
+    KUBE_TIMEOUT = float(os.environ.get("KUBE_TIMEOUT", "5"))
+    KUBE_RETRIES = int(os.environ.get("KUBE_RETRIES", "2"))
+    KUBE_BACKOFF = float(os.environ.get("KUBE_BACKOFF", "0.5"))
+
+    DEFAULT_RESYNC = int(os.environ.get("RESYNC_SECONDS", "120"))
+    DEFAULT_OUTPUT_KEY = os.environ.get("OUTPUT_KEY", "config.yaml")
+    SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
+
+    GENERATORS = {
+        "HajimariConfig": hajimari_generator,
+        "GatusConfig": gatus_generator,
+        "DexConfig": dex_generator,
+    }
+
+
+    def cluster_context():
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        if not host:
+            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+        token = token_path.read_text(encoding="utf-8").strip()
+        return {"host": host, "port": port, "token": token, "ca_path": ca_path}
+
+
+    def kube_get(
+        path: str,
+        ctx,
+        *,
+        timeout: float | None = None,
+        retries: int | None = None,
+        backoff: float | None = None,
+    ):
+        retries = KUBE_RETRIES if retries is None else retries
+        backoff = KUBE_BACKOFF if backoff is None else backoff
+
+        url = f"https://{ctx['host']}:{ctx['port']}{path}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {ctx['token']}",
+                "Accept": "application/json",
+            },
+        )
+        ssl_ctx = ssl.create_default_context(cafile=str(ctx["ca_path"]))
+        ssl_ctx.check_hostname = False
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                with urllib.request.urlopen(
+                    req, context=ssl_ctx, timeout=timeout or KUBE_TIMEOUT
+                ) as resp:
+                    return yaml.safe_load(resp.read())
+            except (HTTPError, URLError) as exc:
+                if attempt > retries:
+                    raise RuntimeError(f"failed to GET {path}: {exc}") from exc
+                time.sleep(backoff * attempt)
+
+
+    def get_current_namespace():
+        try:
+            return (
+                Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+                .read_text()
+                .strip()
+            )
+        except Exception:
+            return "default"
+
+
+    def build_response(parent: dict, logger):
+        metadata = parent.get("metadata") or {}
+        spec = parent.get("spec") or {}
+        parent_status = parent.get("status") or {}
+
+        kind = parent.get("kind", "")
+        managed_resource = kind.replace("Config", "").lower() or "unknown"
+        default_output_cm = f"{managed_resource}-config-generated"
+
+        namespace = metadata.get("namespace") or get_current_namespace()
+        output_name = spec.get("outputConfigMap") or default_output_cm
+        output_key = spec.get("outputKey") or DEFAULT_OUTPUT_KEY
+        selector = spec.get("discoverySelector", "")
+        resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+
+        base_config = spec.get("base", {})
+
+        generator = GENERATORS.get(kind)
+        if not generator:
+            raise ValueError(f"unknown kind: {kind}")
+
+        ctx = cluster_context()
+
+        config, stats = generator.render_config(
+            base_config=base_config,
+            selector=selector,
+            logger=logger,
+            ctx=ctx,
+            kube_get=kube_get,
+            trace=f"{namespace}/{metadata.get('name', '')}",
+        )
+
+        cfg_yaml = yaml.safe_dump(config, sort_keys=False)
+        cfg_hash = hashlib.sha256(cfg_yaml.encode("utf-8")).hexdigest()
+
+        endpoints = stats.get("endpointCount", 0)
+        discovered = stats.get("discoveredCount", endpoints)
+        app_count = stats.get("appCount", endpoints)
+
+        prev_hash = parent_status.get("configHash")
+
+        if prev_hash == cfg_hash:
+            status = parent_status
+        else:
+            now = datetime.now(timezone.utc).isoformat()
+            status = {
+                "lastSync": now,
+                "appCount": app_count,
+                "endpointCount": endpoints,
+                "discovered": discovered,
+                "configHash": cfg_hash,
+                "conditions": [
+                    {
+                        "type": "Ready",
+                        "status": "True",
+                        "reason": "SyncSuccessful",
+                        "message": f"Rendered {endpoints} endpoints ({discovered} discovered)",
+                        "lastTransitionTime": now,
+                    }
+                ],
+            }
+
+        logger.info(
+            "sync successful kind=%s parent=%s/%s cm=%s endpoints=%s discovered=%s",
+            kind,
+            namespace,
+            metadata.get("name"),
+            output_name,
+            endpoints,
+            discovered,
+        )
+
+        return {
+            "children": [
+                {
+                    "apiVersion": "v1",
+                    "kind": "ConfigMap",
+                    "metadata": {
+                        "name": output_name,
+                        "namespace": namespace,
+                        "labels": {
+                            "app.kubernetes.io/name": managed_resource,
+                            "app.kubernetes.io/part-of": managed_resource,
+                            "homelab.edgard.org/managed": managed_resource,
+                        },
+                    },
+                    "data": {output_key: cfg_yaml},
+                }
+            ],
+            "status": status,
+            "resyncAfterSeconds": resync,
+        }
+
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            if self.path != "/sync":
+                self.send_error(404, "not found")
+                return
+
+            length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(length) if length else b"{}"
+            try:
+                body = json.loads(raw_body or b"{}")
+            except json.JSONDecodeError as exc:
+                self._write_json(400, {"error": f"invalid json: {exc}"})
+                return
+
+            parent = body.get("parent") or {}
+            spec = parent.get("spec") or {}
+            resync = int(spec.get("resyncSeconds") or DEFAULT_RESYNC)
+            logger = logging.getLogger("webhook")
+
+            try:
+                response = build_response(parent, logger)
+                self._write_json(200, response)
+            except Exception as exc:
+                now = datetime.now(timezone.utc).isoformat()
+                logging.exception("sync error")
+                self._write_json(
+                    200,
+                    {
+                        "status": {
+                            "lastSync": now,
+                            "appCount": 0,
+                            "endpointCount": 0,
+                            "discovered": 0,
+                            "configHash": None,
+                            "conditions": [
+                                {
+                                    "type": "Ready",
+                                    "status": "False",
+                                    "reason": "SyncError",
+                                    "message": str(exc),
+                                    "lastTransitionTime": now,
+                                }
+                            ],
+                        },
+                        "resyncAfterSeconds": resync,
+                    },
+                )
+
+        def log_message(self, fmt, *args):
+            return
+
+        def _write_json(self, code, payload):
+            data = json.dumps(payload).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def do_GET(self):
+            if self.path in ("/healthz", "/livez", "/readyz"):
+                self._write_json(200, {"status": "ok"})
+            else:
+                self.send_error(404, "not found")
+
+
+    if __name__ == "__main__":
+        server = HTTPServer(("", SERVER_PORT), Handler)
+        logging.getLogger("webhook").info(
+            "starting homelab-controller webhook on :%s",
+            SERVER_PORT,
+        )
+        server.serve_forever()

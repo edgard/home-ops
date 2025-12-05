@@ -4,5 +4,5 @@ chart:
   path: "."
   version: 1.6.0
 sync:
-  wave: "-6"
+  wave: "-2"
   serverSideApply: true

@@ -59,9 +59,36 @@ service:
         enabled: true
         port: 3214
         targetPort: http
-ingress:
-  main:
-    enabled: false
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+      hajimari.edgard.org/enabled: "true"
+      hajimari.edgard.org/icon: printer-3d
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - manyfold.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 3214
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - manyfold.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 3214
+
 persistence:
   config:
     type: hostPath

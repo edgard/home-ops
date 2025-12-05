@@ -267,9 +267,63 @@ service:
       redis:
         port: 6379
 
-ingress:
-  main:
-    enabled: false
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+      hajimari.edgard.org/enabled: "true"
+      hajimari.edgard.org/icon: file-document-outline
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - paperless.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: paperless
+            port: 8000
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - paperless.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: paperless
+            port: 8000
+  ai-external:
+    labels:
+      external-dns.edgard.org/scope: external
+      hajimari.edgard.org/enabled: "true"
+      hajimari.edgard.org/icon: robot-happy-outline
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - paperless-ai.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: ai
+            port: 3000
+  ai-internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - paperless-ai.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: ai
+            port: 3000
 
 persistence:
   data:

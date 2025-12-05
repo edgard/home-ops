@@ -1,0 +1,27 @@
+---
+apiVersion: metacontroller.k8s.io/v1alpha1
+kind: CompositeController
+metadata:
+  name: homelab-controller-dex
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+spec:
+  generateSelector: true
+  parentResource:
+    apiVersion: homelab.edgard.org/v1alpha1
+    resource: dexconfigs
+  childResources:
+    - apiVersion: v1
+      resource: configmaps
+      updateStrategy:
+        method: InPlace
+  hooks:
+    sync:
+      webhook:
+        service:
+          name: homelab-controller
+          namespace: platform-system
+          port: 80
+        path: /sync
+        timeout: 15s

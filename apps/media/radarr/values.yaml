@@ -57,9 +57,36 @@ service:
         enabled: true
         port: 7878
         targetPort: 7878
-ingress:
-  main:
-    enabled: false
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+      hajimari.edgard.org/enabled: "true"
+      hajimari.edgard.org/icon: movie
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - radarr.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 7878
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - radarr.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 7878
+
 persistence:
   config:
     type: hostPath

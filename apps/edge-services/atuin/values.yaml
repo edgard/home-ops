@@ -54,9 +54,33 @@ service:
       http:
         port: 8888
 
-ingress:
-  main:
-    enabled: false
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - atuin.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: atuin
+            port: 8888
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - atuin.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: atuin
+            port: 8888
 
 persistence:
   config:

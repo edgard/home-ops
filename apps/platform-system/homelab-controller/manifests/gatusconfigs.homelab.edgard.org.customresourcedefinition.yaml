@@ -1,0 +1,101 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gatusconfigs.homelab.edgard.org
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+spec:
+  group: homelab.edgard.org
+  scope: Namespaced
+  names:
+    plural: gatusconfigs
+    singular: gatusconfig
+    kind: GatusConfig
+    shortNames:
+      - gcfg
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=='Ready')].status
+        - name: Endpoints
+          type: integer
+          jsonPath: .status.endpointCount
+        - name: Discovered
+          type: integer
+          jsonPath: .status.discovered
+        - name: Last Sync
+          type: string
+          format: date-time
+          jsonPath: .status.lastSync
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                base:
+                  type: object
+                  description: Inline Gatus base config.
+                  x-kubernetes-preserve-unknown-fields: true
+                outputConfigMap:
+                  type: string
+                  description: Name of the ConfigMap to write rendered Gatus config into.
+                  default: gatus-config-generated
+                outputKey:
+                  type: string
+                  description: Key inside the ConfigMap containing the rendered config.
+                  default: config.yaml
+                discoverySelector:
+                  type: string
+                  description: Label selector for Services to expose in Gatus.
+                  default: gatus.edgard.org/enabled=true
+                resyncSeconds:
+                  type: integer
+                  description: Force resync interval for the config generator.
+                  default: 120
+              required:
+                - base
+            status:
+              type: object
+              properties:
+                observedGeneration:
+                  type: integer
+                lastSync:
+                  type: string
+                  format: date-time
+                appCount:
+                  type: integer
+                endpointCount:
+                  type: integer
+                discovered:
+                  type: integer
+                configHash:
+                  type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+      subresources:
+        status: {}

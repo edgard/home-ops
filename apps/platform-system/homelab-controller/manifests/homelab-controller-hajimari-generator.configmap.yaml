@@ -1,0 +1,123 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-controller-hajimari-generator
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+data:
+  hajimari_generator.py: |
+    import copy
+    import urllib.parse
+    from dataclasses import dataclass
+    from typing import Iterable, Optional, Sequence
+
+    DEFAULT_SELECTOR = "hajimari.edgard.org/enabled=true,external-dns.edgard.org/scope=external"
+    DEFAULT_ICON = "mdi:web"
+
+
+    @dataclass
+    class Entry:
+        host: str
+        namespace: str
+        routename: str
+        icon: Optional[str]
+
+
+    def discover(selector: str, logger, ctx, kube_get):
+        selector = selector or DEFAULT_SELECTOR
+
+        def routes_to_entries(items: Sequence[dict]):
+            entries = []
+            for item in items or []:
+                meta = item.get("metadata", {}) or {}
+                labels = meta.get("labels", {}) or {}
+                if labels.get("homelab.edgard.org/managed") == "hajimari":
+                    continue
+                if labels.get("hajimari.edgard.org/enabled") != "true":
+                    continue
+                ns = meta.get("namespace")
+                name = meta.get("name")
+                icon = labels.get("hajimari.edgard.org/icon")
+                for host in item.get("spec", {}).get("hostnames", []) or []:
+                    entries.append(Entry(host=host, namespace=ns, routename=name, icon=icon))
+            return entries
+
+        def list_routes(ctx, selector: str):
+            encoded = urllib.parse.quote(selector, safe="=,")
+            data = kube_get(
+                f"/apis/gateway.networking.k8s.io/v1/httproutes?labelSelector={encoded}",
+                ctx,
+            )
+            return data.get("items", []) if data else []
+
+        def build_config(entries: Iterable[Entry]) -> list:
+            groups = {}
+            seen_hosts = set()
+            seen_names = set()
+            for entry in entries:
+                key = entry.host.lower()
+                if key in seen_hosts:
+                    continue
+                name = entry.host.split(".")[0].replace("-", " ").title()
+                if name in seen_names:
+                    continue
+                seen_hosts.add(key)
+                seen_names.add(name)
+                grp = groups.setdefault(entry.namespace, {"apps": []})
+                grp["apps"].append(
+                    {
+                        "name": name,
+                        "url": f"https://{entry.host}",
+                        "icon": f"mdi:{entry.icon}" if entry.icon else DEFAULT_ICON,
+                        "info": f"{entry.namespace}/{entry.routename}",
+                        "targetBlank": False,
+                    }
+                )
+
+            for grp in groups.values():
+                grp["apps"].sort(key=lambda x: x["name"].lower())
+
+            return [
+                {"group": ns.replace("-", " ").title(), "apps": grp["apps"]}
+                for ns, grp in sorted(groups.items(), key=lambda x: x[0])
+            ]
+
+        routes = list_routes(ctx, selector)
+        entries = routes_to_entries(routes)
+        custom_apps = build_config(entries)
+
+        total = sum(len(g.get("apps", [])) for g in custom_apps)
+        stats = {
+            "appCount": total,
+            "endpointCount": total,
+            "discoveredCount": total,
+        }
+        return custom_apps, stats
+
+
+    def patch_config(config: dict, data: list):
+        config["customApps"] = data
+
+
+    def render_config(
+        base_config: dict, selector: str, logger, ctx, kube_get, trace: str | None = None
+    ):
+        if not base_config:
+            raise ValueError("base config is required")
+
+        data_list, stats = discover(selector, logger, ctx, kube_get)
+
+        cfg = copy.deepcopy(base_config)
+        patch_config(cfg, data_list)
+
+        logger.debug(
+            "rendered hajimari config trace=%s endpoints=%s discovered=%s selector=%s",
+            trace or "-",
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
+            selector,
+        )
+        return cfg, stats

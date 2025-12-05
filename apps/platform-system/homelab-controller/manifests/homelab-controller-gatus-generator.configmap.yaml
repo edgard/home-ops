@@ -1,0 +1,202 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-controller-gatus-generator
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+data:
+  gatus_generator.py: |
+    import copy
+    import urllib.parse
+    from typing import Dict, Iterable, List
+
+    DEFAULT_SELECTOR = "gatus.edgard.org/enabled=true"
+
+
+    def discover(selector: str, logger, ctx, kube_get):
+        selector = selector or DEFAULT_SELECTOR
+
+        def guess_scheme(port_name, port_number):
+            name = (port_name or "").lower()
+            if "https" in name or port_number == 443:
+                return "https"
+            if "http" in name or port_number == 80:
+                return "http"
+            if "tcp" in name:
+                return "tcp"
+            if "icmp" in name:
+                return "icmp"
+            return "tcp"
+
+        def list_workloads(namespaces: Iterable[str]) -> Dict[str, List[dict]]:
+            workloads: Dict[str, List[dict]] = {}
+            for path in ["/apis/apps/v1/deployments", "/apis/apps/v1/statefulsets"]:
+                data = kube_get(path, ctx)
+                for item in data.get("items", []):
+                    ns = item.get("metadata", {}).get("namespace")
+                    if ns not in namespaces:
+                        continue
+                    tmpl = item.get("spec", {}).get("template", {}) or {}
+                    labels = tmpl.get("metadata", {}).get("labels", {}) or {}
+                    pod_spec = tmpl.get("spec", {}) or {}
+                    containers = pod_spec.get("containers", []) or []
+                    port_map = {}
+                    probes = []
+                    for c in containers:
+                        for p in c.get("ports", []) or []:
+                            if p.get("name"):
+                                port_map[p["name"]] = p.get("containerPort")
+                        for probe in [c.get("readinessProbe"), c.get("livenessProbe")]:
+                            if probe:
+                                probes.append(probe)
+                    workloads.setdefault(ns, []).append(
+                        {"labels": labels, "port_map": port_map, "probes": probes}
+                    )
+            return workloads
+
+        def match_probe(service_selector, workload: dict):
+            if not service_selector:
+                return None
+            wl_labels = workload.get("labels", {})
+            for key, val in service_selector.items():
+                if wl_labels.get(key) != val:
+                    return None
+            for probe in workload.get("probes", []):
+                if "httpGet" in probe:
+                    http = probe["httpGet"]
+                    port = http.get("port")
+                    if isinstance(port, str):
+                        port = workload["port_map"].get(port)
+                    return {
+                        "scheme": http.get("scheme", "HTTP").lower(),
+                        "path": http.get("path", "/"),
+                        "port": port,
+                        "periodSeconds": probe.get("periodSeconds"),
+                    }
+                if "tcpSocket" in probe:
+                    tcp = probe["tcpSocket"]
+                    port = tcp.get("port")
+                    if isinstance(port, str):
+                        port = workload["port_map"].get(port)
+                    return {
+                        "scheme": "tcp",
+                        "port": port,
+                        "periodSeconds": probe.get("periodSeconds"),
+                    }
+            return None
+
+        def resolve_port(ports: list, probe_port):
+            if probe_port:
+                return probe_port
+            if not ports:
+                return None
+            return ports[0].get("port")
+
+        encoded = urllib.parse.quote(selector, safe="=,")
+        svc_data = kube_get(f"/api/v1/services?labelSelector={encoded}", ctx)
+        services = svc_data.get("items", []) if svc_data else []
+
+        namespaces = {item.get("metadata", {}).get("namespace") for item in services}
+        workloads = list_workloads(namespaces)
+
+        discovered = []
+        for item in services:
+            meta = item.get("metadata", {})
+            spec = item.get("spec", {})
+            name = meta.get("name")
+            namespace = meta.get("namespace")
+            labels = meta.get("labels", {})
+            if labels.get("gatus.edgard.org/enabled") != "true":
+                continue
+            if labels.get("homelab.edgard.org/managed") == "gatus":
+                continue
+            svc_selector = spec.get("selector") or {}
+
+            ports = spec.get("ports", []) or []
+            if not ports:
+                continue
+            port_entry = ports[0]
+            port_number = port_entry.get("port")
+            port_name = port_entry.get("name")
+            scheme = guess_scheme(port_name, port_number)
+            path = "/"
+
+            probe = None
+            for wl in workloads.get(namespace, []):
+                probe = match_probe(svc_selector, wl)
+                if probe:
+                    break
+
+            if probe:
+                scheme = probe.get("scheme", scheme)
+                port_number = resolve_port(ports, probe.get("port"))
+                path = probe.get("path", "/")
+                period = probe.get("periodSeconds")
+            else:
+                period = None
+                port_number = resolve_port(ports, port_number)
+
+            if port_number is None:
+                continue
+
+            if scheme == "tcp":
+                url = f"tcp://{name}.{namespace}.svc.cluster.local:{port_number}"
+                conditions = ["[CONNECTED] == true"]
+            elif scheme == "icmp":
+                url = f"icmp://{name}.{namespace}.svc.cluster.local"
+                conditions = ["[CONNECTED] == true"]
+            else:
+                url = f"{scheme}://{name}.{namespace}.svc.cluster.local:{port_number}{path}"
+                conditions = ["[STATUS] == 200"]
+
+            discovered.append(
+                {
+                    "name": name,
+                    "group": namespace,
+                    "url": url,
+                    "labels": {
+                        "namespace": namespace,
+                        "scope": "internal",
+                    },
+                    "interval": f"{period}s" if period else "1m",
+                    "conditions": conditions,
+                }
+            )
+        return discovered, {
+            "endpointCount": len(discovered),
+            "discoveredCount": len(discovered),
+            "appCount": len(discovered),
+        }
+
+
+    def patch_config(config: dict, data: list):
+        existing = config.get("endpoints", []) or []
+        config["endpoints"] = existing + data
+
+
+    def render_config(
+        base_config: dict, selector: str, logger, ctx, kube_get, trace: str | None = None
+    ):
+        if not base_config:
+            raise ValueError("base config is required")
+
+        data_list, stats = discover(selector, logger, ctx, kube_get)
+
+        cfg = copy.deepcopy(base_config)
+        patch_config(cfg, data_list)
+
+        total_endpoints = len(cfg.get("endpoints", []))
+        stats["endpointCount"] = total_endpoints
+        stats["appCount"] = total_endpoints
+
+        logger.debug(
+            "rendered gatus config trace=%s endpoints=%s discovered=%s selector=%s",
+            trace or "-",
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
+            selector,
+        )
+        return cfg, stats

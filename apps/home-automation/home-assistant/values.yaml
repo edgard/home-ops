@@ -65,9 +65,36 @@ service:
         port: 8123
         protocol: TCP
         targetPort: 8123
-ingress:
-  main:
-    enabled: false
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+      hajimari.edgard.org/enabled: "true"
+      hajimari.edgard.org/icon: home-assistant
+    parentRefs:
+      - name: envoy-gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - home-assistant.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8123
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: envoy-gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - home-assistant.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8123
+
 persistence:
   config:
     type: hostPath
