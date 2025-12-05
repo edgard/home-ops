@@ -24,21 +24,13 @@
     },
     {
       customType: "regex",
-      description: "Track OCI Helm charts in apps/*/*/config.yaml",
+      description: "Track charts in apps/*/*/config.yaml",
       managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
       matchStrings: [
-        "repoURL:\\s*oci://(?<packageName>[^\\s]+)\\s+path:\\s*\\.\\s+targetRevision:\\s*(?<currentValue>\\S+)",
+        "repo:\\s*oci://(?<packageName>[^\\s]+)\\s+path:\\s*[\"']?\\.[\"']?\\s+version:\\s*(?<currentValue>\\S+)",
+        "repo:\\s*(?<registryUrl>https://[^\\s]+)\\s+name:\\s*(?<depName>\\S+)\\s+version:\\s*(?<currentValue>\\S+)",
       ],
-      datasourceTemplate: "docker",
-    },
-    {
-      customType: "regex",
-      description: "Track HTTPS Helm charts in apps/*/*/config.yaml",
-      managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
-      matchStrings: [
-        "repoURL:\\s*(?<registryUrl>https://[^\\s]+)\\s+chart:\\s*(?<depName>\\S+)\\s+targetRevision:\\s*(?<currentValue>\\S+)",
-      ],
-      datasourceTemplate: "helm",
+      datasourceTemplate: "{{#if packageName}}docker{{else}}helm{{/if}}",
     },
   ],
 
