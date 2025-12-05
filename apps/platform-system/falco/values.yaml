@@ -1,0 +1,35 @@
+---
+fullnameOverride: falco
+
+driver:
+  kind: modern_ebpf
+  sysfsMountPath: /sys/kernel
+  modernEbpf:
+    sysfsMount: true
+
+collectors:
+  kubernetes:
+    enabled: true
+    collectorHostname: "" # use service default
+  containerEngine:
+    engines:
+      containerd:
+        enabled: true
+        sockets:
+          - "/run/containerd/containerd.sock"
+      docker:
+        enabled: false
+      podman:
+        enabled: false
+      cri:
+        enabled: false
+      lxc:
+        enabled: false
+      libvirt_lxc:
+        enabled: false
+      bpm:
+        enabled: false
+
+falco:
+  json_output: true
+  priority: warning

@@ -18,42 +18,50 @@ spec:
         - matchExpressions:
             - key: tier
               operator: In
-              values: ["1"]
+              values:
+                - "1"
         # Tier 2: GitOps (argocd)
         - matchExpressions:
             - key: tier
               operator: In
-              values: ["2"]
+              values:
+                - "2"
         # Tier 3: Network (multus)
         - matchExpressions:
             - key: tier
               operator: In
-              values: ["3"]
+              values:
+                - "3"
         # Tier 4: Core operators (reloader, metacontroller, external-secrets)
         - matchExpressions:
             - key: tier
               operator: In
-              values: ["4"]
-        # Tier 5: Secondary operators (cert-manager, homelab-controller)
+              values:
+                - "4"
+        # Tier 5: Secondary operators (cert-manager, homelab-controller, falco)
         - matchExpressions:
             - key: tier
               operator: In
-              values: ["5"]
+              values:
+                - "5"
         # Tier 6: Ingress (envoy-gateway)
         - matchExpressions:
             - key: tier
               operator: In
-              values: ["6"]
+              values:
+                - "6"
         # Tier 7: Edge services (cloudflared, dex, external-dns)
         - matchExpressions:
             - key: tier
               operator: In
-              values: ["7"]
+              values:
+                - "7"
         # Tier 10: Catch-all default for unlabeled apps
         - matchExpressions:
             - key: tier
               operator: In
-              values: ["10"]
+              values:
+                - "10"
 
   generators:
     - git:

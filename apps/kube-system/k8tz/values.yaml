@@ -14,4 +14,3 @@ injectAll: true
 
 # Also patch CronJob timezone field
 cronJobTimeZone: true
-
