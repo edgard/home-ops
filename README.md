@@ -1,106 +1,67 @@
 # Home Ops
 
-Kubernetes homelab managed by Argo CD (app-of-apps) and bootstrapped with Kind. Everything needed to recreate the cluster lives in this repo.
+Argo CD–managed Kubernetes homelab deployed onto a Kind cluster that runs on a dedicated Docker context (`kind-<cluster-name>`, default `kind-homelab`). Bootstrap, apps, and Cloudflare infra live in this repo.
 
-## Quick Start
+## Prerequisites
 
-- Install dependencies: `docker`, `python3`, `kind`, `kubectl`, `helm`, `sops`, `age-keygen`, `yamlfmt`, `yamllint`.
-- Generate an Age key: `make secrets-create-key` (stored locally at `.sops.agekey`).
-- Create or edit encrypted secrets: `make secrets-edit` (starts from `bootstrap/config/cluster-secrets.template.yaml`).
-- Bootstrap cluster: `make bootstrap` (uses `bootstrap/config/cluster-config.yaml`, installs Argo CD, syncs all apps).
-- Tear down or rebuild: `make bootstrap-delete` or `make bootstrap-recreate`.
+- docker with a context for the cluster host (create `kind-homelab` to match `bootstrap/config/cluster-config.yaml`)
+- kind, kubectl, helm
+- python3 with PyYAML
+- sops + age-keygen (age key stored locally at `.sops.agekey`)
+- prettier, yamlfmt, yamllint
+- opentofu (`tofu`) for the terraform targets
+- optional: direnv to load `.envrc` for Cloudflare/B2 credentials
 
-## Local Testing
+## Bootstrap (remote Kind)
 
-- Create local Kind cluster: `make kind-create`; delete with `make kind-delete`.
-- Apply decrypted secrets: `make secrets-apply`.
-- Check cluster state: `kubectl get nodes -o wide`, `kubectl get pods -A`.
-- Force Argo CD resync: `make argo-sync` (optionally scope with `ARGOCD_SELECTOR=key=value`).
-- Lint manifests: `make lint` (yamlfmt then yamllint).
+1) Ensure a Docker context named `kind-homelab` points to the host running dockerd (e.g., `docker context create kind-homelab --docker "host=ssh://user@host"`).  
+2) Generate an Age key: `make secrets-create-key` (writes `.sops.agekey`).  
+3) Populate secrets from the template: `make secrets-edit` (SOPS edits `bootstrap/config/cluster-secrets.sops.yaml`).  
+4) `make bootstrap` – creates the Kind cluster from `bootstrap/config/cluster-config.yaml`, attaches workers to a macvlan network (`MULTUS_PARENT_*` env overrides supported), installs Multus and Argo CD via Helm, seeds the Argo repo secret from cluster secrets, then applies the root Argo CD app.  
+5) Tear down or rebuild with `make bootstrap-delete` or `make bootstrap-recreate`.
 
-## Repository Structure
+## Local Iteration
 
-### Argo CD Layout
+- `make kind-create | kind-delete | kind-recreate` for a local cluster using the same config.
+- `make kind-status` for node status; `kubectl get pods -A` for workloads.
+- `make secrets-apply` to decrypt/apply cluster secrets to the current context.
+- `make argo-sync ARGOCD_SELECTOR=key=value` to force Argo refresh without the CLI.
 
-- `argocd/root.app.yaml` is the entrypoint; it applies `argocd/namespaces/*.namespace.yaml` and the ApplicationSet.
-- `argocd/appsets/apps.appset.yaml` is a go-template ApplicationSet that discovers `apps/*/*/config.yaml` via the Git generator.
+## Repository Layout
 
-### Apps Directory
+- `bootstrap/config/` – Kind cluster config and SOPS secret template (`cluster-secrets.sops.yaml` encrypted copy).  
+- `bootstrap/scripts/bootstrap.py` – Kind/Multus/Argo installer that expects the `kind-<cluster>` Docker context.  
+- `argocd/root.app.yaml` – root Application; `argocd/namespaces/` and `argocd/projects/` define namespaces/AppProjects; `argocd/appsets/apps.appset.yaml` is the go-template ApplicationSet with RollingSync tiers.  
+- `apps/<group>/<app>/` – `config.yaml` (chart source/version + optional rollout/sync), `values.yaml`, and optional `manifests/` (synced directly). Groups: `argocd`, `kube-system`, `platform-system`, `ops`, `edge-services`, `media`, `home-automation`.  
+- `terraform/` – OpenTofu for Cloudflare DNS/rules with a Backblaze B2 S3 backend (`shadowhausterraform/homelab/terraform.tfstate`); module under `terraform/cloudflare/`.
 
-- `apps/{group}/{app}/config.yaml` declares the Helm chart source, version, and optional rollout/sync settings.
-- `apps/{group}/{app}/values.yaml` contains the chart values for that app.
-- `apps/{group}/{app}/manifests/` holds any extra YAML (CRDs, metacontroller templates, routes, etc.).
-- Namespaces follow the group name (edge-services, platform-system, ops, media, home-automation, argocd).
+## App Conventions
 
-### Bootstrap Assets
+- `chart.repo` is either an OCI URL (with `path: "."`) or an HTTPS repo + `name`; `chart.version` is required.  
+- `rollout.tier` controls the ApplicationSet RollingSync order (1 = earliest; default 10).  
+- `sync.serverSideApply: true` for CRDs/operators.  
+- Destination namespace defaults to the group directory unless overridden in `config.yaml`.  
+- Keep `manifests/` present even if empty; everything inside is applied.
 
-- `bootstrap/config/cluster-config.yaml` Kind config that sets the cluster name and node image.
-- `bootstrap/config/cluster-secrets.template.yaml` starting point for SOPS-managed secrets; encrypted copy lives at `cluster-secrets.sops.yaml`.
-- `bootstrap/scripts/bootstrap.py` provisions Kind, installs Argo CD, and syncs apps. It honors `MULTUS_PARENT_IFACE`, `MULTUS_PARENT_SUBNET`, `MULTUS_PARENT_GATEWAY`, and `MULTUS_PARENT_IP_RANGE` environment overrides.
+## Dynamic Configs
 
-### App Configuration Patterns
-
-Each app's `config.yaml` contains only what's necessary:
-
-**OCI Helm repo**:
-
-```yaml
-chart:
-  repo: oci://ghcr.io/bjw-s-labs/helm/app-template
-  path: "."
-  version: 4.4.0
-```
-
-**HTTPS Helm repo**:
-
-```yaml
-chart:
-  repo: https://kubernetes-sigs.github.io/external-dns
-  name: external-dns
-  version: 1.19.0
-```
-
-**Infrastructure app** (with progressive rollout tier):
-
-```yaml
-chart:
-  repo: oci://ghcr.io/argoproj/argo-helm/argo-cd
-  path: .
-  version: 9.1.4
-rollout:
-  tier: "3" # Lower tiers deploy first (1-7); default/unset is 10
-sync:
-  serverSideApply: true # Required for CRDs
-```
-
-### Conventions
-
-- Application name comes from the app directory; destination namespace defaults to the group directory unless overridden in `config.yaml`.
-- Additional manifests under `manifests/` are always synced; keep the directory present even if empty.
-- Use `rollout.tier` for progressive rollout ordering (lower tiers deploy first; 1-7 are scheduled steps and 10 is the default catch‑all) and `sync.serverSideApply` when CRDs are involved.
-- Labels are generated for name, part-of, component, and managed-by to simplify filtering.
-
-### Dynamic Configs (Metacontroller)
-
-Hajimari, Gatus, and Dex configs are rendered by metacontroller CompositeControllers under each app's `manifests/metacontroller/`. Edit the CR templates there; do not edit generated ConfigMaps (`hajimari-config-generated`, `gatus-config-generated`, `dex-config-generated`).
-
-## Linting & Formatting
-
-- `make lint` runs yamlfmt then yamllint.
-- YAML uses 2-space indentation; keep fields ordered logically (metadata → spec/values).
+Hajimari, Gatus, and Dex configs are rendered by metacontroller. Edit the CR templates under `apps/<group>/<app>/manifests/metacontroller/`; do not edit generated ConfigMaps (`*-config-generated`).
 
 ## Secrets
 
-- Age key stays local at `.sops.agekey`; do not commit it or decrypted secrets.
-- `make secrets-edit` uses SOPS to manage `bootstrap/config/cluster-secrets.sops.yaml`.
-- `make secrets-apply` decrypts and applies secrets to the current cluster.
+- Age key remains local at `.sops.agekey`; never commit decrypted secrets.  
+- Populate `bootstrap/config/cluster-secrets.sops.yaml` via `make secrets-edit` (template lists required fields).  
+- Bootstrap uses these secrets to create the Argo repo credentials and tokens for Cloudflare, OIDC, WireGuard, etc.
 
-## Dependency Updates
+## Linting & Formatting
 
-- Renovate (`.github/workflows/renovate.yaml`, `.renovaterc.json5`) updates chart versions in `config.yaml` and other dependencies; review major bumps.
+`make lint` runs prettier ➜ yamlfmt ➜ yamllint across all YAML files. Install the three binaries locally.
+
+## Terraform / Cloudflare
+
+- Credentials are read from environment (`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` for the B2 backend, `CLOUDFLARE_API_TOKEN`, `TF_VAR_cloudflare_zone_id`). Use `direnv allow` or `source .envrc` to load them.  
+- Commands: `make tf-plan`, `make tf-apply`, `make tf-validate`, `make tf-clean` (override path with `TERRAFORM_DIR=...` if needed).
 
 ## Contributing
 
-- Use Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore(deps):`).
-- Run `make lint` before committing and include validation steps (Kind/Argo checks) in PRs.
-- Document any bootstrap env overrides (e.g., `MULTUS_PARENT_*`) used during changes.
+Use Conventional Commits, run `make lint` before pushing, document any `MULTUS_PARENT_*` overrides, and note Kind/Argo validation steps in PRs. Renovate keeps chart versions current; double-check major bumps.
