@@ -2,7 +2,7 @@
 chart:
   repo: oci://ghcr.io/bjw-s-labs/helm/multus
   path: "."
-  version: 1.0.1
+  version: 1.0.2
 sync:
   wave: "-10"
   serverSideApply: true
