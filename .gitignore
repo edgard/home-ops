@@ -2,6 +2,7 @@
 /.sops.agekey
 *.agekey
 /.envrc
+__pycache__
 
 # Terraform
 terraform/**/.terraform/
