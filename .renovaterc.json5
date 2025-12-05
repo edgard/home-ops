@@ -24,6 +24,18 @@
     },
     {
       customType: "regex",
+      description: "Track WASM images in EnvoyExtensionPolicy manifests",
+      managerFilePatterns: [
+        "/^apps\\/[^\\/]+\\/[^\\/]+\\/manifests\\/.*\\.envoyextensionpolicy\\.ya?ml$/",
+      ],
+      matchStrings: [
+        "url:\\s*(?<depName>[A-Za-z0-9._\\-]+(?:/[A-Za-z0-9._\\-]+)+):(?<currentValue>[0-9A-Za-z_.\\-]+)",
+        "url:\\s*(?<depName>[A-Za-z0-9._\\-]+(?:/[A-Za-z0-9._\\-]+)+)@sha256:(?<currentValue>[A-Fa-f0-9]{64})",
+      ],
+      datasourceTemplate: "docker",
+    },
+    {
+      customType: "regex",
       description: "Track charts in apps/*/*/config.yaml",
       managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
       matchStrings: [
