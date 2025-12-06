@@ -2,6 +2,6 @@
 chart:
   repo: oci://ghcr.io/falcosecurity/charts/falco
   path: "."
-  version: 7.0.1
+  version: 7.0.2
 rollout:
   tier: "5"
