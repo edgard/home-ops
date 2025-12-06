@@ -2,4 +2,4 @@
 chart:
   repo: oci://ghcr.io/grafana/helm-charts/grafana
   path: "."
-  version: 10.2.0
+  version: 10.3.0
