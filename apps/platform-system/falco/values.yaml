@@ -33,3 +33,15 @@ collectors:
 falco:
   json_output: true
   priority: warning
+
+metrics:
+  enabled: true
+  interval: 1m
+  outputRule: false
+  rulesCountersEnabled: true
+  resourceUtilizationEnabled: true
+  service:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8765"
+      prometheus.io/path: /metrics

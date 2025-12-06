@@ -1,0 +1,16 @@
+---
+server:
+  fullnameOverride: victoria-metrics
+  retentionPeriod: 15d
+  persistentVolume:
+    enabled: true
+    size: 20Gi
+  resources: {}
+  service:
+    servicePort: 8428
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8428"
+
+service:
+  servicePort: 8428

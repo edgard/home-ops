@@ -1,0 +1,62 @@
+---
+replicas: 1
+deploymentStrategy:
+  type: Recreate
+
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+
+persistence:
+  enabled: true
+  size: 10Gi
+
+initChownData:
+  enabled: false
+
+service:
+  labels:
+    gatus.edgard.org/enabled: "true"
+    hajimari.edgard.org/enabled: "true"
+    hajimari.edgard.org/icon: chart-line
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "3000"
+    prometheus.io/path: /metrics
+
+grafana.ini:
+  server:
+    domain: grafana.edgard.org
+    root_url: https://grafana.edgard.org/
+    serve_from_sub_path: false
+  public_dashboards:
+    enabled: false
+
+plugins:
+  - victoriametrics-metrics-datasource
+  - victoriametrics-logs-datasource
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: VictoriaMetrics
+        uid: victoria-metrics
+        type: victoriametrics-metrics-datasource
+        access: proxy
+        url: http://victoria-metrics.ops.svc.cluster.local:8428
+        isDefault: true
+      - name: VictoriaLogs
+        uid: victoria-logs
+        type: victoriametrics-logs-datasource
+        access: proxy
+        url: http://victoria-logs.ops.svc.cluster.local:9428
+    deleteDatasources: []
+sidecar:
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+    folder: /var/lib/grafana/dashboards
+    folderAnnotation: grafana_folder
+    searchNamespace: ALL

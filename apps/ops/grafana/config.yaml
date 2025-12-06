@@ -1,0 +1,5 @@
+---
+chart:
+  repo: oci://ghcr.io/grafana/helm-charts/grafana
+  path: "."
+  version: 10.2.0

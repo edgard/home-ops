@@ -1,0 +1,403 @@
+---
+crds:
+  create: true
+
+alloy:
+  enableReporting: false
+  storagePath: /var/lib/alloy
+  extraEnv:
+    - name: NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+  mounts:
+    extra:
+      - name: alloy-storage
+        mountPath: /var/lib/alloy
+  configMap:
+    create: true
+    content: |
+      logging {
+        level  = "info"
+        format = "logfmt"
+      }
+
+      discovery.kubernetes "nodes" {
+        role = "node"
+      }
+
+      discovery.kubernetes "endpoints" {
+        role = "endpoints"
+      }
+
+      discovery.kubernetes "pods" {
+        role = "pod"
+
+        selectors {
+          role  = "pod"
+          field = "spec.nodeName=" + coalesce(sys.env("NODE_NAME"), constants.hostname)
+        }
+
+        attach_metadata {
+          node = true
+        }
+      }
+
+      discovery.relabel "apiserver" {
+        targets = discovery.kubernetes.endpoints.targets
+        rule {
+          source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_service_name", "__meta_kubernetes_endpoint_port_name"]
+          action        = "keep"
+          regex         = "default;kubernetes;https"
+        }
+        rule {
+          target_label = "cluster"
+          replacement  = "homelab"
+        }
+      }
+
+      discovery.relabel "kubelet" {
+        targets = discovery.kubernetes.nodes.targets
+
+        rule {
+          action = "labelmap"
+          regex  = "__meta_kubernetes_node_label_(.+)"
+        }
+
+        rule {
+          target_label = "__address__"
+          replacement  = "kubernetes.default.svc:443"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_node_name"]
+          target_label  = "__metrics_path__"
+          replacement   = "/api/v1/nodes/$1/proxy/metrics"
+        }
+
+        rule {
+          action        = "replace"
+          source_labels = ["__meta_kubernetes_node_name"]
+          target_label  = "node"
+        }
+
+        rule {
+          action       = "replace"
+          target_label = "cluster"
+          replacement  = "homelab"
+        }
+      }
+
+      discovery.relabel "cadvisor" {
+        targets = discovery.kubernetes.nodes.targets
+
+        rule {
+          action = "labelmap"
+          regex  = "__meta_kubernetes_node_label_(.+)"
+        }
+
+        rule {
+          target_label = "__address__"
+          replacement  = "kubernetes.default.svc:443"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_node_name"]
+          target_label  = "__metrics_path__"
+          replacement   = "/api/v1/nodes/$1/proxy/metrics/cadvisor"
+        }
+
+        rule {
+          action        = "replace"
+          source_labels = ["__meta_kubernetes_node_name"]
+          target_label  = "node"
+        }
+
+        rule {
+          action       = "replace"
+          target_label = "cluster"
+          replacement  = "homelab"
+        }
+      }
+
+      discovery.relabel "services" {
+        targets = discovery.kubernetes.endpoints.targets
+
+        rule {
+          action        = "drop"
+          source_labels = ["__meta_kubernetes_pod_container_init"]
+          regex         = "true"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_service_annotation_prometheus_io_scrape"]
+          action        = "keep"
+          regex         = "true"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_service_annotation_prometheus_io_scheme"]
+          action        = "replace"
+          target_label  = "__scheme__"
+          regex         = "(https?)"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_service_annotation_prometheus_io_path"]
+          action        = "replace"
+          target_label  = "__metrics_path__"
+          regex         = "(.+)"
+        }
+
+        rule {
+          source_labels = ["__address__", "__meta_kubernetes_service_annotation_prometheus_io_port"]
+          action        = "replace"
+          target_label  = "__address__"
+          regex         = "([^:]+)(?::\\d+)?;(\\d+)"
+          replacement   = "$1:$2"
+        }
+
+        rule {
+          action = "labelmap"
+          regex  = "__meta_kubernetes_service_label_(.+)"
+        }
+
+        rule {
+          action        = "replace"
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+
+        rule {
+          action        = "replace"
+          source_labels = ["__meta_kubernetes_service_name"]
+          target_label  = "service"
+        }
+
+        rule {
+          action        = "replace"
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
+
+        rule {
+          action       = "replace"
+          target_label = "cluster"
+          replacement  = "homelab"
+        }
+      }
+
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_phase"]
+          action        = "drop"
+          regex         = "Succeeded|Failed"
+        }
+
+        rule {
+          action        = "keep"
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+          regex         = "true"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+          action        = "replace"
+          target_label  = "__metrics_path__"
+          regex         = "(.+)"
+        }
+
+        rule {
+          source_labels = ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+          action        = "replace"
+          target_label  = "__address__"
+          regex         = "([^:]+)(?::\\d+)?;(\\d+)"
+          replacement   = "$1:$2"
+        }
+
+        rule {
+          action        = "labelmap"
+          regex         = "__meta_kubernetes_pod_label_(.+)"
+        }
+
+        rule {
+          action        = "replace"
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+
+        rule {
+          action        = "replace"
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+
+        rule {
+          action        = "replace"
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
+
+        rule {
+          action       = "replace"
+          target_label = "cluster"
+          replacement  = "homelab"
+        }
+      }
+
+      prometheus.remote_write "victoriametrics" {
+        endpoint {
+          url = "http://victoria-metrics.ops.svc.cluster.local:8428/api/v1/write"
+        }
+      }
+
+      prometheus.scrape "kube_apiserver" {
+        job_name = "kubernetes-apiservers"
+        targets  = discovery.relabel.apiserver.output
+        scheme   = "https"
+
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config {
+          ca_file              = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+          insecure_skip_verify = true
+        }
+
+        forward_to = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      prometheus.scrape "kubelet" {
+        job_name = "kubernetes-kubelet"
+        targets  = discovery.relabel.kubelet.output
+        scheme   = "https"
+        scrape_interval = "30s"
+
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config {
+          ca_file              = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+          insecure_skip_verify = true
+        }
+
+        forward_to = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      prometheus.scrape "cadvisor" {
+        job_name = "kubernetes-cadvisor"
+        targets  = discovery.relabel.cadvisor.output
+        scheme   = "https"
+        scrape_interval = "30s"
+        honor_timestamps = false
+
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config {
+          ca_file              = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+          insecure_skip_verify = true
+        }
+
+        forward_to = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      prometheus.scrape "service_endpoints" {
+        job_name = "kubernetes-service-endpoints"
+        targets  = discovery.relabel.services.output
+        scrape_interval = "30s"
+        forward_to = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      prometheus.scrape "pods" {
+        job_name = "kubernetes-pods"
+        targets  = discovery.relabel.pods.output
+        scrape_interval = "30s"
+        forward_to = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      prometheus.scrape "alloy" {
+        job_name = "grafana-alloy"
+        targets = [{
+          __address__ = "127.0.0.1:12345",
+          cluster     = "homelab",
+        }]
+        scrape_interval = "30s"
+        forward_to = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      prometheus.scrape "blackbox_http" {
+        job_name        = "blackbox-http"
+        metrics_path    = "/probe"
+        scrape_interval = "60s"
+        params = { module = ["http_2xx"] }
+
+        targets = [
+          { __address__ = "blackbox-exporter.ops.svc.cluster.local:9115", __param_target = "https://id.edgard.org/", instance = "https://id.edgard.org/", scope = "external", probe = "envoy-gateway-external-https" },
+          { __address__ = "blackbox-exporter.ops.svc.cluster.local:9115", __param_target = "https://id.edgard.org/", instance = "https://id.edgard.org/", scope = "internal", probe = "envoy-gateway-internal-https" },
+        ]
+
+        forward_to = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      prometheus.scrape "blackbox_tcp" {
+        job_name        = "blackbox-tcp"
+        metrics_path    = "/probe"
+        scrape_interval = "30s"
+        params = { module = ["tcp_connect"] }
+
+        targets = [
+          { __address__ = "blackbox-exporter.ops.svc.cluster.local:9115", __param_target = "envoy-gateway-external.platform-system.svc.cluster.local:443", instance = "envoy-gateway-external.platform-system.svc.cluster.local:443", scope = "internal", probe = "envoy-gateway-external" },
+          { __address__ = "blackbox-exporter.ops.svc.cluster.local:9115", __param_target = "envoy-gateway-internal.platform-system.svc.cluster.local:443", instance = "envoy-gateway-internal.platform-system.svc.cluster.local:443", scope = "internal", probe = "envoy-gateway-internal" },
+        ]
+
+        forward_to = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      prometheus.scrape "blackbox_icmp" {
+        job_name        = "blackbox-icmp"
+        metrics_path    = "/probe"
+        scrape_interval = "60s"
+        params = { module = ["icmp"] }
+
+        targets = [
+          { __address__ = "blackbox-exporter.ops.svc.cluster.local:9115", __param_target = "www.google.com", instance = "www.google.com", scope = "external", probe = "ping-google" },
+          { __address__ = "blackbox-exporter.ops.svc.cluster.local:9115", __param_target = "www.microsoft.com", instance = "www.microsoft.com", scope = "external", probe = "ping-microsoft" },
+          { __address__ = "blackbox-exporter.ops.svc.cluster.local:9115", __param_target = "www.amazon.com", instance = "www.amazon.com", scope = "external", probe = "ping-amazon" },
+        ]
+
+        forward_to = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      loki.source.kubernetes "pods" {
+        targets    = discovery.kubernetes.pods.targets
+        forward_to = [loki.process.pod_logs.receiver]
+      }
+
+      loki.process "pod_logs" {
+        stage.cri {}
+
+        stage.labels {
+          values = {
+            cluster = "homelab",
+          }
+        }
+
+        forward_to = [loki.write.victorialogs.receiver]
+      }
+
+      loki.write "victorialogs" {
+        endpoint {
+          url = "http://victoria-logs.ops.svc.cluster.local:9428/insert/loki/api/v1/push?_stream_fields=namespace,pod,container,cluster,node"
+        }
+      }
+
+controller:
+  type: daemonset
+  podAnnotations:
+    reloader.stakater.com/auto: "true"
+  volumes:
+    extra:
+      - name: alloy-storage
+        hostPath:
+          path: /var/lib/alloy
+          type: DirectoryOrCreate
+
+service:
+  enabled: true

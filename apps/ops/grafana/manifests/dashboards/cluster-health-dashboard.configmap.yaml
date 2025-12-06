@@ -1,0 +1,166 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-cluster-health
+  namespace: ops
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: Observability
+data:
+  cluster-health.json: |-
+    {
+      "uid": "cluster-health",
+      "title": "Cluster Health",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "tags": ["kubernetes", "cluster", "health", "observability"],
+      "timezone": "browser",
+      "time": {"from": "now-24h", "to": "now"},
+      "timepicker": {"refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m"]},
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Ready nodes",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "none", "decimals": 0}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "sum(kube_node_status_condition{condition=\"Ready\",status=\"true\"})"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Not ready nodes",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 1}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "sum(kube_node_status_condition{condition=\"Ready\",status=\"false\"})"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Unschedulable nodes",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "none", "decimals": 0}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "sum(kube_node_spec_unschedulable)"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Metrics scrape up",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": null},
+                  {"color": "green", "value": 1}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "avg(up{app_kubernetes_io_name=\"kube-state-metrics\",job=~\"kubernetes-pods|kubernetes-service-endpoints\"})"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Node readiness %",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 1}, "overrides": []},
+          "options": {"legend": {"showLegend": true, "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [
+            {"refId": "A", "expr": "avg(kube_node_status_condition{condition=\"Ready\",status=\"true\"}) * 100", "legendFormat": "Ready %"}
+          ],
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "Pods by phase",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
+          "options": {"legend": {"showLegend": true, "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}, "stacking": {"mode": "normal"}},
+          "targets": [
+            {"refId": "A", "expr": "sum(kube_pod_status_phase) by (phase)", "legendFormat": "{{phase}}"}
+          ],
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+        },
+        {
+          "id": 7,
+          "type": "barchart",
+          "title": "Deployments with unavailable replicas (top10)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
+          "options": {"orientation": "horizontal", "displayMode": "gradient"},
+          "targets": [
+            {"refId": "A", "expr": "topk(10, kube_deployment_status_replicas - kube_deployment_status_replicas_available)", "legendFormat": "{{namespace}}/{{deployment}}"}
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
+        },
+        {
+          "id": 8,
+          "type": "barchart",
+          "title": "CrashLooping containers (current)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
+          "options": {"orientation": "horizontal", "displayMode": "gradient"},
+          "targets": [
+            {"refId": "A", "expr": "topk(10, sum(kube_pod_container_status_waiting_reason{reason=\"CrashLoopBackOff\"}) by (namespace, pod, container))", "legendFormat": "{{namespace}}/{{pod}}/{{container}}"}
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
+        },
+        {
+          "id": 9,
+          "type": "table",
+          "title": "Nodes detail",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "none", "decimals": 2}, "overrides": []},
+          "options": {"showHeader": true},
+          "targets": [
+            {"refId": "A", "expr": "kube_node_status_condition{condition=\"Ready\",status=\"true\"}"},
+            {"refId": "B", "expr": "kube_node_spec_unschedulable"},
+            {"refId": "C", "expr": "kube_node_status_condition{condition=\"MemoryPressure\",status=\"true\"}"},
+            {"refId": "D", "expr": "kube_node_status_condition{condition=\"DiskPressure\",status=\"true\"}"}
+          ],
+          "transformations": [
+            {"id": "merge", "options": {}},
+            {"id": "organize", "options": {"renameByName": {"Value": "ready", "Value #B": "unschedulable", "Value #C": "memory_pressure", "Value #D": "disk_pressure"}}}
+          ],
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 28}
+        }
+      ]
+    }

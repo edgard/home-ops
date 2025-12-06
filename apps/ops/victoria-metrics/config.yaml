@@ -1,0 +1,5 @@
+---
+chart:
+  repo: oci://ghcr.io/victoriametrics/helm-charts/victoria-metrics-single
+  path: "."
+  version: 0.26.0

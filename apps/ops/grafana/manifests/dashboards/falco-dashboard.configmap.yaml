@@ -1,0 +1,140 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-falco
+  namespace: ops
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: Security
+data:
+  falco.json: |-
+    {
+      "uid": "falco-security",
+      "title": "Falco Security",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "tags": ["falco", "security"],
+      "timezone": "browser",
+      "time": {"from": "now-24h", "to": "now"},
+      "timepicker": {"refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m"]},
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Events rate (rps)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 2}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "sum(rate(falcosecurity_falco_rules_matches_total[5m]))"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Events last 24h",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "sum(increase(falcosecurity_falco_rules_matches_total[24h]))"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Falco scrape up",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "none", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "avg(up{app_kubernetes_io_name=\"falco\",job=~\"kubernetes-pods|kubernetes-service-endpoints\"})"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Uptime (hours)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "h", "decimals": 1}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "max(falcosecurity_falco_duration_seconds_total) / 3600"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Events rate by priority",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 2}, "overrides": []},
+          "options": {"legend": {"showLegend": true, "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}, "stacked": true},
+          "targets": [
+            {"refId": "A", "expr": "sum(rate(falcosecurity_falco_rules_matches_total[5m])) by (priority)", "legendFormat": "{{priority}}"}
+          ],
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}
+        },
+        {
+          "id": 6,
+          "type": "barchart",
+          "title": "Top rules (5m rate)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 2}, "overrides": []},
+          "options": {"orientation": "horizontal", "displayMode": "gradient"},
+          "targets": [
+            {"refId": "A", "expr": "topk(10, sum(rate(falcosecurity_falco_rules_matches_total[5m])) by (rule_name, priority))", "legendFormat": "{{rule_name}} ({{priority}})"}
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+        },
+        {
+          "id": 7,
+          "type": "piechart",
+          "title": "Events by priority (5m rate)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 2}, "overrides": []},
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+          "targets": [
+            {"refId": "A", "expr": "sum(rate(falcosecurity_falco_rules_matches_total[5m])) by (priority)", "legendFormat": "{{priority}}"}
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+        },
+        {
+          "id": 8,
+          "type": "table",
+          "title": "Rules table (5m rate)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 3}, "overrides": []},
+          "options": {"showHeader": true},
+          "targets": [
+            {"refId": "A", "expr": "sum(rate(falcosecurity_falco_rules_matches_total[5m])) by (rule_name, priority)", "legendFormat": "" }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "indexByName": {
+                  "__name__": 4,
+                  "priority": 2,
+                  "rule_name": 1,
+                  "Value": 3
+                },
+                "renameByName": {
+                  "Value": "rate",
+                  "priority": "priority",
+                  "rule_name": "rule",
+                  "__name__": "metric"
+                }
+              }
+            }
+          ],
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 20}
+        }
+      ]
+    }

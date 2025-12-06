@@ -6,6 +6,10 @@ installCRDs: true
 global:
   leaderElection:
     namespace: platform-system
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false
 livenessProbe:
   initialDelaySeconds: 30
   periodSeconds: 30

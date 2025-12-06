@@ -3,6 +3,12 @@ fullnameOverride: reloader
 reloader:
   replicas: 1
   reloadStrategy: annotations
+  service:
+    port: 9090
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9090"
+      prometheus.io/path: /metrics
   livenessProbe:
     initialDelaySeconds: 30
     periodSeconds: 30

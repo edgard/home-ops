@@ -51,6 +51,10 @@ service:
     forceRename: dex
     labels:
       gatus.edgard.org/enabled: "true"
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "5556"
+      prometheus.io/path: /metrics
     ports:
       http:
         port: 5556

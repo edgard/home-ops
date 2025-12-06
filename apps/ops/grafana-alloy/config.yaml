@@ -1,0 +1,5 @@
+---
+chart:
+  repo: https://grafana.github.io/helm-charts
+  name: alloy
+  version: 1.4.0

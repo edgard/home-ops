@@ -11,15 +11,43 @@ applicationSet:
   enabled: true
   podAnnotations:
     reloader.stakater.com/auto: "true"
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8085"
+        prometheus.io/path: /metrics
 
 controller:
   podAnnotations:
     reloader.stakater.com/auto: "true"
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+        prometheus.io/path: /metrics
 
 server:
   podAnnotations:
     reloader.stakater.com/auto: "true"
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8083"
+        prometheus.io/path: /metrics
 
 repoServer:
   podAnnotations:
     reloader.stakater.com/auto: "true"
+  metrics:
+    enabled: true
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8084"
+        prometheus.io/path: /metrics

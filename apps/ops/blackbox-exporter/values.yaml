@@ -1,0 +1,11 @@
+---
+fullnameOverride: blackbox-exporter
+
+service:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9115"
+    prometheus.io/path: /metrics
+  type: ClusterIP
+
+resources: {}

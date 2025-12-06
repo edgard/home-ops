@@ -1,0 +1,172 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-blackbox
+  namespace: ops
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: Observability
+data:
+  blackbox.json: |-
+    {
+      "uid": "blackbox-uptime",
+      "title": "Blackbox Uptime",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "tags": ["blackbox", "uptime", "synthetic", "observability"],
+      "timezone": "browser",
+      "time": {"from": "now-24h", "to": "now"},
+      "timepicker": {"refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m"]},
+      "templating": {
+        "list": [
+          {
+            "name": "job",
+            "type": "query",
+            "label": "Job",
+            "hide": 0,
+            "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+            "query": "label_values(probe_success, job)",
+            "refresh": 2,
+            "current": {"text": "blackbox-exporter", "value": "blackbox-exporter"},
+            "includeAll": false,
+            "multi": false
+          },
+          {
+            "name": "target",
+            "type": "query",
+            "label": "Target",
+            "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+            "query": "label_values(probe_success{job=\"$job\"}, instance)",
+            "refresh": 2,
+            "includeAll": true,
+            "multi": true,
+            "allValue": ".*",
+            "current": {"text": "All", "value": ".*"}
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Availability (24h)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "avg_over_time(probe_success{job=\"$job\",instance=~\"$target\"}[24h]) * 100"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Last status",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": null},
+                  {"color": "green", "value": 1}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "last_over_time(probe_success{job=\"$job\",instance=~\"$target\"}[5m])"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "P99 latency (24h)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "s", "decimals": 3}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "quantile_over_time(0.99, probe_duration_seconds{job=\"$job\",instance=~\"$target\"}[24h])"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Last HTTP status",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "none", "decimals": 0}, "overrides": []},
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+          "targets": [
+            {"refId": "A", "expr": "last_over_time(probe_http_status_code{job=\"$job\",instance=~\"$target\"}[5m])"}
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Success over time",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "none", "decimals": 0}, "overrides": []},
+          "options": {"legend": {"showLegend": true, "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "targets": [
+            {"refId": "A", "expr": "probe_success{job=\"$job\",instance=~\"$target\"}", "legendFormat": "{{instance}}"}
+          ],
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4}
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "Latency breakdown (avg, 5m)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "s", "decimals": 3}, "overrides": []},
+          "options": {"legend": {"showLegend": true, "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}, "stacking": {"mode": "none"}},
+          "targets": [
+            {"refId": "A", "expr": "avg_over_time(probe_dns_lookup_time_seconds{job=\"$job\",instance=~\"$target\"}[5m])", "legendFormat": "DNS"},
+            {"refId": "B", "expr": "avg_over_time(probe_tcp_connect_duration_seconds{job=\"$job\",instance=~\"$target\"}[5m])", "legendFormat": "TCP"},
+            {"refId": "C", "expr": "avg_over_time(probe_tls_handshake_time_seconds{job=\"$job\",instance=~\"$target\"}[5m])", "legendFormat": "TLS"},
+            {"refId": "D", "expr": "avg_over_time(probe_http_duration_seconds{job=\"$job\",instance=~\"$target\",phase=\"connect\"}[5m])", "legendFormat": "HTTP connect"},
+            {"refId": "E", "expr": "avg_over_time(probe_http_duration_seconds{job=\"$job\",instance=~\"$target\",phase=\"transfer\"}[5m])", "legendFormat": "HTTP transfer"}
+          ],
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+        },
+        {
+          "id": 7,
+          "type": "barchart",
+          "title": "Worst availability (24h)",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2}, "overrides": []},
+          "options": {"orientation": "horizontal", "displayMode": "gradient"},
+          "targets": [
+            {"refId": "A", "expr": "topk(10, (1 - avg_over_time(probe_success{job=\"$job\"}[24h])) * 100)", "legendFormat": "{{instance}}"}
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
+        },
+        {
+          "id": 8,
+          "type": "table",
+          "title": "Current status per target",
+          "datasource": {"type": "victoriametrics-metrics-datasource", "uid": "victoria-metrics"},
+          "fieldConfig": {"defaults": {"unit": "none", "decimals": 2}, "overrides": []},
+          "options": {"showHeader": true},
+          "targets": [
+            {"refId": "A", "expr": "last_over_time(probe_success{job=\"$job\"}[5m])"},
+            {"refId": "B", "expr": "last_over_time(probe_http_status_code{job=\"$job\"}[5m])"},
+            {"refId": "C", "expr": "probe_duration_seconds{job=\"$job\"}"}
+          ],
+          "transformations": [
+            {"id": "merge", "options": {}},
+            {"id": "organize", "options": {"renameByName": {"Value": "latency", "Value #A": "success", "Value #B": "http_status"}}}
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
+        }
+      ]
+    }

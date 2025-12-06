@@ -39,3 +39,8 @@ readinessProbe:
   failureThreshold: 3
 deploymentAnnotations:
   reloader.stakater.com/auto: "true"
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "7979"
+  prometheus.io/path: /metrics

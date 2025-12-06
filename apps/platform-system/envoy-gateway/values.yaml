@@ -1,2 +1,11 @@
 ---
-{}
+global:
+  envoyGateway:
+    service:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "19001"
+        prometheus.io/path: /stats/prometheus
+envoyGateway:
+  provider:
+    type: Kubernetes
