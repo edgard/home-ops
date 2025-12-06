@@ -1,0 +1,18 @@
+---
+server:
+  fullnameOverride: victoriametrics
+  retentionPeriod: 30d
+  persistentVolume:
+    size: 30Gi
+  service:
+    clusterIP: ""
+  extraArgs:
+    vmui.customDashboardsPath: /etc/vmui/dashboards
+  extraVolumes:
+    - name: vmui-dashboards
+      configMap:
+        name: victoriametrics-vmui-dashboards
+  extraVolumeMounts:
+    - name: vmui-dashboards
+      mountPath: /etc/vmui/dashboards
+      readOnly: true

@@ -98,6 +98,10 @@ service:
     type: ClusterIP
     labels:
       gatus.edgard.org/enabled: "true"
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "51516"
+      prometheus.io/path: /metrics
     ports:
       http:
         port: 51515

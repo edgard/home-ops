@@ -45,6 +45,10 @@ service:
       http:
         port: 8080
         targetPort: http
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"
+      prometheus.io/path: /metrics
 route:
   external:
     labels:

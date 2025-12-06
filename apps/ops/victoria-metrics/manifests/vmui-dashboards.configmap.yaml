@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: victoriametrics-vmui-dashboards
+  namespace: ops
+data:
+  blackbox.json: |-
+    {
+      "title": "Blackbox Probes",
+      "rows": [
+        {
+          "panels": [
+            {
+              "title": "Success by job (5m avg)",
+              "width": 6,
+              "expr": [
+                "avg_over_time(probe_success{service=\"blackbox-exporter\"}[5m]) by (job)"
+              ],
+              "legend": "{{job}}"
+            },
+            {
+              "title": "p95 latency by job (5m)",
+              "width": 6,
+              "expr": [
+                "histogram_quantile(0.95, sum(rate(probe_duration_seconds_bucket{service=\"blackbox-exporter\"}[5m])) by (le, job))"
+              ],
+              "legend": "{{job}}"
+            }
+          ]
+        },
+        {
+          "panels": [
+            {
+              "title": "Success by group (5m avg)",
+              "width": 6,
+              "expr": [
+                "avg_over_time(probe_success{service=\"blackbox-exporter\",group!=\"\"}[5m]) by (group)"
+              ],
+              "legend": "{{group}}"
+            },
+            {
+              "title": "p95 latency by group (5m)",
+              "width": 6,
+              "expr": [
+                "histogram_quantile(0.95, sum(rate(probe_duration_seconds_bucket{service=\"blackbox-exporter\",group!=\"\"}[5m])) by (le, group))"
+              ],
+              "legend": "{{group}}"
+            }
+          ]
+        },
+        {
+          "panels": [
+            {
+              "title": "Success by target (5m avg)",
+              "width": 6,
+              "expr": [
+                "avg_over_time(probe_success{service=\"blackbox-exporter\"}[5m]) by (instance, group)"
+              ],
+              "legend": "{{group}} / {{instance}}"
+            },
+            {
+              "title": "HTTP status (last 5m)",
+              "width": 6,
+              "expr": [
+                "max_over_time(probe_http_status_code{service=\"blackbox-exporter\"}[5m])"
+              ],
+              "legend": "{{instance}}"
+            }
+          ]
+        }
+      ]
+    }

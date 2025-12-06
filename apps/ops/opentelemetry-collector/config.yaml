@@ -1,0 +1,5 @@
+---
+chart:
+  repo: oci://ghcr.io/open-telemetry/opentelemetry-helm-charts/opentelemetry-collector
+  path: "."
+  version: 0.140.1

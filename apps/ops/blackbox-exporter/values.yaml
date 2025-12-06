@@ -1,0 +1,28 @@
+---
+fullnameOverride: blackbox-exporter
+
+strategy:
+  type: Recreate
+  rollingUpdate: null
+
+service:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9115"
+    prometheus.io/path: /metrics
+
+config:
+  modules:
+    http_2xx:
+      prober: http
+      http:
+        valid_http_versions:
+          - "HTTP/1.1"
+          - "HTTP/2"
+        preferred_ip_protocol: ip4
+    tcp_connect:
+      prober: tcp
+    icmp:
+      prober: icmp
+      icmp:
+        preferred_ip_protocol: ip4

@@ -1,0 +1,325 @@
+---
+mode: daemonset
+
+image:
+  repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-k8s
+  tag: 0.140.1
+
+command:
+  name: otelcol-k8s
+
+presets:
+  kubernetesAttributes:
+    enabled: true
+    extractAllPodLabels: false
+    extractAllPodAnnotations: false
+
+# Avoid binding host ports; keep OTLP only.
+ports:
+  otlp:
+    enabled: true
+    containerPort: 4317
+    servicePort: 4317
+    hostPort: null
+    protocol: TCP
+    appProtocol: grpc
+  otlp-http:
+    enabled: true
+    containerPort: 4318
+    servicePort: 4318
+    hostPort: null
+    protocol: TCP
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+  metrics:
+    enabled: true
+    containerPort: 8888
+    servicePort: 8888
+    protocol: TCP
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+extraVolumes:
+  - name: varlogpods
+    hostPath:
+      path: /var/log/pods
+  - name: varlogcontainers
+    hostPath:
+      path: /var/log/containers
+  - name: blackbox-targets
+    configMap:
+      name: opentelemetry-collector-blackbox-targets
+
+extraVolumeMounts:
+  - name: varlogpods
+    mountPath: /var/log/pods
+    readOnly: true
+  - name: varlogcontainers
+    mountPath: /var/log/containers
+    readOnly: true
+  - name: blackbox-targets
+    mountPath: /etc/otel/blackbox
+    readOnly: true
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc: {}
+        http: {}
+    jaeger: null
+    zipkin: null
+
+    # Scrape Prometheus-style endpoints that opt in via prometheus.io/* annotations.
+    prometheus:
+      config:
+        global:
+          scrape_interval: 30s
+          scrape_timeout: 10s
+        scrape_configs:
+          - job_name: kubernetes-pods
+            kubernetes_sd_configs:
+              - role: pod
+            honor_labels: false
+            relabel_configs:
+              - source_labels:
+                  - __meta_kubernetes_pod_annotation_prometheus_io_port
+                action: drop
+                regex: ""
+              - source_labels:
+                  - __meta_kubernetes_pod_annotation_prometheus_io_scrape
+                action: keep
+                regex: "true"
+              - source_labels:
+                  - __meta_kubernetes_pod_annotation_prometheus_io_scheme
+                action: replace
+                target_label: __scheme__
+                regex: (https?)
+              - source_labels:
+                  - __meta_kubernetes_pod_annotation_prometheus_io_scheme
+                action: replace
+                target_label: __scheme__
+                regex: ""
+                replacement: http
+              - source_labels:
+                  - __meta_kubernetes_pod_annotation_prometheus_io_path
+                action: replace
+                target_label: __metrics_path__
+                regex: (.+)
+              - source_labels:
+                  - __meta_kubernetes_pod_annotation_prometheus_io_path
+                action: replace
+                target_label: __metrics_path__
+                regex: ""
+                replacement: /metrics
+              - source_labels:
+                  - __address__
+                  - __meta_kubernetes_pod_annotation_prometheus_io_port
+                action: replace
+                target_label: __address__
+                regex: (.+):(?:\\d+);(\\d+)
+                replacement: $1:$2
+              - source_labels:
+                  - __meta_kubernetes_namespace
+                action: replace
+                target_label: namespace
+              - source_labels:
+                  - __meta_kubernetes_pod_name
+                action: replace
+                target_label: pod
+              - action: replace
+                target_label: job
+                replacement: kubernetes-pods
+
+          - job_name: kubernetes-services
+            kubernetes_sd_configs:
+              - role: service
+            honor_labels: false
+            relabel_configs:
+              - source_labels:
+                  - __meta_kubernetes_service_annotation_prometheus_io_port
+                action: drop
+                regex: ""
+              - source_labels:
+                  - __meta_kubernetes_service_annotation_prometheus_io_scrape
+                action: keep
+                regex: "true"
+              - source_labels:
+                  - __meta_kubernetes_service_annotation_prometheus_io_scheme
+                action: replace
+                target_label: __scheme__
+                regex: (https?)
+              - source_labels:
+                  - __meta_kubernetes_service_annotation_prometheus_io_scheme
+                action: replace
+                target_label: __scheme__
+                regex: ""
+                replacement: http
+              - source_labels:
+                  - __meta_kubernetes_service_annotation_prometheus_io_path
+                action: replace
+                target_label: __metrics_path__
+                regex: (.+)
+              - source_labels:
+                  - __meta_kubernetes_service_annotation_prometheus_io_path
+                action: replace
+                target_label: __metrics_path__
+                regex: ""
+                replacement: /metrics
+              - source_labels:
+                  - __address__
+                  - __meta_kubernetes_service_annotation_prometheus_io_port
+                action: replace
+                target_label: __address__
+                regex: (.+):(?:\\d+);(\\d+)
+                replacement: $1:$2
+              - source_labels:
+                  - __meta_kubernetes_namespace
+                action: replace
+                target_label: namespace
+              - source_labels:
+                  - __meta_kubernetes_service_name
+                action: replace
+                target_label: service
+              - action: replace
+                target_label: job
+                replacement: kubernetes-services
+
+          - job_name: blackbox-http
+            metrics_path: /probe
+            params:
+              module:
+                - http_2xx
+            file_sd_configs:
+              - files:
+                  - /etc/otel/blackbox/http.yaml
+            relabel_configs:
+              - source_labels:
+                  - __address__
+                target_label: __param_target
+              - source_labels:
+                  - __param_target
+                target_label: instance
+              - target_label: __address__
+                replacement: blackbox-exporter.ops.svc.cluster.local:9115
+
+          - job_name: blackbox-tcp
+            metrics_path: /probe
+            params:
+              module:
+                - tcp_connect
+            file_sd_configs:
+              - files:
+                  - /etc/otel/blackbox/tcp.yaml
+            relabel_configs:
+              - source_labels:
+                  - __address__
+                target_label: __param_target
+              - source_labels:
+                  - __param_target
+                target_label: instance
+              - target_label: __address__
+                replacement: blackbox-exporter.ops.svc.cluster.local:9115
+
+          - job_name: blackbox-icmp
+            metrics_path: /probe
+            params:
+              module:
+                - icmp
+            file_sd_configs:
+              - files:
+                  - /etc/otel/blackbox/icmp.yaml
+            relabel_configs:
+              - source_labels:
+                  - __address__
+                target_label: __param_target
+              - source_labels:
+                  - __param_target
+                target_label: instance
+              - target_label: __address__
+                replacement: blackbox-exporter.ops.svc.cluster.local:9115
+
+    # Tail container logs and forward as OTLP logs.
+    filelog:
+      include:
+        - /var/log/pods/*/*/*.log
+      exclude:
+        - /var/log/pods/*/opentelemetry-collector*/**/*.log
+        - /var/log/pods/*/otel-collector*/**/*.log
+      start_at: end
+      include_file_path: true
+      include_file_name: false
+
+  processors:
+    batch: {}
+    resource:
+      attributes:
+        - action: upsert
+          key: cluster
+          value: homelab
+
+  exporters:
+    # Send metrics directly to VictoriaMetrics via OTLP/HTTP.
+    otlphttp/victoriametrics:
+      endpoint: http://victoriametrics.ops.svc.cluster.local:8428
+      metrics_endpoint: http://victoriametrics.ops.svc.cluster.local:8428/opentelemetry/v1/metrics
+      compression: gzip
+      retry_on_failure:
+        enabled: true
+        initial_interval: 5s
+        max_interval: 30s
+        max_elapsed_time: 5m
+
+    # Send logs to VictoriaLogs over the OTLP-compatible endpoint.
+    otlphttp/victorialogs:
+      endpoint: http://victorialogs.ops.svc.cluster.local:9428
+      logs_endpoint: http://victorialogs.ops.svc.cluster.local:9428/insert/opentelemetry/v1/logs
+      compression: gzip
+      retry_on_failure:
+        enabled: true
+        initial_interval: 5s
+        max_interval: 30s
+        max_elapsed_time: 5m
+
+  extensions:
+    health_check: {}
+    pprof: {}
+
+  service:
+    telemetry:
+      logs:
+        level: info
+    pipelines:
+      traces: null
+      metrics:
+        receivers:
+          - prometheus
+          - otlp
+        processors:
+          - k8sattributes
+          - resource
+          - batch
+        exporters:
+          - otlphttp/victoriametrics
+      logs:
+        receivers:
+          - filelog
+          - otlp
+        processors:
+          - k8sattributes
+          - resource
+          - batch
+        exporters:
+          - otlphttp/victorialogs

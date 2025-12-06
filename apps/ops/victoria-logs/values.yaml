@@ -1,0 +1,11 @@
+---
+serviceAccount:
+  create: true
+
+server:
+  fullnameOverride: victorialogs
+  retentionPeriod: 14d
+  persistentVolume:
+    size: 20Gi
+  service:
+    clusterIP: ""

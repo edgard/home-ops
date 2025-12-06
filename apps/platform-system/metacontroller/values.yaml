@@ -6,3 +6,15 @@ commandArgs:
   - --discovery-interval=20s
   - --cache-flush-interval=30m
   - --health-probe-bind-address=:8081
+  - --metrics-address=:8080
+service:
+  enabled: true
+  ports:
+    - name: metrics
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: /metrics

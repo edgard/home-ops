@@ -146,6 +146,12 @@ spec:
           namespace: kube-system
           jsonPointers:
             - /data
+        - group: ""
+          kind: Secret
+          name: argocd-secret
+          namespace: argocd
+          jsonPointers:
+            - /metadata/annotations/argocd.argoproj.io~1tracking-id
         - group: admissionregistration.k8s.io
           kind: MutatingWebhookConfiguration
           name: k8tz

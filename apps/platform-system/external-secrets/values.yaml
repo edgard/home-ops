@@ -4,3 +4,14 @@ strategy:
 fullnameOverride: external-secrets
 serviceAccount:
   name: external-secrets
+
+metrics:
+  service:
+    enabled: true
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"
+      prometheus.io/path: /metrics
+
+serviceMonitor:
+  enabled: false

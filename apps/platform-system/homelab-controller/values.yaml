@@ -57,6 +57,10 @@ serviceAccount:
 service:
   main:
     controller: main
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "80"
+      prometheus.io/path: /metrics
     ports:
       http:
         port: 80
