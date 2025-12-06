@@ -104,7 +104,7 @@ service:
         protocol: TCP
         targetPort: 51515
       metrics:
-        enabled: true
+        enabled: false
         port: 51516
         protocol: TCP
         targetPort: 51516

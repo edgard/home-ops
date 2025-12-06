@@ -28,3 +28,6 @@ cainjector:
   replicaCount: 1
   strategy:
     type: Recreate
+
+prometheus:
+  enabled: false

@@ -6,7 +6,7 @@ metadata:
   namespace: ops
 spec:
   base:
-    metrics: true
+    metrics: false
     ui:
       title: Homelab Status
       description: Real-time health for homelab services.

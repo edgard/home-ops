@@ -9,17 +9,25 @@ notifications:
 
 applicationSet:
   enabled: true
+  metrics:
+    enabled: false
   podAnnotations:
     reloader.stakater.com/auto: "true"
 
 controller:
+  metrics:
+    enabled: false
   podAnnotations:
     reloader.stakater.com/auto: "true"
 
 server:
+  metrics:
+    enabled: false
   podAnnotations:
     reloader.stakater.com/auto: "true"
 
 repoServer:
+  metrics:
+    enabled: false
   podAnnotations:
     reloader.stakater.com/auto: "true"

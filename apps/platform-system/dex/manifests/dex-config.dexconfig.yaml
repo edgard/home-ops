@@ -13,8 +13,6 @@ spec:
         file: /data/dex.db
     web:
       http: 0.0.0.0:5556
-    telemetry:
-      http: 0.0.0.0:5558
     logger:
       level: info
     frontend:
