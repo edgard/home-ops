@@ -94,7 +94,7 @@ route:
         backendRefs: []
 
 persistence:
-  webroot:
+  www:
     type: hostPath
     hostPath: /mnt/dpool/www
     hostPathType: DirectoryOrCreate

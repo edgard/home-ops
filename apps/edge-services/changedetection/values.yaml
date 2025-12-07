@@ -139,7 +139,7 @@ route:
             port: 5000
 
 persistence:
-  datastore:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/changedetection
     hostPathType: DirectoryOrCreate

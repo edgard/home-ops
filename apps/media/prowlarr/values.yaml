@@ -87,7 +87,7 @@ route:
             port: 9696
 
 persistence:
-  config:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/prowlarr
     globalMounts:

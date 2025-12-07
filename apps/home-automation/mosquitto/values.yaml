@@ -43,12 +43,12 @@ service:
         protocol: TCP
         targetPort: 1883
 persistence:
-  config:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/mosquitto/config
     globalMounts:
       - path: /mosquitto/config
-  data:
+  data-store:
     type: hostPath
     hostPath: /mnt/spool/appdata/mosquitto/data
     globalMounts:

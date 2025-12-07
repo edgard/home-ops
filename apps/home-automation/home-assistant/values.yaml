@@ -96,7 +96,7 @@ route:
             port: 8123
 
 persistence:
-  config:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/home-assistant
     globalMounts:

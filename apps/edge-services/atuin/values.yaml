@@ -83,7 +83,7 @@ route:
             port: 8888
 
 persistence:
-  config:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/atuin
     hostPathType: DirectoryOrCreate

@@ -105,7 +105,7 @@ route:
             port: 8096
 
 persistence:
-  config:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/jellyfin
     globalMounts:

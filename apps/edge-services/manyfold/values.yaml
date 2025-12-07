@@ -90,7 +90,7 @@ route:
             port: 3214
 
 persistence:
-  config:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/manyfold/config
     hostPathType: DirectoryOrCreate

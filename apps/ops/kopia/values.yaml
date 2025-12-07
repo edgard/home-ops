@@ -139,7 +139,7 @@ route:
             port: 51515
 
 persistence:
-  config:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/kopia/config
     hostPathType: DirectoryOrCreate

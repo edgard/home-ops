@@ -57,7 +57,7 @@ service:
     controller: main
     enabled: false
 persistence:
-  config:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/recyclarr
     globalMounts:

@@ -120,21 +120,21 @@ route:
             port: 8080
 
 persistence:
-  qb-config:
+  data:
     type: hostPath
     hostPath: /mnt/spool/appdata/qbittorrent
     advancedMounts:
       main:
         main:
           - path: /config
-  downloads:
+  media:
     type: hostPath
     hostPath: /mnt/dpool/media
     advancedMounts:
       main:
         main:
           - path: /media
-  gluetun-config:
+  gluetun-data:
     type: hostPath
     hostPath: /mnt/spool/appdata/gluetun
     advancedMounts:
