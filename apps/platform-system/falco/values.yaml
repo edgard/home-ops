@@ -1,6 +1,20 @@
 ---
 fullnameOverride: falco
 
+controller:
+  kind: deployment
+  deployment:
+    replicas: 1
+    strategy:
+      type: Recreate
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
 driver:
   kind: modern_ebpf
   sysfsMountPath: /sys/kernel
@@ -31,5 +45,12 @@ collectors:
         enabled: false
 
 falco:
-  json_output: true
   priority: warning
+
+falcosidekick:
+  enabled: true
+  replicaCount: 1
+  config:
+    existingSecret: falco-falcosidekick-telegram
+    telegram:
+      minimumpriority: warning
