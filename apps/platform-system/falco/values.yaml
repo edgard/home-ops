@@ -5,15 +5,6 @@ controller:
   kind: deployment
   deployment:
     replicas: 1
-    strategy:
-      type: Recreate
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: node-role.kubernetes.io/control-plane
-                operator: DoesNotExist
 
 driver:
   kind: modern_ebpf
@@ -46,6 +37,10 @@ collectors:
 
 falco:
   priority: warning
+  json_output: true
+
+# Remove control-plane tolerations so the control-plane taint blocks scheduling
+tolerations: []
 
 falcosidekick:
   enabled: true
