@@ -38,7 +38,13 @@ Argo CD–managed Kubernetes homelab deployed onto a Kind cluster that runs on a
 ## App Conventions
 
 - `chart.repo` is either an OCI URL (with `path: "."`) or an HTTPS repo + `name`; `chart.version` is required.  
-- `rollout.tier` controls the ApplicationSet RollingSync order: 1 base system (kube-system, multus, argocd bootstrap), 2 controllers/operators (reloader, metacontroller, external-secrets), 3 PKI/security (cert-manager, homelab-controller, falco), 4 ingress (envoy-gateway), 5 edge DNS/auth (cloudflared, external-dns, dex), 10 default.  
+- `rollout.tier` controls the ApplicationSet RollingSync order (lower = earlier):  
+  - 1 – base system: argocd/argocd; kube-system/k8tz, kube-system/metrics-server; platform-system/multus  
+  - 2 – controllers/operators: platform-system/reloader, platform-system/external-secrets, platform-system/metacontroller  
+  - 3 – PKI/security control-plane: platform-system/cert-manager, platform-system/homelab-controller, platform-system/falco  
+  - 4 – ingress gateway: platform-system/envoy-gateway  
+  - 5 – edge DNS/auth: platform-system/cloudflared, platform-system/external-dns-{internal,external}, platform-system/dex  
+  - 10 – default catch-all  
 - `sync.serverSideApply: true` for CRDs/operators.  
 - Destination namespace defaults to the group directory unless overridden in `config.yaml`.  
 - Keep `manifests/` present even if empty; everything inside is applied.
