@@ -33,3 +33,11 @@ collectors:
 falco:
   json_output: true
   priority: warning
+
+falcosidekick:
+  enabled: true
+  replicaCount: 1
+  config:
+    existingSecret: falco-falcosidekick-telegram
+    telegram:
+      minimumpriority: warning

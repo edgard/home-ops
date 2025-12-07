@@ -14,48 +14,36 @@ spec:
     type: RollingSync
     rollingSync:
       steps:
-        # Tier 1: Core Kubernetes (kube-system)
+        # Tier 1: Base system (argocd/argocd; kube-system/k8tz, kube-system/metrics-server; platform-system/multus)
         - matchExpressions:
             - key: tier
               operator: In
               values:
                 - "1"
-        # Tier 2: GitOps (argocd)
+        # Tier 2: Controllers/operators (platform-system/reloader, platform-system/external-secrets, platform-system/metacontroller)
         - matchExpressions:
             - key: tier
               operator: In
               values:
                 - "2"
-        # Tier 3: Network (multus)
+        # Tier 3: PKI/security control-plane (platform-system/cert-manager, platform-system/homelab-controller, platform-system/falco)
         - matchExpressions:
             - key: tier
               operator: In
               values:
                 - "3"
-        # Tier 4: Core operators (reloader, metacontroller, external-secrets)
+        # Tier 4: Ingress gateway (platform-system/envoy-gateway)
         - matchExpressions:
             - key: tier
               operator: In
               values:
                 - "4"
-        # Tier 5: Secondary operators (cert-manager, homelab-controller, falco)
+        # Tier 5: Edge DNS/auth (platform-system/cloudflared, platform-system/external-dns-{internal,external}, platform-system/dex)
         - matchExpressions:
             - key: tier
               operator: In
               values:
                 - "5"
-        # Tier 6: Ingress (envoy-gateway)
-        - matchExpressions:
-            - key: tier
-              operator: In
-              values:
-                - "6"
-        # Tier 7: Edge services (cloudflared, dex, external-dns)
-        - matchExpressions:
-            - key: tier
-              operator: In
-              values:
-                - "7"
         # Tier 10: Catch-all default for unlabeled apps
         - matchExpressions:
             - key: tier

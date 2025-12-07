@@ -4,4 +4,4 @@ chart:
   path: "."
   version: 7.0.1
 rollout:
-  tier: "2"
+  tier: "3"
