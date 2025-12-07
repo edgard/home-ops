@@ -4,6 +4,6 @@ chart:
   path: "."
   version: 1.6.1
 rollout:
-  tier: "6"
+  tier: "4"
 sync:
   serverSideApply: true

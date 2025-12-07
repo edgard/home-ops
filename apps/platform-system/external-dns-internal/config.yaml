@@ -4,6 +4,6 @@ chart:
   name: external-dns
   version: 1.19.0
 rollout:
-  tier: "7"
+  tier: "5"
 sync:
   serverSideApply: true
