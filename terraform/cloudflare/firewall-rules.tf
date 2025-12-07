@@ -22,14 +22,7 @@ resource "cloudflare_ruleset" "firewall_rules" {
       description = "Block requests with empty user agent"
       enabled     = true
     },
-    # Rule 3: Challenge high threat scores
-    {
-      action      = "managed_challenge"
-      expression  = "cf.threat_score > 14"
-      description = "Challenge medium threats and higher"
-      enabled     = true
-    },
-    # Rule 4: Challenge non-Polish traffic
+    # Rule 3: Challenge non-Polish traffic
     {
       action      = "managed_challenge"
       expression  = "(ip.geoip.country ne \"PL\")"
