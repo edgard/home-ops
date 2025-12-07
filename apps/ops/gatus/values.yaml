@@ -11,6 +11,9 @@ controllers:
         image:
           repository: ghcr.io/twin/gatus
           tag: v5.33.0
+        envFrom:
+          - secretRef:
+              name: gatus-telegram
         ports:
           - name: http
             containerPort: 8080
