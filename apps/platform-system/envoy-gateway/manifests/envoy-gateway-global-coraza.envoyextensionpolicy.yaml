@@ -14,23 +14,21 @@ spec:
       name: envoy-gateway-internal
   wasm:
     - name: coraza-waf
+      failOpen: false
+      rootID: waf
       code:
         type: Image
         image:
           url: ghcr.io/corazawaf/coraza-proxy-wasm:0.6.0
       config:
+        default_directives: default
         directives_map:
           default:
             - Include @recommended-conf
             - SecRuleEngine On
-            - SecAuditEngine RelevantOnly
-            - SecDebugLogLevel 1
+            - SecDebugLogLevel 2
             - Include @crs-setup-conf
             - Include @owasp_crs/*.conf
-        default_directives: default
         metric_labels:
           gateway: envoy-gateway-global
           env: homelab
-      # Coraza WASM occasionally fails to load on bootstrap due to cache mTLS timing.
-      # Allow traffic to continue if the module cannot be fetched/initialized so auth/login flows aren’t blocked.
-      failOpen: true
