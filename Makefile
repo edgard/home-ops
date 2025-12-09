@@ -13,8 +13,8 @@ CLUSTER_NAME   := $(if $(KIND_CONFIG_NAME),$(KIND_CONFIG_NAME),homelab)
 KUBECTL        ?= kubectl
 SOPS           ?= sops
 SOPS_AGE_KEY_FILE ?= $(REPO_ROOT).sops.agekey
-CLUSTER_SECRETS_SOPS := $(CLUSTER_CONFIG_DIR)/cluster-secrets.sops.yaml
-CLUSTER_SECRETS_TEMPLATE := $(CLUSTER_CONFIG_DIR)/cluster-secrets.template.yaml
+CLUSTER_CREDENTIALS_SOPS := $(CLUSTER_CONFIG_DIR)/cluster-credentials.sops.yaml
+CLUSTER_CREDENTIALS_TEMPLATE := $(CLUSTER_CONFIG_DIR)/cluster-credentials.template.yaml
 AGE_KEYGEN     ?= age-keygen
 PRETTIER       ?= prettier
 YAMLFMT        ?= yamlfmt
@@ -56,34 +56,34 @@ kind-status: ## Show Kind nodes and their status
 	$(KUBECTL) get nodes -o wide
 
 secrets-edit: ## Create or edit the encrypted cluster secrets with SOPS
-	@if [ ! -f "$(CLUSTER_SECRETS_SOPS)" ]; then \
-		if [ ! -f "$(CLUSTER_SECRETS_TEMPLATE)" ]; then \
-			echo "Template $(CLUSTER_SECRETS_TEMPLATE) not found"; \
+	@if [ ! -f "$(CLUSTER_CREDENTIALS_SOPS)" ]; then \
+		if [ ! -f "$(CLUSTER_CREDENTIALS_TEMPLATE)" ]; then \
+			echo "Template $(CLUSTER_CREDENTIALS_TEMPLATE) not found"; \
 			exit 1; \
 		fi; \
-		cp "$(CLUSTER_SECRETS_TEMPLATE)" "$(CLUSTER_SECRETS_SOPS)"; \
-		echo "Created $(CLUSTER_SECRETS_SOPS) from template"; \
+		cp "$(CLUSTER_CREDENTIALS_TEMPLATE)" "$(CLUSTER_CREDENTIALS_SOPS)"; \
+		echo "Created $(CLUSTER_CREDENTIALS_SOPS) from template"; \
 	fi
 	@if [ ! -f "$(SOPS_AGE_KEY_FILE)" ]; then \
 		echo "Missing age key $(SOPS_AGE_KEY_FILE); run 'make secrets-create-key' first"; \
 		exit 1; \
 	fi
 	@status=0; \
-	SOPS_AGE_KEY_FILE="$(SOPS_AGE_KEY_FILE)" $(SOPS) "$(CLUSTER_SECRETS_SOPS)" || status=$$?; \
+	SOPS_AGE_KEY_FILE="$(SOPS_AGE_KEY_FILE)" $(SOPS) "$(CLUSTER_CREDENTIALS_SOPS)" || status=$$?; \
 	if [ $$status -ne 0 ] && [ $$status -ne 200 ]; then \
 		exit $$status; \
 	fi
 
 secrets-apply: ## Decrypt the cluster secrets and apply them to the cluster
-	@if [ ! -f "$(CLUSTER_SECRETS_SOPS)" ]; then \
-		echo "Missing $(CLUSTER_SECRETS_SOPS); run 'make secrets-edit' first"; \
+	@if [ ! -f "$(CLUSTER_CREDENTIALS_SOPS)" ]; then \
+		echo "Missing $(CLUSTER_CREDENTIALS_SOPS); run 'make secrets-edit' first"; \
 		exit 1; \
 	fi
 	@if [ ! -f "$(SOPS_AGE_KEY_FILE)" ]; then \
 		echo "Missing age key $(SOPS_AGE_KEY_FILE); run 'make secrets-create-key' first"; \
 		exit 1; \
 	fi
-	SOPS_AGE_KEY_FILE="$(SOPS_AGE_KEY_FILE)" $(SOPS) -d "$(CLUSTER_SECRETS_SOPS)" | $(KUBECTL) apply -f -
+	SOPS_AGE_KEY_FILE="$(SOPS_AGE_KEY_FILE)" $(SOPS) -d "$(CLUSTER_CREDENTIALS_SOPS)" | $(KUBECTL) apply -f -
 
 secrets-create-key: ## Generate an age key for SOPS (prints the recipient)
 	@if [ -f "$(SOPS_AGE_KEY_FILE)" ]; then \

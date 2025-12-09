@@ -1,0 +1,36 @@
+---
+global:
+  istioNamespace: platform-system
+  configRootNamespace: platform-system
+  proxy:
+    autoInject: disabled
+
+sidecarInjectorWebhook:
+  enabled: false
+
+pilot:
+  autoscaleEnabled: false
+
+meshConfig:
+  extensionProviders:
+    - name: oauth2-proxy
+      envoyExtAuthzHttp:
+        service: oauth2-proxy.platform-system.svc.cluster.local
+        port: 80
+        pathPrefix: /oauth2/auth
+        timeout: 10s
+        includeHeadersInCheck:
+          - authorization
+          - cookie
+          - x-forwarded-for
+        includeAdditionalHeadersInCheck:
+          x-auth-request-redirect: https://%REQ(:authority)%%REQ(:path)%
+        headersToDownstreamOnDeny:
+          - location
+          - set-cookie
+        headersToUpstreamOnAllow:
+          - authorization
+          - x-auth-request-access-token
+          - x-auth-request-email
+          - x-auth-request-groups
+          - x-auth-request-user

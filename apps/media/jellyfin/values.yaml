@@ -9,7 +9,7 @@ controllers:
         k8s.v1.cni.cncf.io/networks: |-
           [
             {
-              "name": "lan-macvlan",
+              "name": "multus-lan-macvlan",
               "namespace": "platform-system",
               "ips": ["192.168.1.245/24"],
               "mac": "02:42:c0:a8:01:f5",
@@ -81,7 +81,7 @@ route:
       hajimari.edgard.org/enabled: "true"
       hajimari.edgard.org/icon: play-circle
     parentRefs:
-      - name: envoy-gateway-external
+      - name: gateway-external
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -94,7 +94,7 @@ route:
     labels:
       external-dns.edgard.org/scope: internal
     parentRefs:
-      - name: envoy-gateway-internal
+      - name: gateway-internal
         namespace: platform-system
         sectionName: https
     hostnames:

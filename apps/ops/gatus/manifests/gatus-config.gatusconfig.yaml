@@ -83,25 +83,25 @@ spec:
         interval: 1m
         conditions:
           - "[CONNECTED] == true"
-      - name: envoy-gateway-external
+      - name: gateway-external
         group: 03-gateway
-        url: tcp://envoy-gateway-external.platform-system.svc.cluster.local:443
+        url: tcp://gateway-external-istio.platform-system.svc.cluster.local:443
         labels:
           namespace: platform-system
           scope: internal
         interval: 30s
         conditions:
           - "[CONNECTED] == true"
-      - name: envoy-gateway-internal
+      - name: gateway-internal
         group: 03-gateway
-        url: tcp://envoy-gateway-internal.platform-system.svc.cluster.local:443
+        url: tcp://gateway-internal-istio.platform-system.svc.cluster.local:443
         labels:
           namespace: platform-system
           scope: internal
         interval: 30s
         conditions:
           - "[CONNECTED] == true"
-      - name: envoy-gateway-external-https
+      - name: gateway-external-https
         group: 03-gateway
         url: https://id.edgard.org/
         labels:
@@ -112,7 +112,7 @@ spec:
           - "[STATUS] >= 200"
           - "[STATUS] < 400"
           - "[CERTIFICATE_EXPIRATION] > 168h"
-      - name: envoy-gateway-internal-https
+      - name: gateway-internal-https
         group: 03-gateway
         url: https://id.edgard.org/
         labels:

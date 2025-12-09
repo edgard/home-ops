@@ -1,0 +1,53 @@
+---
+config:
+  existingSecret: oauth2-proxy-credentials
+  cookieSecret: ""
+  clientID: ""
+  clientSecret: ""
+  # use forward-auth style (no upstream proxying)
+extraArgs:
+  provider: oidc
+  oidc-issuer-url: https://id.edgard.org
+  scope: "openid profile email groups"
+  oidc-groups-claim: groups
+  client-id: oauth2-proxy
+  email-domain: "*"
+  cookie-domain: .edgard.org
+  whitelist-domain: .edgard.org
+  cookie-secure: "true"
+  cookie-samesite: lax
+  cookie-refresh: 1h
+  cookie-expire: 24h
+  set-authorization-header: "true"
+  pass-authorization-header: "true"
+  pass-access-token: "true"
+  set-xauthrequest: "true"
+  skip-auth-preflight: "true"
+  reverse-proxy: "true"
+  code-challenge-method: S256
+  real-client-ip-header: X-Forwarded-For
+  redirect-url: https://auth.edgard.org/oauth2/callback
+  approval-prompt: auto
+  upstream: static://200
+  skip-auth-route: ^/oauth2/healthz$
+  skip-provider-button: "true"
+service:
+  type: ClusterIP
+  portNumber: 80
+  portName: http
+metrics:
+  enabled: true
+podLabels:
+  app.kubernetes.io/name: oauth2-proxy
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+autoscaling:
+  enabled: false
+replicaCount: 1
+deploymentAnnotations:
+  reloader.stakater.com/auto: "true"

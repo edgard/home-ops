@@ -1,0 +1,26 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: gateway-waf
+  namespace: platform-system
+spec:
+  url: oci://ghcr.io/corazawaf/coraza-proxy-wasm:0.6.0
+  imagePullPolicy: IfNotPresent
+  phase: AUTHZ
+  priority: 10
+  pluginConfig:
+    default_directives: default
+    directives_map:
+      default:
+        - Include @recommended-conf
+        - SecRuleEngine On
+        - SecDebugLogLevel 2
+        - Include @crs-setup-conf
+        - Include @owasp_crs/*.conf
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway-external
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway-internal

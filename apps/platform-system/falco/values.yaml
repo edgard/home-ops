@@ -46,6 +46,6 @@ falcosidekick:
   enabled: true
   replicaCount: 1
   config:
-    existingSecret: falco-falcosidekick-telegram
+    existingSecret: falco-credentials
     telegram:
       minimumpriority: warning

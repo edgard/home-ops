@@ -8,12 +8,12 @@ configMaps:
             originRequest:
               http2Origin: true
               originServerName: tunnel.edgard.org
-            service: https://envoy-gateway-external.platform-system.svc.cluster.local:443
+            service: https://gateway-external-istio.platform-system.svc.cluster.local:443
           - hostname: edgard.org
             originRequest:
               http2Origin: true
               originServerName: edgard.org
-            service: https://envoy-gateway-external.platform-system.svc.cluster.local:443
+            service: https://gateway-external-istio.platform-system.svc.cluster.local:443
           - service: http_status:404
 controllers:
   main:
@@ -37,7 +37,7 @@ controllers:
           TUNNEL_TRANSPORT_PROTOCOL: quic
         envFrom:
           - secretRef:
-              name: cloudflared-secret
+              name: cloudflared-credentials
         ports:
           - name: http
             containerPort: 8080

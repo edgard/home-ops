@@ -1,0 +1,32 @@
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: gateway-authn
+  namespace: platform-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway-external
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway-internal
+  action: CUSTOM
+  provider:
+    name: oauth2-proxy
+  rules:
+    - to:
+        - operation:
+            hosts:
+              - "*.edgard.org"
+            notHosts:
+              - auth.edgard.org
+              - id.edgard.org
+              - www.edgard.org
+              - home-assistant.edgard.org
+              - atuin.edgard.org
+              - karakeep.edgard.org
+              - paperless.edgard.org
+            notPaths:
+              - /oauth2/*
