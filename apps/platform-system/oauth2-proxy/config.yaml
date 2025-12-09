@@ -2,6 +2,6 @@
 chart:
   repo: oci://ghcr.io/oauth2-proxy/charts/oauth2-proxy
   path: "."
-  version: 8.3.2
+  version: 8.5.1
 rollout:
   tier: "4"
