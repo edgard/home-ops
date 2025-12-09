@@ -1,0 +1,62 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: istio-gateway-internal
+  namespace: platform-system
+  labels:
+    external-dns.edgard.org/scope: internal
+  annotations:
+    external-dns.alpha.kubernetes.io/target: 192.168.1.241
+    networking.istio.io/service-type: ClusterIP
+spec:
+  gatewayClassName: istio
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: istio-gateway-internal-parameters
+  addresses:
+    - type: IPAddress
+      value: 192.168.1.241
+  listeners:
+    - name: http
+      hostname: "*.edgard.org"
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: http-root
+      hostname: edgard.org
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https
+      hostname: "*.edgard.org"
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: wildcard-edgard-org-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https-root
+      hostname: edgard.org
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: wildcard-edgard-org-tls
+      allowedRoutes:
+        namespaces:
+          from: All

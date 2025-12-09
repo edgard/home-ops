@@ -1,0 +1,48 @@
+---
+meshConfig:
+  enableTracing: false
+  accessLogFile: /dev/stdout
+  defaultConfig:
+    # Align proxy status port with gateway readiness/startup probes (15021) to avoid probe failures.
+    statusPort: 15021
+    proxyMetadata:
+      ISTIO_META_IDLE_TIMEOUT: "0s"
+  extensionProviders:
+    - name: oauth2-proxy
+      envoyExtAuthzHttp:
+        service: oauth2-proxy.platform-system.svc.cluster.local
+        port: 80
+        path: /oauth2/auth
+        timeout: 3s
+        includeHeadersInCheck:
+          - authorization
+          - cookie
+          - x-forwarded-for
+          - x-forwarded-host
+          - x-forwarded-proto
+          - x-forwarded-uri
+          - x-request-id
+        includeAdditionalHeadersInCheck:
+          x-auth-request-redirect: https://%REQ(:authority)%%REQ(:path)%
+        headersToDownstreamOnDeny:
+          - set-cookie
+          - location
+          - www-authenticate
+          - content-type
+        headersToUpstreamOnAllow:
+          - authorization
+          - cookie
+          - x-auth-request-email
+          - x-auth-request-user
+          - x-auth-request-groups
+        statusOnError:
+          code: 503
+global:
+  istioNamespace: platform-system
+  configRootNamespace: platform-system
+  proxy:
+    autoInject: disabled
+pilot:
+  autoscaleEnabled: false
+sidecarInjectorWebhook:
+  enabled: false

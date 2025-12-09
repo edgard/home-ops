@@ -1,0 +1,9 @@
+---
+chart:
+  repo: https://istio-release.storage.googleapis.com/charts
+  name: istiod
+  version: 1.28.1
+rollout:
+  tier: "3"
+sync:
+  serverSideApply: true

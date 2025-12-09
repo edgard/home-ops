@@ -1,0 +1,40 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: istio-gateway-https-redirect
+  namespace: platform-system
+  annotations:
+    external-dns.alpha.kubernetes.io/exclude: "true"
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: istio-gateway-external
+      namespace: platform-system
+      sectionName: http
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: istio-gateway-external
+      namespace: platform-system
+      sectionName: http-root
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: istio-gateway-internal
+      namespace: platform-system
+      sectionName: http
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: istio-gateway-internal
+      namespace: platform-system
+      sectionName: http-root
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301

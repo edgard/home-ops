@@ -1,0 +1,42 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-controller-dex-generator
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+data:
+  dex_generator.py: |-
+    import copy
+    from typing import Dict, List, Sequence, Tuple
+
+    DEFAULT_SELECTOR = ""
+
+    def discover(selector: str, logger, ctx, kube_get):
+        # OIDC callbacks are static now; dynamic discovery removed with Istio migration.
+        return [], {"appCount": 0, "endpointCount": 0, "discoveredCount": 0}
+
+    def patch_config(config: dict, data: list):
+        return
+
+    def render_config(
+        base_config: dict, selector: str, logger, ctx, kube_get, trace: str | None = None
+    ):
+        if not base_config:
+            raise ValueError("base config is required")
+
+        data_list, stats = discover(selector, logger, ctx, kube_get)
+
+        cfg = copy.deepcopy(base_config)
+        patch_config(cfg, data_list)
+
+        logger.debug(
+            "rendered dex config trace=%s endpoints=%s discovered=%s selector=%s",
+            trace or "-",
+            stats.get("endpointCount"),
+            stats.get("discoveredCount"),
+            selector,
+        )
+        return cfg, stats

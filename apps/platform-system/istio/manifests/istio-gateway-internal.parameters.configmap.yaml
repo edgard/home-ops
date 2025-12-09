@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-gateway-internal-parameters
+  namespace: platform-system
+data:
+  # Overlay for Istio-managed gateway deployment to attach multus macvlan
+  deployment: |-
+    spec:
+      # Force delete-before-create to avoid multus IP conflicts (maxSurge 0, maxUnavailable 100% behaves like recreate)
+      strategy:
+        rollingUpdate:
+          maxSurge: 0
+          maxUnavailable: 100%
+        type: RollingUpdate
+      template:
+        metadata:
+          annotations:
+            k8s.v1.cni.cncf.io/networks: |
+              [
+                {
+                  "name": "lan-macvlan",
+                  "namespace": "platform-system",
+                  "ips": ["192.168.1.241/24"],
+                  "mac": "02:42:c0:a8:01:f1",
+                  "gateway": ["192.168.1.1"]
+                }
+              ]

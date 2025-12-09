@@ -276,7 +276,7 @@ route:
       hajimari.edgard.org/enabled: "true"
       hajimari.edgard.org/icon: file-document-outline
     parentRefs:
-      - name: envoy-gateway-external
+      - name: istio-gateway-external
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -289,7 +289,7 @@ route:
     labels:
       external-dns.edgard.org/scope: internal
     parentRefs:
-      - name: envoy-gateway-internal
+      - name: istio-gateway-internal
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -304,7 +304,7 @@ route:
       hajimari.edgard.org/enabled: "true"
       hajimari.edgard.org/icon: robot-happy-outline
     parentRefs:
-      - name: envoy-gateway-external
+      - name: istio-gateway-external
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -317,7 +317,7 @@ route:
     labels:
       external-dns.edgard.org/scope: internal
     parentRefs:
-      - name: envoy-gateway-internal
+      - name: istio-gateway-internal
         namespace: platform-system
         sectionName: https
     hostnames:

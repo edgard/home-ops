@@ -20,10 +20,10 @@ controllers:
           repository: ghcr.io/dexidp/dex
           tag: v2.44.0
         env:
-          ENVOY_GATEWAY_CLIENT_SECRET:
+          OAUTH2_PROXY_CLIENT_SECRET:
             valueFrom:
               secretKeyRef:
-                name: envoy-gateway-oidc-client
+                name: oauth2-proxy
                 key: client-secret
           DEX_STATIC_PASSWORD_ADMIN_HASH:
             valueFrom:
@@ -60,7 +60,7 @@ route:
     labels:
       external-dns.edgard.org/scope: external
     parentRefs:
-      - name: envoy-gateway-external
+      - name: istio-gateway-external
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -73,7 +73,7 @@ route:
     labels:
       external-dns.edgard.org/scope: internal
     parentRefs:
-      - name: envoy-gateway-internal
+      - name: istio-gateway-internal
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -85,8 +85,9 @@ route:
 
 persistence:
   config:
+    enabled: true
     type: configMap
-    name: dex-config-generated
+    identifier: config
     advancedMounts:
       dex:
         app:
@@ -107,3 +108,46 @@ persistence:
       dex:
         app:
           - path: /tmp
+
+configMaps:
+  config:
+    data:
+      config.yaml: |-
+        issuer: https://id.edgard.org
+        storage:
+          type: sqlite3
+          config:
+            file: /data/dex.db
+        web:
+          http: 0.0.0.0:5556
+        logger:
+          level: info
+        frontend:
+          issuer: Homelab Identity
+        oauth2:
+          skipApprovalScreen: true
+          responseTypes:
+            - code
+          grantTypes:
+            - authorization_code
+            - refresh_token
+          scopes:
+            - openid
+            - email
+            - profile
+            - groups
+            - offline_access
+        enablePasswordDB: true
+        staticPasswords:
+          - email: castro@edgard.org
+            username: edgard
+            userID: 0534350f-265d-4cda-952d-413fd13317f3
+            groups:
+              - admins
+            hashFromEnv: DEX_STATIC_PASSWORD_ADMIN_HASH
+        staticClients:
+          - id: oauth2-proxy
+            name: OAuth2 Proxy
+            redirectURIs:
+              - https://auth.edgard.org/oauth2/callback
+            secretEnv: OAUTH2_PROXY_CLIENT_SECRET

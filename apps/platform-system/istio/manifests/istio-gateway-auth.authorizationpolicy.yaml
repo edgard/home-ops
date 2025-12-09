@@ -1,0 +1,27 @@
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: istio-gateway-authn
+  namespace: platform-system
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-class-name: istio
+  action: CUSTOM
+  provider:
+    name: oauth2-proxy
+  rules:
+    - to:
+        - operation:
+            hosts:
+              - "*.edgard.org"
+              - edgard.org
+            notHosts:
+              - auth.edgard.org
+              - id.edgard.org
+            notPaths:
+              - /oauth2/*
+              - /healthz
+              - /livez
+              - /readyz

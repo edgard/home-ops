@@ -24,9 +24,9 @@
     },
     {
       customType: "regex",
-      description: "Track WASM images in EnvoyExtensionPolicy manifests",
+      description: "Track WASM images in Istio WasmPlugin manifests",
       managerFilePatterns: [
-        "/^apps\\/[^\\/]+\\/[^\\/]+\\/manifests\\/.*\\.envoyextensionpolicy\\.ya?ml$/",
+        "/^apps\\/[^\\/]+\\/[^\\/]+\\/manifests\\/.*\\.wasmplugin\\.ya?ml$/",
       ],
       matchStrings: [
         "url:\\s*(?<depName>[A-Za-z0-9._\\-]+(?:/[A-Za-z0-9._\\-]+)+):(?<currentValue>[0-9A-Za-z_.\\-]+)",
