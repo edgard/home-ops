@@ -73,7 +73,7 @@ class Bootstrapper:
         self.project_root = Path(__file__).resolve().parents[2]
         self.cluster_config_root = self.project_root / "bootstrap" / "config"
         self.kind_config_path = self.cluster_config_root / "cluster-config.yaml"
-        self.cluster_secrets_sops_path = self.cluster_config_root / "cluster-secrets.sops.yaml"
+        self.cluster_credentials_sops_path = self.cluster_config_root / "cluster-credentials.sops.yaml"
         self.default_kubeconfig = Path.home() / ".kube/config"
         self.default_age_key = self.project_root / ".sops.agekey"
         self.argocd_bootstrap_path = self.project_root / "argocd" / "root.app.yaml"
@@ -88,7 +88,7 @@ class Bootstrapper:
         self.bind_address = ""
         self.advertise_host = ""
         self.original_docker_context: Optional[str] = None
-        self.cluster_secrets_data: Optional[Dict[str, Any]] = None
+        self.cluster_credentials_data: Optional[Dict[str, Any]] = None
         self.decrypted_secrets_path: Optional[Path] = None
         self._temp_dir = tempfile.TemporaryDirectory(prefix="homelab-")
 
@@ -534,15 +534,15 @@ class Bootstrapper:
 
     # -------------------------------------------------------- Secrets & ArgoCD
     def ensure_cluster_secrets_loaded(self) -> bool:
-        if self.cluster_secrets_data is not None:
+        if self.cluster_credentials_data is not None:
             return True
-        if not self.cluster_secrets_sops_path.exists():
+        if not self.cluster_credentials_sops_path.exists():
             return False
 
         tmp = self.make_temp_file(suffix=".yaml")
         with tmp.open("w", encoding="utf-8") as handle:
             self.run(
-                ["sops", "--decrypt", str(self.cluster_secrets_sops_path)],
+                ["sops", "--decrypt", str(self.cluster_credentials_sops_path)],
                 env=self.env,
                 stdout=handle,
             )
@@ -550,29 +550,29 @@ class Bootstrapper:
         with tmp.open("r", encoding="utf-8") as handle:
             data = yaml.safe_load(handle) or {}
         if not isinstance(data, dict):
-            raise BootstrapError(f"[Secrets] {self.cluster_secrets_sops_path} must be a Secret manifest")
+            raise BootstrapError(f"[Secrets] {self.cluster_credentials_sops_path} must be a Secret manifest")
 
-        self.cluster_secrets_data = data
+        self.cluster_credentials_data = data
         self.decrypted_secrets_path = tmp
         return True
 
     def apply_cluster_secrets(self) -> None:
         if not self.ensure_cluster_secrets_loaded():
-            self.logger.warning(f"[Secrets] Skipping cluster secrets reason=missing-file path={self.cluster_secrets_sops_path}")
+            self.logger.warning(f"[Secrets] Skipping cluster credentials reason=missing-file path={self.cluster_credentials_sops_path}")
             return
         assert self.decrypted_secrets_path is not None
-        metadata = (self.cluster_secrets_data or {}).get("metadata") or {}
+        metadata = (self.cluster_credentials_data or {}).get("metadata") or {}
         namespace = str(metadata.get("namespace") or "platform-system")
         self.ensure_namespace_exists(namespace)
-        self.logger.info("[Secrets] Applying cluster secrets secret=cluster-secrets decrypted=true")
+        self.logger.info("[Secrets] Applying cluster credentials secret=cluster-credentials decrypted=true")
         self.run(["kubectl", "apply", "-f", str(self.decrypted_secrets_path)])
 
     def create_argocd_repo_secret(self) -> None:
         if not self.ensure_cluster_secrets_loaded():
-            self.logger.warning("[ArgoCD] Skipping repo secret reason=missing-cluster-secrets")
+            self.logger.warning("[ArgoCD] Skipping repo secret reason=missing-cluster-credentials")
             return
 
-        string_data = (self.cluster_secrets_data or {}).get("stringData") or {}
+        string_data = (self.cluster_credentials_data or {}).get("stringData") or {}
         username = string_data.get("argocd_repo_username")
         password = string_data.get("argocd_repo_password")
         if not username or not password:

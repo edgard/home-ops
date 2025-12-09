@@ -1,0 +1,7 @@
+---
+chart:
+  repo: oci://ghcr.io/oauth2-proxy/charts/oauth2-proxy
+  path: "."
+  version: 9.0.0
+rollout:
+  tier: "4"

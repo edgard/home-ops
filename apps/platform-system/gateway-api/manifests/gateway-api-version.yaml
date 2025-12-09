@@ -1,0 +1,12 @@
+---
+# This file tracks the Gateway API CRD version for Renovate
+# renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-api-version
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: gateway-api
+data:
+  version: "v1.2.1"

@@ -37,11 +37,6 @@ spec:
             - key: tier
               operator: In
               values:
-                - "5"
-        - matchExpressions:
-            - key: tier
-              operator: In
-              values:
                 - "10"
 
   generators:
@@ -132,6 +127,18 @@ spec:
           name: k8tz
           jqPathExpressions:
             - .webhooks[].clientConfig.caBundle
+        - group: admissionregistration.k8s.io
+          kind: ValidatingWebhookConfiguration
+          name: istiod-default-validator
+          jqPathExpressions:
+            - .webhooks[].clientConfig.caBundle
+            - .webhooks[].failurePolicy
+        - group: admissionregistration.k8s.io
+          kind: ValidatingWebhookConfiguration
+          name: istio-validator-platform-system
+          jqPathExpressions:
+            - .webhooks[].clientConfig.caBundle
+            - .webhooks[].failurePolicy
         - group: apps
           kind: Deployment
           name: k8tz

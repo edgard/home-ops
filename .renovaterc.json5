@@ -1,7 +1,7 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
 
-  // Base configuration
+  // === Base Configuration ===
   extends: [
     "config:recommended",
     ":semanticCommits",
@@ -11,45 +11,71 @@
   ],
   ignorePaths: ["**/*.sops.yaml", "**/*.sops.yml"],
 
-  // Custom managers for non-standard files
+  // === Custom Managers ===
   customManagers: [
+    // Bootstrap
     {
       customType: "regex",
-      description: "Track Kind node images in bootstrap/config/cluster-config.yaml",
+      description: "Kind node images",
       managerFilePatterns: ["/^bootstrap/config/cluster-config\\.ya?ml$/"],
       matchStrings: [
-        "image:\\s*(?:&\\S+\\s+)?(?<depName>kindest/node):(?<currentValue>[0-9A-Za-z_.\\-]+)",
+        "image:\\s*(?:&\\S+\\s+)?(?<packageName>kindest/node):(?<currentValue>[0-9A-Za-z_.\\-]+)",
       ],
       datasourceTemplate: "docker",
     },
+
+    // Apps - Helm charts (OCI registries)
     {
       customType: "regex",
-      description: "Track WASM images in EnvoyExtensionPolicy manifests",
-      managerFilePatterns: [
-        "/^apps\\/[^\\/]+\\/[^\\/]+\\/manifests\\/.*\\.envoyextensionpolicy\\.ya?ml$/",
-      ],
-      matchStrings: [
-        "url:\\s*(?<depName>[A-Za-z0-9._\\-]+(?:/[A-Za-z0-9._\\-]+)+):(?<currentValue>[0-9A-Za-z_.\\-]+)",
-        "url:\\s*(?<depName>[A-Za-z0-9._\\-]+(?:/[A-Za-z0-9._\\-]+)+)@sha256:(?<currentValue>[A-Fa-f0-9]{64})",
-      ],
-      datasourceTemplate: "docker",
-    },
-    {
-      customType: "regex",
-      description: "Track charts in apps/*/*/config.yaml",
+      description: "Helm charts from OCI registries",
       managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
       matchStrings: [
         "repo:\\s*oci://(?<packageName>[^\\s]+)\\s+path:\\s*[\"']?\\.[\"']?\\s+version:\\s*(?<currentValue>\\S+)",
+      ],
+      datasourceTemplate: "docker",
+    },
+
+    // Apps - Helm charts (HTTPS repos)
+    {
+      customType: "regex",
+      description: "Helm charts from HTTPS repos",
+      managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
+      matchStrings: [
         "repo:\\s*(?<registryUrl>https://[^\\s]+)\\s+name:\\s*(?<depName>\\S+)\\s+version:\\s*(?<currentValue>\\S+)",
       ],
-      datasourceTemplate: "{{#if packageName}}docker{{else}}helm{{/if}}",
+      datasourceTemplate: "helm",
+    },
+
+    // Apps - Manifests
+    {
+      customType: "regex",
+      description: "WASM plugins in Istio manifests",
+      managerFilePatterns: [
+        "/^apps\\/[^\\/]+\\/[^\\/]+\\/manifests\\/.*\\.wasmplugin\\.ya?ml$/",
+      ],
+      matchStrings: [
+        "url:\\s*oci://(?<packageName>[A-Za-z0-9._\\-]+(?:/[A-Za-z0-9._\\-]+)+):(?<currentValue>[0-9A-Za-z_.\\-]+)",
+      ],
+      datasourceTemplate: "docker",
+    },
+    {
+      customType: "regex",
+      description: "Gateway API CRDs version",
+      managerFilePatterns: [
+        "/^apps\\/platform-system\\/gateway-api\\/manifests\\/gateway-api-version\\.ya?ml$/",
+      ],
+      matchStrings: [
+        "# renovate: datasource=github-releases depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
+      ],
+      datasourceTemplate: "github-releases",
     },
   ],
 
+  // === Package Rules ===
   packageRules: [
-    // === Automerge behavior ===
+    // Global automerge behavior
     {
-      description: "Auto-merge and group all non-major dependency updates",
+      description: "Auto-merge non-major updates",
       matchUpdateTypes: ["minor", "patch", "digest", "pin", "rollback"],
       groupName: "dependencies (non-major)",
       automerge: true,
@@ -58,31 +84,42 @@
       ignoreTests: true,
     },
     {
-      description: "Require manual review for major upgrades",
+      description: "Require manual review for major updates",
       matchUpdateTypes: ["major"],
       automerge: false,
       addLabels: ["renovate/manual-review"],
     },
 
-    // === Grouping ===
+    // Grouping
     {
-      description: "Group Kind cluster node updates into a single PR",
+      description: "Group Kind node updates",
       matchFileNames: ["bootstrap/config/cluster-config.yaml"],
       groupName: "kind-nodes",
     },
 
-    // === Disabled managers ===
+    // Disabled
     {
-      description: "Disable Terraform version updates (using OpenTofu)",
+      description: "Disable Terraform version manager (using OpenTofu)",
       matchManagers: ["terraform-version"],
       enabled: false,
     },
 
-    // === Package-specific overrides ===
+    // Package-specific
     {
-      description: "Only consider semver Jellyfin tags (ignore dated releases)",
+      description: "Jellyfin: only semver tags",
       matchPackageNames: ["lscr.io/linuxserver/jellyfin"],
       allowedVersions: "/^\\d{1,2}\\.\\d+\\.\\d+$/",
+    },
+    {
+      description: "Gateway API: auto-download CRDs on update",
+      matchPackageNames: ["kubernetes-sigs/gateway-api"],
+      postUpgradeTasks: {
+        commands: [
+          "curl -sL https://github.com/kubernetes-sigs/gateway-api/releases/download/{{{newVersion}}}/standard-install.yaml -o apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml",
+        ],
+        fileFilters: ["apps/platform-system/gateway-api/manifests/**"],
+        executionMode: "branch",
+      },
     },
   ],
 }
