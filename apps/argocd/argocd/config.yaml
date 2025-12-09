@@ -2,7 +2,7 @@
 chart:
   repo: oci://ghcr.io/argoproj/argo-helm/argo-cd
   path: "."
-  version: 9.1.6
+  version: 9.1.7
 rollout:
   tier: "1"
 sync:
