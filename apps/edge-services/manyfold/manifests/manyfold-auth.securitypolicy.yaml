@@ -2,20 +2,28 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: qbittorrent-external-auth
-  namespace: media
+  name: manyfold-auth
+  namespace: edge-services
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      name: qbittorrent-external
+      name: manyfold-external
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: manyfold-internal
   oidc:
     provider:
       issuer: https://id.edgard.org
+      backendRefs:
+        - kind: Service
+          name: dex
+          namespace: platform-system
+          port: 5556
     clientID: envoy-gateway
     clientSecret:
       name: envoy-gateway-oidc-client
-    redirectURL: https://qbittorrent.edgard.org/oauth2/callback
+    redirectURL: https://manyfold.edgard.org/oauth2/callback
     logoutPath: /oauth2/logout
     cookieDomain: edgard.org
     scopes:

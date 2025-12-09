@@ -2,20 +2,28 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: hajimari-external-auth
-  namespace: edge-services
+  name: bazarr-auth
+  namespace: media
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      name: hajimari-external
+      name: bazarr-external
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: bazarr-internal
   oidc:
     provider:
       issuer: https://id.edgard.org
+      backendRefs:
+        - kind: Service
+          name: dex
+          namespace: platform-system
+          port: 5556
     clientID: envoy-gateway
     clientSecret:
       name: envoy-gateway-oidc-client
-    redirectURL: https://apps.edgard.org/oauth2/callback
+    redirectURL: https://bazarr.edgard.org/oauth2/callback
     logoutPath: /oauth2/logout
     cookieDomain: edgard.org
     scopes:

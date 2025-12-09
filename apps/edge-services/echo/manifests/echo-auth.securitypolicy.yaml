@@ -2,20 +2,28 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: manyfold-external-auth
+  name: echo-auth
   namespace: edge-services
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      name: manyfold-external
+      name: echo-external
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: echo-internal
   oidc:
     provider:
       issuer: https://id.edgard.org
+      backendRefs:
+        - kind: Service
+          name: dex
+          namespace: platform-system
+          port: 5556
     clientID: envoy-gateway
     clientSecret:
       name: envoy-gateway-oidc-client
-    redirectURL: https://manyfold.edgard.org/oauth2/callback
+    redirectURL: https://echo.edgard.org/oauth2/callback
     logoutPath: /oauth2/logout
     cookieDomain: edgard.org
     scopes:

@@ -13,6 +13,7 @@ controllers:
           PUID: "568"
           PGID: "568"
           UMASK: "022"
+          PROWLARR__AUTH__METHOD: External
         probes:
           startup:
             enabled: true

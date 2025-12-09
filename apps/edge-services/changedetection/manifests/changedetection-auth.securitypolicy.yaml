@@ -2,20 +2,28 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: jellyfin-external-auth
-  namespace: media
+  name: changedetection-auth
+  namespace: edge-services
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      name: jellyfin-external
+      name: changedetection-external
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: changedetection-internal
   oidc:
     provider:
       issuer: https://id.edgard.org
+      backendRefs:
+        - kind: Service
+          name: dex
+          namespace: platform-system
+          port: 5556
     clientID: envoy-gateway
     clientSecret:
       name: envoy-gateway-oidc-client
-    redirectURL: https://jellyfin.edgard.org/oauth2/callback
+    redirectURL: https://changedetection.edgard.org/oauth2/callback
     logoutPath: /oauth2/logout
     cookieDomain: edgard.org
     scopes:

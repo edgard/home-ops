@@ -2,20 +2,28 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
-  name: echo-external-auth
-  namespace: edge-services
+  name: kopia-auth
+  namespace: ops
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      name: echo-external
+      name: kopia-external
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: kopia-internal
   oidc:
     provider:
       issuer: https://id.edgard.org
+      backendRefs:
+        - kind: Service
+          name: dex
+          namespace: platform-system
+          port: 5556
     clientID: envoy-gateway
     clientSecret:
       name: envoy-gateway-oidc-client
-    redirectURL: https://echo.edgard.org/oauth2/callback
+    redirectURL: https://kopia.edgard.org/oauth2/callback
     logoutPath: /oauth2/logout
     cookieDomain: edgard.org
     scopes:
