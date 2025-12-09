@@ -93,17 +93,17 @@ controllers:
           PAPERLESS_SECRET_KEY:
             valueFrom:
               secretKeyRef:
-                name: paperless-secret
+                name: paperless-credentials
                 key: PAPERLESS_SECRET_KEY
           PAPERLESS_ADMIN_USER:
             valueFrom:
               secretKeyRef:
-                name: paperless-secret
+                name: paperless-credentials
                 key: PAPERLESS_ADMIN_USER
           PAPERLESS_ADMIN_PASSWORD:
             valueFrom:
               secretKeyRef:
-                name: paperless-secret
+                name: paperless-credentials
                 key: PAPERLESS_ADMIN_PASSWORD
         probes:
           liveness:
@@ -231,7 +231,7 @@ controllers:
               - ALL
         envFrom:
           - secretRef:
-              name: paperless-ai-secret
+              name: paperless-ai-credentials
 
 service:
   paperless:
@@ -276,7 +276,7 @@ route:
       hajimari.edgard.org/enabled: "true"
       hajimari.edgard.org/icon: file-document-outline
     parentRefs:
-      - name: envoy-gateway-external
+      - name: gateway-external
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -289,7 +289,7 @@ route:
     labels:
       external-dns.edgard.org/scope: internal
     parentRefs:
-      - name: envoy-gateway-internal
+      - name: gateway-internal
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -304,7 +304,7 @@ route:
       hajimari.edgard.org/enabled: "true"
       hajimari.edgard.org/icon: robot-happy-outline
     parentRefs:
-      - name: envoy-gateway-external
+      - name: gateway-external
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -317,7 +317,7 @@ route:
     labels:
       external-dns.edgard.org/scope: internal
     parentRefs:
-      - name: envoy-gateway-internal
+      - name: gateway-internal
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -363,7 +363,7 @@ persistence:
 
   ai-secret:
     type: secret
-    name: paperless-ai-secret
+    name: paperless-ai-credentials
     advancedMounts:
       paperless-ai:
         init-config:

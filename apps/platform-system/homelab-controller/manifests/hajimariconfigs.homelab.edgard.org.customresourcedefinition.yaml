@@ -50,7 +50,7 @@ spec:
                 outputConfigMap:
                   type: string
                   description: Name of the ConfigMap to write rendered Hajimari config into.
-                  default: hajimari-config-generated
+                  default: hajimari-generated-config
                 outputKey:
                   type: string
                   description: Key inside the ConfigMap containing the rendered config.

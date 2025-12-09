@@ -30,7 +30,7 @@ provider:
       - name: UNIFI_API_KEY
         valueFrom:
           secretKeyRef:
-            name: external-dns-internal
+            name: external-dns-internal-credentials
             key: unifi_api_key
     livenessProbe:
       initialDelaySeconds: 30

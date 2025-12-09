@@ -11,7 +11,7 @@ controllers:
           KOPIA_CLIENT_HOSTNAME: homelab
         envFrom:
           - secretRef:
-              name: kopia
+              name: kopia-credentials
         command:
           - /bin/bash
           - -c
@@ -62,7 +62,7 @@ controllers:
           pullPolicy: IfNotPresent
         envFrom:
           - secretRef:
-              name: kopia
+              name: kopia-credentials
         args:
           - --without-password
         probes:
@@ -115,7 +115,7 @@ route:
       hajimari.edgard.org/enabled: "true"
       hajimari.edgard.org/icon: backup-restore
     parentRefs:
-      - name: envoy-gateway-external
+      - name: gateway-external
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -128,7 +128,7 @@ route:
     labels:
       external-dns.edgard.org/scope: internal
     parentRefs:
-      - name: envoy-gateway-internal
+      - name: gateway-internal
         namespace: platform-system
         sectionName: https
     hostnames:

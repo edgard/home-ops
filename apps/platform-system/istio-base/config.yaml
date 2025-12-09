@@ -1,0 +1,9 @@
+---
+chart:
+  repo: https://istio-release.storage.googleapis.com/charts
+  name: base
+  version: 1.28.1
+rollout:
+  tier: "2"
+sync:
+  serverSideApply: true

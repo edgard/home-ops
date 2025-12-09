@@ -57,6 +57,8 @@ jobs:
           RENOVATE_ONBOARDING: false
           RENOVATE_PLATFORM_COMMIT: enabled
           RENOVATE_REPOSITORY_CACHE: enabled
+          RENOVATE_ALLOWED_POST_UPGRADE_COMMANDS: '["^curl "]'
+          RENOVATE_ALLOW_POST_UPGRADE_COMMAND_TEMPLATING: true
         with:
           token: ${{ secrets.RENOVATE_TOKEN }}
           renovate-version: ${{ inputs.version || 'latest' }}

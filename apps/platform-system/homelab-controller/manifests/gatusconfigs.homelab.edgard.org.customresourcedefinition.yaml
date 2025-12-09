@@ -50,7 +50,7 @@ spec:
                 outputConfigMap:
                   type: string
                   description: Name of the ConfigMap to write rendered Gatus config into.
-                  default: gatus-config-generated
+                  default: gatus-generated-config
                 outputKey:
                   type: string
                   description: Key inside the ConfigMap containing the rendered config.
