@@ -9,4 +9,4 @@ metadata:
   labels:
     app.kubernetes.io/name: gateway-api
 data:
-  version: "v1.2.1"
+  version: "v1.4.1"
