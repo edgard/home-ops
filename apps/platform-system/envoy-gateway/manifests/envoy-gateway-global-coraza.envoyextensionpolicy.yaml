@@ -31,4 +31,6 @@ spec:
         metric_labels:
           gateway: envoy-gateway-global
           env: homelab
-      failOpen: false
+      # Coraza WASM occasionally fails to load on bootstrap due to cache mTLS timing.
+      # Allow traffic to continue if the module cannot be fetched/initialized so auth/login flows aren’t blocked.
+      failOpen: true
