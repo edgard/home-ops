@@ -50,7 +50,7 @@ route:
       hajimari.edgard.org/enabled: "true"
       hajimari.edgard.org/icon: web
     parentRefs:
-      - name: envoy-gateway-external
+      - name: gateway-external
         namespace: platform-system
         sectionName: https
     hostnames:
@@ -63,35 +63,15 @@ route:
     labels:
       external-dns.edgard.org/scope: internal
     parentRefs:
-      - name: envoy-gateway-internal
+      - name: gateway-internal
         namespace: platform-system
         sectionName: https
-      - name: internal
-        namespace: platform-system
-        sectionName: https-root
     hostnames:
       - www.edgard.org
-      - edgard.org
     rules:
       - backendRefs:
           - identifier: nginx
             port: 80
-  root-redirect:
-    labels:
-      external-dns.edgard.org/scope: external
-    parentRefs:
-      - name: envoy-gateway-external
-        namespace: platform-system
-        sectionName: https-root
-    hostnames:
-      - edgard.org
-    rules:
-      - filters:
-          - type: RequestRedirect
-            requestRedirect:
-              hostname: www.edgard.org
-              statusCode: 301
-        backendRefs: []
 
 persistence:
   www:

@@ -27,7 +27,6 @@ data:
     except ImportError:
         sys.exit("PyYAML is required")
 
-    import dex_generator
     import gatus_generator
     import hajimari_generator
 
@@ -48,7 +47,6 @@ data:
     GENERATORS = {
         "HajimariConfig": hajimari_generator,
         "GatusConfig": gatus_generator,
-        "DexConfig": dex_generator,
     }
 
     def cluster_context():
@@ -112,7 +110,7 @@ data:
 
         kind = parent.get("kind", "")
         managed_resource = kind.replace("Config", "").lower() or "unknown"
-        default_output_cm = f"{managed_resource}-config-generated"
+        default_output_cm = f"{managed_resource}-generated-config"
 
         namespace = metadata.get("namespace") or get_current_namespace()
         output_name = spec.get("outputConfigMap") or default_output_cm

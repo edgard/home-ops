@@ -3,5 +3,3 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: platform-system
-  labels:
-    envoy-gateway.edgard.org/oidc-client: "true"

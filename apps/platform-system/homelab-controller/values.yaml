@@ -100,14 +100,6 @@ rbac:
             - get
             - list
             - watch
-        - apiGroups:
-            - gateway.envoyproxy.io
-          resources:
-            - securitypolicies
-          verbs:
-            - get
-            - list
-            - watch
   bindings:
     main:
       type: ClusterRoleBinding
@@ -141,12 +133,4 @@ persistence:
     globalMounts:
       - path: /scripts/gatus_generator.py
         subPath: gatus_generator.py
-        readOnly: true
-  dex-generator:
-    type: configMap
-    name: homelab-controller-dex-generator
-    defaultMode: 0444
-    globalMounts:
-      - path: /scripts/dex_generator.py
-        subPath: dex_generator.py
         readOnly: true
