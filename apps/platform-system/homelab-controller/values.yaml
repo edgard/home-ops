@@ -8,6 +8,12 @@ controllers:
     strategy: Recreate
     serviceAccount:
       identifier: main
+    pod:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
     containers:
       main:
         image:
@@ -21,7 +27,23 @@ controllers:
             pip install --no-cache-dir --quiet pyyaml >/tmp/pip.log 2>&1
             python /scripts/webhook.py
         env:
-          PIP_ROOT_USER_ACTION: ignore
+          HOME: /tmp
+          PYTHONUNBUFFERED: "1"
+        resources:
+          requests:
+            cpu: 10m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+              - ALL
+        envFrom:
+          - secretRef:
+              name: homelab-controller-credentials
         probes:
           startup:
             enabled: true
@@ -84,6 +106,14 @@ rbac:
             - list
             - watch
         - apiGroups:
+            - ""
+          resources:
+            - pods
+            - pods/log
+          verbs:
+            - get
+            - list
+        - apiGroups:
             - apps
           resources:
             - deployments
@@ -100,6 +130,14 @@ rbac:
             - get
             - list
             - watch
+        - apiGroups:
+            - aquasecurity.github.io
+          resources:
+            - vulnerabilityreports
+          verbs:
+            - get
+            - list
+            - watch
   bindings:
     main:
       type: ClusterRoleBinding
@@ -110,6 +148,12 @@ rbac:
           kind: ServiceAccount
 
 persistence:
+  alerts:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 100Mi
+    globalMounts:
+      - path: /data/alerts
   webhook:
     type: configMap
     name: homelab-controller-webhook
@@ -133,4 +177,12 @@ persistence:
     globalMounts:
       - path: /scripts/gatus_generator.py
         subPath: gatus_generator.py
+        readOnly: true
+  security-notifier:
+    type: configMap
+    name: homelab-controller-security-notifier
+    defaultMode: 0444
+    globalMounts:
+      - path: /scripts/security_notifier.py
+        subPath: security_notifier.py
         readOnly: true

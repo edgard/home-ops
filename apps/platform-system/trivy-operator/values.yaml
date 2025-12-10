@@ -1,0 +1,24 @@
+---
+fullnameOverride: trivy-operator
+
+operator:
+  replicas: 1
+  scanJobsConcurrentLimit: 3
+  scanJobsRetryDelay: 30s
+  vulnerabilityScannerScanOnlyCurrentRevisions: true
+  configAuditScannerScanOnlyCurrentRevisions: true
+  vulnerabilityScannerReportTTL: 24h # Daily rescan to catch new CVEs
+  scanJobTTL: 5m
+  excludeNamespaces: kube-system,local-path-storage # System namespaces we can't patch
+
+trivy:
+  severity: CRITICAL,HIGH
+  slow: true
+  ignoreUnfixed: true # Skip vulns with no available fix
+
+serviceMonitor:
+  enabled: false
+
+# Node selector for control plane exclusion
+nodeSelector: {}
+tolerations: []

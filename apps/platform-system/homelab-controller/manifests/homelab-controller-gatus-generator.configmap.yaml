@@ -33,7 +33,7 @@ data:
         def list_workloads(namespaces: Iterable[str]) -> Dict[str, List[dict]]:
             workloads: Dict[str, List[dict]] = {}
             for path in ["/apis/apps/v1/deployments", "/apis/apps/v1/statefulsets"]:
-                data = kube_get(path, ctx)
+                data = kube_get(path, ctx) or {}
                 for item in data.get("items", []):
                     ns = item.get("metadata", {}).get("namespace")
                     if ns not in namespaces:

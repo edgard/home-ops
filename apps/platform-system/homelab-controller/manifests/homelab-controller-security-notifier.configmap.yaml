@@ -1,0 +1,538 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-controller-security-notifier
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+data:
+  security_notifier.py: |-
+    """
+    Security Notifier Module for homelab-controller.
+
+    Collects security alerts and sends a daily digest to Telegram:
+    - Falco runtime security alerts (via native HTTP output)
+    - Trivy vulnerability scan reports (via Kubernetes API polling)
+    - Coraza WAF blocked requests (via gateway pod log parsing)
+    """
+    import json
+    import logging
+    import os
+    import re
+    import threading
+    import time
+    from collections import OrderedDict
+    from datetime import datetime
+    from pathlib import Path
+
+    import urllib.request
+
+    TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+    TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+    DIGEST_TIME = os.environ.get("DIGEST_TIME", "08:00")  # 24h format, local time
+    ALERTS_FILE = os.environ.get("ALERTS_FILE", "/data/alerts/pending.json")
+    TRIVY_SCAN_INTERVAL = int(os.environ.get("TRIVY_SCAN_INTERVAL", "600"))  # 10 min
+    CORAZA_LOG_INTERVAL = int(os.environ.get("CORAZA_LOG_INTERVAL", "30"))  # 30 sec
+    GATEWAY_NAMESPACE = os.environ.get("GATEWAY_NAMESPACE", "platform-system")
+    MAX_ALERTS_PER_TYPE = int(os.environ.get("MAX_ALERTS_PER_TYPE", "1000"))  # Prevent unbounded growth
+
+    logger = logging.getLogger("security_notifier")
+
+    # Track notified Trivy reports to avoid duplicates (OrderedDict for LRU cleanup)
+    _notified_reports: OrderedDict[str, str] = OrderedDict()  # report_uid -> resourceVersion
+    # Track seen Coraza log unique_ids to avoid duplicate alerts
+    _seen_coraza_ids: OrderedDict[str, float] = OrderedDict()  # unique_id -> timestamp
+    # Track last log check timestamp per pod
+    _last_log_check: dict[str, float] = {}
+    # Lock for file operations
+    _file_lock = threading.Lock()
+
+    def _escape_markdown(text: str) -> str:
+        """Escape special characters for Telegram Markdown (legacy mode)."""
+        escape_chars = r"_*`["
+        return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", str(text))
+
+    def _load_alerts() -> dict:
+        """Load alerts from persistent storage."""
+        default = {"trivy": [], "falco": [], "coraza": [], "last_digest_date": ""}
+        try:
+            path = Path(ALERTS_FILE)
+            if path.exists():
+                with open(path, "r") as f:
+                    data = json.load(f)
+                    # Ensure all required keys exist
+                    for key in default:
+                        if key not in data:
+                            data[key] = default[key]
+                    return data
+        except Exception as exc:
+            logger.warning("Failed to load alerts file: %s", exc)
+        return default
+
+    def _save_alerts(alerts: dict) -> None:
+        """Save alerts to persistent storage (atomic write)."""
+        try:
+            path = Path(ALERTS_FILE)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = path.with_suffix(".tmp")
+            with open(tmp_path, "w") as f:
+                json.dump(alerts, f)
+            tmp_path.rename(path)  # Atomic on POSIX
+        except Exception as exc:
+            logger.exception("Failed to save alerts file: %s", exc)
+
+    def _add_alert(alert_type: str, alert_data: dict) -> None:
+        """Add an alert to persistent storage."""
+        with _file_lock:
+            alerts = _load_alerts()
+            if alert_type not in alerts:
+                alerts[alert_type] = []
+            alerts[alert_type].append(alert_data)
+            # Prevent unbounded growth - keep only recent alerts
+            if len(alerts[alert_type]) > MAX_ALERTS_PER_TYPE:
+                alerts[alert_type] = alerts[alert_type][-MAX_ALERTS_PER_TYPE:]
+            _save_alerts(alerts)
+
+    def _send_telegram(message: str) -> bool:
+        """Send a message to Telegram."""
+        if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+            logger.warning("Telegram credentials not configured, skipping notification")
+            return False
+
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": message,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True,
+        }
+
+        try:
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status == 200:
+                    logger.info("Telegram notification sent successfully")
+                    return True
+                logger.error("Telegram API returned status %s", resp.status)
+                return False
+        except Exception as exc:
+            logger.exception("Failed to send Telegram notification: %s", exc)
+            return False
+
+    def _format_digest(alerts: dict) -> str | None:
+        """Format the daily security digest."""
+        trivy_alerts = alerts.get("trivy", [])
+        falco_alerts = alerts.get("falco", [])
+        coraza_alerts = alerts.get("coraza", [])
+
+        if not trivy_alerts and not falco_alerts and not coraza_alerts:
+            return None
+
+        today = datetime.now().strftime("%b %d, %Y")
+        lines = [f"📊 *Daily Security Digest* ({today})\n"]
+
+        # Trivy section
+        if trivy_alerts:
+            lines.append("🔍 *TRIVY - Vulnerability Scans*")
+            lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+            # Aggregate by workload (use max per workload to avoid double-counting rescans)
+            workloads: dict[str, dict] = {}
+            for alert in trivy_alerts:
+                key = f"{alert.get('workload', 'unknown')}|{alert.get('namespace', 'unknown')}"
+                c = alert.get("critical", 0) or 0
+                h = alert.get("high", 0) or 0
+                m = alert.get("medium", 0) or 0
+                low = alert.get("low", 0) or 0
+                if key not in workloads:
+                    workloads[key] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+                # Use max to avoid double-counting from rescans of same workload
+                workloads[key]["critical"] = max(workloads[key]["critical"], c)
+                workloads[key]["high"] = max(workloads[key]["high"], h)
+                workloads[key]["medium"] = max(workloads[key]["medium"], m)
+                workloads[key]["low"] = max(workloads[key]["low"], low)
+
+            # Calculate totals from deduplicated workloads
+            total_c = sum(w["critical"] for w in workloads.values())
+            total_h = sum(w["high"] for w in workloads.values())
+
+            lines.append(f"Total: {len(workloads)} workloads | 🔴 {total_c} Critical | 🟠 {total_h} High\n")
+
+            # Sort by severity (critical first, then high)
+            sorted_workloads = sorted(
+                workloads.items(),
+                key=lambda x: (x[1]["critical"], x[1]["high"]),
+                reverse=True,
+            )[:5]  # Top 5
+
+            if sorted_workloads:
+                lines.append("Top affected:")
+                for key, counts in sorted_workloads:
+                    # Use rsplit with maxsplit=1 to handle workload names containing |
+                    parts = key.rsplit("|", 1)
+                    workload = parts[0] if len(parts) > 0 else "unknown"
+                    ns = parts[1] if len(parts) > 1 else "unknown"
+                    c, h = counts["critical"], counts["high"]
+                    lines.append(f"• {_escape_markdown(workload)} ({_escape_markdown(ns)}) - {c}C/{h}H")
+            lines.append("")
+
+        # Falco section
+        if falco_alerts:
+            lines.append("🛡️ *FALCO - Runtime Security*")
+            lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+            # Aggregate by rule
+            rules: dict[str, dict] = {}
+            priority_counts = {"CRITICAL": 0, "ERROR": 0, "WARNING": 0, "NOTICE": 0, "INFO": 0}
+            for alert in falco_alerts:
+                rule = alert.get("rule", "unknown")
+                priority = (alert.get("priority") or "INFO").upper()
+                if priority in priority_counts:
+                    priority_counts[priority] += 1
+                if rule not in rules:
+                    rules[rule] = {"count": 0, "priority": priority}
+                rules[rule]["count"] += 1
+
+            critical = priority_counts["CRITICAL"] + priority_counts["ERROR"]
+            warning = priority_counts["WARNING"]
+            lines.append(f"Total: {len(falco_alerts)} alerts | 🔴 {critical} Critical | 🟠 {warning} Warning\n")
+
+            # Sort by count
+            sorted_rules = sorted(rules.items(), key=lambda x: x[1]["count"], reverse=True)[:5]
+            if sorted_rules:
+                lines.append("Rules triggered:")
+                for rule, data in sorted_rules:
+                    lines.append(f"• {_escape_markdown(rule)}: {data['count']}")
+            lines.append("")
+
+        # Coraza section
+        if coraza_alerts:
+            lines.append("🔥 *CORAZA - WAF Blocks*")
+            lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+            # Aggregate by rule_id
+            rules: dict[str, dict] = {}
+            for alert in coraza_alerts:
+                rule_id = alert.get("rule_id", "unknown")
+                message = alert.get("message", "")
+                if rule_id not in rules:
+                    rules[rule_id] = {"count": 0, "message": message}
+                rules[rule_id]["count"] += 1
+
+            lines.append(f"Total: {len(coraza_alerts)} blocks\n")
+
+            # Sort by count
+            sorted_rules = sorted(rules.items(), key=lambda x: x[1]["count"], reverse=True)[:5]
+            if sorted_rules:
+                lines.append("Top rules:")
+                for rule_id, data in sorted_rules:
+                    msg = data["message"][:30] if data["message"] else ""
+                    if msg:
+                        lines.append(f"• {_escape_markdown(rule_id)} ({_escape_markdown(msg)}): {data['count']}")
+                    else:
+                        lines.append(f"• {_escape_markdown(rule_id)}: {data['count']}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def send_daily_digest() -> bool:
+        """Send the daily digest and clear alerts (atomic operation)."""
+        with _file_lock:
+            alerts = _load_alerts()
+            digest = _format_digest(alerts)
+
+            if not digest:
+                logger.info("No alerts to report in daily digest")
+                # Still update last_digest_date to prevent retries
+                alerts["last_digest_date"] = datetime.now().strftime("%Y-%m-%d")
+                _save_alerts(alerts)
+                return True
+
+            # Split into chunks if too long (truncate at newline to avoid breaking markdown)
+            if len(digest) <= 4000:
+                success = _send_telegram(digest)
+            else:
+                truncated = digest[:4000].rsplit("\n", 1)[0]
+                success = _send_telegram(truncated + "\n...(truncated)")
+
+            if success:
+                # Atomic clear with date update - inside the same lock
+                _save_alerts({
+                    "trivy": [],
+                    "falco": [],
+                    "coraza": [],
+                    "last_digest_date": datetime.now().strftime("%Y-%m-%d"),
+                })
+                logger.info("Daily security digest sent successfully")
+
+            return success
+
+    def handle_falco_webhook(body: dict) -> dict:
+        """Handle incoming Falco native HTTP output event."""
+        rule = body.get("rule", "unknown")
+        priority = (body.get("priority") or "unknown").upper()
+        fields = body.get("output_fields") or {}
+        namespace = fields.get("k8s.ns.name", "N/A")
+        container = fields.get("container.name") or fields.get("k8s.pod.name", "N/A")
+
+        logger.info("Received Falco alert: rule=%s priority=%s", rule, priority)
+
+        _add_alert("falco", {
+            "rule": rule,
+            "priority": priority,
+            "namespace": namespace,
+            "container": container,
+            "timestamp": time.time(),
+        })
+
+        return {"status": "queued"}
+
+    def check_trivy_reports(kube_get, ctx) -> None:
+        """Check for new Trivy VulnerabilityReports and store them."""
+        global _notified_reports
+
+        try:
+            path = "/apis/aquasecurity.github.io/v1alpha1/vulnerabilityreports"
+            data = kube_get(path, ctx) or {}
+
+            new_count = 0
+            for item in data.get("items") or []:
+                metadata = item.get("metadata", {})
+                uid = metadata.get("uid", "")
+                resource_version = metadata.get("resourceVersion", "")
+                report_name = metadata.get("name", "unknown")
+                namespace = metadata.get("namespace", "unknown")
+                labels = metadata.get("labels") or {}
+
+                if not uid:
+                    continue
+
+                # Skip if already notified for this version
+                if _notified_reports.get(uid) == resource_version:
+                    _notified_reports.move_to_end(uid)
+                    continue
+
+                report_data = item.get("report") or {}
+                summary = report_data.get("summary") or {}
+
+                critical = summary.get("criticalCount") or 0
+                high = summary.get("highCount") or 0
+                medium = summary.get("mediumCount") or 0
+                low = summary.get("lowCount") or 0
+                unknown_count = summary.get("unknownCount") or 0
+                total = critical + high + medium + low + unknown_count
+
+                if total == 0:
+                    _notified_reports[uid] = resource_version
+                    continue
+
+                workload = labels.get("trivy-operator.resource.name") or report_name
+                container = labels.get("trivy-operator.container.name") or "unknown"
+
+                _add_alert("trivy", {
+                    "report_name": report_name,
+                    "workload": workload,
+                    "container": container,
+                    "namespace": namespace,
+                    "critical": critical,
+                    "high": high,
+                    "medium": medium,
+                    "low": low,
+                    "unknown": unknown_count,
+                    "timestamp": time.time(),
+                })
+
+                _notified_reports[uid] = resource_version
+                new_count += 1
+
+            # LRU cleanup
+            while len(_notified_reports) > 1000:
+                _notified_reports.popitem(last=False)
+
+            if new_count:
+                logger.info("Found %d new Trivy reports", new_count)
+
+        except Exception as exc:
+            logger.exception("Failed to fetch Trivy reports: %s", exc)
+
+    def _parse_coraza_log(line: str) -> dict | None:
+        """Parse Coraza WAF log line from Istio gateway."""
+        if "Coraza:" not in line:
+            return None
+
+        try:
+            client_match = re.search(r'\[client "([^"]+)"\]', line)
+            client_ip = client_match.group(1) if client_match else "unknown"
+
+            id_match = re.search(r'\[id "([^"]+)"\]', line)
+            rule_id = id_match.group(1) if id_match else "unknown"
+
+            msg_match = re.search(r'\[msg "([^"]+)"\]', line)
+            message = msg_match.group(1) if msg_match else "WAF rule triggered"
+
+            uri_match = re.search(r'\[uri "([^"]+)"\]', line)
+            request_uri = uri_match.group(1) if uri_match else "/"
+
+            host_match = re.search(r'\[hostname "([^"]+)"\]', line)
+            host = host_match.group(1) if host_match else "unknown"
+
+            uid_match = re.search(r'\[unique_id "([^"]+)"\]', line)
+            unique_id = uid_match.group(1) if uid_match else ""
+
+            return {
+                "client_ip": client_ip,
+                "request_uri": request_uri,
+                "host": host,
+                "rule_id": rule_id,
+                "message": message,
+                "unique_id": unique_id,
+            }
+        except Exception as exc:
+            logger.debug("Failed to parse Coraza log line: %s", exc)
+            return None
+
+    def check_coraza_logs(kube_get, kube_logs, ctx) -> None:
+        """Check gateway pod logs for Coraza WAF alerts."""
+        global _last_log_check, _seen_coraza_ids
+        now = time.time()
+
+        try:
+            label_selector = "gateway.networking.k8s.io/gateway-name"
+            path = f"/api/v1/namespaces/{GATEWAY_NAMESPACE}/pods?labelSelector={label_selector}"
+            data = kube_get(path, ctx) or {}
+
+            # Get current pod names for cleanup
+            current_pods = set()
+
+            new_count = 0
+            for pod in data.get("items") or []:
+                pod_name = pod.get("metadata", {}).get("name", "")
+                if not pod_name:
+                    continue
+                current_pods.add(pod_name)
+
+                since_seconds = CORAZA_LOG_INTERVAL + 5
+                last_check = _last_log_check.get(pod_name)
+                if last_check:
+                    since_seconds = int(now - last_check) + 5
+                since_seconds = min(since_seconds, 300)
+
+                try:
+                    logs = kube_logs(
+                        f"/api/v1/namespaces/{GATEWAY_NAMESPACE}/pods/{pod_name}/log",
+                        ctx,
+                        params={"sinceSeconds": since_seconds, "container": "istio-proxy"},
+                    )
+                    _last_log_check[pod_name] = now
+
+                    for line in logs.splitlines():
+                        parsed = _parse_coraza_log(line)
+                        if not parsed:
+                            continue
+
+                        unique_id = parsed.get("unique_id", "")
+                        # Generate synthetic unique_id if not present to prevent duplicates
+                        if not unique_id:
+                            unique_id = f"{parsed['rule_id']}:{parsed['client_ip']}:{parsed['request_uri'][:50]}"
+
+                        if unique_id in _seen_coraza_ids:
+                            continue
+                        _seen_coraza_ids[unique_id] = now
+
+                        _add_alert("coraza", {
+                            "rule_id": parsed["rule_id"],
+                            "message": parsed["message"],
+                            "client_ip": parsed["client_ip"],
+                            "request_uri": parsed["request_uri"],
+                            "host": parsed["host"],
+                            "timestamp": now,
+                        })
+                        new_count += 1
+
+                except Exception as exc:
+                    logger.debug("Failed to get logs for pod %s: %s", pod_name, exc)
+
+            # Cleanup old pod entries from _last_log_check
+            old_pods = set(_last_log_check.keys()) - current_pods
+            for pod_name in old_pods:
+                del _last_log_check[pod_name]
+
+            # LRU cleanup for seen coraza IDs
+            cutoff = now - 600
+            while _seen_coraza_ids:
+                oldest_key = next(iter(_seen_coraza_ids))
+                if _seen_coraza_ids[oldest_key] < cutoff or len(_seen_coraza_ids) > 1000:
+                    _seen_coraza_ids.pop(oldest_key)
+                else:
+                    break
+
+            if new_count:
+                logger.info("Found %d WAF blocked requests", new_count)
+
+        except Exception as exc:
+            logger.exception("Failed to check Coraza logs: %s", exc)
+
+    def start_background_tasks(kube_get, kube_logs, ctx):
+        """Start background threads for periodic tasks."""
+
+        def digest_scheduler():
+            """Check if it's time to send the daily digest."""
+            while True:
+                time.sleep(60)  # Check every minute
+                try:
+                    now = datetime.now()
+                    current_date = now.strftime("%Y-%m-%d")
+
+                    # Parse target time
+                    try:
+                        target_hour, target_minute = map(int, DIGEST_TIME.split(":"))
+                    except ValueError:
+                        target_hour, target_minute = 8, 0
+
+                    # Window-based matching: within 5 minutes after target time
+                    if now.hour == target_hour and 0 <= now.minute - target_minute < 5:
+                        # Check if already sent today (read from persisted state)
+                        with _file_lock:
+                            alerts = _load_alerts()
+                            last_date = alerts.get("last_digest_date", "")
+
+                        if last_date != current_date:
+                            logger.info("Sending daily security digest...")
+                            send_daily_digest()
+
+                except Exception as exc:
+                    logger.exception("Digest scheduler error: %s", exc)
+
+        def trivy_watcher():
+            """Periodically check for new Trivy reports."""
+            time.sleep(30)
+            while True:
+                try:
+                    check_trivy_reports(kube_get, ctx)
+                except Exception as exc:
+                    logger.exception("Trivy watcher error: %s", exc)
+                time.sleep(TRIVY_SCAN_INTERVAL)
+
+        def coraza_watcher():
+            """Periodically check gateway logs for WAF blocked requests."""
+            time.sleep(60)
+            while True:
+                try:
+                    check_coraza_logs(kube_get, kube_logs, ctx)
+                except Exception as exc:
+                    logger.exception("Coraza watcher error: %s", exc)
+                time.sleep(CORAZA_LOG_INTERVAL)
+
+        threading.Thread(target=digest_scheduler, daemon=True, name="digest-scheduler").start()
+        threading.Thread(target=trivy_watcher, daemon=True, name="trivy-watcher").start()
+        threading.Thread(target=coraza_watcher, daemon=True, name="coraza-watcher").start()
+        logger.info("Started background tasks (digest at %s, trivy every %ds, coraza every %ds)",
+                    DIGEST_TIME, TRIVY_SCAN_INTERVAL, CORAZA_LOG_INTERVAL)

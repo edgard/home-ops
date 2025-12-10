@@ -38,14 +38,16 @@ collectors:
 falco:
   priority: warning
   json_output: true
+  json_include_output_property: true
+  json_include_tags_property: true
+  http_output:
+    enabled: true
+    url: http://homelab-controller.platform-system.svc.cluster.local/notify/falco
+    user_agent: falco/homelab
 
 # Remove control-plane tolerations so the control-plane taint blocks scheduling
 tolerations: []
 
+# Falcosidekick disabled - using native HTTP output instead
 falcosidekick:
-  enabled: true
-  replicaCount: 1
-  config:
-    existingSecret: falco-credentials
-    telegram:
-      minimumpriority: warning
+  enabled: false
