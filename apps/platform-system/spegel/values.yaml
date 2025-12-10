@@ -1,0 +1,8 @@
+---
+fullnameOverride: spegel
+
+serviceAccount:
+  name: spegel
+
+spegel:
+  mirrorResolveTimeout: "100ms"

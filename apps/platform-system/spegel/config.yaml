@@ -1,0 +1,7 @@
+---
+chart:
+  repo: oci://ghcr.io/spegel-org/helm-charts/spegel
+  path: "."
+  version: 0.5.1
+rollout:
+  tier: "1"
