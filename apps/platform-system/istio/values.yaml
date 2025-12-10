@@ -28,9 +28,4 @@ meshConfig:
         headersToDownstreamOnDeny:
           - location
           - set-cookie
-        headersToUpstreamOnAllow:
-          - authorization
-          - x-auth-request-access-token
-          - x-auth-request-email
-          - x-auth-request-groups
-          - x-auth-request-user
+        headersToUpstreamOnAllow: []

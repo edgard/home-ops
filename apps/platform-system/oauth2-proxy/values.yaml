@@ -18,10 +18,10 @@ extraArgs:
   cookie-samesite: lax
   cookie-refresh: 1h
   cookie-expire: 24h
-  set-authorization-header: "true"
-  pass-authorization-header: "true"
-  pass-access-token: "true"
-  set-xauthrequest: "true"
+  set-authorization-header: "false"
+  pass-authorization-header: "false"
+  pass-access-token: "false"
+  set-xauthrequest: "false"
   skip-auth-preflight: "true"
   reverse-proxy: "true"
   code-challenge-method: S256

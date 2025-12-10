@@ -14,7 +14,10 @@ spec:
       default:
         - Include @recommended-conf
         - SecRuleEngine On
-        - SecDebugLogLevel 2
+        - SecDebugLogLevel 3
+        - SecAction "id:100000,phase:1,pass,t:none,nolog,setvar:tx.blocking_paranoia_level=1"
+        - SecAction "id:100001,phase:1,pass,t:none,nolog,setvar:tx.inbound_anomaly_score_threshold=25"
+        - SecAction "id:100002,phase:1,pass,t:none,nolog,setvar:tx.outbound_anomaly_score_threshold=10"
         - Include @crs-setup-conf
         - Include @owasp_crs/*.conf
   targetRefs:
