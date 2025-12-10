@@ -4,5 +4,9 @@ fullnameOverride: spegel
 serviceAccount:
   name: spegel
 
+resources:
+  limits: null
+  requests: null
+
 spegel:
   mirrorResolveTimeout: "100ms"

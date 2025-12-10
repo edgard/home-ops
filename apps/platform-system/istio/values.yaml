@@ -11,6 +11,10 @@ sidecarInjectorWebhook:
 pilot:
   autoscaleEnabled: false
 
+resources:
+  limits: null
+  requests: null
+
 meshConfig:
   extensionProviders:
     - name: oauth2-proxy
