@@ -1,6 +1,20 @@
 ---
 fullnameOverride: argocd
 
+configs:
+  params:
+    controller.diff.server.side: "true"
+  cm:
+    resource.ignoreResourceUpdatesEnabled: "true"
+    resource.customizations.ignoreResourceUpdates.all: |
+      jsonPointers:
+        - /status
+    resource.customizations.ignoreDifferences.admissionregistration.k8s.io_ValidatingWebhookConfiguration: |
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
+        - .webhooks[].failurePolicy
+        - .metadata.generation
+
 dex:
   enabled: false
 

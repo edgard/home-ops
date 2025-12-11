@@ -14,3 +14,10 @@ injectAll: true
 
 # Also patch CronJob timezone field
 cronJobTimeZone: true
+
+webhook:
+  certManager:
+    enabled: true
+    issuerRef:
+      name: k8tz-webhook-issuer
+      kind: Issuer

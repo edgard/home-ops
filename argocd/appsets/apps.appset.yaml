@@ -64,55 +64,10 @@ spec:
           - CreateNamespace=true
           - ApplyOutOfSyncOnly=true
           - PrunePropagationPolicy=foreground
-          - PruneLast=true
-          - RespectIgnoreDifferences=true
-          - 'ServerSideApply={{ dig "sync" "serverSideApply" false . }}'
+          - ServerSideApply=true
         retry:
           limit: 5
           backoff:
             duration: 5s
             maxDuration: 3m
             factor: 2
-
-      ignoreDifferences:
-        - group: external-secrets.io
-          kind: ExternalSecret
-          jqPathExpressions:
-            - .spec.data[].remoteRef.conversionStrategy
-            - .spec.data[].remoteRef.decodingStrategy
-            - .spec.data[].remoteRef.metadataPolicy
-        - group: external-secrets.io
-          kind: ClusterExternalSecret
-          jqPathExpressions:
-            - .spec.externalSecretSpec.data[].remoteRef.conversionStrategy
-            - .spec.externalSecretSpec.data[].remoteRef.decodingStrategy
-            - .spec.externalSecretSpec.data[].remoteRef.metadataPolicy
-        - group: ""
-          kind: Secret
-          name: k8tz-tls
-          namespace: kube-system
-          jsonPointers:
-            - /data
-        - group: admissionregistration.k8s.io
-          kind: MutatingWebhookConfiguration
-          name: k8tz
-          jqPathExpressions:
-            - .webhooks[].clientConfig.caBundle
-        - group: admissionregistration.k8s.io
-          kind: ValidatingWebhookConfiguration
-          name: istiod-default-validator
-          jqPathExpressions:
-            - .webhooks[].clientConfig.caBundle
-            - .webhooks[].failurePolicy
-        - group: admissionregistration.k8s.io
-          kind: ValidatingWebhookConfiguration
-          name: istio-validator-platform-system
-          jqPathExpressions:
-            - .webhooks[].clientConfig.caBundle
-            - .webhooks[].failurePolicy
-        - group: apps
-          kind: Deployment
-          name: k8tz
-          namespace: kube-system
-          jqPathExpressions:
-            - .spec.template.metadata.annotations["checksum/config"]

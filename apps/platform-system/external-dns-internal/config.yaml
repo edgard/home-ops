@@ -5,4 +5,3 @@ chart:
   version: 1.19.0
 sync:
   wave: "-1"
-  serverSideApply: true
