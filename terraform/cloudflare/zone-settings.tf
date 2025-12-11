@@ -154,7 +154,7 @@ resource "cloudflare_zone_setting" "cache_level" {
 resource "cloudflare_zone_setting" "browser_cache_ttl" {
   zone_id    = var.zone_id
   setting_id = "browser_cache_ttl"
-  value      = 86400  # 24 hours (was 4 hours)
+  value      = 86400 # 24 hours (was 4 hours)
 }
 
 # Edge Cache TTL

@@ -3,7 +3,6 @@ chart:
   repo: https://kubernetes-sigs.github.io/external-dns
   name: external-dns
   version: 1.19.0
-rollout:
-  tier: "4"
 sync:
+  wave: "-1"
   serverSideApply: true

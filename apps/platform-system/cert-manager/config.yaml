@@ -3,7 +3,6 @@ chart:
   repo: oci://quay.io/jetstack/charts/cert-manager
   path: "."
   version: v1.19.2
-rollout:
-  tier: "3"
 sync:
+  wave: "-2"
   serverSideApply: true

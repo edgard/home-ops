@@ -3,5 +3,5 @@ chart:
   repo: oci://ghcr.io/home-operations/charts-mirror/k8tz
   path: "."
   version: 0.18.0
-rollout:
-  tier: "1"
+sync:
+  wave: "-4"

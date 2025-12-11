@@ -1,10 +1,6 @@
 ---
 fullnameOverride: argocd
 
-configs:
-  params:
-    applicationsetcontroller.enable.progressive.syncs: "true"
-
 dex:
   enabled: false
 

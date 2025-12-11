@@ -3,5 +3,5 @@ chart:
   repo: oci://ghcr.io/falcosecurity/charts/falco
   path: "."
   version: 7.0.2
-rollout:
-  tier: "3"
+sync:
+  wave: "-2"

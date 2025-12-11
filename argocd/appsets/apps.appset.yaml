@@ -9,36 +9,6 @@ spec:
   goTemplateOptions:
     - missingkey=error
 
-  strategy:
-    type: RollingSync
-    rollingSync:
-      steps:
-        - matchExpressions:
-            - key: tier
-              operator: In
-              values:
-                - "1"
-        - matchExpressions:
-            - key: tier
-              operator: In
-              values:
-                - "2"
-        - matchExpressions:
-            - key: tier
-              operator: In
-              values:
-                - "3"
-        - matchExpressions:
-            - key: tier
-              operator: In
-              values:
-                - "4"
-        - matchExpressions:
-            - key: tier
-              operator: In
-              values:
-                - "10"
-
   generators:
     - git:
         repoURL: https://github.com/edgard/home-ops.git
@@ -55,7 +25,8 @@ spec:
       namespace: argocd
       labels:
         category: "{{ index .path.segments 1 }}"
-        tier: '{{ dig "rollout" "tier" "10" . }}'
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{ dig "sync" "wave" "0" . }}'
       finalizers:
         - resources-finalizer.argocd.argoproj.io
 

@@ -1,7 +1,7 @@
 ---
 chart:
-  repo: https://aquasecurity.github.io/helm-charts
-  name: trivy-operator
+  repo: oci://ghcr.io/aquasecurity/helm-charts/trivy-operator
+  path: "."
   version: 0.31.0
-rollout:
-  tier: "3"
+sync:
+  wave: "-2"

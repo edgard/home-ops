@@ -3,5 +3,5 @@ chart:
   repo: oci://ghcr.io/stakater/charts/reloader
   path: "."
   version: 2.2.5
-rollout:
-  tier: "2"
+sync:
+  wave: "-3"

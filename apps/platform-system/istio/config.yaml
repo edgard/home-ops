@@ -1,9 +1,8 @@
 ---
 chart:
-  repo: https://istio-release.storage.googleapis.com/charts
-  name: istiod
+  repo: oci://gcr.io/istio-release/charts/istiod
+  path: "."
   version: 1.28.1
-rollout:
-  tier: "3"
 sync:
+  wave: "-2"
   serverSideApply: true

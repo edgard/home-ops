@@ -4,23 +4,23 @@ Argo CD–managed Kubernetes homelab running on Kind with supporting Cloudflare 
 
 ## Quick Start
 
-1. Install docker, kind, kubectl, helm, python3, sops, and opentofu (`tofu`).
+1. Install docker, kind, kubectl, helm, python3, sops, opentofu (`tofu`), and go-task (`task`).
 2. Create a Docker context that matches `bootstrap/config/cluster-config.yaml` (default `kind-homelab`).
-3. Generate secrets: `make secrets-create-key` then `make secrets-edit`.
-4. Bootstrap the cluster: `make bootstrap`. Tear down with `make bootstrap-delete` (or `-recreate`).
+3. Generate secrets: `task secrets:create-key` then `task secrets:edit`.
+4. Bootstrap the cluster: `task bootstrap:run`. Tear down with `task bootstrap:delete` (or `task bootstrap:recreate`).
 
 ## Everyday Commands
 
-- `make kind-create|kind-delete|kind-recreate` – local Kind cluster lifecycle.
-- `make secrets-apply` – decrypt/apply cluster secrets to the current kube context.
-- `make argo-sync ARGOCD_SELECTOR=key=value` – force Argo to resync selected apps.
-- `make lint` – prettier → yamlfmt → yamllint for YAML.
-- Cloudflare: `make tf-plan` / `make tf-apply` (env vars required).
+- `task secrets:apply` – decrypt/apply cluster secrets to the current kube context.
+- `task argo:sync app=name` – force Argo to resync Applications (omit `app` to refresh all).
+- `task argo:pf` – port-forward the Argo CD server to localhost on 8080→80.
+- `task lint` – prettier → yamlfmt → yamllint for YAML.
+- Cloudflare: `task tf:plan` / `task tf:apply` (env vars required: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `CLOUDFLARE_API_TOKEN`, `TF_VAR_cloudflare_zone_id`).
 
 ## Repo Map
 
 - `bootstrap/config/` – Kind cluster config and SOPS secret template.
-- `bootstrap/scripts/bootstrap.py` – installer for Kind, Multus, Argo CD.
+- `bootstrap/scripts/bootstrap.py` – installer for Kind, Multus, and Argo CD.
 - `argocd/` – root Argo app, namespaces, projects, ApplicationSet.
 - `apps/<group>/<app>/` – chart config/values plus optional manifests.
 - `terraform/` – OpenTofu for Cloudflare DNS/rules.

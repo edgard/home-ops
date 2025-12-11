@@ -3,7 +3,6 @@ chart:
   repo: oci://ghcr.io/metacontroller/metacontroller-helm
   path: "."
   version: 4.12.5
-rollout:
-  tier: "2"
 sync:
+  wave: "-3"
   serverSideApply: true

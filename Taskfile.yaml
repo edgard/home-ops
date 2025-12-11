@@ -1,0 +1,153 @@
+---
+version: "3"
+
+silent: true
+failfast: true
+set:
+  - errexit
+  - nounset
+  - pipefail
+shell: bash -c
+
+vars:
+  CLUSTER_CREDENTIALS_SOPS: '{{.CLUSTER_CREDENTIALS_SOPS | default (printf "%s/bootstrap/config/cluster-credentials.sops.yaml" .TASKFILE_DIR)}}'
+  CLUSTER_CREDENTIALS_TEMPLATE: '{{.CLUSTER_CREDENTIALS_TEMPLATE | default (printf "%s/bootstrap/config/cluster-credentials.template.yaml" .TASKFILE_DIR)}}'
+  SOPS_AGE_KEY_FILE: '{{.SOPS_AGE_KEY_FILE | default (printf "%s/.sops.agekey" .TASKFILE_DIR)}}'
+  TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  bootstrap:run:
+    desc: Provision Kind cluster and install Argo CD
+    cmds:
+      - "python3 {{.TASKFILE_DIR}}/bootstrap/scripts/bootstrap.py"
+
+  bootstrap:delete:
+    desc: Delete Kind cluster via bootstrap
+    cmds:
+      - "python3 {{.TASKFILE_DIR}}/bootstrap/scripts/bootstrap.py --delete"
+
+  bootstrap:recreate:
+    desc: Recreate Kind cluster via bootstrap
+    cmds:
+      - task: bootstrap:delete
+        ignore_error: true
+      - task: bootstrap:run
+
+  secrets:create-key:
+    desc: Generate SOPS age key
+    status:
+      - test -f "{{.SOPS_AGE_KEY_FILE}}"
+    cmds:
+      - 'age-keygen -o "{{.SOPS_AGE_KEY_FILE}}"'
+
+  secrets:init:
+    desc: Ensure encrypted secrets file exists
+    preconditions:
+      - sh: test -f "{{.CLUSTER_CREDENTIALS_TEMPLATE}}"
+        msg: Template {{.CLUSTER_CREDENTIALS_TEMPLATE}} not found
+      - sh: test -f "{{.SOPS_AGE_KEY_FILE}}"
+        msg: Missing age key {{.SOPS_AGE_KEY_FILE}}; run `task secrets:create-key`
+    status:
+      - test -f "{{.CLUSTER_CREDENTIALS_SOPS}}"
+    cmds:
+      - cp "{{.CLUSTER_CREDENTIALS_TEMPLATE}}" "{{.CLUSTER_CREDENTIALS_SOPS}}"
+
+  secrets:edit:
+    desc: Edit encrypted cluster secrets with SOPS
+    deps:
+      - secrets:init
+    preconditions:
+      - sh: test -f "{{.SOPS_AGE_KEY_FILE}}"
+        msg: Missing age key {{.SOPS_AGE_KEY_FILE}}; run `task secrets:create-key`
+    env:
+      SOPS_AGE_KEY_FILE: "{{.SOPS_AGE_KEY_FILE}}"
+    interactive: true
+    cmds:
+      - cmd: 'sops "{{.CLUSTER_CREDENTIALS_SOPS}}" || test "$?" -eq 200'
+
+  secrets:apply:
+    desc: Decrypt secrets and apply to cluster
+    deps:
+      - secrets:init
+    preconditions:
+      - sh: test -f "{{.CLUSTER_CREDENTIALS_SOPS}}"
+        msg: Missing {{.CLUSTER_CREDENTIALS_SOPS}}; run `task secrets:edit` first
+      - sh: test -f "{{.SOPS_AGE_KEY_FILE}}"
+        msg: Missing age key {{.SOPS_AGE_KEY_FILE}}; run `task secrets:create-key`
+    env:
+      SOPS_AGE_KEY_FILE: "{{.SOPS_AGE_KEY_FILE}}"
+    cmds:
+      - 'sops -d "{{.CLUSTER_CREDENTIALS_SOPS}}" | kubectl apply -f -'
+
+  lint:
+    desc: Format + lint YAML
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - 'prettier --write "**/*.{yaml,yml}"'
+      - 'yamlfmt "**/*.{yaml,yml}"'
+      - "yamllint ."
+
+  argo:sync:
+    desc: Force Argo CD Applications to refresh
+    summary: |
+      Refreshes Argo CD Applications. Pass `app=<name>` to target a label `app=<name>`; leave empty to refresh all.
+    vars:
+      app: '{{.app | default ""}}'
+    cmds:
+      - 'kubectl -n argocd get applications {{if .app}}-l "app={{.app}}"{{end}} -o name | xargs -r -n1 -I{} kubectl -n argocd patch {} --type merge -p ''{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'' >/dev/null || true'
+
+  argo:pf:
+    desc: Port-forward Argo CD server locally
+    interactive: true
+    cmds:
+      - kubectl -n argocd port-forward svc/argocd-server 8080:80
+
+  tf:plan:
+    desc: Terraform plan
+    dir: "{{.TERRAFORM_DIR}}"
+    requires:
+      vars:
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY
+        - CLOUDFLARE_API_TOKEN
+        - TF_VAR_cloudflare_zone_id
+    cmds:
+      - "tofu init"
+      - "tofu plan"
+
+  tf:apply:
+    desc: Terraform apply
+    dir: "{{.TERRAFORM_DIR}}"
+    requires:
+      vars:
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY
+        - CLOUDFLARE_API_TOKEN
+        - TF_VAR_cloudflare_zone_id
+    cmds:
+      - "tofu init"
+      - "tofu apply"
+
+  tf:validate:
+    desc: Terraform fmt + validate
+    dir: "{{.TERRAFORM_DIR}}"
+    requires:
+      vars:
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY
+        - CLOUDFLARE_API_TOKEN
+        - TF_VAR_cloudflare_zone_id
+    cmds:
+      - "tofu fmt -recursive"
+      - "tofu validate"
+
+  tf:clean:
+    desc: Clean terraform state/cache
+    dir: "{{.TERRAFORM_DIR}}"
+    cmds:
+      - rm -rf .terraform/ .terraform.lock.hcl terraform.tfstate* *.tfplan

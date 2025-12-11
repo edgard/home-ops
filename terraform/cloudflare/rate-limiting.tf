@@ -13,7 +13,7 @@ resource "cloudflare_ruleset" "rate_limit_auth" {
       expression  = "(http.host eq \"id.edgard.org\" or http.request.uri.path contains \"/oauth2/\")"
       description = "Rate limit Dex (id.edgard.org) and OAuth2 endpoints - 5 req/10sec, 10sec timeout"
       enabled     = true
-      
+
       action_parameters = {
         response = {
           status_code  = 429
@@ -21,7 +21,7 @@ resource "cloudflare_ruleset" "rate_limit_auth" {
           content_type = "text/plain"
         }
       }
-      
+
       ratelimit = {
         characteristics = [
           "cf.colo.id",
