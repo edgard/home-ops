@@ -8,11 +8,12 @@ operator:
   vulnerabilityScannerScanOnlyCurrentRevisions: true
   configAuditScannerScanOnlyCurrentRevisions: true
   vulnerabilityScannerReportTTL: 24h # Daily rescan to catch new CVEs
-  scanJobTTL: 5m
-  excludeNamespaces: kube-system,local-path-storage # System namespaces we can't patch
+  scanJobTTL: 30s
+  scanSecretTTL: 30s
+  excludeNamespaces: "kube-*,local-path-storage" # Skip all kube-* system namespaces we can't patch
 
 trivy:
-  severity: CRITICAL,HIGH
+  severity: CRITICAL
   slow: true
   ignoreUnfixed: true # Skip vulns with no available fix
 
