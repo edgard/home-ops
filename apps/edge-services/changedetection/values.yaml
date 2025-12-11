@@ -110,10 +110,14 @@ service:
         targetPort: http
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Change Detection
+      gethomepage.dev/group: Edge Services
+      gethomepage.dev/icon: changedetection.svg
+      gethomepage.dev/app: changedetection
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: bell-ring
     parentRefs:
       - name: gateway-external
         namespace: platform-system

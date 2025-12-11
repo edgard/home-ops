@@ -54,10 +54,14 @@ service:
         targetPort: 8080
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Zigbee2MQTT
+      gethomepage.dev/group: Home Automation
+      gethomepage.dev/icon: zigbee2mqtt.svg
+      gethomepage.dev/app: zigbee2mqtt
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: zigbee
     parentRefs:
       - name: gateway-external
         namespace: platform-system

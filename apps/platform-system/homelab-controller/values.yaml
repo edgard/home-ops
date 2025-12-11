@@ -123,14 +123,6 @@ rbac:
             - list
             - watch
         - apiGroups:
-            - gateway.networking.k8s.io
-          resources:
-            - httproutes
-          verbs:
-            - get
-            - list
-            - watch
-        - apiGroups:
             - aquasecurity.github.io
           resources:
             - vulnerabilityreports
@@ -161,14 +153,6 @@ persistence:
     globalMounts:
       - path: /scripts/webhook.py
         subPath: webhook.py
-        readOnly: true
-  hajimari-generator:
-    type: configMap
-    name: homelab-controller-hajimari-generator
-    defaultMode: 0444
-    globalMounts:
-      - path: /scripts/hajimari_generator.py
-        subPath: hajimari_generator.py
         readOnly: true
   gatus-generator:
     type: configMap

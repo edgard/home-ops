@@ -1,0 +1,182 @@
+---
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    serviceAccount:
+      identifier: homepage
+    containers:
+      main:
+        image:
+          repository: ghcr.io/gethomepage/homepage
+          tag: v1.8.0
+        env:
+          LOG_TARGETS: stdout
+          HOMEPAGE_DISABLE_HOST_VALIDATION: "true"
+          HOMEPAGE_ALLOWED_HOSTS: "*"
+        ports:
+          - name: http
+            containerPort: 3000
+        probes:
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/healthcheck
+                port: http
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/healthcheck
+                port: http
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/healthcheck
+                port: http
+
+serviceAccount:
+  homepage:
+    enabled: true
+
+service:
+  main:
+    controller: main
+    labels:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      http:
+        port: 3000
+
+route:
+  external:
+    labels:
+      external-dns.edgard.org/scope: external
+    parentRefs:
+      - name: gateway-external
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - dash.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 3000
+  internal:
+    labels:
+      external-dns.edgard.org/scope: internal
+    parentRefs:
+      - name: gateway-internal
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - dash.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 3000
+
+persistence:
+  config:
+    type: configMap
+    identifier: config
+    globalMounts:
+      - path: /app/config/settings.yaml
+        subPath: settings.yaml
+      - path: /app/config/kubernetes.yaml
+        subPath: kubernetes.yaml
+      - path: /app/config/widgets.yaml
+        subPath: widgets.yaml
+      - path: /app/config/services.yaml
+        subPath: services.yaml
+      - path: /app/config/bookmarks.yaml
+        subPath: bookmarks.yaml
+
+configMaps:
+  config:
+    data:
+      settings.yaml: |-
+        title: Homelab
+        startUrl: https://dash.edgard.org
+        theme: dark
+        color: slate
+        disableUpdateCheck: true
+        hideVersion: true
+        target: _self
+        statusStyle: dot
+      kubernetes.yaml: |-
+        mode: cluster
+        gateway: true
+        ingress: false
+      widgets.yaml: |-
+        - greeting:
+            text_size: 4xl
+            text: Homelab
+      services.yaml: |-
+        []
+      bookmarks.yaml: |-
+        []
+
+rbac:
+  roles:
+    homepage:
+      type: ClusterRole
+      rules:
+        - apiGroups:
+            - ""
+          resources:
+            - namespaces
+            - nodes
+            - pods
+            - services
+            - serviceaccounts
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - networking.k8s.io
+          resources:
+            - ingresses
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - gateway.networking.k8s.io
+          resources:
+            - gateways
+            - httproutes
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - security.istio.io
+          resources:
+            - authorizationpolicies
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - traefik.io
+          resources:
+            - ingressroutes
+          verbs:
+            - get
+            - list
+            - watch
+  bindings:
+    homepage:
+      type: ClusterRoleBinding
+      roleRef:
+        identifier: homepage
+      subjects:
+        - identifier: homepage
+          kind: ServiceAccount

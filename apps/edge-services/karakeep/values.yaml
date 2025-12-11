@@ -164,10 +164,14 @@ service:
 
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Karakeep
+      gethomepage.dev/group: Edge Services
+      gethomepage.dev/icon: karakeep.svg
+      gethomepage.dev/app: karakeep
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: bookmark
     parentRefs:
       - name: gateway-external
         namespace: platform-system

@@ -271,10 +271,14 @@ service:
 
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Paperless
+      gethomepage.dev/group: Edge Services
+      gethomepage.dev/icon: paperless-ngx.svg
+      gethomepage.dev/app: paperless
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: file-document-outline
     parentRefs:
       - name: gateway-external
         namespace: platform-system
@@ -298,34 +302,6 @@ route:
       - backendRefs:
           - identifier: paperless
             port: 8000
-  ai-external:
-    labels:
-      external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: robot-happy-outline
-    parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - paperless-ai.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: ai
-            port: 3000
-  ai-internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - paperless-ai.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: ai
-            port: 3000
 
 persistence:
   data:

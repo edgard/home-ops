@@ -59,10 +59,14 @@ service:
         targetPort: 8989
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Sonarr
+      gethomepage.dev/group: Media
+      gethomepage.dev/icon: sonarr.svg
+      gethomepage.dev/app: sonarr
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: television
     parentRefs:
       - name: gateway-external
         namespace: platform-system

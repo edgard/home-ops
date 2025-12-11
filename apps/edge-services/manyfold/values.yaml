@@ -61,10 +61,14 @@ service:
         targetPort: http
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Manyfold
+      gethomepage.dev/group: Edge Services
+      gethomepage.dev/icon: manyfold.svg
+      gethomepage.dev/app: manyfold
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: printer-3d
     parentRefs:
       - name: gateway-external
         namespace: platform-system

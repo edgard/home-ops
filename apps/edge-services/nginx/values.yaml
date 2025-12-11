@@ -52,10 +52,14 @@ service:
 
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Homepage
+      gethomepage.dev/group: Edge Services
+      gethomepage.dev/icon: nginx.svg
+      gethomepage.dev/app: nginx
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: web
     parentRefs:
       - name: gateway-external
         namespace: platform-system

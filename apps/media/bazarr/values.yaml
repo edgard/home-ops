@@ -58,10 +58,14 @@ service:
         targetPort: 6767
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Bazarr
+      gethomepage.dev/group: Media
+      gethomepage.dev/icon: bazarr.svg
+      gethomepage.dev/app: bazarr
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: subtitles
     parentRefs:
       - name: gateway-external
         namespace: platform-system

@@ -110,10 +110,14 @@ service:
         targetPort: 51516
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Kopia
+      gethomepage.dev/group: Ops
+      gethomepage.dev/icon: kopia.svg
+      gethomepage.dev/app: kopia
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: backup-restore
     parentRefs:
       - name: gateway-external
         namespace: platform-system

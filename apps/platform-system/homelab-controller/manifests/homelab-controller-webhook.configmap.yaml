@@ -28,7 +28,6 @@ data:
         sys.exit("PyYAML is required")
 
     import gatus_generator
-    import hajimari_generator
     import security_notifier
 
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -46,7 +45,6 @@ data:
     SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
 
     GENERATORS = {
-        "HajimariConfig": hajimari_generator,
         "GatusConfig": gatus_generator,
     }
 

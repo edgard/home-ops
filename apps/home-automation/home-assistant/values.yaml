@@ -67,10 +67,14 @@ service:
         targetPort: 8123
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Home Assistant
+      gethomepage.dev/group: Home Automation
+      gethomepage.dev/icon: home-assistant.svg
+      gethomepage.dev/app: home-assistant
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: home-assistant
     parentRefs:
       - name: gateway-external
         namespace: platform-system

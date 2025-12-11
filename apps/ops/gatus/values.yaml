@@ -50,10 +50,14 @@ service:
         targetPort: http
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Status
+      gethomepage.dev/group: Ops
+      gethomepage.dev/icon: gatus.svg
+      gethomepage.dev/app: gatus
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: heart-pulse
     parentRefs:
       - name: gateway-external
         namespace: platform-system

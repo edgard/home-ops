@@ -47,10 +47,14 @@ service:
         targetPort: 80
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Echo
+      gethomepage.dev/group: Edge Services
+      gethomepage.dev/icon: webhook.svg
+      gethomepage.dev/app: echo
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: webhook
     parentRefs:
       - name: gateway-external
         namespace: platform-system

@@ -59,10 +59,14 @@ service:
         targetPort: 7878
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Radarr
+      gethomepage.dev/group: Media
+      gethomepage.dev/icon: radarr.svg
+      gethomepage.dev/app: radarr
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: movie
     parentRefs:
       - name: gateway-external
         namespace: platform-system

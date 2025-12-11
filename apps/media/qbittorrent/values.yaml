@@ -91,10 +91,14 @@ service:
         targetPort: 6881
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: qBittorrent
+      gethomepage.dev/group: Media
+      gethomepage.dev/icon: qbittorrent.svg
+      gethomepage.dev/app: qbittorrent
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: download
     parentRefs:
       - name: gateway-external
         namespace: platform-system

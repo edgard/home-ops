@@ -76,10 +76,14 @@ service:
         targetPort: 8920
 route:
   external:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Jellyfin
+      gethomepage.dev/group: Media
+      gethomepage.dev/icon: jellyfin.svg
+      gethomepage.dev/app: jellyfin
     labels:
       external-dns.edgard.org/scope: external
-      hajimari.edgard.org/enabled: "true"
-      hajimari.edgard.org/icon: play-circle
     parentRefs:
       - name: gateway-external
         namespace: platform-system
