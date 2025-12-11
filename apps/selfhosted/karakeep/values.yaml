@@ -22,8 +22,8 @@ controllers:
         env:
           DATA_DIR: /data
           NEXTAUTH_URL: https://karakeep.edgard.org
-          MEILI_ADDR: http://karakeep-meilisearch.edge-services.svc.cluster.local:7700
-          BROWSER_WEB_URL: http://karakeep-chrome.edge-services.svc.cluster.local:9222
+          MEILI_ADDR: http://karakeep-meilisearch.selfhosted.svc.cluster.local:7700
+          BROWSER_WEB_URL: http://karakeep-chrome.selfhosted.svc.cluster.local:9222
           CRAWLER_DOWNLOAD_BANNER_IMAGE: "true"
           CRAWLER_ENABLE_ADBLOCKER: "true"
           CRAWLER_STORE_SCREENSHOT: "true"
@@ -125,7 +125,7 @@ controllers:
           repository: ghcr.io/edgard/karakeep-ai-sorter
           tag: "0.0.1"
         env:
-          KARAKEEP_API_BASE: http://karakeep.edge-services.svc.cluster.local:3000/api/v1
+          KARAKEEP_API_BASE: http://karakeep.selfhosted.svc.cluster.local:3000/api/v1
           KARAKEEP_API_KEY:
             valueFrom:
               secretKeyRef:
@@ -167,7 +167,7 @@ route:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Karakeep
-      gethomepage.dev/group: Edge Services
+      gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: karakeep.svg
       gethomepage.dev/app: karakeep
     labels:

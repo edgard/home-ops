@@ -113,7 +113,7 @@ route:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Change Detection
-      gethomepage.dev/group: Edge Services
+      gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: changedetection.svg
       gethomepage.dev/app: changedetection
     labels:

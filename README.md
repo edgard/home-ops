@@ -22,7 +22,7 @@ Argo CD–managed Kubernetes homelab running on Kind with supporting Cloudflare 
 - `bootstrap/config/` – Kind cluster config and SOPS secret template.
 - `bootstrap/scripts/bootstrap.py` – installer for Kind, Multus, and Argo CD.
 - `argocd/` – root Argo app, namespaces, projects, ApplicationSet.
-- `apps/<group>/<app>/` – chart config/values plus optional manifests.
+- `apps/<group>/<app>/` – chart config/values plus optional manifests. Groups include argocd, kube-system, platform-system, ops, selfhosted, media, and home-automation.
 - `terraform/` – OpenTofu for Cloudflare DNS/rules.
 
 ## More Details

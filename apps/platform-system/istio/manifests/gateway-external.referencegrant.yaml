@@ -14,7 +14,7 @@ spec:
       namespace: home-automation
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      namespace: edge-services
+      namespace: selfhosted
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       namespace: ops

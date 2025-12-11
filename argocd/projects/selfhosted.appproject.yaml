@@ -2,14 +2,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: edge-services
+  name: selfhosted
   namespace: argocd
 spec:
-  description: Edge services applications
+  description: Self-hosted applications
   sourceRepos:
     - "*"
   destinations:
-    - namespace: edge-services
+    - namespace: selfhosted
       server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: "*"

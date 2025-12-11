@@ -50,7 +50,7 @@ route:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Echo
-      gethomepage.dev/group: Edge Services
+      gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: webhook.svg
       gethomepage.dev/app: echo
     labels:
