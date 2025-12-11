@@ -10,7 +10,7 @@ controllers:
       main:
         image:
           repository: ghcr.io/twin/gatus
-          tag: v5.33.0
+          tag: v5.33.1
         envFrom:
           - secretRef:
               name: gatus-credentials
