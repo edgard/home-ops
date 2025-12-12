@@ -14,13 +14,18 @@ extraArgs:
   cookie-expire: 24h
   skip-auth-preflight: "true"
   reverse-proxy: "true"
+  cookie-secure: true
   code-challenge-method: S256
+  pass-authorization-header: "false"
+  pass-user-headers: "false"
+  pass-basic-auth: "false"
+  pass-access-token: "false"
   real-client-ip-header: X-Forwarded-For
   redirect-url: https://auth.edgard.org/oauth2/callback
   approval-prompt: auto
   upstream: static://200
-  skip-auth-route: ^/oauth2/healthz$
   skip-provider-button: "true"
+  set-xauthrequest: true
 deploymentAnnotations:
   reloader.stakater.com/auto: "true"
 
