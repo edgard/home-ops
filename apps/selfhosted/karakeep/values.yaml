@@ -18,7 +18,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/karakeep-app/karakeep
-          tag: "0.29.1"
+          tag: "0.29.2"
         env:
           DATA_DIR: /data
           NEXTAUTH_URL: https://karakeep.edgard.org
