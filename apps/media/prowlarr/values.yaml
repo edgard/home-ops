@@ -93,7 +93,7 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/prowlarr
+    type: persistentVolumeClaim
+    size: 5Gi
     globalMounts:
       - path: /config

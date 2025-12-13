@@ -40,7 +40,7 @@ spec:
         certificateRefs:
           - group: ""
             kind: Secret
-            name: cert-manager-wildcard-tls
+            name: gateway-wildcard-tls
       allowedRoutes:
         namespaces:
           from: All
@@ -53,7 +53,7 @@ spec:
         certificateRefs:
           - group: ""
             kind: Secret
-            name: cert-manager-wildcard-tls
+            name: gateway-wildcard-tls
       allowedRoutes:
         namespaces:
           from: All

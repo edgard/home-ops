@@ -58,7 +58,7 @@ service:
     enabled: false
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/recyclarr
+    type: persistentVolumeClaim
+    size: 2Gi
     globalMounts:
       - path: /config

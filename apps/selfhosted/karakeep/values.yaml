@@ -198,9 +198,8 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/karakeep
-    hostPathType: DirectoryOrCreate
+    type: persistentVolumeClaim
+    size: 5Gi
     advancedMounts:
       karakeep:
         app:

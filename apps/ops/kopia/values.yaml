@@ -144,21 +144,19 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/kopia/config
-    hostPathType: DirectoryOrCreate
+    type: persistentVolumeClaim
+    size: 5Gi
     globalMounts:
       - path: /config
   repository:
-    type: hostPath
-    hostPath: /mnt/dpool/backup/kopia
-    hostPathType: DirectoryOrCreate
+    type: persistentVolumeClaim
+    storageClass: local-bulk
+    size: 5Ti
     globalMounts:
       - path: /repository
   tmp:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/kopia/tmp
-    hostPathType: DirectoryOrCreate
+    type: persistentVolumeClaim
+    size: 10Gi
     globalMounts:
       - path: /tmp
   source:

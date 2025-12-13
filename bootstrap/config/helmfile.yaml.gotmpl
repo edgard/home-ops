@@ -1,0 +1,117 @@
+{{- /* chartRef: OCI repo with optional path -> repo/path or repo */ -}}
+{{- define "chartRef" -}}
+{{- $c := . -}}
+{{- if and (hasKey $c "path") (not (empty $c.path)) (ne $c.path ".") -}}
+  {{- printf "%s/%s" $c.repo $c.path -}}
+{{- else -}}
+  {{- $c.repo -}}
+{{- end -}}
+{{- end -}}
+
+{{- $lppCfg := readFile "../../apps/local-path-storage/local-path-provisioner/config.yaml" | fromYaml -}}
+{{- $multusCfg := readFile "../../apps/platform-system/multus/config.yaml" | fromYaml -}}
+{{- $argocdCfg := readFile "../../apps/argocd/argocd/config.yaml" | fromYaml -}}
+{{- $lppChart := include "chartRef" $lppCfg.chart -}}
+{{- $multusChart := include "chartRef" $multusCfg.chart -}}
+{{- $argocdChart := include "chartRef" $argocdCfg.chart -}}
+
+helmDefaults:
+  wait: true
+  timeout: 600
+  historyMax: 5
+  createNamespace: true
+
+releases:
+  - name: local-path-provisioner
+    namespace: local-path-storage
+    chart: '{{ $lppChart }}'
+    version: '{{ $lppCfg.chart.version }}'
+    values:
+      - ../../apps/local-path-storage/local-path-provisioner/values.yaml
+    hooks:
+      - events: ["presync"]
+        showlogs: true
+        command: sh
+        args:
+          - -c
+          - |
+            set -euo pipefail
+            kubectl create namespace media --dry-run=client -o yaml | kubectl apply -f -
+      - events: ["presync"]
+        showlogs: true
+        command: kubectl
+        args:
+          - apply
+          - -f
+          - ../../apps/local-path-storage/local-path-provisioner/manifests
+      - events: ["postsync"]
+        showlogs: true
+        command: kubectl
+        args:
+          - patch
+          - storageclass
+          - standard
+          - -p
+          - '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+      - events: ["postsync"]
+        showlogs: true
+        command: sh
+        args:
+          - -c
+          - |
+            set -euo pipefail
+            kubectl rollout restart deploy/local-path-provisioner -n local-path-storage
+            kubectl rollout status deploy/local-path-provisioner -n local-path-storage --timeout=120s
+
+  # Multus CNI via helm (before Argo takes over).
+  - name: multus
+    namespace: platform-system
+    chart: '{{ $multusChart }}'
+    version: '{{ $multusCfg.chart.version }}'
+    needs:
+      - local-path-storage/local-path-provisioner
+    values:
+      - ../../apps/platform-system/multus/values.yaml
+    hooks:
+      - events: ["postsync"]
+        showlogs: true
+        command: kubectl
+        args:
+          - apply
+          - -f
+          - ../../apps/platform-system/multus/manifests
+
+  # Argo CD control plane
+  - name: argocd
+    namespace: argocd
+    chart: '{{ $argocdChart }}'
+    version: '{{ $argocdCfg.chart.version }}'
+    needs:
+      - platform-system/multus
+    values:
+      - ../../apps/argocd/argocd/values.yaml
+    hooks:
+      - events: ["postsync"]
+        showlogs: true
+        command: sh
+        args:
+          - -c
+          - |
+            set -euo pipefail
+            user=$(kubectl get secret cluster-credentials -n platform-system -o jsonpath='{.data.argocd_repo_username}' | base64 -d)
+            pwd=$(kubectl get secret cluster-credentials -n platform-system -o jsonpath='{.data.argocd_repo_password}' | base64 -d)
+            kubectl create secret generic argocd-repo-home-ops \
+              -n argocd \
+              --from-literal=url=https://github.com/edgard/home-ops.git \
+              --from-literal=username="${user}" \
+              --from-literal=password="${pwd}" \
+              --dry-run=client -o yaml \
+              | kubectl apply -f -
+            kubectl label secret argocd-repo-home-ops -n argocd argocd.argoproj.io/secret-type=repository --overwrite
+      - events: ["postsync"]
+        showlogs: true
+        command: kubectl
+        args:
+          - apply
+          - -f
+          - ../../argocd/root.app.yaml

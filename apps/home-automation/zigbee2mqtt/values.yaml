@@ -88,8 +88,8 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/zigbee2mqtt/data
+    type: persistentVolumeClaim
+    size: 5Gi
     globalMounts:
       - path: /app/data
   usb:

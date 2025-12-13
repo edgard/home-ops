@@ -85,10 +85,11 @@ route:
             port: 80
 
 persistence:
-  www:
-    type: hostPath
-    hostPath: /mnt/dpool/www
-    hostPathType: DirectoryOrCreate
+  nginx-data:
+    type: persistentVolumeClaim
+    storageClass: local-bulk
+    accessMode: ReadWriteOnce
+    size: 200Gi
     advancedMounts:
       nginx:
         app:

@@ -44,17 +44,17 @@ service:
         targetPort: 1883
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/mosquitto/config
+    type: persistentVolumeClaim
+    size: 1Gi
     globalMounts:
       - path: /mosquitto/config
   data-store:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/mosquitto/data
+    type: persistentVolumeClaim
+    size: 2Gi
     globalMounts:
       - path: /mosquitto/data
   log:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/mosquitto/log
+    type: persistentVolumeClaim
+    size: 1Gi
     globalMounts:
       - path: /mosquitto/log

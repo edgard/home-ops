@@ -144,8 +144,7 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/changedetection
-    hostPathType: DirectoryOrCreate
+    type: persistentVolumeClaim
+    size: 5Gi
     globalMounts:
       - path: /datastore

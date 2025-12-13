@@ -101,14 +101,6 @@ persistence:
           - path: /etc/dex/config.docker.yaml
             subPath: config.yaml
             readOnly: true
-  data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/dex
-    hostPathType: DirectoryOrCreate
-    advancedMounts:
-      dex:
-        app:
-          - path: /data
   tmp:
     type: emptyDir
     advancedMounts:
@@ -122,9 +114,10 @@ configMaps:
       config.yaml: |-
         issuer: https://id.edgard.org
         storage:
-          type: sqlite3
+          type: kubernetes
           config:
-            file: /data/dex.db
+            inCluster: true
+            namespace: platform-system
         web:
           http: 0.0.0.0:5556
         logger:
