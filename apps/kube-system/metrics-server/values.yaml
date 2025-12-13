@@ -1,5 +1,4 @@
 ---
-replicas: 1
 updateStrategy:
   type: Recreate
 fullnameOverride: metrics-server

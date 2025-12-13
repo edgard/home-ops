@@ -88,7 +88,7 @@ controllers:
       browser-sockpuppet-chrome:
         image:
           repository: dgtlmoon/sockpuppetbrowser
-          tag: "0.0.3"
+          tag: 0.0.3
         env:
           SCREEN_WIDTH: "1920"
           SCREEN_HEIGHT: "1080"

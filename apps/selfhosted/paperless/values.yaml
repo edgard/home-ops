@@ -17,12 +17,12 @@ controllers:
       tesseract-langs:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: "2.20.2"
+          tag: 2.20.2
         env:
           PAPERLESS_OCR_LANGUAGES: eng por pol
         command:
-          - "/bin/bash"
-          - "-c"
+          - /bin/bash
+          - -c
         args:
           - |
             set -e
@@ -70,7 +70,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: "2.20.2"
+          tag: 2.20.2
         env:
           PAPERLESS_URL: https://paperless.edgard.org
           PAPERLESS_PORT: "8000"
@@ -154,8 +154,7 @@ controllers:
       app:
         image:
           repository: docker.io/apache/tika
-          tag: "3.2.3.0"
-
+          tag: 3.2.3.0
   redis:
     type: deployment
     replicas: 1
@@ -197,10 +196,10 @@ controllers:
       init-config:
         image:
           repository: busybox
-          tag: "1.37.0"
+          tag: 1.37.0
         command:
-          - "/bin/sh"
-          - "-c"
+          - /bin/sh
+          - -c
         args:
           - |
             mkdir -p /app/data
@@ -220,7 +219,7 @@ controllers:
       app:
         image:
           repository: docker.io/clusterzx/paperless-ai
-          tag: "3.0.9"
+          tag: 3.0.9
         securityContext:
           runAsUser: 0
           runAsGroup: 0

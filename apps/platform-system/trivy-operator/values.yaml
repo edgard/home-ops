@@ -2,18 +2,17 @@
 fullnameOverride: trivy-operator
 
 operator:
-  excludeNamespaces: "kube-system,kube-public,kube-node-lease,local-path-storage"
+  excludeNamespaces: kube-system,kube-public,kube-node-lease,local-path-storage
   scanJobTTL: 30s
   scanSecretTTL: 30s
   scanJobsConcurrentLimit: 1
 
 trivy:
   severity: CRITICAL
-  slow: true
   ignoreUnfixed: true
 
 trivyOperator:
-  scanJobAnnotations: "k8tz.io/inject=false"
+  scanJobAnnotations: k8tz.io/inject=false
 
 nodeCollector:
   tolerations:

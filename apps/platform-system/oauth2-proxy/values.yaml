@@ -4,7 +4,7 @@ config:
 extraArgs:
   provider: oidc
   oidc-issuer-url: https://id.edgard.org
-  scope: "openid profile email groups"
+  scope: openid profile email groups
   client-id: oauth2-proxy
   email-domain: "*"
   cookie-domain: .edgard.org

@@ -2,8 +2,6 @@
 fullnameOverride: external-dns-internal
 image:
   tag: v0.19.0
-deploymentStrategy:
-  type: Recreate
 triggerLoopOnEvent: true
 serviceAccount:
   name: external-dns-internal

@@ -1,5 +1,4 @@
 ---
-# Only manage the Corefile ConfigMap; no workloads are deployed.
 controllers: {}
 
 configMaps:

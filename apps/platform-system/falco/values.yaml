@@ -3,25 +3,18 @@ fullnameOverride: falco
 
 controller:
   kind: deployment
-  deployment:
-    replicas: 1
 
 driver:
   kind: modern_ebpf
-  sysfsMountPath: /sys/kernel
-  modernEbpf:
-    sysfsMount: true
 
 collectors:
   kubernetes:
     enabled: true
-    collectorHostname: "" # use service default
   containerEngine:
     engines:
       containerd:
-        enabled: true
         sockets:
-          - "/run/containerd/containerd.sock"
+          - /run/containerd/containerd.sock
       docker:
         enabled: false
       podman:
@@ -38,16 +31,8 @@ collectors:
 falco:
   priority: warning
   json_output: true
-  json_include_output_property: true
-  json_include_tags_property: true
   http_output:
     enabled: true
     url: http://homelab-controller.platform-system.svc.cluster.local/notify/falco
     user_agent: falco/homelab
-
-# Remove control-plane tolerations so the control-plane taint blocks scheduling
 tolerations: []
-
-# Falcosidekick disabled - using native HTTP output instead
-falcosidekick:
-  enabled: false

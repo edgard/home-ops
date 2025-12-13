@@ -18,7 +18,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/karakeep-app/karakeep
-          tag: "0.29.3"
+          tag: 0.29.3
         env:
           DATA_DIR: /data
           NEXTAUTH_URL: https://karakeep.edgard.org
@@ -123,7 +123,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/edgard/karakeep-ai-sorter
-          tag: "0.0.1"
+          tag: 0.0.1
         env:
           KARAKEEP_API_BASE: http://karakeep.selfhosted.svc.cluster.local:3000/api/v1
           KARAKEEP_API_KEY:

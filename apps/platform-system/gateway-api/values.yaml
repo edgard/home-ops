@@ -1,3 +1,2 @@
 ---
-# Gateway API CRDs - no workloads, just manifests
 controllers: {}
