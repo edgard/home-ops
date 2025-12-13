@@ -17,7 +17,7 @@
     {
       customType: "regex",
       description: "Kind node images",
-      managerFilePatterns: ["/^bootstrap/config/cluster-config\\.ya?ml$/"],
+      managerFilePatterns: ["/^bootstrap/cluster-config\\.ya?ml$/"],
       matchStrings: [
         "image:\\s*(?:&\\S+\\s+)?(?<packageName>kindest/node):(?<currentValue>[0-9A-Za-z_.\\-]+)",
       ],
@@ -84,7 +84,7 @@
     // Grouping
     {
       description: "Group Kind node updates",
-      matchFileNames: ["bootstrap/config/cluster-config.yaml"],
+      matchFileNames: ["bootstrap/cluster-config.yaml"],
       groupName: "kind-nodes",
     },
 

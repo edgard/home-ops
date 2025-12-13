@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""Bootstrap the Kind-based homelab cluster and Argo CD install."""
-
-from __future__ import annotations
+"""Bring up the Kind-based homelab cluster and host plumbing."""
 
 import argparse
 import base64
@@ -60,8 +58,8 @@ def build_logger() -> logging.Logger:
 
 
 class Bootstrapper:
-    def __init__(self, delete_mode: bool) -> None:
-        self.delete_mode = delete_mode
+    def __init__(self, destroy_mode: bool) -> None:
+        self.destroy_mode = destroy_mode
 
         # Environment defaults
         self.multus_iface = os.environ.get("MULTUS_PARENT_IFACE", "br0")
@@ -70,13 +68,11 @@ class Bootstrapper:
         self.multus_ip_range = os.environ.get("MULTUS_PARENT_IP_RANGE", "192.168.1.240/29")
 
         # Filesystem layout
-        self.project_root = Path(__file__).resolve().parents[2]
-        self.cluster_config_root = self.project_root / "bootstrap" / "config"
+        self.cluster_config_root = Path(__file__).resolve().parent
         self.kind_config_path = self.cluster_config_root / "cluster-config.yaml"
         self.cluster_credentials_sops_path = self.cluster_config_root / "cluster-credentials.sops.yaml"
         self.default_kubeconfig = Path.home() / ".kube/config"
-        self.default_age_key = self.project_root / ".sops.agekey"
-        self.helmfile_path = self.project_root / "bootstrap" / "config" / "helmfile.yaml.gotmpl"
+        self.default_age_key = self.cluster_config_root.parent / ".sops.agekey"
 
         # Runtime/cache state
         self.cluster_name = ""
@@ -84,7 +80,6 @@ class Bootstrapper:
         self.advertise_host = ""
         self.original_docker_context: Optional[str] = None
         self.cluster_credentials_data: Optional[Dict[str, Any]] = None
-        self.decrypted_secrets_path: Optional[Path] = None
         self._temp_dir = tempfile.TemporaryDirectory(prefix="homelab-")
 
         self.env = os.environ.copy()
@@ -106,25 +101,6 @@ class Bootstrapper:
         if shutil.which(name) is None:
             raise BootstrapError(f"[Deps] {name} is required but not found in PATH")
 
-    def run_prebootstrap_helmfile(self, run_helmfile: bool) -> None:
-        """
-        Apply pre-Argo dependencies (storage, CNI, ArgoCD) via helmfile in declared order.
-        """
-        if self.delete_mode or not run_helmfile:
-            return
-        if not self.helmfile_path.exists():
-            self.logger.warning(f"[Helmfile] Not found at {self.helmfile_path}, skipping prebootstrap sync")
-            return
-        self.logger.info(f"[Helmfile] Syncing prebootstrap dependencies file={self.helmfile_path}")
-        self.run(
-            [
-                "helmfile",
-                "-f",
-                str(self.helmfile_path),
-                "sync",
-            ]
-        )
-
     def set_env_path(self, key: str, default_path: Optional[Path] = None) -> None:
         value = os.environ.get(key)
         if not value and default_path and default_path.exists():
@@ -141,34 +117,18 @@ class Bootstrapper:
 
     def render_kind_config(self) -> Path:
         """
-        Render the Kind config with registry credentials injected from SOPS.
+        Return the Kind config path without mutation (placeholders not supported).
         """
-        raw = self.kind_config_path.read_text(encoding="utf-8")
-
-        replacements = {
-            "__DOCKERHUB_USERNAME__": self.get_secret_value("dockerhub_username", required=False),
-            "__DOCKERHUB_PASSWORD__": self.get_secret_value("dockerhub_password", required=False),
-        }
-
-        for token, value in replacements.items():
-            if token in raw and not value:
-                raise BootstrapError(
-                    f"[Config] Placeholder {token} present in {self.kind_config_path} but no value provided in cluster credentials"
-                )
-            raw = raw.replace(token, value or token)
-
-        rendered_path = self.make_temp_file(suffix=".yaml")
-        rendered_path.write_text(raw, encoding="utf-8")
-        return rendered_path
+        return self.kind_config_path
 
     # --------------------------------------------------------- Execution flow
     def execute(self) -> None:
         self.init_environment()
 
-        if self.delete_mode:
-            self.logger.info(f"[Bootstrap] Starting delete workflow cluster={self.cluster_name}")
+        if self.destroy_mode:
+            self.logger.info(f"[Bootstrap] Starting destroy workflow cluster={self.cluster_name}")
             self.teardown_cluster()
-            self.logger.info(f"[Bootstrap] Delete workflow complete cluster={self.cluster_name}")
+            self.logger.info(f"[Bootstrap] Destroy workflow complete cluster={self.cluster_name}")
             return
 
         self.bootstrap_flow()
@@ -188,9 +148,9 @@ class Bootstrapper:
     def init_environment(self) -> None:
         self.cluster_name = self.load_cluster_name()
 
-        required = ["docker", "kind", "sops", "helmfile"]
-        if not self.delete_mode:
-            required.extend(["kubectl", "helm"])
+        required = ["docker", "kind", "sops"]
+        if not self.destroy_mode:
+            required.append("kubectl")
         for command in required:
             self.ensure_command(command)
 
@@ -230,15 +190,14 @@ class Bootstrapper:
     def bootstrap_flow(self) -> None:
         self.logger.info(f"[Bootstrap] Starting create workflow cluster={self.cluster_name}")
         self.detect_api_endpoint_settings()
-        created = self.create_cluster()
+        self.create_cluster()
         self.configure_macvlan_network()
         self.patch_kubeconfig_endpoint()
         self.use_kube_context()
         self.ensure_nodes_ready()
         self.strip_kindnet_resources()
-        self.apply_cluster_secrets()
         self.preload_busybox_image()
-        self.run_prebootstrap_helmfile(created)
+        self.preload_k8tz_image()
         self.logger.info(f"[Bootstrap] Complete kubectl-context={self.kind_context}")
 
     # -------------------------------------------------- Cluster & networking
@@ -309,7 +268,7 @@ class Bootstrapper:
             without_scheme = without_scheme.split("@", 1)[-1]
         return without_scheme.split(":")[0]
 
-    def create_cluster(self) -> bool:
+    def create_cluster(self) -> None:
         rendered_config_path = self.render_kind_config()
         with rendered_config_path.open("r", encoding="utf-8") as handle:
             config = yaml.safe_load(handle)
@@ -334,16 +293,14 @@ class Bootstrapper:
         if not self.cluster_exists():
             self.logger.info(f"[Cluster] Creating Kind cluster name={self.cluster_name}")
             self.run(["kind", "create", "cluster", "--config", str(config_path)])
-            return True
         else:
             if self.bind_address or self.advertise_host:
                 current_host, _ = self.current_api_server_endpoint()
                 if current_host and current_host != self.advertise_host:
-                    raise BootstrapError(f"[Cluster] API host mismatch name={self.cluster_name} current={current_host} " f"expected={self.advertise_host} action=recreate-with-delete")
+                    raise BootstrapError(f"[Cluster] API host mismatch name={self.cluster_name} current={current_host} " f"expected={self.advertise_host} action=recreate-with-destroy")
                 if current_host is None:
-                    raise BootstrapError(f"[Cluster] API host unknown name={self.cluster_name} action=recreate-with-delete")
+                    raise BootstrapError(f"[Cluster] API host unknown name={self.cluster_name} action=recreate-with-destroy")
             self.logger.info(f"[Cluster] Skipping create reason=cluster-exists name={self.cluster_name}")
-            return False
 
     def cluster_exists(self) -> bool:
         clusters = self.run(["kind", "get", "clusters"], check=False, capture_output=True).stdout.splitlines()
@@ -353,9 +310,42 @@ class Bootstrapper:
         """Pre-pull busybox and load into Kind nodes to avoid rate limits during PVC helper jobs."""
         image = "docker.io/library/busybox:stable"
         self.logger.info(f"[Warmup] Pulling busybox image={image}")
-        self.run(["docker", "pull", image])
+        try:
+            self.run(["docker", "pull", image])
+        except subprocess.CalledProcessError as exc:
+            raise BootstrapError(f"[Warmup] Failed to pull busybox image={image}") from exc
         self.logger.info(f"[Warmup] Loading busybox into Kind name={self.cluster_name}")
-        self.run(["kind", "load", "docker-image", image, "--name", self.cluster_name])
+        try:
+            self.run(["kind", "load", "docker-image", image, "--name", self.cluster_name])
+        except subprocess.CalledProcessError as exc:
+            raise BootstrapError(f"[Warmup] Failed to load busybox into Kind name={self.cluster_name}") from exc
+
+    def preload_k8tz_image(self) -> None:
+        """Pre-pull k8tz webhook image to avoid early bootstrap pulls."""
+        config_path = self.cluster_config_root.parent / "apps" / "kube-system" / "k8tz" / "config.yaml"
+        if not config_path.exists():
+            raise BootstrapError(f"[Warmup] k8tz config not found at {config_path}")
+
+        try:
+            data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        except Exception as exc:  # pragma: no cover - defensive
+            raise BootstrapError(f"[Warmup] Failed to parse k8tz config at {config_path}: {exc}") from exc
+
+        version = str(data.get("chart", {}).get("version") or "").strip().lstrip("v")
+        if not version:
+            raise BootstrapError(f"[Warmup] k8tz chart version missing in {config_path}")
+
+        image = f"quay.io/k8tz/k8tz:{version}"
+        self.logger.info(f"[Warmup] Pulling k8tz image={image}")
+        try:
+            self.run(["docker", "pull", image])
+        except subprocess.CalledProcessError as exc:
+            raise BootstrapError(f"[Warmup] Failed to pull k8tz image={image}") from exc
+        self.logger.info(f"[Warmup] Loading k8tz into Kind name={self.cluster_name}")
+        try:
+            self.run(["kind", "load", "docker-image", image, "--name", self.cluster_name])
+        except subprocess.CalledProcessError as exc:
+            raise BootstrapError(f"[Warmup] Failed to load k8tz into Kind name={self.cluster_name}") from exc
 
     def configure_macvlan_network(self) -> None:
         network_name = self.multus_network
@@ -472,16 +462,19 @@ class Bootstrapper:
 
     def ensure_nodes_ready(self) -> None:
         self.logger.info("[Nodes] Waiting for all nodes to become Ready")
-        self.run(
-            [
-                "kubectl",
-                "wait",
-                "--for=condition=Ready",
-                "node",
-                "--all",
-                "--timeout=180s",
-            ]
-        )
+        try:
+            self.run(
+                [
+                    "kubectl",
+                    "wait",
+                    "--for=condition=Ready",
+                    "node",
+                    "--all",
+                    "--timeout=180s",
+                ]
+            )
+        except subprocess.CalledProcessError as exc:
+            raise BootstrapError("[Nodes] Timed out waiting for nodes Ready") from exc
         self.logger.info("[Nodes] All nodes are Ready")
 
     def strip_kindnet_resources(self) -> None:
@@ -521,45 +514,29 @@ class Bootstrapper:
             capture_output=True,
         )
         if result.returncode != 0:
-            self.logger.warning("[Network] Failed to patch Kindnet reason=resources-maybe-absent")
+            raise BootstrapError("[Network] Failed to patch Kindnet resources (kindnet DaemonSet missing?)")
 
-    def ensure_namespace_exists(self, namespace: str) -> None:
-        namespace = (namespace or "").strip()
-        if not namespace:
-            return
-        result = self.run(
-            ["kubectl", "get", "namespace", namespace],
-            check=False,
-            capture_output=True,
-        )
-        if result.returncode == 0:
-            return
-        self.logger.info(f"[Kubernetes] Creating namespace name={namespace}")
-        self.run(["kubectl", "create", "namespace", namespace])
-
-    # -------------------------------------------------------- Secrets & ArgoCD
-    def ensure_cluster_secrets_loaded(self) -> bool:
+    # -------------------------------------------------------- Secrets
+    def ensure_cluster_secrets_loaded(self) -> None:
         if self.cluster_credentials_data is not None:
-            return True
+            return
         if not self.cluster_credentials_sops_path.exists():
             raise BootstrapError(f"[Secrets] Missing cluster credentials file at {self.cluster_credentials_sops_path}")
 
-        tmp = self.make_temp_file(suffix=".yaml")
-        with tmp.open("w", encoding="utf-8") as handle:
+        tmp_path = self.make_temp_file(suffix=".yaml")
+        with tmp_path.open("w", encoding="utf-8") as handle:
             self.run(
                 ["sops", "--decrypt", str(self.cluster_credentials_sops_path)],
                 env=self.env,
                 stdout=handle,
             )
 
-        with tmp.open("r", encoding="utf-8") as handle:
+        with tmp_path.open("r", encoding="utf-8") as handle:
             data = yaml.safe_load(handle) or {}
         if not isinstance(data, dict):
             raise BootstrapError(f"[Secrets] {self.cluster_credentials_sops_path} must be a Secret manifest")
 
         self.cluster_credentials_data = data
-        self.decrypted_secrets_path = tmp
-        return True
 
     def get_secret_value(self, key: str, required: bool = True) -> str:
         """
@@ -585,27 +562,16 @@ class Bootstrapper:
             return str(value)
 
         if required:
-            raise BootstrapError(
-                f"[Secrets] Required key '{key}' not found in {self.cluster_credentials_sops_path}"
-            )
+            raise BootstrapError(f"[Secrets] Required key '{key}' not found in {self.cluster_credentials_sops_path}")
         return ""
 
-    def apply_cluster_secrets(self) -> None:
-        self.ensure_cluster_secrets_loaded()
-        assert self.decrypted_secrets_path is not None
-        metadata = (self.cluster_credentials_data or {}).get("metadata") or {}
-        namespace = str(metadata.get("namespace") or "platform-system")
-        self.ensure_namespace_exists(namespace)
-        self.logger.info("[Secrets] Applying cluster credentials secret=cluster-credentials decrypted=true")
-        self.run(["kubectl", "apply", "-f", str(self.decrypted_secrets_path)])
-
-    # ------------------------------------------------------------- Delete flow
+    # ------------------------------------------------------------- Destroy flow
     def teardown_cluster(self) -> None:
         if self.cluster_exists():
-            self.logger.info(f"[Cluster] Deleting Kind cluster name={self.cluster_name}")
+            self.logger.info(f"[Cluster] Destroying Kind cluster name={self.cluster_name}")
             self.run(["kind", "delete", "cluster", "--name", self.cluster_name], check=False)
         else:
-            self.logger.info(f"[Cluster] Skipping delete reason=cluster-not-found name={self.cluster_name}")
+            self.logger.info(f"[Cluster] Skipping destroy reason=cluster-not-found name={self.cluster_name}")
 
         if self.multus_network:
             result = self.run(
@@ -654,19 +620,21 @@ class Bootstrapper:
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Bootstrap or delete the Kind-based homelab cluster.")
+    parser = argparse.ArgumentParser(description="Bootstrap or destroy the Kind-based homelab cluster.")
     parser.add_argument(
         "-d",
+        "--destroy",
         "--delete",
+        dest="destroy",
         action="store_true",
-        help="Delete the Kind cluster instead of creating it",
+        help="Destroy the Kind cluster instead of creating it",
     )
     return parser.parse_args(argv)
 
 
 def main(argv: Optional[List[str]] = None) -> None:
     args = parse_args(argv)
-    bootstrapper = Bootstrapper(delete_mode=args.delete)
+    bootstrapper = Bootstrapper(destroy_mode=args.destroy)
     try:
         bootstrapper.execute()
     except (BootstrapError, subprocess.CalledProcessError) as exc:

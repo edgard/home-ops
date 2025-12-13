@@ -10,8 +10,8 @@ set:
 shell: bash -c
 
 vars:
-  CLUSTER_CREDENTIALS_SOPS: '{{.CLUSTER_CREDENTIALS_SOPS | default (printf "%s/bootstrap/config/cluster-credentials.sops.yaml" .TASKFILE_DIR)}}'
-  CLUSTER_CREDENTIALS_TEMPLATE: '{{.CLUSTER_CREDENTIALS_TEMPLATE | default (printf "%s/bootstrap/config/cluster-credentials.template.yaml" .TASKFILE_DIR)}}'
+  CLUSTER_CREDENTIALS_SOPS: '{{.CLUSTER_CREDENTIALS_SOPS | default (printf "%s/bootstrap/cluster-credentials.sops.yaml" .TASKFILE_DIR)}}'
+  CLUSTER_CREDENTIALS_TEMPLATE: '{{.CLUSTER_CREDENTIALS_TEMPLATE | default (printf "%s/bootstrap/cluster-credentials.template.yaml" .TASKFILE_DIR)}}'
   SOPS_AGE_KEY_FILE: '{{.SOPS_AGE_KEY_FILE | default (printf "%s/.sops.agekey" .TASKFILE_DIR)}}'
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
 
@@ -21,22 +21,25 @@ tasks:
     cmds:
       - task --list
 
-  bootstrap:run:
+  bootstrap:create:
     desc: Provision Kind cluster and install Argo CD
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
     cmds:
-      - "python3 {{.TASKFILE_DIR}}/bootstrap/scripts/bootstrap.py"
+      - "python3 bootstrap_kind.py"
+      - 'SOPS_AGE_KEY_FILE="{{.SOPS_AGE_KEY_FILE}}" helmfile -f helmfile.yaml.gotmpl sync'
 
-  bootstrap:delete:
-    desc: Delete Kind cluster via bootstrap
+  bootstrap:destroy:
+    desc: Destroy Kind cluster via bootstrap
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
     cmds:
-      - "python3 {{.TASKFILE_DIR}}/bootstrap/scripts/bootstrap.py --delete"
+      - "python3 bootstrap_kind.py --destroy"
 
   bootstrap:recreate:
     desc: Recreate Kind cluster via bootstrap
     cmds:
-      - task: bootstrap:delete
+      - task: bootstrap:destroy
         ignore_error: true
-      - task: bootstrap:run
+      - task: bootstrap:create
 
   secrets:create-key:
     desc: Generate SOPS age key
