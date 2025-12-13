@@ -15,7 +15,7 @@ containerdConfigPatches:
       password = "__DOCKERHUB_PASSWORD__"
 nodes:
   - role: control-plane
-    image: &kind_node_image kindest/node:v1.34.0
+    image: &kind_node_image kindest/node:v1.34.2
     kubeadmConfigPatches:
       - |
         kind: ClusterConfiguration
