@@ -1,0 +1,23 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: local-path-storage
+  namespace: argocd
+spec:
+  description: Local path provisioner and storage classes
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: local-path-storage
+      server: https://kubernetes.default.svc
+    - namespace: media
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  orphanedResources:
+    warn: true

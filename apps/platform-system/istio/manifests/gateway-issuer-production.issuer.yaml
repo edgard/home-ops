@@ -1,17 +1,18 @@
 ---
 apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
+kind: Issuer
 metadata:
-  name: cert-manager-issuer-staging
+  name: gateway-issuer-production
+  namespace: platform-system
 spec:
   acme:
     email: ops@edgard.org
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
-      name: cert-manager-issuer-staging
+      name: gateway-issuer-production
     solvers:
       - dns01:
           cloudflare:
             apiTokenSecretRef:
-              name: cert-manager-credentials
+              name: gateway-credentials
               key: api-token

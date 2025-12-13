@@ -91,8 +91,8 @@ persistence:
         subPath: config.yaml
         readOnly: true
   data:
-    type: hostPath
-    hostPathType: DirectoryOrCreate
-    hostPath: /mnt/spool/appdata/gatus
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 2Gi
     globalMounts:
       - path: /data

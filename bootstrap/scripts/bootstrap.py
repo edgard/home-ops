@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import logging
 import os
@@ -69,19 +70,13 @@ class Bootstrapper:
         self.multus_ip_range = os.environ.get("MULTUS_PARENT_IP_RANGE", "192.168.1.240/29")
 
         # Filesystem layout
-        # bootstrap.py now lives under bootstrap/scripts; repo root is two levels up
         self.project_root = Path(__file__).resolve().parents[2]
         self.cluster_config_root = self.project_root / "bootstrap" / "config"
         self.kind_config_path = self.cluster_config_root / "cluster-config.yaml"
         self.cluster_credentials_sops_path = self.cluster_config_root / "cluster-credentials.sops.yaml"
         self.default_kubeconfig = Path.home() / ".kube/config"
         self.default_age_key = self.project_root / ".sops.agekey"
-        self.argocd_bootstrap_path = self.project_root / "argocd" / "root.app.yaml"
-        self.argocd_values_path = self.project_root / "apps" / "argocd" / "argocd" / "values.yaml"
-        self.argocd_app_config_path = self.project_root / "apps" / "argocd" / "argocd" / "config.yaml"
-        self.multus_app_config_path = self.project_root / "apps" / "platform-system" / "multus" / "config.yaml"
-        self.multus_values_path = self.project_root / "apps" / "platform-system" / "multus" / "values.yaml"
-        self.multus_manifests_path = self.project_root / "apps" / "platform-system" / "multus" / "manifests"
+        self.helmfile_path = self.project_root / "bootstrap" / "config" / "helmfile.yaml.gotmpl"
 
         # Runtime/cache state
         self.cluster_name = ""
@@ -107,50 +102,28 @@ class Bootstrapper:
     def multus_network(self) -> str:
         return f"{self.kind_context}-net"
 
-    def get_chart_version(self, config_path: Path, label: str, repo_suffix: Optional[str] = None) -> str:
-        """Return targetRevision from a chart config (config.yaml or Application manifest)."""
-        if not config_path.exists():
-            raise BootstrapError(f"[{label}] Chart config not found at {config_path}")
-
-        try:
-            with config_path.open(encoding="utf-8") as handle:
-                app = yaml.safe_load(handle) or {}
-        except Exception as exc:  # pragma: no cover - defensive
-            raise BootstrapError(f"[{label}] Failed to read {config_path}: {exc}") from exc
-
-        # config.yaml format used by apps/ (chart.version is required)
-        if isinstance(app, dict) and "chart" in app:
-            chart = app.get("chart") or {}
-            target = chart.get("version")
-            if target:
-                return str(target)
-            raise BootstrapError(f"[{label}] chart.version missing in {config_path}")
-
-        # Legacy ArgoCD Application manifest format
-        spec = app.get("spec", {}) if isinstance(app, dict) else {}
-        sources = spec.get("sources") or ([] if spec.get("source") is None else [spec.get("source")])
-
-        for src in sources:
-            if not isinstance(src, dict):
-                continue
-            repo = src.get("repoURL", "")
-            target = src.get("targetRevision")
-            if (not repo_suffix or repo.endswith(repo_suffix)) and target:
-                return str(target)
-
-        if repo_suffix:
-            raise BootstrapError(f"[{label}] No source ending with {repo_suffix} found in {config_path}")
-        raise BootstrapError(f"[{label}] No targetRevision found in {config_path}")
-
-    def get_argocd_chart_version(self) -> str:
-        return self.get_chart_version(self.argocd_app_config_path, "ArgoCD")
-
-    def get_multus_chart_version(self) -> str:
-        return self.get_chart_version(self.multus_app_config_path, "Multus")
-
     def ensure_command(self, name: str) -> None:
         if shutil.which(name) is None:
             raise BootstrapError(f"[Deps] {name} is required but not found in PATH")
+
+    def run_prebootstrap_helmfile(self, run_helmfile: bool) -> None:
+        """
+        Apply pre-Argo dependencies (storage, CNI, ArgoCD) via helmfile in declared order.
+        """
+        if self.delete_mode or not run_helmfile:
+            return
+        if not self.helmfile_path.exists():
+            self.logger.warning(f"[Helmfile] Not found at {self.helmfile_path}, skipping prebootstrap sync")
+            return
+        self.logger.info(f"[Helmfile] Syncing prebootstrap dependencies file={self.helmfile_path}")
+        self.run(
+            [
+                "helmfile",
+                "-f",
+                str(self.helmfile_path),
+                "sync",
+            ]
+        )
 
     def set_env_path(self, key: str, default_path: Optional[Path] = None) -> None:
         value = os.environ.get(key)
@@ -165,6 +138,28 @@ class Bootstrapper:
         fd, path = tempfile.mkstemp(prefix="tmp-", suffix=suffix, dir=temp_dir_path)
         os.close(fd)
         return Path(path)
+
+    def render_kind_config(self) -> Path:
+        """
+        Render the Kind config with registry credentials injected from SOPS.
+        """
+        raw = self.kind_config_path.read_text(encoding="utf-8")
+
+        replacements = {
+            "__DOCKERHUB_USERNAME__": self.get_secret_value("dockerhub_username", required=False),
+            "__DOCKERHUB_PASSWORD__": self.get_secret_value("dockerhub_password", required=False),
+        }
+
+        for token, value in replacements.items():
+            if token in raw and not value:
+                raise BootstrapError(
+                    f"[Config] Placeholder {token} present in {self.kind_config_path} but no value provided in cluster credentials"
+                )
+            raw = raw.replace(token, value or token)
+
+        rendered_path = self.make_temp_file(suffix=".yaml")
+        rendered_path.write_text(raw, encoding="utf-8")
+        return rendered_path
 
     # --------------------------------------------------------- Execution flow
     def execute(self) -> None:
@@ -193,7 +188,7 @@ class Bootstrapper:
     def init_environment(self) -> None:
         self.cluster_name = self.load_cluster_name()
 
-        required = ["docker", "kind", "sops"]
+        required = ["docker", "kind", "sops", "helmfile"]
         if not self.delete_mode:
             required.extend(["kubectl", "helm"])
         for command in required:
@@ -235,17 +230,15 @@ class Bootstrapper:
     def bootstrap_flow(self) -> None:
         self.logger.info(f"[Bootstrap] Starting create workflow cluster={self.cluster_name}")
         self.detect_api_endpoint_settings()
-        self.create_cluster()
+        created = self.create_cluster()
         self.configure_macvlan_network()
         self.patch_kubeconfig_endpoint()
         self.use_kube_context()
         self.ensure_nodes_ready()
         self.strip_kindnet_resources()
-        self.install_multus()
         self.apply_cluster_secrets()
-        self.install_argocd()
-        self.create_argocd_repo_secret()
-        self.apply_argocd_bootstrap()
+        self.preload_busybox_image()
+        self.run_prebootstrap_helmfile(created)
         self.logger.info(f"[Bootstrap] Complete kubectl-context={self.kind_context}")
 
     # -------------------------------------------------- Cluster & networking
@@ -316,8 +309,9 @@ class Bootstrapper:
             without_scheme = without_scheme.split("@", 1)[-1]
         return without_scheme.split(":")[0]
 
-    def create_cluster(self) -> None:
-        with self.kind_config_path.open("r", encoding="utf-8") as handle:
+    def create_cluster(self) -> bool:
+        rendered_config_path = self.render_kind_config()
+        with rendered_config_path.open("r", encoding="utf-8") as handle:
             config = yaml.safe_load(handle)
 
         if not isinstance(config, dict):
@@ -327,7 +321,7 @@ class Bootstrapper:
         if not nodes or not nodes[0].get("kubeadmConfigPatches"):
             raise BootstrapError(f"[Config] {self.kind_config_path} must define nodes[0].kubeadmConfigPatches for the control plane")
 
-        config_path: Path = self.kind_config_path
+        config_path: Path = rendered_config_path
         if self.bind_address:
             tmp_config = self.make_temp_file(suffix=".yaml")
             networking = config.setdefault("networking", {})
@@ -340,6 +334,7 @@ class Bootstrapper:
         if not self.cluster_exists():
             self.logger.info(f"[Cluster] Creating Kind cluster name={self.cluster_name}")
             self.run(["kind", "create", "cluster", "--config", str(config_path)])
+            return True
         else:
             if self.bind_address or self.advertise_host:
                 current_host, _ = self.current_api_server_endpoint()
@@ -348,10 +343,19 @@ class Bootstrapper:
                 if current_host is None:
                     raise BootstrapError(f"[Cluster] API host unknown name={self.cluster_name} action=recreate-with-delete")
             self.logger.info(f"[Cluster] Skipping create reason=cluster-exists name={self.cluster_name}")
+            return False
 
     def cluster_exists(self) -> bool:
         clusters = self.run(["kind", "get", "clusters"], check=False, capture_output=True).stdout.splitlines()
         return any(line.strip() == self.cluster_name for line in clusters)
+
+    def preload_busybox_image(self) -> None:
+        """Pre-pull busybox and load into Kind nodes to avoid rate limits during PVC helper jobs."""
+        image = "docker.io/library/busybox:stable"
+        self.logger.info(f"[Warmup] Pulling busybox image={image}")
+        self.run(["docker", "pull", image])
+        self.logger.info(f"[Warmup] Loading busybox into Kind name={self.cluster_name}")
+        self.run(["kind", "load", "docker-image", image, "--name", self.cluster_name])
 
     def configure_macvlan_network(self) -> None:
         network_name = self.multus_network
@@ -421,13 +425,14 @@ class Bootstrapper:
             self.logger.info("[Network] No worker nodes eligible for macvlan attachment")
 
     def patch_kubeconfig_endpoint(self) -> None:
-        if not self.advertise_host or not self.cluster_exists():
+        if not self.advertise_host:
             return
+        if not self.cluster_exists():
+            raise BootstrapError("[Kubeconfig] Cannot patch endpoint; cluster does not exist")
 
         current_host, port = self.current_api_server_endpoint()
         if port is None:
-            self.logger.warning("[Kubeconfig] Skipping patch reason=missing-api-server-port")
-            return
+            raise BootstrapError("[Kubeconfig] Missing API server port; cannot patch kubeconfig")
         if current_host == self.advertise_host:
             return
 
@@ -537,7 +542,7 @@ class Bootstrapper:
         if self.cluster_credentials_data is not None:
             return True
         if not self.cluster_credentials_sops_path.exists():
-            return False
+            raise BootstrapError(f"[Secrets] Missing cluster credentials file at {self.cluster_credentials_sops_path}")
 
         tmp = self.make_temp_file(suffix=".yaml")
         with tmp.open("w", encoding="utf-8") as handle:
@@ -556,126 +561,43 @@ class Bootstrapper:
         self.decrypted_secrets_path = tmp
         return True
 
+    def get_secret_value(self, key: str, required: bool = True) -> str:
+        """
+        Fetch a key from the decrypted cluster credentials Secret (stringData or data).
+        Decodes base64 when using 'data'.
+        """
+        self.ensure_cluster_secrets_loaded()
+        if not self.cluster_credentials_data:
+            if required:
+                raise BootstrapError("[Secrets] Cluster credentials are empty after decrypt")
+            return ""
+
+        for field in ("stringData", "data"):
+            values = self.cluster_credentials_data.get(field) or {}
+            if key not in values:
+                continue
+            value = values[key]
+            if field == "data":
+                try:
+                    return base64.b64decode(value).decode("utf-8")
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise BootstrapError(f"[Secrets] Failed to decode base64 for key={key}") from exc
+            return str(value)
+
+        if required:
+            raise BootstrapError(
+                f"[Secrets] Required key '{key}' not found in {self.cluster_credentials_sops_path}"
+            )
+        return ""
+
     def apply_cluster_secrets(self) -> None:
-        if not self.ensure_cluster_secrets_loaded():
-            self.logger.warning(f"[Secrets] Skipping cluster credentials reason=missing-file path={self.cluster_credentials_sops_path}")
-            return
+        self.ensure_cluster_secrets_loaded()
         assert self.decrypted_secrets_path is not None
         metadata = (self.cluster_credentials_data or {}).get("metadata") or {}
         namespace = str(metadata.get("namespace") or "platform-system")
         self.ensure_namespace_exists(namespace)
         self.logger.info("[Secrets] Applying cluster credentials secret=cluster-credentials decrypted=true")
         self.run(["kubectl", "apply", "-f", str(self.decrypted_secrets_path)])
-
-    def create_argocd_repo_secret(self) -> None:
-        if not self.ensure_cluster_secrets_loaded():
-            self.logger.warning("[ArgoCD] Skipping repo secret reason=missing-cluster-credentials")
-            return
-
-        string_data = (self.cluster_credentials_data or {}).get("stringData") or {}
-        username = string_data.get("argocd_repo_username")
-        password = string_data.get("argocd_repo_password")
-        if not username or not password:
-            self.logger.warning("[ArgoCD] Skipping repo secret reason=missing-argo-sync-credentials")
-            return
-
-        self.ensure_namespace_exists("argocd")
-        secret = {
-            "apiVersion": "v1",
-            "kind": "Secret",
-            "metadata": {
-                "name": "argocd-repo-home-ops",
-                "namespace": "argocd",
-                "labels": {
-                    "argocd.argoproj.io/secret-type": "repository",
-                },
-            },
-            "type": "Opaque",
-            "stringData": {
-                "url": "https://github.com/edgard/home-ops.git",
-                "username": str(username),
-                "password": str(password),
-            },
-        }
-
-        tmp_secret = self.make_temp_file(suffix=".yaml")
-        with tmp_secret.open("w", encoding="utf-8") as handle:
-            yaml.safe_dump(secret, handle, sort_keys=False)
-
-        self.logger.info("[ArgoCD] Applying repository credentials secret=argocd-repo-home-ops")
-        self.run(["kubectl", "apply", "-f", str(tmp_secret)])
-
-    # ---------------------------------------------------------- Helm installs
-    def install_chart(self, release: str, chart: str, namespace: str, values_path: Path, version: str) -> None:
-        if self.application_exists(release):
-            self.logger.info(f"[Helm] Skipping install release={release} reason=argocd-application-present")
-            return
-        self.ensure_namespace_exists(namespace)
-        self.run(
-            [
-                "helm",
-                "upgrade",
-                "--install",
-                release,
-                chart,
-                "--namespace",
-                namespace,
-                "--create-namespace",
-                "--version",
-                version,
-                "--server-side=false",
-                "--wait",
-                "--wait-for-jobs",
-                "-f",
-                str(values_path),
-            ]
-        )
-
-    def application_exists(self, name: str) -> bool:
-        """Return True if an ArgoCD Application with the given name exists in argocd namespace."""
-        result = self.run(
-            ["kubectl", "-n", "argocd", "get", "applications.argoproj.io", name],
-            check=False,
-            capture_output=True,
-        )
-        return result.returncode == 0
-
-    def install_argocd(self) -> None:
-        if self.application_exists("argocd"):
-            self.logger.info("[ArgoCD] Skipping Helm install reason=argocd-application-present")
-            return
-        chart_version = self.get_argocd_chart_version()
-        self.logger.info(f"[ArgoCD] Ensuring ArgoCD via Helm chart={chart_version}")
-        self.install_chart(
-            "argocd",
-            "oci://ghcr.io/argoproj/argo-helm/argo-cd",
-            "argocd",
-            self.argocd_values_path,
-            chart_version,
-        )
-
-    def install_multus(self) -> None:
-        if self.application_exists("multus"):
-            self.logger.info("[Multus] Skipping Helm install reason=argocd-application-present")
-            return
-        chart_version = self.get_multus_chart_version()
-        self.logger.info(f"[Multus] Ensuring Multus via Helm chart={chart_version}")
-        self.install_chart(
-            "multus",
-            "oci://ghcr.io/bjw-s-labs/helm/multus",
-            "platform-system",
-            self.multus_values_path,
-            chart_version,
-        )
-        if self.multus_manifests_path.exists():
-            self.run(["kubectl", "apply", "-f", str(self.multus_manifests_path)])
-
-    def apply_argocd_bootstrap(self) -> None:
-        if not self.argocd_bootstrap_path.exists():
-            raise BootstrapError(f"[ArgoCD] Bootstrap manifest not found at {self.argocd_bootstrap_path}")
-
-        self.logger.info("[ArgoCD] Applying bootstrap application app=root")
-        self.run(["kubectl", "apply", "-f", str(self.argocd_bootstrap_path)])
 
     # ------------------------------------------------------------- Delete flow
     def teardown_cluster(self) -> None:

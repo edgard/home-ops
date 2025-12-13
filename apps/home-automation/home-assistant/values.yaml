@@ -101,7 +101,8 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/home-assistant
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 10Gi
     globalMounts:
       - path: /config

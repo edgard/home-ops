@@ -51,6 +51,9 @@ controllers:
             cpu: 500m
             memory: 512Mi
 
+    serviceAccount:
+      identifier: dex
+
 service:
   dex:
     controller: dex
@@ -90,6 +93,40 @@ route:
           - identifier: dex
             port: 5556
 
+serviceAccount:
+  dex:
+    forceRename: dex
+
+rbac:
+  roles:
+    dex:
+      type: ClusterRole
+      forceRename: dex
+      rules:
+        - apiGroups:
+            - apiextensions.k8s.io
+          resources:
+            - customresourcedefinitions
+          verbs:
+            - create
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - dex.coreos.com
+          resources:
+            - "*"
+          verbs:
+            - "*"
+  bindings:
+    dex:
+      type: ClusterRoleBinding
+      forceRename: dex
+      roleRef:
+        identifier: dex
+      subjects:
+        - identifier: dex
+
 persistence:
   config:
     enabled: true
@@ -101,14 +138,6 @@ persistence:
           - path: /etc/dex/config.docker.yaml
             subPath: config.yaml
             readOnly: true
-  data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/dex
-    hostPathType: DirectoryOrCreate
-    advancedMounts:
-      dex:
-        app:
-          - path: /data
   tmp:
     type: emptyDir
     advancedMounts:
@@ -122,9 +151,10 @@ configMaps:
       config.yaml: |-
         issuer: https://id.edgard.org
         storage:
-          type: sqlite3
+          type: kubernetes
           config:
-            file: /data/dex.db
+            inCluster: true
+            namespace: platform-system
         web:
           http: 0.0.0.0:5556
         logger:

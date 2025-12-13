@@ -3,7 +3,7 @@ fullnameOverride: trivy-operator
 
 operator:
   replicas: 1
-  scanJobsConcurrentLimit: 3
+  scanJobsConcurrentLimit: 1
   scanJobsRetryDelay: 30s
   vulnerabilityScannerScanOnlyCurrentRevisions: true
   configAuditScannerScanOnlyCurrentRevisions: true

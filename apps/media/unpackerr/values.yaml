@@ -50,7 +50,7 @@ service:
     enabled: false
 persistence:
   media:
-    type: hostPath
-    hostPath: /mnt/dpool/media
+    type: persistentVolumeClaim
+    existingClaim: media
     globalMounts:
       - path: /media

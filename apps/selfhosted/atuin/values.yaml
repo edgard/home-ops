@@ -84,9 +84,9 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/atuin
-    hostPathType: DirectoryOrCreate
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 2Gi
     advancedMounts:
       atuin:
         app:

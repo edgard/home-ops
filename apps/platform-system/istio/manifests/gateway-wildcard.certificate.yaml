@@ -2,13 +2,13 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: cert-manager-wildcard
+  name: gateway-wildcard
   namespace: platform-system
 spec:
-  secretName: cert-manager-wildcard-tls
+  secretName: gateway-wildcard-tls
   issuerRef:
-    kind: ClusterIssuer
-    name: cert-manager-issuer-production
+    kind: Issuer
+    name: gateway-issuer-production
   dnsNames:
     - "*.edgard.org"
     - edgard.org

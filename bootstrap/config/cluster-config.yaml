@@ -5,6 +5,14 @@ name: homelab
 networking:
   podSubnet: 10.244.0.0/16
   serviceSubnet: 10.96.0.0/12
+containerdConfigPatches:
+  - |
+    [plugins."io.containerd.grpc.v1.cri".registry.configs."registry-1.docker.io".auth]
+      username = "__DOCKERHUB_USERNAME__"
+      password = "__DOCKERHUB_PASSWORD__"
+    [plugins."io.containerd.grpc.v1.cri".registry.configs."docker.io".auth]
+      username = "__DOCKERHUB_USERNAME__"
+      password = "__DOCKERHUB_PASSWORD__"
 nodes:
   - role: control-plane
     image: &kind_node_image kindest/node:v1.34.0

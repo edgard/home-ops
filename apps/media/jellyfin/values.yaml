@@ -110,12 +110,13 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/jellyfin
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 20Gi
     globalMounts:
       - path: /config
   media:
-    type: hostPath
-    hostPath: /mnt/dpool/media
+    type: persistentVolumeClaim
+    existingClaim: media
     globalMounts:
       - path: /media

@@ -305,9 +305,9 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/paperless
-    hostPathType: DirectoryOrCreate
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 20Gi
     advancedMounts:
       paperless:
         app:
@@ -325,9 +325,9 @@ persistence:
             subPath: redis
 
   ai-data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/paperless-ai
-    hostPathType: DirectoryOrCreate
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 10Gi
     advancedMounts:
       paperless-ai:
         init-config:

@@ -16,6 +16,11 @@ injectAll: true
 cronJobTimeZone: true
 
 webhook:
+  ignoredNamespaces:
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - local-path-storage
   certManager:
     enabled: true
     issuerRef:

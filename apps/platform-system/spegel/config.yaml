@@ -1,7 +1,0 @@
----
-chart:
-  repo: oci://ghcr.io/spegel-org/helm-charts/spegel
-  path: "."
-  version: 0.5.1
-sync:
-  wave: "-4"

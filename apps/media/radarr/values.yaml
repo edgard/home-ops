@@ -93,12 +93,13 @@ route:
 
 persistence:
   data:
-    type: hostPath
-    hostPath: /mnt/spool/appdata/radarr
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 5Gi
     globalMounts:
       - path: /config
   media:
-    type: hostPath
-    hostPath: /mnt/dpool/media
+    type: persistentVolumeClaim
+    existingClaim: media
     globalMounts:
       - path: /media

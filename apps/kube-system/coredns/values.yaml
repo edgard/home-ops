@@ -10,6 +10,10 @@ configMaps:
       Corefile: |-
         edgard.org:53 {
             errors
+            hosts {
+                192.168.1.241 id.edgard.org
+                fallthrough
+            }
             forward . 192.168.1.1
             cache 30
             log
