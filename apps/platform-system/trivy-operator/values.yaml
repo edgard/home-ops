@@ -2,24 +2,24 @@
 fullnameOverride: trivy-operator
 
 operator:
-  replicas: 1
-  scanJobsConcurrentLimit: 1
-  scanJobsRetryDelay: 30s
-  vulnerabilityScannerScanOnlyCurrentRevisions: true
-  configAuditScannerScanOnlyCurrentRevisions: true
-  vulnerabilityScannerReportTTL: 24h # Daily rescan to catch new CVEs
+  excludeNamespaces: "kube-system,kube-public,kube-node-lease,local-path-storage"
   scanJobTTL: 30s
   scanSecretTTL: 30s
-  excludeNamespaces: "kube-*,local-path-storage" # Skip all kube-* system namespaces we can't patch
+  scanJobsConcurrentLimit: 1
 
 trivy:
   severity: CRITICAL
   slow: true
-  ignoreUnfixed: true # Skip vulns with no available fix
+  ignoreUnfixed: true
 
-serviceMonitor:
-  enabled: false
+trivyOperator:
+  scanJobAnnotations: "k8tz.io/inject=false"
 
-# Node selector for control plane exclusion
-nodeSelector: {}
-tolerations: []
+nodeCollector:
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
