@@ -1,11 +1,11 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 101
+    fsGroup: 568
     fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 101
+    runAsGroup: 568
     runAsNonRoot: true
-    runAsUser: 101
+    runAsUser: 568
 
 controllers:
   nginx:
