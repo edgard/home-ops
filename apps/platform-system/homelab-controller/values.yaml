@@ -122,14 +122,6 @@ rbac:
             - get
             - list
             - watch
-        - apiGroups:
-            - aquasecurity.github.io
-          resources:
-            - vulnerabilityreports
-          verbs:
-            - get
-            - list
-            - watch
   bindings:
     main:
       type: ClusterRoleBinding

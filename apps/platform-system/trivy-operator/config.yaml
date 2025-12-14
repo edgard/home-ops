@@ -1,7 +1,0 @@
----
-chart:
-  repo: oci://ghcr.io/aquasecurity/helm-charts/trivy-operator
-  path: "."
-  version: 0.31.0
-sync:
-  wave: "-4"
