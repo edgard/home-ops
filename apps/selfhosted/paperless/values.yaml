@@ -176,10 +176,7 @@ controllers:
         args:
           - redis-server
           - --save
-          - "60"
-          - "1"
-          - --loglevel
-          - warning
+          - ""
 
   paperless-ai:
     type: deployment
@@ -306,7 +303,7 @@ persistence:
   data:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
-    size: 20Gi
+    size: 30Gi
     advancedMounts:
       paperless:
         app:
@@ -318,23 +315,13 @@ persistence:
             subPath: export
           - path: /usr/src/paperless/inbox
             subPath: inbox
-      redis:
-        app:
-          - path: /data
-            subPath: redis
-
-  ai-data:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 10Gi
-    advancedMounts:
       paperless-ai:
         init-config:
           - path: /app/data
-            subPath: data
+            subPath: ai-data
         app:
           - path: /app/data
-            subPath: data
+            subPath: ai-data
 
   ai-secret:
     type: secret

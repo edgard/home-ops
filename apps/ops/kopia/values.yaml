@@ -156,12 +156,6 @@ persistence:
     size: 5Ti
     globalMounts:
       - path: /repository
-  tmp:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 10Gi
-    globalMounts:
-      - path: /tmp
   source:
     type: hostPath
     hostPath: /mnt/spool/appdata

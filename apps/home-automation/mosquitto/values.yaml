@@ -1,4 +1,14 @@
 ---
+configMaps:
+  config:
+    data:
+      mosquitto.conf: |-
+        listener 1883
+        allow_anonymous true
+        persistence true
+        persistence_location /mosquitto/data/
+        log_dest stdout
+
 controllers:
   main:
     type: deployment
@@ -46,18 +56,13 @@ persistence:
   data:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
-    size: 1Gi
-    globalMounts:
-      - path: /mosquitto/config
-  data-store:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
     size: 2Gi
     globalMounts:
       - path: /mosquitto/data
-  log:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 1Gi
+  config:
+    type: configMap
+    identifier: config
     globalMounts:
-      - path: /mosquitto/log
+      - path: /mosquitto/config/mosquitto.conf
+        subPath: mosquitto.conf
+        readOnly: true

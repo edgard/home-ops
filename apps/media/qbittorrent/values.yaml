@@ -58,6 +58,7 @@ controllers:
           VPN_TYPE: wireguard
           FIREWALL_INPUT_PORTS: "8080"
           FIREWALL_VPN_INPUT_PORTS: "6881"
+          STORAGE_FILEPATH: /tmp/servers.json
           PUID: "568"
           PGID: "568"
         envFrom:
@@ -139,14 +140,6 @@ persistence:
       main:
         main:
           - path: /media
-  gluetun-data:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 2Gi
-    advancedMounts:
-      main:
-        gluetun:
-          - path: /gluetun
   dev-net-tun:
     type: hostPath
     hostPath: /dev/net/tun
