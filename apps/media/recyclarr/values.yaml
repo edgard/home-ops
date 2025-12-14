@@ -1,6 +1,8 @@
 ---
 controllers:
   main:
+    annotations:
+      reloader.stakater.com/auto: "true"
     type: deployment
     replicas: 1
     strategy: Recreate
@@ -11,6 +13,9 @@ controllers:
           tag: 7.5.2
         env:
           CRON_SCHEDULE: "25 2 * * *"
+        envFrom:
+          - secretRef:
+              name: recyclarr-credentials
         probes:
           liveness:
             enabled: true
@@ -57,6 +62,13 @@ service:
     controller: main
     enabled: false
 persistence:
+  config:
+    type: configMap
+    name: recyclarr-config
+    globalMounts:
+      - path: /config/recyclarr.yml
+        subPath: recyclarr.yml
+        readOnly: true
   data:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
