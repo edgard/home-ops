@@ -5,9 +5,9 @@ Argo CD–managed Kubernetes homelab running on Kind with supporting Cloudflare 
 ## Quick Start
 
 1. Install docker, kind, kubectl, helm, python3, sops, opentofu (`tofu`), and go-task (`task`).
-2. Create a Docker context that matches `bootstrap/config/cluster-config.yaml` (default `kind-homelab`).
+2. Create a Docker context that matches `bootstrap/cluster-config.yaml` (default `kind-homelab`).
 3. Generate secrets: `task secrets:create-key` then `task secrets:edit`.
-4. Bootstrap the cluster: `task bootstrap:run`. Tear down with `task bootstrap:delete` (or `task bootstrap:recreate`).
+4. Bootstrap the cluster: `task bootstrap:create`. Tear down with `task bootstrap:destroy` (or `task bootstrap:recreate`).
 
 ## Everyday Commands
 
@@ -19,8 +19,8 @@ Argo CD–managed Kubernetes homelab running on Kind with supporting Cloudflare 
 
 ## Repo Map
 
-- `bootstrap/config/` – Kind cluster config and SOPS secret template.
-- `bootstrap/scripts/bootstrap.py` – installer for Kind, Multus, and Argo CD.
+- `bootstrap/` – Kind cluster config, SOPS secret template, helmfile, and bootstrap script.
+- `bootstrap/bootstrap_kind.py` – Kind cluster bring-up and host plumbing.
 - `argocd/` – root Argo app, namespaces, projects, ApplicationSet.
 - `apps/<group>/<app>/` – chart config/values plus optional manifests. Groups include argocd, kube-system, local-path-storage, platform-system, ops, selfhosted, media, and home-automation.
 - `terraform/` – OpenTofu for Cloudflare DNS/rules.

@@ -1,0 +1,92 @@
+{{- $lppCfg := readFile "../apps/local-path-storage/local-path-provisioner/config.yaml" | fromYaml -}}
+{{- $multusCfg := readFile "../apps/platform-system/multus/config.yaml" | fromYaml -}}
+{{- $argocdCfg := readFile "../apps/argocd/argocd/config.yaml" | fromYaml -}}
+{{- $k8tzCfg := readFile "../apps/kube-system/k8tz/config.yaml" | fromYaml -}}
+
+helmDefaults:
+  cleanupOnFail: true
+  wait: true
+  waitForJobs: true
+  timeout: 600
+  historyMax: 5
+  createNamespace: true
+
+hooks:
+  - events: ["prepare"]
+    command: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        for ns in local-path-storage media platform-system; do
+          kubectl create namespace "${ns}" --dry-run=client -o yaml | kubectl apply -f -
+        done
+
+        kubectl -n kube-system run -q bootstrap-image-warmup-busybox --rm --attach --restart=Never --image=docker.io/library/busybox:stable --command -- sh -c "true" >/dev/null
+        kubectl -n kube-system run -q bootstrap-image-warmup-k8tz --rm --attach --restart=Never --image=quay.io/k8tz/k8tz:{{ (toString $k8tzCfg.chart.version) | trimPrefix "v" }} -- --help >/dev/null
+
+releases:
+  - name: local-path-provisioner
+    namespace: local-path-storage
+    chart: '{{ $lppCfg.chart.repo }}'
+    version: '{{ $lppCfg.chart.version }}'
+    values:
+      - ../apps/local-path-storage/local-path-provisioner/values.yaml
+    hooks:
+      - events: ["postsync"]
+        command: bash
+        args:
+          - -c
+          - |
+            set -euo pipefail
+            kubectl apply -f ../apps/local-path-storage/local-path-provisioner/manifests
+            if kubectl get storageclass standard >/dev/null 2>&1; then
+              kubectl patch storageclass standard --type merge -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false","storageclass.beta.kubernetes.io/is-default-class":"false"}}}'
+            fi
+            kubectl rollout restart deploy/local-path-provisioner -n local-path-storage
+            kubectl rollout status deploy/local-path-provisioner -n local-path-storage --timeout=120s
+
+  - name: multus
+    namespace: platform-system
+    chart: '{{ $multusCfg.chart.repo }}'
+    version: '{{ $multusCfg.chart.version }}'
+    needs:
+      - local-path-storage/local-path-provisioner
+    values:
+      - ../apps/platform-system/multus/values.yaml
+    hooks:
+      - events: ["postsync"]
+        command: kubectl
+        args:
+          - apply
+          - -f
+          - ../apps/platform-system/multus/manifests
+
+  - name: argocd
+    namespace: argocd
+    chart: '{{ $argocdCfg.chart.repo }}'
+    version: '{{ $argocdCfg.chart.version }}'
+    needs:
+      - platform-system/multus
+    values:
+      - ../apps/argocd/argocd/values.yaml
+    hooks:
+      - events: ["presync"]
+        command: bash
+        args:
+          - -c
+          - |
+            set -euo pipefail
+            sops -d ./cluster-credentials.sops.yaml | kubectl apply -f -
+      - events: ["postsync"]
+        command: bash
+        args:
+          - -c
+          - |
+            set -euo pipefail
+            user=$(kubectl get secret cluster-credentials -n platform-system -o jsonpath='{.data.argocd_repo_username}' | base64 -d)
+            pwd=$(kubectl get secret cluster-credentials -n platform-system -o jsonpath='{.data.argocd_repo_password}' | base64 -d)
+            kubectl create secret generic argocd-repo-home-ops -n argocd --from-literal=url=https://github.com/edgard/home-ops.git --from-literal=username="${user}" --from-literal=password="${pwd}" --dry-run=client -o yaml | kubectl apply -f -
+            kubectl label secret argocd-repo-home-ops -n argocd argocd.argoproj.io/secret-type=repository --overwrite
+            kubectl wait --for=condition=Established --timeout=180s crd/applications.argoproj.io crd/appprojects.argoproj.io crd/applicationsets.argoproj.io
+            kubectl apply -f ../argocd/root.app.yaml

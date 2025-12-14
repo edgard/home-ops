@@ -1,0 +1,24 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k8tz-wait-cert-manager
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,HookFailed,BeforeHookCreation
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: k8tz-wait-cert-manager
+      containers:
+        - name: wait
+          image: alpine/kubectl:1.34.0
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              set -euo pipefail;
+              kubectl wait --for=condition=available deploy/cert-manager deploy/cert-manager-webhook deploy/cert-manager-cainjector -n platform-system --timeout=300s
