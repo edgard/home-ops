@@ -3,15 +3,3 @@ fullnameOverride: reloader
 reloader:
   replicas: 1
   reloadStrategy: annotations
-  livenessProbe:
-    initialDelaySeconds: 30
-    periodSeconds: 30
-    timeoutSeconds: 5
-    failureThreshold: 5
-    successThreshold: 1
-  readinessProbe:
-    initialDelaySeconds: 15
-    periodSeconds: 15
-    timeoutSeconds: 5
-    failureThreshold: 3
-    successThreshold: 1

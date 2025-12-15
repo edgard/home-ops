@@ -20,26 +20,12 @@ controllers:
           repository: eclipse-mosquitto
           tag: 2.0.22
         probes:
+          startup:
+            enabled: true
           liveness:
             enabled: true
-            custom: true
-            spec:
-              tcpSocket:
-                port: 1883
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
           readiness:
             enabled: true
-            custom: true
-            spec:
-              tcpSocket:
-                port: 1883
-              initialDelaySeconds: 15
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
 service:
   main:
     controller: main

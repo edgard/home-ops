@@ -19,31 +19,6 @@ controllers:
         envFrom:
           - secretRef:
               name: unpackerr-credentials
-        probes:
-          liveness:
-            enabled: true
-            custom: true
-            spec:
-              exec:
-                command:
-                  - /unpackerr
-                  - --version
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
-          readiness:
-            enabled: true
-            custom: true
-            spec:
-              exec:
-                command:
-                  - /unpackerr
-                  - --version
-              initialDelaySeconds: 15
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
 service:
   main:
     controller: main

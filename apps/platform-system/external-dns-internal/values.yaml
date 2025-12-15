@@ -7,8 +7,6 @@ serviceAccount:
   name: external-dns-internal
 sources:
   - gateway-httproute
-extraArgs:
-  - --label-filter=external-dns.edgard.org/scope=internal
 policy: sync
 txtOwnerId: homelab
 txtPrefix: k8s.
@@ -30,15 +28,7 @@ provider:
           secretKeyRef:
             name: external-dns-internal-credentials
             key: unifi_api_key
-    livenessProbe:
-      initialDelaySeconds: 30
-      periodSeconds: 30
-      failureThreshold: 5
-    readinessProbe:
-      httpGet:
-        path: /readyz
-      initialDelaySeconds: 15
-      periodSeconds: 15
-      failureThreshold: 3
+extraArgs:
+  - --label-filter=external-dns.edgard.org/scope=internal
 deploymentAnnotations:
   reloader.stakater.com/auto: "true"

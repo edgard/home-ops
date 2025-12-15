@@ -31,11 +31,11 @@ controllers:
           - name: http
             containerPort: 8888
         probes:
+          startup:
+            enabled: true
           liveness:
             enabled: true
           readiness:
-            enabled: true
-          startup:
             enabled: true
         securityContext:
           allowPrivilegeEscalation: false

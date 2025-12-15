@@ -18,28 +18,12 @@ controllers:
           - name: http
             containerPort: 8080
         probes:
-          readiness:
+          startup:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /health
-                port: http
-              initialDelaySeconds: 15
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
           liveness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /health
-                port: http
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
+          readiness:
+            enabled: true
 service:
   main:
     controller: main

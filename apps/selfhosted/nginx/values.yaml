@@ -18,11 +18,11 @@ controllers:
           repository: nginx
           tag: 1.29.4
         probes:
+          startup:
+            enabled: true
           liveness:
             enabled: true
           readiness:
-            enabled: true
-          startup:
             enabled: true
         securityContext:
           allowPrivilegeEscalation: false

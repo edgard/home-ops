@@ -42,28 +42,12 @@ controllers:
           - name: http
             containerPort: 8080
         probes:
-          readiness:
+          startup:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /ready
-                port: 8080
-              initialDelaySeconds: 15
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
           liveness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /ready
-                port: 8080
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
+          readiness:
+            enabled: true
 persistence:
   config:
     type: configMap

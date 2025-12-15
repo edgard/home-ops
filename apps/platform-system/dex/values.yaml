@@ -31,11 +31,11 @@ controllers:
                 name: dex-credentials
                 key: admin-hash
         probes:
+          startup:
+            enabled: true
           liveness:
             enabled: true
           readiness:
-            enabled: true
-          startup:
             enabled: true
         securityContext:
           allowPrivilegeEscalation: false

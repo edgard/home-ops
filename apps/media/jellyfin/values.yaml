@@ -30,35 +30,10 @@ controllers:
         probes:
           startup:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /health
-                port: 8096
-              failureThreshold: 30
-              periodSeconds: 10
           liveness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /health
-                port: 8096
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
           readiness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /health
-                port: 8096
-              initialDelaySeconds: 15
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
 service:
   main:
     controller: main

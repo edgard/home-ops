@@ -106,15 +106,12 @@ controllers:
                 name: paperless-credentials
                 key: PAPERLESS_ADMIN_PASSWORD
         probes:
+          startup:
+            enabled: true
           liveness:
             enabled: true
           readiness:
             enabled: true
-          startup:
-            enabled: true
-            spec:
-              failureThreshold: 30
-              periodSeconds: 5
 
   gotenberg:
     type: deployment
@@ -138,6 +135,13 @@ controllers:
           - gotenberg
           - --chromium-disable-javascript=true
           - --chromium-allow-list=file:///tmp/.*
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
 
   tika:
     type: deployment
@@ -155,6 +159,13 @@ controllers:
         image:
           repository: docker.io/apache/tika
           tag: 3.2.3.0
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
   redis:
     type: deployment
     replicas: 1
@@ -177,6 +188,13 @@ controllers:
           - redis-server
           - --save
           - ""
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
 
   paperless-ai:
     type: deployment
@@ -217,6 +235,13 @@ controllers:
         image:
           repository: docker.io/clusterzx/paperless-ai
           tag: 3.0.9
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
         securityContext:
           runAsUser: 0
           runAsGroup: 0

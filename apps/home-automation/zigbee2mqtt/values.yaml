@@ -15,28 +15,12 @@ controllers:
           ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mosquitto.home-automation.svc.cluster.local:1883
           ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyUSB0
         probes:
+          startup:
+            enabled: true
           liveness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: 8080
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
           readiness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: 8080
-              initialDelaySeconds: 15
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
         ports:
           - name: http
             containerPort: 8080

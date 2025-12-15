@@ -54,11 +54,11 @@ controllers:
                 key: NEXTAUTH_SECRET
           COREPACK_INTEGRITY_KEYS: 0
         probes:
+          startup:
+            enabled: true
           liveness:
             enabled: true
           readiness:
-            enabled: true
-          startup:
             enabled: true
 
   chrome:
@@ -83,6 +83,13 @@ controllers:
           - --remote-debugging-address=0.0.0.0
           - --remote-debugging-port=9222
           - --hide-scrollbars
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
         securityContext:
           capabilities:
             drop:
@@ -109,6 +116,13 @@ controllers:
               secretKeyRef:
                 name: karakeep-credentials
                 key: MEILI_MASTER_KEY
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
 
   sorter:
     type: cronjob

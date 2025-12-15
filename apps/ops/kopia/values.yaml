@@ -66,28 +66,12 @@ controllers:
         args:
           - --without-password
         probes:
+          startup:
+            enabled: true
           liveness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: 51515
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 5
-              failureThreshold: 5
           readiness:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: 51515
-              initialDelaySeconds: 15
-              periodSeconds: 15
-              timeoutSeconds: 5
-              failureThreshold: 3
         securityContext:
           runAsUser: 0
           runAsGroup: 0

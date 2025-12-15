@@ -4,3 +4,10 @@ strategy:
 fullnameOverride: external-secrets
 serviceAccount:
   name: external-secrets
+
+livenessProbe:
+  enabled: true
+
+certController:
+  startupProbe:
+    enabled: true

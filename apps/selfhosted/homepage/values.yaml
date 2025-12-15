@@ -18,27 +18,12 @@ controllers:
           - name: http
             containerPort: 3000
         probes:
-          readiness:
-            enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /api/healthcheck
-                port: http
-          liveness:
-            enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /api/healthcheck
-                port: http
           startup:
             enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /api/healthcheck
-                port: http
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
 
 serviceAccount:
   homepage:
