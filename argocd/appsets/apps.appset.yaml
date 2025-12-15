@@ -51,10 +51,10 @@ spec:
 
         - repoURL: "{{ .values.repoURL }}"
           targetRevision: "{{ .values.revision }}"
-          path: "{{ .path.path }}/manifests"
+          path: "{{ .path.path }}"
           directory:
             recurse: true
-            include: "*.yaml"
+            include: "{manifests/*.yaml,manifests/*.yml}"
 
       syncPolicy:
         automated:
