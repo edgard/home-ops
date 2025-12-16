@@ -19,7 +19,7 @@ controllers:
       nodeSelector:
         kubernetes.io/arch: amd64
     containers:
-      main:
+      app:
         image:
           repository: lscr.io/linuxserver/jellyfin
           tag: 10.11.5

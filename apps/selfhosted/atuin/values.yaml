@@ -37,12 +37,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-              - ALL
 service:
   atuin:
     controller: atuin

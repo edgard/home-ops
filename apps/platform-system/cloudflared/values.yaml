@@ -1,20 +1,12 @@
 ---
-configMaps:
-  config:
-    data:
-      config.yaml: |-
-        ingress:
-          - hostname: "*.edgard.org"
-            originRequest:
-              http2Origin: true
-              originServerName: tunnel.edgard.org
-            service: https://gateway-external-istio.platform-system.svc.cluster.local:443
-          - hostname: edgard.org
-            originRequest:
-              http2Origin: true
-              originServerName: edgard.org
-            service: https://gateway-external-istio.platform-system.svc.cluster.local:443
-          - service: http_status:404
+defaultPodOptions:
+  securityContext:
+    fsGroup: 65532
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 65532
+    runAsNonRoot: true
+    runAsUser: 65532
+
 controllers:
   main:
     annotations:
@@ -23,7 +15,7 @@ controllers:
     replicas: 2
     strategy: RollingUpdate
     containers:
-      main:
+      app:
         image:
           repository: docker.io/cloudflare/cloudflared
           tag: 2025.11.1
@@ -48,13 +40,7 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-persistence:
-  config:
-    type: configMap
-    identifier: config
-    globalMounts:
-      - path: /etc/cloudflared/config.yaml
-        subPath: config.yaml
+
 service:
   main:
     controller: main
@@ -65,3 +51,28 @@ service:
       http:
         port: 8080
         targetPort: http
+
+persistence:
+  config:
+    type: configMap
+    identifier: config
+    globalMounts:
+      - path: /etc/cloudflared/config.yaml
+        subPath: config.yaml
+
+configMaps:
+  config:
+    data:
+      config.yaml: |-
+        ingress:
+          - hostname: "*.edgard.org"
+            originRequest:
+              http2Origin: true
+              originServerName: tunnel.edgard.org
+            service: https://gateway-external-istio.platform-system.svc.cluster.local:443
+          - hostname: edgard.org
+            originRequest:
+              http2Origin: true
+              originServerName: edgard.org
+            service: https://gateway-external-istio.platform-system.svc.cluster.local:443
+          - service: http_status:404

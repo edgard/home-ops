@@ -7,7 +7,7 @@ controllers:
     replicas: 1
     strategy: Recreate
     containers:
-      main:
+      app:
         image:
           repository: lscr.io/linuxserver/qbittorrent
           tag: 20.04.1
@@ -24,6 +24,12 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          fsGroup: 568
+          fsGroupChangePolicy: OnRootMismatch
+          runAsGroup: 568
+          runAsNonRoot: true
+          runAsUser: 568
       gluetun:
         image:
           repository: qmcgaw/gluetun
@@ -35,8 +41,6 @@ controllers:
           FIREWALL_VPN_INPUT_PORTS: "6881"
           HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
           STORAGE_FILEPATH: /tmp/servers.json
-          PUID: "568"
-          PGID: "568"
         envFrom:
           - secretRef:
               name: qbittorrent-gluetun-credentials
@@ -118,14 +122,14 @@ persistence:
     size: 5Gi
     advancedMounts:
       main:
-        main:
+        app:
           - path: /config
   media:
     type: persistentVolumeClaim
     existingClaim: media
     advancedMounts:
       main:
-        main:
+        app:
           - path: /media
   dev-net-tun:
     type: hostPath

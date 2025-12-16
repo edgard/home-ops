@@ -1,13 +1,11 @@
 ---
-configMaps:
-  config:
-    data:
-      mosquitto.conf: |-
-        listener 1883
-        allow_anonymous true
-        persistence true
-        persistence_location /mosquitto/data/
-        log_dest stdout
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1883
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1883
+    runAsNonRoot: true
+    runAsUser: 1883
 
 controllers:
   main:
@@ -15,7 +13,7 @@ controllers:
     replicas: 1
     strategy: Recreate
     containers:
-      main:
+      app:
         image:
           repository: eclipse-mosquitto
           tag: 2.0.22
@@ -52,3 +50,13 @@ persistence:
       - path: /mosquitto/config/mosquitto.conf
         subPath: mosquitto.conf
         readOnly: true
+
+configMaps:
+  config:
+    data:
+      mosquitto.conf: |-
+        listener 1883
+        allow_anonymous true
+        persistence true
+        persistence_location /mosquitto/data/
+        log_dest stdout

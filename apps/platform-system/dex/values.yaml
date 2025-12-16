@@ -14,6 +14,8 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    serviceAccount:
+      identifier: dex
     containers:
       app:
         image:
@@ -37,12 +39,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-              - ALL
         resources:
           requests:
             cpu: 100m
@@ -51,8 +47,39 @@ controllers:
             cpu: 500m
             memory: 512Mi
 
-    serviceAccount:
-      identifier: dex
+serviceAccount:
+  dex:
+    forceRename: dex
+
+rbac:
+  roles:
+    dex:
+      type: ClusterRole
+      forceRename: dex
+      rules:
+        - apiGroups:
+            - apiextensions.k8s.io
+          resources:
+            - customresourcedefinitions
+          verbs:
+            - create
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - dex.coreos.com
+          resources:
+            - "*"
+          verbs:
+            - "*"
+  bindings:
+    dex:
+      type: ClusterRoleBinding
+      forceRename: dex
+      roleRef:
+        identifier: dex
+      subjects:
+        - identifier: dex
 
 service:
   dex:
@@ -93,40 +120,6 @@ route:
           - identifier: dex
             port: 5556
 
-serviceAccount:
-  dex:
-    forceRename: dex
-
-rbac:
-  roles:
-    dex:
-      type: ClusterRole
-      forceRename: dex
-      rules:
-        - apiGroups:
-            - apiextensions.k8s.io
-          resources:
-            - customresourcedefinitions
-          verbs:
-            - create
-            - get
-            - list
-            - watch
-        - apiGroups:
-            - dex.coreos.com
-          resources:
-            - "*"
-          verbs:
-            - "*"
-  bindings:
-    dex:
-      type: ClusterRoleBinding
-      forceRename: dex
-      roleRef:
-        identifier: dex
-      subjects:
-        - identifier: dex
-
 persistence:
   config:
     enabled: true
@@ -138,12 +131,6 @@ persistence:
           - path: /etc/dex/config.docker.yaml
             subPath: config.yaml
             readOnly: true
-  tmp:
-    type: emptyDir
-    advancedMounts:
-      dex:
-        app:
-          - path: /tmp
 
 configMaps:
   config:

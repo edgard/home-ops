@@ -6,13 +6,6 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
-    pod:
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
-        runAsNonRoot: true
     initContainers:
       tesseract-langs:
         image:
@@ -60,12 +53,6 @@ controllers:
             rm -rf /var/lib/apt/lists/*
 
             echo "Tesseract language packages installed successfully"
-        securityContext:
-          runAsUser: 0
-          runAsGroup: 0
-          runAsNonRoot: false
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
     containers:
       app:
         image:
@@ -119,13 +106,6 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
-    pod:
-      securityContext:
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
-        fsGroupChangePolicy: OnRootMismatch
-        runAsNonRoot: true
     containers:
       app:
         image:
@@ -149,11 +129,6 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
-    pod:
-      securityContext:
-        runAsUser: 0
-        runAsGroup: 0
-        runAsNonRoot: false
     containers:
       app:
         image:
@@ -172,13 +147,6 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
-    pod:
-      securityContext:
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
-        fsGroupChangePolicy: OnRootMismatch
-        runAsNonRoot: true
     containers:
       app:
         image:
@@ -202,11 +170,6 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
-    pod:
-      securityContext:
-        runAsUser: 0
-        runAsGroup: 0
-        runAsNonRoot: false
     initContainers:
       init-config:
         image:
@@ -226,10 +189,6 @@ controllers:
             else
               echo ".env already exists, preserving existing config"
             fi
-        securityContext:
-          runAsUser: 0
-          runAsGroup: 0
-          runAsNonRoot: false
     containers:
       app:
         image:
@@ -242,14 +201,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-        securityContext:
-          runAsUser: 0
-          runAsGroup: 0
-          runAsNonRoot: false
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
         envFrom:
           - secretRef:
               name: paperless-ai-credentials

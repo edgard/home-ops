@@ -3,10 +3,13 @@ controllers:
   main:
     annotations:
       reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
     serviceAccount:
       identifier: homepage
     containers:
-      main:
+      app:
         image:
           repository: ghcr.io/gethomepage/homepage
           tag: v1.8.0
@@ -28,6 +31,65 @@ controllers:
 serviceAccount:
   homepage:
     enabled: true
+
+rbac:
+  roles:
+    homepage:
+      type: ClusterRole
+      rules:
+        - apiGroups:
+            - ""
+          resources:
+            - namespaces
+            - nodes
+            - pods
+            - services
+            - serviceaccounts
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - networking.k8s.io
+          resources:
+            - ingresses
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - gateway.networking.k8s.io
+          resources:
+            - gateways
+            - httproutes
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - security.istio.io
+          resources:
+            - authorizationpolicies
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - traefik.io
+          resources:
+            - ingressroutes
+          verbs:
+            - get
+            - list
+            - watch
+  bindings:
+    homepage:
+      type: ClusterRoleBinding
+      roleRef:
+        identifier: homepage
+      subjects:
+        - identifier: homepage
+          kind: ServiceAccount
 
 service:
   main:
@@ -106,62 +168,3 @@ configMaps:
         []
       bookmarks.yaml: |-
         []
-
-rbac:
-  roles:
-    homepage:
-      type: ClusterRole
-      rules:
-        - apiGroups:
-            - ""
-          resources:
-            - namespaces
-            - nodes
-            - pods
-            - services
-            - serviceaccounts
-          verbs:
-            - get
-            - list
-            - watch
-        - apiGroups:
-            - networking.k8s.io
-          resources:
-            - ingresses
-          verbs:
-            - get
-            - list
-            - watch
-        - apiGroups:
-            - gateway.networking.k8s.io
-          resources:
-            - gateways
-            - httproutes
-          verbs:
-            - get
-            - list
-            - watch
-        - apiGroups:
-            - security.istio.io
-          resources:
-            - authorizationpolicies
-          verbs:
-            - get
-            - list
-            - watch
-        - apiGroups:
-            - traefik.io
-          resources:
-            - ingressroutes
-          verbs:
-            - get
-            - list
-            - watch
-  bindings:
-    homepage:
-      type: ClusterRoleBinding
-      roleRef:
-        identifier: homepage
-      subjects:
-        - identifier: homepage
-          kind: ServiceAccount

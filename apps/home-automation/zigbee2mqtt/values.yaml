@@ -5,15 +5,16 @@ controllers:
     replicas: 1
     strategy: Recreate
     containers:
-      main:
-        securityContext:
-          privileged: true
+      app:
         image:
           repository: koenkk/zigbee2mqtt
           tag: 2.7.1
         env:
           ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mosquitto.home-automation.svc.cluster.local:1883
           ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyUSB0
+        ports:
+          - name: http
+            containerPort: 8080
         probes:
           startup:
             enabled: true
@@ -21,9 +22,8 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-        ports:
-          - name: http
-            containerPort: 8080
+        securityContext:
+          privileged: true
 service:
   main:
     controller: main

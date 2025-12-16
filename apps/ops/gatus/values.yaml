@@ -1,4 +1,12 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
 controllers:
   main:
     annotations:
@@ -7,7 +15,7 @@ controllers:
     replicas: 1
     strategy: Recreate
     containers:
-      main:
+      app:
         image:
           repository: ghcr.io/twin/gatus
           tag: v5.33.1

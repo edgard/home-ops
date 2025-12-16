@@ -1,4 +1,12 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
 controllers:
   main:
     annotations:
@@ -8,14 +16,8 @@ controllers:
     strategy: Recreate
     serviceAccount:
       identifier: main
-    pod:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
     containers:
-      main:
+      app:
         image:
           repository: python
           tag: 3.14.2-slim
@@ -24,7 +26,7 @@ controllers:
           - -c
           - |
             set -euo pipefail
-            pip install --no-cache-dir --quiet pyyaml >/tmp/pip.log 2>&1
+            pip install --user --no-cache-dir --quiet pyyaml >/tmp/pip.log 2>&1
             python /scripts/webhook.py
         env:
           HOME: /tmp
@@ -35,12 +37,6 @@ controllers:
             memory: 128Mi
           limits:
             memory: 512Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
-          capabilities:
-            drop:
-              - ALL
         envFrom:
           - secretRef:
               name: homelab-controller-credentials
@@ -55,14 +51,6 @@ controllers:
 serviceAccount:
   main:
     enabled: true
-
-service:
-  main:
-    controller: main
-    ports:
-      http:
-        port: 80
-        targetPort: 8080
 
 rbac:
   roles:
@@ -110,6 +98,14 @@ rbac:
       subjects:
         - identifier: main
           kind: ServiceAccount
+
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 80
+        targetPort: 8080
 
 persistence:
   alerts:

@@ -1,11 +1,19 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 568
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 568
+    runAsNonRoot: true
+    runAsUser: 568
+
 controllers:
   main:
     type: deployment
     replicas: 1
     strategy: Recreate
     containers:
-      main:
+      app:
         image:
           repository: lscr.io/linuxserver/sonarr
           tag: 4.0.16

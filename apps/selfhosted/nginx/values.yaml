@@ -1,12 +1,4 @@
 ---
-defaultPodOptions:
-  securityContext:
-    fsGroup: 568
-    fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 568
-    runAsNonRoot: true
-    runAsUser: 568
-
 controllers:
   nginx:
     type: deployment
@@ -24,14 +16,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-              - ALL
-            add:
-              - NET_BIND_SERVICE
         resources:
           requests:
             cpu: 50m
@@ -95,15 +79,3 @@ persistence:
         app:
           - path: /usr/share/nginx/html
             readOnly: true
-  cache:
-    type: emptyDir
-    advancedMounts:
-      nginx:
-        app:
-          - path: /var/cache/nginx
-  run:
-    type: emptyDir
-    advancedMounts:
-      nginx:
-        app:
-          - path: /var/run

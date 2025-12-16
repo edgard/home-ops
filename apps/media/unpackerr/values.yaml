@@ -1,4 +1,12 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 568
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 568
+    runAsNonRoot: true
+    runAsUser: 568
+
 controllers:
   main:
     annotations:
@@ -7,7 +15,7 @@ controllers:
     replicas: 1
     strategy: Recreate
     containers:
-      main:
+      app:
         image:
           repository: golift/unpackerr
           tag: 0.14.5

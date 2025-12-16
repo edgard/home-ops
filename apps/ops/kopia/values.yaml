@@ -1,4 +1,9 @@
 ---
+defaultPodOptions:
+  securityContext:
+    runAsGroup: 0
+    runAsUser: 0
+
 controllers:
   main:
     initContainers:
@@ -45,17 +50,13 @@ controllers:
             fi
             kopia repository status >/dev/null 2>&1 || kopia repository connect filesystem --path=/repository --password "${KOPIA_PASSWORD}"
             kopia repository set-client --hostname "${KOPIA_CLIENT_HOSTNAME:-kopia}" --username root
-        securityContext:
-          runAsUser: 0
-          runAsGroup: 0
-          allowPrivilegeEscalation: false
     annotations:
       reloader.stakater.com/auto: "true"
     type: deployment
     replicas: 1
     strategy: Recreate
     containers:
-      main:
+      app:
         image:
           repository: ghcr.io/home-operations/kopia
           tag: 0.22.3
@@ -72,10 +73,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-        securityContext:
-          runAsUser: 0
-          runAsGroup: 0
-          allowPrivilegeEscalation: false
 service:
   main:
     controller: main
@@ -146,5 +143,5 @@ persistence:
     hostPathType: Directory
     advancedMounts:
       main:
-        main:
+        app:
           - path: /data

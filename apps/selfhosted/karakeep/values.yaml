@@ -1,12 +1,4 @@
 ---
-defaultPodOptions:
-  securityContext:
-    fsGroup: 1000
-    fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 1000
-    runAsNonRoot: true
-    runAsUser: 1000
-
 controllers:
   karakeep:
     type: deployment
@@ -90,10 +82,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-        securityContext:
-          capabilities:
-            drop:
-              - ALL
 
   meilisearch:
     type: deployment
