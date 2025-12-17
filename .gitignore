@@ -1,6 +1,4 @@
 /.venv
-/.sops.agekey
-*.agekey
 /.envrc
 __pycache__
 

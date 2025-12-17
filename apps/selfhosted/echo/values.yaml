@@ -26,6 +26,8 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          capabilities:
             add:
               - NET_BIND_SERVICE
 service:

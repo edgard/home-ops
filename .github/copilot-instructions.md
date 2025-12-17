@@ -1,27 +1,34 @@
 # AI Maintainer Guide
 
-- Keep this file current. Any change to automation, commands, dependencies, layout, or docs must update `.agents.md` (and README.md) in the same commit/PR.
+- Keep this file current. Any change to automation, commands, dependencies, layout, or docs must update `.github/copilot-instructions.md` (and README.md) in the same commit/PR.
 - Default to safe edits: never drop user changes, never commit decrypted secrets, avoid destructive git operations unless explicitly asked.
 - Prefer `rg`/`rg --files` for search; stay ASCII unless a file already uses other characters.
 - README is intentionally high level; keep detailed procedures and dependency notes here.
 
 ## Repo Layout
-- `bootstrap/` – Kind cluster config and SOPS credentials template (`cluster-config.yaml`, `cluster-credentials.template.yaml`, encrypted `cluster-credentials.sops.yaml`), helmfile, bootstrap script. Age key lives locally at `.sops.agekey`.
+- `bootstrap/` – Kind cluster config and Kind cluster config (`cluster-config.yaml`), helmfile, and bootstrap script.
 - `bootstrap/bootstrap_kind.py` – Kind cluster bring-up and host plumbing (docker context, macvlan attach, kubeconfig patch, Docker Hub auth). Bootstrap expects Docker context `kind-<cluster>` (default `kind-homelab`) to exist.
 - `argocd/` – `root.app.yaml` bootstraps namespaces, projects, and the ApplicationSet (`appsets/apps.appset.yaml` with sync-wave ordering).
 - `apps/<group>/<app>/` – `config.yaml` (chart source/version + optional rollout/sync), `values.yaml`, optional `manifests/` (always synced). Groups: argocd, kube-system, local-path-storage, platform-system, ops, selfhosted, media, home-automation.
 - `terraform/` – OpenTofu configs for Cloudflare using Backblaze B2 S3 backend (`shadowhausterraform/homelab/terraform.tfstate`); module in `terraform/cloudflare/`.
 
-- Dependencies: docker, kind, kubectl, helm, python3 + PyYAML, sops + age-keygen, go-task (`task`), prettier, yamlfmt, yamllint, tofu.
-- Bootstrap uses `bootstrap/helmfile.yaml.gotmpl` (run via `task bootstrap:create` after the Kind bring-up) to install pre-Argo dependencies in order: local-path-provisioner (chart + manifests; postsync hook demotes Kind's default `standard` StorageClass if present so `local-fast` is the sole default), Multus, and Argo CD. Helmfile waits for Jobs and cleans up on failure; hook scripts run under `bash` (for `pipefail`). A global `prepare` hook ensures namespaces needed by bootstrap-only manifests exist (`local-path-storage`, `media`, `platform-system`) and warms required images before any releases run. Chart refs/versions are read from each app’s `config.yaml`. The Argo release applies `bootstrap/cluster-credentials.sops.yaml` in a presync hook (uses `SOPS_AGE_KEY_FILE`), then a postsync hook creates the Argo repo Secret from that credential bundle, waits for Argo CRDs to be registered, and finally applies the Argo root app. Argo later reconciles the same apps. Paths inside the helmfile are relative to `bootstrap/`.
+- Dependencies: docker, kind, kubectl, helm, python3 + PyYAML, go-task (`task`), prettier, yamlfmt, yamllint, tofu.
+- Bootstrap uses `bootstrap/helmfile.yaml.gotmpl` (run via `task bootstrap:create` after the Kind bring-up) to install pre-Argo dependencies in order: local-path-provisioner (chart + manifests; postsync hook demotes Kind's default `standard` StorageClass if present so `local-fast` is the sole default), Multus, cert-manager, External Secrets Operator (with Bitwarden SDK server), and Argo CD. Helmfile waits for Jobs and cleans up on failure; hook scripts run under `bash` (for `pipefail`). A global `prepare` hook ensures namespaces needed by bootstrap-only manifests exist (`local-path-storage`, `media`, `platform-system`) and warms required images before any releases run. Chart refs/versions are read from each app’s `config.yaml`. The ESO release presync hook waits for cert-manager readiness, applies the `external-secrets-sdk-server-issuer` Issuer and `external-secrets-sdk-server-tls` Certificate manifests, and waits for the certificate to be ready, allowing cert-manager to generate the `bitwarden-tls-certs` Secret before the chart is installed. The ESO postsync hook applies the ClusterSecretStore (`external-secrets-store`) after CRDs are registered. The Argo release postsync applies the argocd-repo-credentials ExternalSecret, waits for it to sync, and finally applies the Argo root app. Argo later reconciles the same apps. Paths inside the helmfile are relative to `bootstrap/`.
 - Create docker context `kind-homelab` (or `kind-<name>` from `cluster-config.yaml`) pointing at the host running dockerd; bootstrap fails if the context is missing.
-- `task secrets:create-key` → writes `.sops.agekey`; `task secrets:edit` → populates/edits `cluster-credentials.sops.yaml` from the template.
-- `task bootstrap:create` creates Kind, attaches workers to a macvlan network, patches kubeconfig endpoint (if remote), then runs helmfile sync (runs the helmfile prepare hook, installs Multus/Argo CD, applies cluster secrets via presync, seeds the Argo repo secret, applies the root Argo CD app).
+- `task bootstrap:create` creates Kind, attaches workers to a macvlan network, patches kubeconfig endpoint (if remote), ensures platform-system namespace exists, creates the `bitwarden-credentials` Secret with BWS_ACCESS_TOKEN, then runs helmfile sync (prepare hook warms images, installs local-path-provisioner/Multus/cert-manager/ESO/Argo CD in sequence; ESO presync waits for cert-manager readiness and applies Issuer/Certificate for SDK server; ESO postsync creates ClusterSecretStore; argocd postsync applies argocd-repo-credentials ExternalSecret and waits for it to sync before applying root app).
 - Warmup: `bootstrap/helmfile.yaml.gotmpl` creates short-lived pods in `kube-system` to pre-pull `docker.io/library/busybox:stable` and `quay.io/k8tz/k8tz:<version>` (version derived from `apps/kube-system/k8tz/config.yaml`), then deletes them.
-- Optional global Docker Hub auth: store `dockerhub_username` and `dockerhub_token` in `cluster-credentials.sops.yaml` (placeholders in `cluster-credentials.template.yaml`). Bootstrap reads them via `get_secret_value`, writes a fresh kubelet `/var/lib/kubelet/config.json` on every node with only the Docker Hub auth entry, and restarts kubelet. No env/config overrides are supported.
+- Secrets management: All secrets are stored in Bitwarden Secrets Manager (organizationID `b4b5d72b-b543-40b5-a09f-b3b501401fb1`, projectID `16848a5f-8d25-4560-af64-b3b5014052e7`). Bootstrap requires `BWS_ACCESS_TOKEN` env var. The ClusterSecretStore (`external-secrets-store`) references the SDK server at `https://bitwarden-sdk-server.platform-system.svc.cluster.local:9998`. All app secrets are fetched by ExternalSecrets post-bootstrap. The SDK server certificate is managed by cert-manager via `external-secrets-sdk-server-issuer` Issuer and `external-secrets-sdk-server-tls` Certificate (90-day validity, 15-day renewal window, sync-wave -4). Optional global Docker Hub auth: store `dockerhub_username` and `dockerhub_token` in Bitwarden Secrets Manager. Bootstrap reads them via BWS CLI (`bitwarden/bws:1.0.0` container running `secret list` command to find secrets by name), writes a fresh kubelet `/var/lib/kubelet/config.json` on every node with only the Docker Hub auth entry, and restarts kubelet. No env/config overrides are supported.
 - Destroy/recreate: `task bootstrap:destroy` / `task bootstrap:recreate`.
 - Env overrides honored by bootstrap: `MULTUS_PARENT_IFACE`, `MULTUS_PARENT_SUBNET`, `MULTUS_PARENT_GATEWAY`, `MULTUS_PARENT_IP_RANGE` (document when used).
-- Secrets: `cluster-credentials.template.yaml` carries `oauth2_proxy_client_secret` and `oauth2_proxy_cookie_secret` (32-byte). OAuth2 Proxy client ID is hardcoded to `oauth2-proxy` in its ExternalSecret template.
+
+### Bitwarden Secret Reference
+All secrets must exist in Bitwarden Secrets Manager with these exact key names:
+- **Bootstrap**: `dockerhub_username`, `dockerhub_token` (optional)
+- **Argo CD**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
+- **Platform**: `cert_manager_cloudflare_api_token`, `cloudflared_tunnel_token`, `external_dns_cloudflare_api_token`, `external_dns_unifi_api_key`, `dex_admin_password_hash`, `oauth2_proxy_client_secret`, `oauth2_proxy_cookie_secret`
+- **Operations**: `security_notifier_telegram_token`, `security_notifier_telegram_chatid`, `gatus_telegram_token`, `gatus_telegram_chatid`, `kopia_password`
+- **Media**: `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
+- **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `karakeep_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`
 
 ## Argo CD & Apps
 - ApplicationSet uses go-template and orders Applications via `argocd.argoproj.io/sync-wave` (taken from `sync.wave`; lower = earlier). RollingSync and progressive syncs are **not** used; remove any legacy `rollout.*` fields when touching app configs.
@@ -68,7 +75,7 @@
 
 ## Commands
 - Lint/format YAML: `task lint` (prettier ➜ yamlfmt ➜ yamllint).
-- Secrets: `task secrets:create-key`, `task secrets:edit`, `task secrets:apply` (decrypts and applies to current kube context).
+- Secrets: All secrets are managed in Bitwarden Secrets Manager. Set `BWS_ACCESS_TOKEN` environment variable before running `task bootstrap:create`.
 - Argo resync without CLI: `task argo:sync app=name` (omit `app` to refresh all).
 - Argo UI port-forward: `task argo:pf` (forwards `svc/argocd-server` on 8080→80).
 - Renovate: `.renovaterc.json5` tracks Helm charts in `apps/*/*/config.yaml`, Kind node images, WASM plugins in `apps/*/*/manifests/*.wasmplugin.yaml` (docker datasource), and Gateway API CRDs version (github-releases datasource).
@@ -147,7 +154,7 @@ All Kubernetes resources follow consistent naming patterns. Filename must always
 - Baseline: `task lint`.
 - Targeted manifest tweaks (rare): use `kubectl diff -f <path>` for dry-run inspection only. Do not `kubectl apply`/`kubectl patch` Argo-managed resources—Argo sync will overwrite; make changes in Git and let Argo reconcile.
 - When updating Argo Applications, confirm chart `targetRevision` matches the intended release to avoid drift.
-- Never commit decrypted secrets; `.sops.agekey` stays untracked/local.
+- Never commit secrets or the `BWS_ACCESS_TOKEN` environment variable.
 
 ## App-Template House Style (bjw-s app-template v4.5.0)
 
@@ -300,4 +307,3 @@ To assess an application's potential for non-root and strict security profiles:
 - Review upstream documentation for recommended UIDs/GIDs, writable paths, and capabilities.
 - Inspect Docker image metadata for default user and filesystem expectations.
 - Test with non-root settings (e.g., UID/GID 568) and progressively enable stricter controls (`capabilities.drop: [ALL]`), ensuring all necessary writable paths are provided via mounts (e.g., `/tmp`).
-

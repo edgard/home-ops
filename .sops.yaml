@@ -1,8 +1,0 @@
----
-# Update the age recipient below after running `age-keygen`.
-creation_rules:
-  - path_regex: \.sops\.ya?ml$
-    encrypted_regex: "^(data|stringData)$"
-    key_groups:
-      - age:
-          - "age1e8p2ay0gvelus06600v0tw8facfml9e97ms2qxf502vjz77r8gfqpe40vx"

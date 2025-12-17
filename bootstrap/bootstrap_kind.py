@@ -66,20 +66,18 @@ class Bootstrapper:
         self.multus_subnet = os.environ.get("MULTUS_PARENT_SUBNET", "192.168.1.0/24")
         self.multus_gateway = os.environ.get("MULTUS_PARENT_GATEWAY", "192.168.1.1")
         self.multus_ip_range = os.environ.get("MULTUS_PARENT_IP_RANGE", "192.168.1.240/29")
+        self.bws_access_token = os.environ.get("BWS_ACCESS_TOKEN", "")
 
         # Filesystem layout
         self.cluster_config_root = Path(__file__).resolve().parent
         self.kind_config_path = self.cluster_config_root / "cluster-config.yaml"
-        self.cluster_credentials_sops_path = self.cluster_config_root / "cluster-credentials.sops.yaml"
         self.default_kubeconfig = Path.home() / ".kube/config"
-        self.default_age_key = self.cluster_config_root.parent / ".sops.agekey"
 
         # Runtime/cache state
         self.cluster_name = ""
         self.bind_address = ""
         self.advertise_host = ""
         self.original_docker_context: Optional[str] = None
-        self.cluster_credentials_data: Optional[Dict[str, Any]] = None
         self._temp_dir = tempfile.TemporaryDirectory(prefix="homelab-")
 
         self.env = os.environ.copy()
@@ -132,7 +130,7 @@ class Bootstrapper:
     def init_environment(self) -> None:
         self.cluster_name = self.load_cluster_name()
 
-        required = ["docker", "kind", "sops"]
+        required = ["docker", "kind"]
         if not self.destroy_mode:
             required.append("kubectl")
         for command in required:
@@ -141,13 +139,9 @@ class Bootstrapper:
         self.prepare_docker_context()
 
         self.set_env_path("KUBECONFIG", self.default_kubeconfig)
-        self.set_env_path("SOPS_AGE_KEY_FILE", self.default_age_key)
 
         self.logger.info(f"[Bootstrap] Targeting cluster name={self.cluster_name} docker_context={self.kind_context}")
-        self.logger.info(
-            f"[Network] Using Multus iface={self.multus_iface} subnet={self.multus_subnet} "
-            f"gateway={self.multus_gateway} range={self.multus_ip_range}"
-        )
+        self.logger.info(f"[Network] Using Multus iface={self.multus_iface} subnet={self.multus_subnet} " f"gateway={self.multus_gateway} range={self.multus_ip_range}")
 
     def load_cluster_name(self) -> str:
         if not self.kind_config_path.exists():
@@ -280,10 +274,7 @@ class Bootstrapper:
             if self.bind_address or self.advertise_host:
                 current_host, _ = self.current_api_server_endpoint()
                 if current_host and current_host != self.advertise_host:
-                    raise BootstrapError(
-                        f"[Cluster] API host mismatch name={self.cluster_name} current={current_host} "
-                        f"expected={self.advertise_host} action=recreate-with-destroy"
-                    )
+                    raise BootstrapError(f"[Cluster] API host mismatch name={self.cluster_name} current={current_host} " f"expected={self.advertise_host} action=recreate-with-destroy")
                 if current_host is None:
                     raise BootstrapError(f"[Cluster] API host unknown name={self.cluster_name} action=recreate-with-destroy")
             self.logger.info(f"[Cluster] Skipping create reason=cluster-exists name={self.cluster_name}")
@@ -295,10 +286,7 @@ class Bootstrapper:
         if network_name in networks:
             self.logger.info(f"[Network] Reusing Docker macvlan name={network_name}")
         else:
-            self.logger.info(
-                f"[Network] Creating Docker macvlan name={network_name} iface={self.multus_iface} "
-                f"subnet={self.multus_subnet} gateway={self.multus_gateway} ip-range={self.multus_ip_range}"
-            )
+            self.logger.info(f"[Network] Creating Docker macvlan name={network_name} iface={self.multus_iface} " f"subnet={self.multus_subnet} gateway={self.multus_gateway} ip-range={self.multus_ip_range}")
             self.run(
                 [
                     "docker",
@@ -355,10 +343,7 @@ class Bootstrapper:
         if already:
             self.logger.info(f"[Network] Workers already attached network={network_name} nodes={' '.join(already)}")
         if failed:
-            raise BootstrapError(
-                f"[Network] Failed to attach workers network={network_name} nodes={' '.join(failed)} "
-                "detail=docker-network-connect-output"
-            )
+            raise BootstrapError(f"[Network] Failed to attach workers network={network_name} nodes={' '.join(failed)} " "detail=docker-network-connect-output")
         if not attached and not already and not failed:
             self.logger.info("[Network] No worker nodes eligible for macvlan attachment")
 
@@ -490,60 +475,56 @@ class Bootstrapper:
             raise BootstrapError("[Network] Failed to patch Kindnet resources (kindnet DaemonSet missing?)")
 
     # -------------------------------------------------------- Secrets
-    def ensure_cluster_secrets_loaded(self) -> None:
-        if self.cluster_credentials_data is not None:
-            return
-        if not self.cluster_credentials_sops_path.exists():
-            raise BootstrapError(f"[Secrets] Missing cluster credentials file at {self.cluster_credentials_sops_path}")
+    def fetch_bitwarden_secret(self, secret_name: str) -> str:
+        """Fetch a single secret from Bitwarden Secrets Manager by key name using bws CLI."""
+        if not self.bws_access_token:
+            raise BootstrapError("[Secrets] BWS_ACCESS_TOKEN environment variable is required")
 
-        decrypted = self.run(
-            ["sops", "--decrypt", str(self.cluster_credentials_sops_path)],
-            capture_output=True,
-        ).stdout
-        data = yaml.safe_load(decrypted) or {}
-        if not isinstance(data, dict):
-            raise BootstrapError(f"[Secrets] {self.cluster_credentials_sops_path} must be a Secret manifest")
-
-        self.cluster_credentials_data = data
-
-    def get_secret_value(self, key: str, required: bool = True) -> str:
-        """
-        Fetch a key from the decrypted cluster credentials Secret (stringData or data).
-        Decodes base64 when using 'data'.
-        """
-        self.ensure_cluster_secrets_loaded()
-        if not self.cluster_credentials_data:
-            if required:
-                raise BootstrapError("[Secrets] Cluster credentials are empty after decrypt")
-            return ""
-
-        for field in ("stringData", "data"):
-            values = self.cluster_credentials_data.get(field) or {}
-            if key not in values:
-                continue
-            value = values[key]
-            if field == "data":
-                try:
-                    return base64.b64decode(value).decode("utf-8")
-                except Exception as exc:  # pragma: no cover - defensive
-                    raise BootstrapError(f"[Secrets] Failed to decode base64 for key={key}") from exc
-            return str(value)
-
-        if required:
-            raise BootstrapError(f"[Secrets] Required key '{key}' not found in {self.cluster_credentials_sops_path}")
-        return ""
+        try:
+            result = self.run(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "-e",
+                    f"BWS_ACCESS_TOKEN={self.bws_access_token}",
+                    "bitwarden/bws:1.0.0",
+                    "secret",
+                    "list",
+                    "--output",
+                    "json",
+                ],
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise BootstrapError(f"[Secrets] Subprocess failed while fetching secret '{secret_name}': {exc}") from exc
+        try:
+            secrets = json.loads(result.stdout)
+        except json.JSONDecodeError as exc:
+            raise BootstrapError(f"[Secrets] Failed to parse JSON response while fetching secret '{secret_name}': {exc}") from exc
+        try:
+            for secret in secrets:
+                if secret.get("key") == secret_name:
+                    return secret.get("value", "")
+            raise BootstrapError(f"[Secrets] Secret with key '{secret_name}' not found in Bitwarden")
+        except KeyError as exc:
+            raise BootstrapError(f"[Secrets] Unexpected response structure while fetching secret '{secret_name}': {exc}") from exc
 
     # -------------------------------------------------- Docker Hub auth (kubelet config.json)
     def configure_dockerhub_auth(self) -> None:
-        if not self.cluster_credentials_sops_path.exists():
-            self.logger.info("[DockerHub] Skipping global Docker Hub auth reason=credentials-file-missing")
+        if not self.bws_access_token:
+            self.logger.info("[DockerHub] Skipping global Docker Hub auth reason=no-bws-token")
             return
 
-        username = self.get_secret_value("dockerhub_username", required=False).strip()
-        token = self.get_secret_value("dockerhub_token", required=False).strip()
+        try:
+            username = self.fetch_bitwarden_secret("dockerhub_username").strip()
+            token = self.fetch_bitwarden_secret("dockerhub_token").strip()
+        except BootstrapError:
+            self.logger.info("[DockerHub] Skipping global Docker Hub auth reason=credentials-not-found")
+            return
 
         if not username or not token:
-            self.logger.info("[DockerHub] Skipping global Docker Hub auth reason=credentials-not-found")
+            self.logger.info("[DockerHub] Skipping global Docker Hub auth reason=credentials-empty")
             return
 
         registry = "https://index.docker.io/v1/"

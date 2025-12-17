@@ -10,9 +10,6 @@ set:
 shell: bash -c
 
 vars:
-  CLUSTER_CREDENTIALS_SOPS: '{{.CLUSTER_CREDENTIALS_SOPS | default (printf "%s/bootstrap/cluster-credentials.sops.yaml" .TASKFILE_DIR)}}'
-  CLUSTER_CREDENTIALS_TEMPLATE: '{{.CLUSTER_CREDENTIALS_TEMPLATE | default (printf "%s/bootstrap/cluster-credentials.template.yaml" .TASKFILE_DIR)}}'
-  SOPS_AGE_KEY_FILE: '{{.SOPS_AGE_KEY_FILE | default (printf "%s/.sops.agekey" .TASKFILE_DIR)}}'
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
 
 tasks:
@@ -24,9 +21,12 @@ tasks:
   bootstrap:create:
     desc: Provision Kind cluster and install Argo CD
     dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - BWS_ACCESS_TOKEN
     cmds:
       - "python3 bootstrap_kind.py"
-      - 'SOPS_AGE_KEY_FILE="{{.SOPS_AGE_KEY_FILE}}" helmfile -f helmfile.yaml.gotmpl sync'
+      - "helmfile -f helmfile.yaml.gotmpl sync"
 
   bootstrap:destroy:
     desc: Destroy Kind cluster via bootstrap
@@ -40,52 +40,6 @@ tasks:
       - task: bootstrap:destroy
         ignore_error: true
       - task: bootstrap:create
-
-  secrets:create-key:
-    desc: Generate SOPS age key
-    status:
-      - test -f "{{.SOPS_AGE_KEY_FILE}}"
-    cmds:
-      - 'age-keygen -o "{{.SOPS_AGE_KEY_FILE}}"'
-
-  secrets:init:
-    desc: Ensure encrypted secrets file exists
-    preconditions:
-      - sh: test -f "{{.CLUSTER_CREDENTIALS_TEMPLATE}}"
-        msg: Template {{.CLUSTER_CREDENTIALS_TEMPLATE}} not found
-      - sh: test -f "{{.SOPS_AGE_KEY_FILE}}"
-        msg: Missing age key {{.SOPS_AGE_KEY_FILE}}; run `task secrets:create-key`
-    status:
-      - test -f "{{.CLUSTER_CREDENTIALS_SOPS}}"
-    cmds:
-      - cp "{{.CLUSTER_CREDENTIALS_TEMPLATE}}" "{{.CLUSTER_CREDENTIALS_SOPS}}"
-
-  secrets:edit:
-    desc: Edit encrypted cluster secrets with SOPS
-    deps:
-      - secrets:init
-    preconditions:
-      - sh: test -f "{{.SOPS_AGE_KEY_FILE}}"
-        msg: Missing age key {{.SOPS_AGE_KEY_FILE}}; run `task secrets:create-key`
-    env:
-      SOPS_AGE_KEY_FILE: "{{.SOPS_AGE_KEY_FILE}}"
-    interactive: true
-    cmds:
-      - cmd: 'sops "{{.CLUSTER_CREDENTIALS_SOPS}}" || test "$?" -eq 200'
-
-  secrets:apply:
-    desc: Decrypt secrets and apply to cluster
-    deps:
-      - secrets:init
-    preconditions:
-      - sh: test -f "{{.CLUSTER_CREDENTIALS_SOPS}}"
-        msg: Missing {{.CLUSTER_CREDENTIALS_SOPS}}; run `task secrets:edit` first
-      - sh: test -f "{{.SOPS_AGE_KEY_FILE}}"
-        msg: Missing age key {{.SOPS_AGE_KEY_FILE}}; run `task secrets:create-key`
-    env:
-      SOPS_AGE_KEY_FILE: "{{.SOPS_AGE_KEY_FILE}}"
-    cmds:
-      - 'sops -d "{{.CLUSTER_CREDENTIALS_SOPS}}" | kubectl apply -f -'
 
   lint:
     desc: Format + lint YAML

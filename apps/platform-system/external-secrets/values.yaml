@@ -11,3 +11,8 @@ livenessProbe:
 certController:
   startupProbe:
     enabled: true
+
+bitwarden-sdk-server:
+  enabled: true
+  podAnnotations:
+    reloader.stakater.com/auto: "true"

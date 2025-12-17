@@ -24,12 +24,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-        securityContext:
-          fsGroup: 568
-          fsGroupChangePolicy: OnRootMismatch
-          runAsGroup: 568
-          runAsNonRoot: true
-          runAsUser: 568
       gluetun:
         image:
           repository: qmcgaw/gluetun

@@ -1,8 +1,2 @@
-# Ignore SOPS files
-*.sops.yaml
-*.sops.yml
-**/*.sops.yaml
-**/*.sops.yml
-
 # Ignore downloaded CRDs (not managed by us)
 apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml

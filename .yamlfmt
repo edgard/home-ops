@@ -2,7 +2,6 @@
 doublestar: true
 gitignore_excludes: true
 exclude:
-  - "**/*.sops.yaml"
   - "apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml"
 formatter:
   type: basic
