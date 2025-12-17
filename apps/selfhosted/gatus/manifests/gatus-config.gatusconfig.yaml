@@ -3,7 +3,7 @@ apiVersion: homelab.edgard.org/v1alpha1
 kind: GatusConfig
 metadata:
   name: gatus-config
-  namespace: ops
+  namespace: selfhosted
 spec:
   base:
     metrics: false

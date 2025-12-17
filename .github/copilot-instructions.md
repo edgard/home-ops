@@ -9,7 +9,7 @@
 - `bootstrap/` – Kind cluster config and Kind cluster config (`cluster-config.yaml`), helmfile, and bootstrap script.
 - `bootstrap/bootstrap_kind.py` – Kind cluster bring-up and host plumbing (docker context, macvlan attach, kubeconfig patch, Docker Hub auth). Bootstrap expects Docker context `kind-<cluster>` (default `kind-homelab`) to exist.
 - `argocd/` – `root.app.yaml` bootstraps namespaces, projects, and the ApplicationSet (`appsets/apps.appset.yaml` with sync-wave ordering).
-- `apps/<group>/<app>/` – `config.yaml` (chart source/version + optional rollout/sync), `values.yaml`, optional `manifests/` (always synced). Groups: argocd, kube-system, local-path-storage, platform-system, ops, selfhosted, media, home-automation.
+- `apps/<group>/<app>/` – `config.yaml` (chart source/version + optional rollout/sync), `values.yaml`, optional `manifests/` (always synced). Groups: argocd, kube-system, local-path-storage, platform-system, selfhosted, media, home-automation.
 - `terraform/` – OpenTofu configs for Cloudflare using Backblaze B2 S3 backend (`shadowhausterraform/homelab/terraform.tfstate`); module in `terraform/cloudflare/`.
 
 - Dependencies: docker, kind, kubectl, helm, python3 + PyYAML, go-task (`task`), prettier, yamlfmt, yamllint, tofu.
@@ -25,10 +25,9 @@
 All secrets must exist in Bitwarden Secrets Manager with these exact key names:
 - **Bootstrap**: `dockerhub_username`, `dockerhub_token` (optional)
 - **Argo CD**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
-- **Platform**: `cert_manager_cloudflare_api_token`, `cloudflared_tunnel_token`, `external_dns_cloudflare_api_token`, `external_dns_unifi_api_key`, `dex_admin_password_hash`, `oauth2_proxy_client_secret`, `oauth2_proxy_cookie_secret`
-- **Operations**: `security_notifier_telegram_token`, `security_notifier_telegram_chatid`, `gatus_telegram_token`, `gatus_telegram_chatid`, `kopia_password`
+- **Platform**: `cert_manager_cloudflare_api_token`, `cloudflared_tunnel_token`, `external_dns_cloudflare_api_token`, `external_dns_unifi_api_key`, `dex_admin_password_hash`, `oauth2_proxy_client_secret`, `oauth2_proxy_cookie_secret`, `restic_password`
 - **Media**: `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
-- **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `karakeep_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`
+- **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `karakeep_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`, `gatus_telegram_token`, `gatus_telegram_chatid`, `security_notifier_telegram_token`, `security_notifier_telegram_chatid`
 
 ## Argo CD & Apps
 - ApplicationSet uses go-template and orders Applications via `argocd.argoproj.io/sync-wave` (taken from `sync.wave`; lower = earlier). RollingSync and progressive syncs are **not** used; remove any legacy `rollout.*` fields when touching app configs.
@@ -66,9 +65,9 @@ All secrets must exist in Bitwarden Secrets Manager with these exact key names:
   - `local-bulk`: RWO, base `/mnt/dpool`, pathPattern claim name (so PVC `media` maps to `/mnt/dpool/media`).
 - Media PVC is dynamic on `local-bulk` (`media` in namespace `media`, maps to `/mnt/dpool/media`).
 - Bootstrap demotes Kind's built-in `standard` StorageClass (if present) so `local-fast` becomes the sole default.
-- Kopia repo and www now use dynamic PVCs on `local-bulk` (sizes set in their values files); move host data into the provisioned paths when migrating.
+- Restic repo and www now use dynamic PVCs on `local-bulk` (sizes set in their values files); move host data into the provisioned paths when migrating.
 - Base paths `/mnt/spool/appdata` and `/mnt/dpool` must exist on the Kind host; worker already mounts `/mnt/spool` and `/mnt/dpool`.
-- Char devices `/dev/net/tun` and `/dev/ttyUSB0` remain hostPath mounts where needed; kopia keeps hostPath `/mnt/spool/appdata` for backup source coverage.
+- Char devices `/dev/net/tun` and `/dev/ttyUSB0` remain hostPath mounts where needed; restic keeps hostPath `/mnt/spool/appdata` for backup source coverage.
 - Helper scripts in repo root:
   - `migrate-pvc-data.sh` (dry-run by default, use `DRY_RUN=0`) to rsync old hostPath data into new PVC paths.
   - `cleanup-old-hostpaths.sh` (dry-run by default) to remove legacy hostPath directories after migration.
@@ -102,7 +101,7 @@ All Kubernetes resources follow consistent naming patterns. Filename must always
 - Pattern: `{app}-credentials`
 - All ExternalSecrets create secrets with `-credentials` suffix
 - Exception: `argocd-secret` (ArgoCD's built-in secret, we merge into it with `creationPolicy: Merge`)
-- Examples: `kopia-credentials`, `oauth2-proxy-credentials`, `dex-credentials`
+- Examples: `restic-credentials`, `oauth2-proxy-credentials`, `dex-credentials`
 
 ### TLS Certificate Secrets
 - Pattern: `{app}-{descriptor}-tls`
@@ -287,15 +286,15 @@ Definitions:
 | `apps/media/recyclarr` | yes | yes | Runs as UID/GID 1000. |
 | `apps/media/sonarr` | yes | yes | Runs as UID/GID 568. |
 | `apps/media/unpackerr` | yes | yes | Runs as UID/GID 568. |
-| `apps/ops/gatus` | yes | yes | Runs as UID/GID 1000. |
-| `apps/ops/kopia` | no | yes | Intentionally runs as root (UID/GID 0). |
 | `apps/platform-system/cloudflared` | yes | yes | Runs as UID/GID 65532. |
 | `apps/platform-system/dex` | yes | yes | Runs as UID/GID 1001. |
 | `apps/platform-system/gateway-api` | n/a | n/a | No app-template controllers; app-template used as a wrapper for manifests/values. |
 | `apps/platform-system/homelab-controller` | yes | yes | Runs as UID/GID 1000. |
+| `apps/platform-system/restic` | no | yes | Intentionally runs as root (UID/GID 0). |
 | `apps/selfhosted/atuin` | yes | yes | Runs as UID/GID 1000. |
 | `apps/selfhosted/changedetection` | yes | yes | `defaultPodOptions` are compliant; the `browser-sockpuppet-chrome` container might be less strict. |
 | `apps/selfhosted/echo` | yes | yes | Runs as UID/GID 1000. |
+| `apps/selfhosted/gatus` | yes | yes | Runs as UID/GID 1000. |
 | `apps/selfhosted/homepage` | yes | yes | Runs as UID/GID 1000. |
 | `apps/selfhosted/karakeep` | no | no | Security context configuration not found in `app-template` style in `values.yaml`. |
 | `apps/selfhosted/nginx` | no | no | Security context configuration not found in `app-template` style in `values.yaml`. |

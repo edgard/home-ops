@@ -45,7 +45,7 @@ route:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Status
-      gethomepage.dev/group: Ops
+      gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: gatus.svg
       gethomepage.dev/app: gatus
     labels:
