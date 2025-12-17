@@ -26,4 +26,4 @@ GitOps-driven Kubernetes homelab running on Kind, managed by Argo CD with OpenTo
 
 ## More Details
 
-This README stays high level. The full runbook, conventions, and dependency list live in `.github/copilot-instructions.md`.
+This README stays high level. The full runbook, conventions, and dependency list live in `AGENTS.md`.
