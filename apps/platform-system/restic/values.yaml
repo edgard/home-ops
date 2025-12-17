@@ -13,7 +13,7 @@ controllers:
       app:
         image:
           repository: creativeprojects/resticprofile
-          tag: 0.29.0
+          tag: 0.32.0
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
