@@ -17,9 +17,6 @@ spec:
       namespace: selfhosted
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      namespace: ops
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
       namespace: platform-system
   to:
     - group: gateway.networking.k8s.io
