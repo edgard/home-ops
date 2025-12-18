@@ -83,41 +83,19 @@ spec:
         interval: 1m
         conditions:
           - "[CONNECTED] == true"
-      - name: gateway-external
+      - name: gateway
         group: 03-gateway
-        url: tcp://gateway-external-istio.platform-system.svc.cluster.local:443
+        url: tcp://gateway-istio.platform-system.svc.cluster.local:443
         labels:
           namespace: platform-system
-          scope: internal
         interval: 30s
         conditions:
           - "[CONNECTED] == true"
-      - name: gateway-internal
+      - name: gateway-https
         group: 03-gateway
-        url: tcp://gateway-internal-istio.platform-system.svc.cluster.local:443
+        url: https://dash.edgard.org/
         labels:
           namespace: platform-system
-          scope: internal
-        interval: 30s
-        conditions:
-          - "[CONNECTED] == true"
-      - name: gateway-external-https
-        group: 03-gateway
-        url: https://auth.edgard.org/
-        labels:
-          namespace: platform-system
-          scope: external
-        interval: 1m
-        conditions:
-          - "[STATUS] >= 200"
-          - "[STATUS] < 400"
-          - "[CERTIFICATE_EXPIRATION] > 168h"
-      - name: gateway-internal-https
-        group: 03-gateway
-        url: https://auth.edgard.org/
-        labels:
-          namespace: platform-system
-          scope: internal
         interval: 1m
         conditions:
           - "[STATUS] >= 200"

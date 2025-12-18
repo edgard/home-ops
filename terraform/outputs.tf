@@ -3,3 +3,8 @@ output "cloudflare" {
   value       = module.cloudflare
 }
 
+output "tailscale" {
+  description = "Tailscale module outputs"
+  value       = module.tailscale
+}
+

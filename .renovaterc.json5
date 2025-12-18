@@ -48,17 +48,6 @@
     // Apps - Manifests
     {
       customType: "regex",
-      description: "WASM plugins in Istio manifests",
-      managerFilePatterns: [
-        "/^apps\\/[^\\/]+\\/[^\\/]+\\/manifests\\/.*\\.wasmplugin\\.ya?ml$/",
-      ],
-      matchStrings: [
-        "url:\\s*oci://(?<packageName>[A-Za-z0-9._\\-]+(?:/[A-Za-z0-9._\\-]+)+):(?<currentValue>[0-9A-Za-z_.\\-]+)",
-      ],
-      datasourceTemplate: "docker",
-    },
-    {
-      customType: "regex",
       description: "Gateway API CRDs version",
       managerFilePatterns: [
         "/^apps\\/platform-system\\/gateway-api\\/manifests\\/gateway-api-version\\.ya?ml$/",

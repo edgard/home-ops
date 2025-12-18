@@ -101,24 +101,9 @@ service:
         port: 3000
 
 route:
-  external:
-    labels:
-      external-dns.edgard.org/scope: external
+  main:
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - dash.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: main
-            port: 3000
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

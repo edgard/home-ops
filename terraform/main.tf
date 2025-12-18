@@ -7,6 +7,14 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "5.14.0"
     }
+    tailscale = {
+      source  = "tailscale/tailscale"
+      version = "0.24.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "3.0.1"
+    }
   }
 
   backend "s3" {
@@ -31,9 +39,25 @@ provider "cloudflare" {
   # Reads from CLOUDFLARE_API_TOKEN environment variable
 }
 
+provider "tailscale" {
+  # Reads from TAILSCALE_OAUTH_CLIENT_ID and TAILSCALE_OAUTH_CLIENT_SECRET environment variables
+}
+
+provider "kubernetes" {
+  # Reads from KUBECONFIG environment variable or ~/.kube/config
+  config_path = "~/.kube/config"
+}
+
 # Cloudflare Module
 module "cloudflare" {
   source = "./cloudflare"
 
   zone_id = var.cloudflare_zone_id
+}
+
+# Tailscale Module
+module "tailscale" {
+  source = "./tailscale"
+
+  tailscale_tailnet = var.tailscale_tailnet
 }

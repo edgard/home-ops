@@ -12,49 +12,50 @@
   - **Secrets**: Stored in Bitwarden (Org `b4b5...`, Proj `1684...`). ESO fetches them via `external-secrets-sdk-server` (TLS via cert-manager).
 - **`argocd/`**: `root.app.yaml` and `appsets/apps.appset.yaml` (ordered by sync-wave).
 - **`apps/<group>/<app>/`**: `config.yaml` (chart source), `values.yaml`, `manifests/` (synced).
-- **`terraform/`**: Cloudflare config (B2 backend).
+- **`terraform/`**: Cloudflare + Tailscale config (B2 backend).
 
 ## Argo CD & Apps
-- **Sync Waves**: `-5` System/CRDs, `-4` Controllers/DNS, `-3` Mesh/Authn, `-2` Edge, `-1` k8tz, `0` Apps.
+- **Sync Waves**: `-5` System/CRDs, `-4` Controllers/DNS/VPN, `-3` Mesh, `-1` k8tz, `0` Apps.
 - **Mechanics**: ServerSideApply (`SSA`) enabled globally. Progressive syncs/rollouts disabled.
-- **Istio/Ingress**: Gateway API used (`gateway-external`, `gateway-internal`). `authelia` handles AuthN via ExtAuthz (MeshConfig).
-- **DNS**: `coredns` forwards `edgard.org` queries to Unifi (192.168.1.1).
+- **Istio/Ingress**: Gateway API used (`gateway`). All apps accessed via Tailscale VPN only.
+- **DNS (Split)**: 
+  - **Public (Cloudflare)**: Managed via Terraform (`terraform/cloudflare/dns.tf`).
+  - **Internal (Unifi)**: `external-dns` syncs HTTPRoutes → 192.168.1.241 and DNSEndpoints → Unifi DNS.
+  - **DNSEndpoints**: Terraform manages via kubernetes provider (`terraform/cloudflare/dnsendpoints.tf`) for split-DNS parity.
+  - **Resolution**: `coredns` forwards `edgard.org` to Unifi (192.168.1.1). Tailscale split-DNS via Terraform.
 - **Storage**: `local-fast` (default, `/mnt/spool/appdata`) and `local-bulk` (`/mnt/dpool`).
 - **Commands**: `task lint` (format), `task argo:sync app=x`, `task argo:pf` (UI), `task tf:apply`.
 
-## Authelia Configuration
-- **Authentication**: File-based backend (`users_database.yml` from secret). Password reset disabled (file backend is read-only).
-- **2FA (TOTP)**: Enabled with issuer "Homelab". TOTP secrets stored encrypted in SQLite (`/data/db.sqlite3`).
-- **Access Control**: Default deny. `auth.edgard.org` bypassed. All `*.edgard.org` require two-factor authentication.
-- **SMTP Notifications**: Gmail SMTP (`submission://smtp.gmail.com:587`) configured but currently unused (no password reset, TOTP registration is in-app).
-- **Session Storage**: Redis sidecar (localhost). Sessions stored in Redis with RDB persistence (`/data` on PVC `authelia-redis-data`). Survives pod restarts.
-- **Session Timers**: 30d expiration, 24h inactivity, 90d remember-me (relaxed homelab config).
-- **Deployment**: `Recreate` strategy. Redis 8.4-alpine sidecar (unlimited resources, user 999).
-- **Istio Integration**: ExtAuthz via `envoyExtAuthzHttp` at `/api/authz/ext-authz/`. Read buffer increased to 8192 bytes (required for Istio headers). Server timeouts: read/write 10s, idle 60s.
-- **Critical**: Read buffer MUST be 8192 bytes for Istio compatibility (default 4096 causes HTTP 431 errors).
+## Tailscale VPN
+- **Access Model**: VPN-only. Zero external exposure. All apps require Tailscale connection.
+- **Subnet Router**: Advertises `192.168.1.0/24` to Tailscale network. Runs on worker node with `hostNetwork: true` and `NET_ADMIN`/`NET_RAW` capabilities. Uses auth key from Bitwarden.
+- **Split-DNS**: Terraform configures `edgard.org` → Unifi DNS (192.168.1.1) for Tailscale clients.
 
 ## Bitwarden Secret Keys
 Secrets must exist in Bitwarden with these exact keys:
 - **Bootstrap**: `dockerhub_username`, `dockerhub_token`
 - **Argo**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
-- **Platform**: `cert_manager_cloudflare_api_token`, `cloudflared_tunnel_token`, `external_dns_cloudflare_api_token`, `external_dns_unifi_api_key`, `authelia_admin_password_hash`, `authelia_session_secret`, `authelia_storage_encryption_key`, `authelia_jwt_secret`, `authelia_smtp_password`, `restic_password`
+- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `restic_password`, `tailscale_auth_key`
 - **Media**: `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
 - **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `karakeep_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`, `gatus_telegram_token`, `gatus_telegram_chatid`, `security_notifier_telegram_token`, `security_notifier_telegram_chatid`
+
+**Note**: Tailscale OAuth credentials (`TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_CLIENT_SECRET`) are used locally by Terraform only, not stored in Bitwarden.
 
 ## Resource Naming Conventions
 Files must match `metadata.name`.
 
 | Resource Type | Pattern | Example |
 |---------------|---------|---------|
-| Manifest File | `{app}-{descriptor}.{kind}.yaml` | `istio-credentials.externalsecret.yaml` |
-| ExternalSecret | `{app}-credentials` | `restic-credentials` |
+| Manifest File | `{app}-{descriptor}.{kind}.yaml` | `gateway-credentials.externalsecret.yaml` |
+| ExternalSecret | `{app}-[{descriptor}-]credentials` | `gateway-credentials`, `argocd-repo-credentials` |
 | TLS Secret | `{app}-{descriptor}-tls` | `gateway-wildcard-tls` |
+| Certificate | `{app}-{descriptor}` | `gateway-wildcard` |
 | Generated CM | `{app}-generated-config` | `gatus-generated-config` (do not edit) |
-| Gateway | `gateway-{scope}` | `gateway-external` |
+| Gateway | `gateway` | `gateway` |
 | Issuer | `{app}-issuer-{env}` | `gateway-issuer-production` |
-| HTTPRoute | `{app}-{purpose}` | `authelia-auth-request` |
+| HTTPRoute | `{app}` | `homepage` |
 | CRD | `{plural}.{group}` | `gatusconfigs.homelab.edgard.org` |
-| ServiceAccount | `{app}` | `external-dns-external` |
+| ServiceAccount | `{app}` | `external-dns` |
 
 ## App-Template House Style (v4.5.0)
 Applies to apps using `ghcr.io/bjw-s-labs/helm/app-template`.
@@ -72,15 +73,14 @@ Applies to apps using `ghcr.io/bjw-s-labs/helm/app-template`.
 - **Exceptions**: Bind <1024 (`NET_BIND_SERVICE`), VPN (`NET_ADMIN`), Hardware (`privileged: true`).
 
 ### Resource Limits Policy
-- **Pattern**: All apps with limits use `requests: { cpu: 1m, memory: 1Mi }` for unlimited scheduling (prevents k8s defaulting requests=limits).
-- **Limits ONLY on edge/UI components** - Apply generous limits to public-facing apps for DDoS protection:
-  - **Public unprotected apps**: authelia (1→1Gi), nginx (2→1Gi), home-assistant (3→3Gi), atuin (1→1Gi), karakeep (2→2Gi), paperless (4→4Gi).
-  - **Security/monitoring**: falco (2→2Gi), homelab-controller (1→1Gi).
-- **NO limits on backend services** - Sidecars (redis, gotenberg, tika, chrome, meilisearch) and OAuth-protected apps run unlimited.
+- **All apps run unlimited**: `resources: { limits: null, requests: null }` (renders as `resources: {}`).
+- **Rationale**: VPN-only access eliminates DDoS risk. No need for resource limits or requests.
+- **Gateway**: Istio gateway uses default resources (managed by Gateway API).
 
 ### Compliance Status
-- **Fully Compliant**: home-assistant, mosquitto, bazarr, flaresolverr, jellyfin, prowlarr, radarr, recyclarr, sonarr, unpackerr, cloudflared, authelia, homelab-controller, atuin, changedetection, echo, gatus, homepage, nginx, karakeep, paperless.
+- **Fully Compliant**: home-assistant, mosquitto, bazarr, flaresolverr, jellyfin, prowlarr, radarr, recyclarr, sonarr, unpackerr, homelab-controller, atuin, changedetection, echo, gatus, homepage, karakeep, paperless.
 - **Exceptions**:
   - `zigbee2mqtt`: privileged (USB).
   - `qbittorrent`: `NET_ADMIN` (VPN).
   - `restic`: Root required.
+  - `tailscale-subnet-router`: `NET_ADMIN`/`NET_RAW` (VPN routing), `hostNetwork: true` (LAN bridge).

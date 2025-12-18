@@ -32,12 +32,8 @@ controllers:
           HOME: /tmp
           PYTHONUNBUFFERED: "1"
         resources:
-          requests:
-            cpu: 1m
-            memory: 1Mi
-          limits:
-            cpu: "1"
-            memory: 1Gi
+          limits: null
+          requests: null
         envFrom:
           - secretRef:
               name: homelab-controller-credentials

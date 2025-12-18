@@ -14,25 +14,3 @@ pilot:
 resources:
   limits: null
   requests: null
-
-meshConfig:
-  extensionProviders:
-    - name: authelia
-      envoyExtAuthzHttp:
-        service: authelia.platform-system.svc.cluster.local
-        port: 80
-        pathPrefix: /api/authz/ext-authz/
-        includeRequestHeadersInCheck:
-          - accept
-          - cookie
-          - authorization
-          - proxy-authorization
-        headersToUpstreamOnAllow:
-          - remote-*
-          - authelia-*
-        includeAdditionalHeadersInCheck:
-          X-Forwarded-Proto: "%REQ(:SCHEME)%"
-        headersToDownstreamOnDeny:
-          - set-cookie
-        headersToDownstreamOnAllow:
-          - set-cookie

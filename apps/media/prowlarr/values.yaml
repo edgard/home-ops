@@ -41,30 +41,15 @@ service:
         port: 9696
         targetPort: 9696
 route:
-  external:
+  main:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Prowlarr
       gethomepage.dev/group: Media
       gethomepage.dev/icon: prowlarr.svg
       gethomepage.dev/app: prowlarr
-    labels:
-      external-dns.edgard.org/scope: external
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - prowlarr.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: main
-            port: 9696
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

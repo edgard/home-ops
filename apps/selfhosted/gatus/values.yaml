@@ -41,30 +41,15 @@ service:
         port: 8080
         targetPort: http
 route:
-  external:
+  main:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Status
       gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: gatus.svg
       gethomepage.dev/app: gatus
-    labels:
-      external-dns.edgard.org/scope: external
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - status.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: main
-            port: 8080
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

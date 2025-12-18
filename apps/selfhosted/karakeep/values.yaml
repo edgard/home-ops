@@ -53,12 +53,8 @@ controllers:
           readiness:
             enabled: true
         resources:
-          requests:
-            cpu: 1m
-            memory: 1Mi
-          limits:
-            cpu: "2"
-            memory: 2Gi
+          limits: null
+          requests: null
 
   chrome:
     type: deployment
@@ -172,30 +168,15 @@ service:
         port: 7700
 
 route:
-  external:
+  main:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Karakeep
       gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: karakeep.svg
       gethomepage.dev/app: karakeep
-    labels:
-      external-dns.edgard.org/scope: external
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - karakeep.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: karakeep
-            port: 3000
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

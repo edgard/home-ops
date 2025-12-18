@@ -14,15 +14,12 @@ data:
 
     Collects security alerts and sends a daily digest to Telegram:
     - Falco runtime security alerts (via native HTTP output)
-    - Coraza WAF blocked requests (via gateway pod log parsing)
     """
     import json
     import logging
     import os
-    import re
     import threading
     import time
-    from collections import OrderedDict
     from datetime import datetime
     from pathlib import Path
 
@@ -32,16 +29,10 @@ data:
     TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
     DIGEST_TIME = os.environ.get("DIGEST_TIME", "08:00")  # 24h format, local time
     ALERTS_FILE = os.environ.get("ALERTS_FILE", "/data/alerts/pending.json")
-    CORAZA_LOG_INTERVAL = int(os.environ.get("CORAZA_LOG_INTERVAL", "30"))  # 30 sec
-    GATEWAY_NAMESPACE = os.environ.get("GATEWAY_NAMESPACE", "platform-system")
     MAX_ALERTS_PER_TYPE = int(os.environ.get("MAX_ALERTS_PER_TYPE", "1000"))  # Prevent unbounded growth
 
     logger = logging.getLogger("security_notifier")
 
-    # Track seen Coraza log unique_ids to avoid duplicate alerts
-    _seen_coraza_ids: OrderedDict[str, float] = OrderedDict()  # unique_id -> timestamp
-    # Track last log check timestamp per pod
-    _last_log_check: dict[str, float] = {}
     # Lock for file operations
     _file_lock = threading.Lock()
 
@@ -52,7 +43,7 @@ data:
 
     def _load_alerts() -> dict:
         """Load alerts from persistent storage."""
-        default = {"falco": [], "coraza": [], "last_digest_date": ""}
+        default = {"falco": [], "last_digest_date": ""}
         try:
             path = Path(ALERTS_FILE)
             if path.exists():
@@ -123,70 +114,39 @@ data:
     def _format_digest(alerts: dict) -> str | None:
         """Format the daily security digest."""
         falco_alerts = alerts.get("falco", [])
-        coraza_alerts = alerts.get("coraza", [])
 
-        if not falco_alerts and not coraza_alerts:
+        if not falco_alerts:
             return None
 
         today = datetime.now().strftime("%b %d, %Y")
         lines = [f"📊 *Daily Security Digest* ({today})\n"]
 
         # Falco section
-        if falco_alerts:
-            lines.append("🛡️ *FALCO - Runtime Security*")
-            lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append("🛡️ *FALCO - Runtime Security*")
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-            # Aggregate by rule
-            rules: dict[str, dict] = {}
-            priority_counts = {"CRITICAL": 0, "ERROR": 0, "WARNING": 0, "NOTICE": 0, "INFO": 0}
-            for alert in falco_alerts:
-                rule = alert.get("rule", "unknown")
-                priority = (alert.get("priority") or "INFO").upper()
-                if priority in priority_counts:
-                    priority_counts[priority] += 1
-                if rule not in rules:
-                    rules[rule] = {"count": 0, "priority": priority}
-                rules[rule]["count"] += 1
+        # Aggregate by rule
+        rules: dict[str, dict] = {}
+        priority_counts = {"CRITICAL": 0, "ERROR": 0, "WARNING": 0, "NOTICE": 0, "INFO": 0}
+        for alert in falco_alerts:
+            rule = alert.get("rule", "unknown")
+            priority = (alert.get("priority") or "INFO").upper()
+            if priority in priority_counts:
+                priority_counts[priority] += 1
+            if rule not in rules:
+                rules[rule] = {"count": 0, "priority": priority}
+            rules[rule]["count"] += 1
 
-            critical = priority_counts["CRITICAL"] + priority_counts["ERROR"]
-            warning = priority_counts["WARNING"]
-            lines.append(f"Total: {len(falco_alerts)} alerts | 🔴 {critical} Critical | 🟠 {warning} Warning\n")
+        critical = priority_counts["CRITICAL"] + priority_counts["ERROR"]
+        warning = priority_counts["WARNING"]
+        lines.append(f"Total: {len(falco_alerts)} alerts | 🔴 {critical} Critical | 🟠 {warning} Warning\n")
 
-            # Sort by count
-            sorted_rules = sorted(rules.items(), key=lambda x: x[1]["count"], reverse=True)[:5]
-            if sorted_rules:
-                lines.append("Rules triggered:")
-                for rule, data in sorted_rules:
-                    lines.append(f"• {_escape_markdown(rule)}: {data['count']}")
-            lines.append("")
-
-        # Coraza section
-        if coraza_alerts:
-            lines.append("🔥 *CORAZA - WAF Blocks*")
-            lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-            # Aggregate by rule_id
-            rules: dict[str, dict] = {}
-            for alert in coraza_alerts:
-                rule_id = alert.get("rule_id", "unknown")
-                message = alert.get("message", "")
-                if rule_id not in rules:
-                    rules[rule_id] = {"count": 0, "message": message}
-                rules[rule_id]["count"] += 1
-
-            lines.append(f"Total: {len(coraza_alerts)} blocks\n")
-
-            # Sort by count
-            sorted_rules = sorted(rules.items(), key=lambda x: x[1]["count"], reverse=True)[:5]
-            if sorted_rules:
-                lines.append("Top rules:")
-                for rule_id, data in sorted_rules:
-                    msg = data["message"][:30] if data["message"] else ""
-                    if msg:
-                        lines.append(f"• {_escape_markdown(rule_id)} ({_escape_markdown(msg)}): {data['count']}")
-                    else:
-                        lines.append(f"• {_escape_markdown(rule_id)}: {data['count']}")
-            lines.append("")
+        # Sort by count
+        sorted_rules = sorted(rules.items(), key=lambda x: x[1]["count"], reverse=True)[:5]
+        if sorted_rules:
+            lines.append("Rules triggered:")
+            for rule, data in sorted_rules:
+                lines.append(f"• {_escape_markdown(rule)}: {data['count']}")
 
         return "\n".join(lines)
 
@@ -214,7 +174,6 @@ data:
                 # Atomic clear with date update - inside the same lock
                 _save_alerts({
                     "falco": [],
-                    "coraza": [],
                     "last_digest_date": datetime.now().strftime("%Y-%m-%d"),
                 })
                 logger.info("Daily security digest sent successfully")
@@ -240,123 +199,6 @@ data:
         })
 
         return {"status": "queued"}
-
-    def _parse_coraza_log(line: str) -> dict | None:
-        """Parse Coraza WAF log line from Istio gateway."""
-        if "Coraza:" not in line:
-            return None
-
-        try:
-            client_match = re.search(r'\[client "([^"]+)"\]', line)
-            client_ip = client_match.group(1) if client_match else "unknown"
-
-            id_match = re.search(r'\[id "([^"]+)"\]', line)
-            rule_id = id_match.group(1) if id_match else "unknown"
-
-            msg_match = re.search(r'\[msg "([^"]+)"\]', line)
-            message = msg_match.group(1) if msg_match else "WAF rule triggered"
-
-            uri_match = re.search(r'\[uri "([^"]+)"\]', line)
-            request_uri = uri_match.group(1) if uri_match else "/"
-
-            host_match = re.search(r'\[hostname "([^"]+)"\]', line)
-            host = host_match.group(1) if host_match else "unknown"
-
-            uid_match = re.search(r'\[unique_id "([^"]+)"\]', line)
-            unique_id = uid_match.group(1) if uid_match else ""
-
-            return {
-                "client_ip": client_ip,
-                "request_uri": request_uri,
-                "host": host,
-                "rule_id": rule_id,
-                "message": message,
-                "unique_id": unique_id,
-            }
-        except Exception as exc:
-            logger.debug("Failed to parse Coraza log line: %s", exc)
-            return None
-
-    def check_coraza_logs(kube_get, kube_logs, ctx) -> None:
-        """Check gateway pod logs for Coraza WAF alerts."""
-        global _last_log_check, _seen_coraza_ids
-        now = time.time()
-
-        try:
-            label_selector = "gateway.networking.k8s.io/gateway-name"
-            path = f"/api/v1/namespaces/{GATEWAY_NAMESPACE}/pods?labelSelector={label_selector}"
-            data = kube_get(path, ctx) or {}
-
-            # Get current pod names for cleanup
-            current_pods = set()
-
-            new_count = 0
-            for pod in data.get("items") or []:
-                pod_name = pod.get("metadata", {}).get("name", "")
-                if not pod_name:
-                    continue
-                current_pods.add(pod_name)
-
-                since_seconds = CORAZA_LOG_INTERVAL + 5
-                last_check = _last_log_check.get(pod_name)
-                if last_check:
-                    since_seconds = int(now - last_check) + 5
-                since_seconds = min(since_seconds, 300)
-
-                try:
-                    logs = kube_logs(
-                        f"/api/v1/namespaces/{GATEWAY_NAMESPACE}/pods/{pod_name}/log",
-                        ctx,
-                        params={"sinceSeconds": since_seconds, "container": "istio-proxy"},
-                    )
-                    _last_log_check[pod_name] = now
-
-                    for line in logs.splitlines():
-                        parsed = _parse_coraza_log(line)
-                        if not parsed:
-                            continue
-
-                        unique_id = parsed.get("unique_id", "")
-                        # Generate synthetic unique_id if not present to prevent duplicates
-                        if not unique_id:
-                            unique_id = f"{parsed['rule_id']}:{parsed['client_ip']}:{parsed['request_uri'][:50]}"
-
-                        if unique_id in _seen_coraza_ids:
-                            continue
-                        _seen_coraza_ids[unique_id] = now
-
-                        _add_alert("coraza", {
-                            "rule_id": parsed["rule_id"],
-                            "message": parsed["message"],
-                            "client_ip": parsed["client_ip"],
-                            "request_uri": parsed["request_uri"],
-                            "host": parsed["host"],
-                            "timestamp": now,
-                        })
-                        new_count += 1
-
-                except Exception as exc:
-                    logger.debug("Failed to get logs for pod %s: %s", pod_name, exc)
-
-            # Cleanup old pod entries from _last_log_check
-            old_pods = set(_last_log_check.keys()) - current_pods
-            for pod_name in old_pods:
-                del _last_log_check[pod_name]
-
-            # LRU cleanup for seen coraza IDs
-            cutoff = now - 600
-            while _seen_coraza_ids:
-                oldest_key = next(iter(_seen_coraza_ids))
-                if _seen_coraza_ids[oldest_key] < cutoff or len(_seen_coraza_ids) > 1000:
-                    _seen_coraza_ids.pop(oldest_key)
-                else:
-                    break
-
-            if new_count:
-                logger.info("Found %d WAF blocked requests", new_count)
-
-        except Exception as exc:
-            logger.exception("Failed to check Coraza logs: %s", exc)
 
     def start_background_tasks(kube_get, kube_logs, ctx):
         """Start background threads for periodic tasks."""
@@ -389,16 +231,5 @@ data:
                 except Exception as exc:
                     logger.exception("Digest scheduler error: %s", exc)
 
-        def coraza_watcher():
-            """Periodically check gateway logs for WAF blocked requests."""
-            time.sleep(60)
-            while True:
-                try:
-                    check_coraza_logs(kube_get, kube_logs, ctx)
-                except Exception as exc:
-                    logger.exception("Coraza watcher error: %s", exc)
-                time.sleep(CORAZA_LOG_INTERVAL)
-
         threading.Thread(target=digest_scheduler, daemon=True, name="digest-scheduler").start()
-        threading.Thread(target=coraza_watcher, daemon=True, name="coraza-watcher").start()
-        logger.info("Started background tasks (digest at %s, coraza every %ds)", DIGEST_TIME, CORAZA_LOG_INTERVAL)
+        logger.info("Started background tasks (digest at %s)", DIGEST_TIME)

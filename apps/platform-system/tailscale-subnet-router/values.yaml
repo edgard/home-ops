@@ -1,0 +1,85 @@
+---
+defaultPodOptions:
+  hostNetwork: true
+  nodeSelector:
+    kubernetes.io/hostname: homelab-worker
+  securityContext:
+    fsGroupChangePolicy: OnRootMismatch
+
+controllers:
+  main:
+    replicas: 1
+    strategy: Recreate
+    serviceAccount:
+      identifier: main
+
+    containers:
+      app:
+        image:
+          repository: ghcr.io/tailscale/tailscale
+          tag: v1.92.3
+
+        env:
+          - name: TS_USERSPACE
+            value: "false"
+          - name: TS_KUBE_SECRET
+            value: tailscale-subnet-router-state
+          - name: TS_ROUTES
+            value: "192.168.1.0/24"
+          - name: TS_ACCEPT_DNS
+            value: "false"
+          - name: TS_HOSTNAME
+            value: k8s-subnet-router
+          - name: TS_AUTHKEY
+            valueFrom:
+              secretKeyRef:
+                name: tailscale-subnet-router-credentials
+                key: auth_key
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+              - NET_ADMIN
+              - NET_RAW
+            drop:
+              - ALL
+
+        resources:
+          limits: null
+          requests: null
+
+serviceAccount:
+  main:
+    enabled: true
+
+rbac:
+  roles:
+    main:
+      type: Role
+      rules:
+        - apiGroups:
+            - ""
+          resources:
+            - secrets
+          verbs:
+            - create
+            - get
+            - update
+            - patch
+  bindings:
+    main:
+      type: RoleBinding
+      roleRef:
+        identifier: main
+      subjects:
+        - identifier: main
+          kind: ServiceAccount
+
+persistence:
+  dev-net-tun:
+    type: hostPath
+    hostPath: /dev/net/tun
+    hostPathType: CharDevice
+    globalMounts:
+      - path: /dev/net/tun

@@ -19,7 +19,7 @@ GitOps-driven Kubernetes homelab running on Kind, managed by Argo CD with OpenTo
 
 ## Repo Map
 
-- `apps/` – Application definitions grouped by category (media, platform-system, etc). Each app contains `config.yaml` (chart source), `values.yaml`, and optional `manifests/`.
+- `apps/` – Application definitions grouped by category (argocd, home-automation, kube-system, local-path-storage, media, platform-system, selfhosted). Each app contains `config.yaml` (chart source), `values.yaml`, and optional `manifests/`.
 - `argocd/` – Argo CD bootstrap configuration: `root.app.yaml`, ApplicationSets, AppProjects, and Namespaces.
 - `bootstrap/` – Cluster initialization scripts, Kind configuration, and Helmfile for pre-Argo CD dependencies.
 - `terraform/` – OpenTofu configuration for external infrastructure management.

@@ -41,30 +41,15 @@ service:
         port: 8989
         targetPort: 8989
 route:
-  external:
+  main:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Sonarr
       gethomepage.dev/group: Media
       gethomepage.dev/icon: sonarr.svg
       gethomepage.dev/app: sonarr
-    labels:
-      external-dns.edgard.org/scope: external
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - sonarr.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: main
-            port: 8989
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

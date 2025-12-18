@@ -41,30 +41,15 @@ service:
         port: 7878
         targetPort: 7878
 route:
-  external:
+  main:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Radarr
       gethomepage.dev/group: Media
       gethomepage.dev/icon: radarr.svg
       gethomepage.dev/app: radarr
-    labels:
-      external-dns.edgard.org/scope: external
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - radarr.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: main
-            port: 7878
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

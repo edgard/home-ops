@@ -1,7 +1,0 @@
----
-chart:
-  repo: https://charts.authelia.com
-  name: authelia
-  version: 0.10.49
-sync:
-  wave: "-3"

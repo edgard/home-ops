@@ -111,30 +111,15 @@ service:
         port: 5000
         targetPort: http
 route:
-  external:
+  main:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Change Detection
       gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: changedetection.svg
       gethomepage.dev/app: changedetection
-    labels:
-      external-dns.edgard.org/scope: external
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - changedetection.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: main
-            port: 5000
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

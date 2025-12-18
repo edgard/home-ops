@@ -50,30 +50,15 @@ service:
         port: 8920
         targetPort: 8920
 route:
-  external:
+  main:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Jellyfin
       gethomepage.dev/group: Media
       gethomepage.dev/icon: jellyfin.svg
       gethomepage.dev/app: jellyfin
-    labels:
-      external-dns.edgard.org/scope: external
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - jellyfin.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: main
-            port: 8096
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

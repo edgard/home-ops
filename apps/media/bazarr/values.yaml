@@ -40,30 +40,15 @@ service:
         port: 6767
         targetPort: 6767
 route:
-  external:
+  main:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Bazarr
       gethomepage.dev/group: Media
       gethomepage.dev/icon: bazarr.svg
       gethomepage.dev/app: bazarr
-    labels:
-      external-dns.edgard.org/scope: external
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - bazarr.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: main
-            port: 6767
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

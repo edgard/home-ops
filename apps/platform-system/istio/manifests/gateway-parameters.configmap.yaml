@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: gateway-internal-parameters
+  name: gateway-parameters
   namespace: platform-system
 data:
   deployment: |-

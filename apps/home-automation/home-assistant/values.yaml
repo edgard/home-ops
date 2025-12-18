@@ -37,12 +37,8 @@ controllers:
           readiness:
             enabled: true
         resources:
-          requests:
-            cpu: 1m
-            memory: 1Mi
-          limits:
-            cpu: "3"
-            memory: 3Gi
+          limits: null
+          requests: null
 
 service:
   main:
@@ -57,30 +53,15 @@ service:
         protocol: TCP
         targetPort: 8123
 route:
-  external:
+  main:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Home Assistant
       gethomepage.dev/group: Home Automation
       gethomepage.dev/icon: home-assistant.svg
       gethomepage.dev/app: home-assistant
-    labels:
-      external-dns.edgard.org/scope: external
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - home-assistant.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: main
-            port: 8123
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

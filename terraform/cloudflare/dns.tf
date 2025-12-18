@@ -1,5 +1,5 @@
-# Static DNS records (not managed by external-dns or cert-manager)
-# Note: tunnel.edgard.org is managed by external-dns via DNSEndpoint
+# Static DNS records for Cloudflare (public DNS)
+# Note: These same records are mirrored in Unifi DNS via external-dns DNSEndpoints for split-DNS
 
 # iCloud Mail - DKIM
 resource "cloudflare_dns_record" "dkim" {
@@ -43,7 +43,7 @@ resource "cloudflare_dns_record" "spf" {
   content = "v=spf1 include:icloud.com ~all"
   ttl     = 3600
   proxied = false
-  comment = "SPF record for iCloud Mail"
+  comment = "iCloud Mail SPF"
 }
 
 # Email Security - DMARC
@@ -54,7 +54,7 @@ resource "cloudflare_dns_record" "dmarc" {
   content = "v=DMARC1; p=quarantine"
   ttl     = 3600
   proxied = false
-  comment = "DMARC policy"
+  comment = "iCloud Mail DMARC"
 }
 
 # Apple Domain Verification
@@ -65,5 +65,57 @@ resource "cloudflare_dns_record" "apple_domain" {
   content = "apple-domain=LKttxCr0jMIT8JCc"
   ttl     = 3600
   proxied = false
-  comment = "Apple domain verification"
+  comment = "Apple Domain Verification"
+}
+
+# GitHub Pages - A Records
+resource "cloudflare_dns_record" "github_pages_a_01" {
+  zone_id = var.zone_id
+  name    = "edgard.org"
+  type    = "A"
+  content = "185.199.108.153"
+  ttl     = 1
+  proxied = false
+  comment = "GitHub Pages A record 1"
+}
+
+resource "cloudflare_dns_record" "github_pages_a_02" {
+  zone_id = var.zone_id
+  name    = "edgard.org"
+  type    = "A"
+  content = "185.199.109.153"
+  ttl     = 1
+  proxied = false
+  comment = "GitHub Pages A record 2"
+}
+
+resource "cloudflare_dns_record" "github_pages_a_03" {
+  zone_id = var.zone_id
+  name    = "edgard.org"
+  type    = "A"
+  content = "185.199.110.153"
+  ttl     = 1
+  proxied = false
+  comment = "GitHub Pages A record 3"
+}
+
+resource "cloudflare_dns_record" "github_pages_a_04" {
+  zone_id = var.zone_id
+  name    = "edgard.org"
+  type    = "A"
+  content = "185.199.111.153"
+  ttl     = 1
+  proxied = false
+  comment = "GitHub Pages A record 4"
+}
+
+# GitHub Pages - WWW CNAME
+resource "cloudflare_dns_record" "github_pages_www" {
+  zone_id = var.zone_id
+  name    = "www"
+  type    = "CNAME"
+  content = "edgard.github.io"
+  ttl     = 1
+  proxied = false
+  comment = "GitHub Pages WWW subdomain"
 }

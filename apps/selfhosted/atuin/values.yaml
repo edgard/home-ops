@@ -38,12 +38,8 @@ controllers:
           readiness:
             enabled: true
         resources:
-          requests:
-            cpu: 1m
-            memory: 1Mi
-          limits:
-            cpu: "1"
-            memory: 1Gi
+          limits: null
+          requests: null
 
 service:
   atuin:
@@ -57,24 +53,9 @@ service:
         port: 8888
 
 route:
-  external:
-    labels:
-      external-dns.edgard.org/scope: external
+  main:
     parentRefs:
-      - name: gateway-external
-        namespace: platform-system
-        sectionName: https
-    hostnames:
-      - atuin.edgard.org
-    rules:
-      - backendRefs:
-          - identifier: atuin
-            port: 8888
-  internal:
-    labels:
-      external-dns.edgard.org/scope: internal
-    parentRefs:
-      - name: gateway-internal
+      - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:

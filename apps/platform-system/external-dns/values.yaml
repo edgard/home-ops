@@ -1,12 +1,13 @@
 ---
-fullnameOverride: external-dns-internal
+fullnameOverride: external-dns
 image:
   tag: v0.19.0
 triggerLoopOnEvent: true
 serviceAccount:
-  name: external-dns-internal
+  name: external-dns
 sources:
   - gateway-httproute
+  - crd
 policy: sync
 txtOwnerId: homelab
 txtPrefix: k8s.
@@ -26,9 +27,7 @@ provider:
       - name: UNIFI_API_KEY
         valueFrom:
           secretKeyRef:
-            name: external-dns-internal-credentials
+            name: external-dns-credentials
             key: unifi_api_key
-extraArgs:
-  - --label-filter=external-dns.edgard.org/scope=internal
 deploymentAnnotations:
   reloader.stakater.com/auto: "true"
