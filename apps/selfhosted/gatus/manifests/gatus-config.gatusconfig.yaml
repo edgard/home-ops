@@ -103,7 +103,7 @@ spec:
           - "[CONNECTED] == true"
       - name: gateway-external-https
         group: 03-gateway
-        url: https://id.edgard.org/
+        url: https://auth.edgard.org/
         labels:
           namespace: platform-system
           scope: external
@@ -114,7 +114,7 @@ spec:
           - "[CERTIFICATE_EXPIRATION] > 168h"
       - name: gateway-internal-https
         group: 03-gateway
-        url: https://id.edgard.org/
+        url: https://auth.edgard.org/
         labels:
           namespace: platform-system
           scope: internal

@@ -1,17 +1,17 @@
 # Rate limiting for authentication endpoints
-# Protects against brute force attacks on OAuth/Dex authentication
+# Protects against brute force attacks on Authelia authentication
 resource "cloudflare_ruleset" "rate_limit_auth" {
   zone_id     = var.zone_id
   name        = "Rate Limit - Authentication"
-  description = "Rate limit for Dex and OAuth endpoints"
+  description = "Rate limit for Authelia endpoints"
   kind        = "zone"
   phase       = "http_ratelimit"
 
   rules = [
     {
       action      = "block"
-      expression  = "(http.host eq \"id.edgard.org\" or http.request.uri.path contains \"/oauth2/\")"
-      description = "Rate limit Dex (id.edgard.org) and OAuth2 endpoints - 5 req/10sec, 10sec timeout"
+      expression  = "(http.host eq \"auth.edgard.org\")"
+      description = "Rate limit Authelia (auth.edgard.org) - 5 req/10sec, 10sec timeout"
       enabled     = true
 
       action_parameters = {

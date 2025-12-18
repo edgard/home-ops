@@ -1,0 +1,133 @@
+---
+configMap:
+  authentication_backend:
+    password_reset:
+      disable: true
+    file:
+      enabled: true
+      path: /secrets/users/users_database.yml
+
+  session:
+    expiration: 30d
+    inactivity: 24h
+    remember_me: 90d
+    cookies:
+      - subdomain: auth
+        domain: edgard.org
+        default_redirection_url: https://dash.edgard.org
+    redis:
+      enabled: true
+      host: localhost
+      password:
+        disabled: true
+
+  storage:
+    local:
+      enabled: true
+      path: /data/db.sqlite3
+
+  totp:
+    issuer: Homelab
+
+  access_control:
+    default_policy: deny
+    rules:
+      - domain: "auth.edgard.org"
+        policy: bypass
+      - domain: "*.edgard.org"
+        policy: two_factor
+
+  notifier:
+    smtp:
+      enabled: true
+      address: submission://smtp.gmail.com:587
+      timeout: 15s
+      username: edgardcastro@gmail.com
+      sender: "Homelab <edgardcastro@gmail.com>"
+      identifier: auth.edgard.org
+      subject: "[Homelab] {title}"
+
+  server:
+    buffers:
+      read: 8192
+    timeouts:
+      read: 10s
+      write: 10s
+      idle: 60s
+    endpoints:
+      authz:
+        ext-authz:
+          implementation: ExtAuthz
+
+pod:
+  kind: Deployment
+  strategy:
+    type: Recreate
+  annotations:
+    reloader.stakater.com/auto: "true"
+  securityContext:
+    container:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - "ALL"
+      runAsNonRoot: true
+      runAsUser: 568
+      runAsGroup: 568
+    pod:
+      fsGroup: 568
+      fsGroupChangePolicy: OnRootMismatch
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 200m
+      memory: 384Mi
+  extraContainers:
+    - name: redis
+      image: redis:8.4.0-alpine
+      command:
+        - redis-server
+        - --save
+        - "60"
+        - "1"
+        - --dir
+        - /data
+      volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+  extraVolumeMounts:
+    - name: users-file
+      mountPath: /secrets/users
+      readOnly: true
+    - name: data
+      mountPath: /data
+  extraVolumes:
+    - name: users-file
+      secret:
+        secretName: authelia-users-credentials
+    - name: data
+      persistentVolumeClaim:
+        claimName: authelia-data
+    - name: redis-data
+      persistentVolumeClaim:
+        claimName: authelia-redis-data
+
+secret:
+  existingSecret: authelia-credentials

@@ -14,7 +14,7 @@ spec:
       name: gateway-internal
   action: CUSTOM
   provider:
-    name: oauth2-proxy
+    name: authelia
   rules:
     - to:
         - operation:
@@ -22,17 +22,8 @@ spec:
               - "*.edgard.org"
             notHosts:
               - auth.edgard.org
-              - id.edgard.org
               - www.edgard.org
               - home-assistant.edgard.org
               - atuin.edgard.org
               - karakeep.edgard.org
               - paperless.edgard.org
-            notPaths:
-              - /oauth2/*
-              - /favicon.ico
-              - /apple-touch-icon.png
-              - /apple-touch-icon-precomposed.png
-              - /site.webmanifest
-              - /browserconfig.xml
-              - /robots.txt

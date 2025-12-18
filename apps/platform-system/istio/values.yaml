@@ -17,22 +17,22 @@ resources:
 
 meshConfig:
   extensionProviders:
-    - name: oauth2-proxy
+    - name: authelia
       envoyExtAuthzHttp:
-        service: oauth2-proxy.platform-system.svc.cluster.local
+        service: authelia.platform-system.svc.cluster.local
         port: 80
-        pathPrefix: /oauth2/auth
-        timeout: 10s
-        includeHeadersInCheck:
-          - authorization
+        pathPrefix: /api/authz/ext-authz/
+        includeRequestHeadersInCheck:
+          - accept
           - cookie
-          - x-forwarded-for
-        includeAdditionalHeadersInCheck:
-          x-auth-request-redirect: https://%REQ(:authority)%%REQ(:path)%
-        headersToDownstreamOnDeny:
-          - location
-          - set-cookie
+          - authorization
+          - proxy-authorization
         headersToUpstreamOnAllow:
-          - x-auth-request-user
-          - x-auth-request-email
-          - x-auth-request-groups
+          - remote-*
+          - authelia-*
+        includeAdditionalHeadersInCheck:
+          X-Forwarded-Proto: "%REQ(:SCHEME)%"
+        headersToDownstreamOnDeny:
+          - set-cookie
+        headersToDownstreamOnAllow:
+          - set-cookie

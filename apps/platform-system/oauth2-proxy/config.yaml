@@ -1,7 +1,0 @@
----
-chart:
-  repo: oci://ghcr.io/oauth2-proxy/charts/oauth2-proxy
-  path: "."
-  version: 9.0.1
-sync:
-  wave: "-3"
