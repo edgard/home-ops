@@ -52,6 +52,13 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        resources:
+          requests:
+            cpu: 1m
+            memory: 1Mi
+          limits:
+            cpu: "2"
+            memory: 2Gi
 
   chrome:
     type: deployment

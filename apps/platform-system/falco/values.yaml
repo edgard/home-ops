@@ -35,4 +35,13 @@ falco:
     enabled: true
     url: http://homelab-controller.platform-system.svc.cluster.local/notify/falco
     user_agent: falco/homelab
+
+resources:
+  requests:
+    cpu: 1m
+    memory: 1Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+
 tolerations: []

@@ -33,10 +33,11 @@ controllers:
           PYTHONUNBUFFERED: "1"
         resources:
           requests:
-            cpu: 10m
-            memory: 128Mi
+            cpu: 1m
+            memory: 1Mi
           limits:
-            memory: 512Mi
+            cpu: "1"
+            memory: 1Gi
         envFrom:
           - secretRef:
               name: homelab-controller-credentials

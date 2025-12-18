@@ -29,7 +29,7 @@
 - **SMTP Notifications**: Gmail SMTP (`submission://smtp.gmail.com:587`) configured but currently unused (no password reset, TOTP registration is in-app).
 - **Session Storage**: Redis sidecar (localhost). Sessions stored in Redis with RDB persistence (`/data` on PVC `authelia-redis-data`). Survives pod restarts.
 - **Session Timers**: 30d expiration, 24h inactivity, 90d remember-me (relaxed homelab config).
-- **Deployment**: `Recreate` strategy. Redis 8.4-alpine sidecar (10m-100m CPU, 32Mi-64Mi memory, user 999).
+- **Deployment**: `Recreate` strategy. Redis 8.4-alpine sidecar (unlimited resources, user 999).
 - **Istio Integration**: ExtAuthz via `envoyExtAuthzHttp` at `/api/authz/ext-authz/`. Read buffer increased to 8192 bytes (required for Istio headers). Server timeouts: read/write 10s, idle 60s.
 - **Critical**: Read buffer MUST be 8192 bytes for Istio compatibility (default 4096 causes HTTP 431 errors).
 
@@ -71,10 +71,16 @@ Applies to apps using `ghcr.io/bjw-s-labs/helm/app-template`.
 - **Container Strict**: Add `capabilities: { drop: ["ALL"] }`.
 - **Exceptions**: Bind <1024 (`NET_BIND_SERVICE`), VPN (`NET_ADMIN`), Hardware (`privileged: true`).
 
+### Resource Limits Policy
+- **Pattern**: All apps with limits use `requests: { cpu: 1m, memory: 1Mi }` for unlimited scheduling (prevents k8s defaulting requests=limits).
+- **Limits ONLY on edge/UI components** - Apply generous limits to public-facing apps for DDoS protection:
+  - **Public unprotected apps**: authelia (1→1Gi), nginx (2→1Gi), home-assistant (3→3Gi), atuin (1→1Gi), karakeep (2→2Gi), paperless (4→4Gi).
+  - **Security/monitoring**: falco (2→2Gi), homelab-controller (1→1Gi).
+- **NO limits on backend services** - Sidecars (redis, gotenberg, tika, chrome, meilisearch) and OAuth-protected apps run unlimited.
+
 ### Compliance Status
-- **Fully Compliant**: home-assistant, mosquitto, bazarr, flaresolverr, jellyfin, prowlarr, radarr, recyclarr, sonarr, unpackerr, cloudflared, authelia, homelab-controller, atuin, changedetection, echo, gatus, homepage.
+- **Fully Compliant**: home-assistant, mosquitto, bazarr, flaresolverr, jellyfin, prowlarr, radarr, recyclarr, sonarr, unpackerr, cloudflared, authelia, homelab-controller, atuin, changedetection, echo, gatus, homepage, nginx, karakeep, paperless.
 - **Exceptions**:
   - `zigbee2mqtt`: privileged (USB).
   - `qbittorrent`: `NET_ADMIN` (VPN).
   - `restic`: Root required.
-  - `karakeep`, `nginx`, `paperless`: Pending update to app-template security styles.

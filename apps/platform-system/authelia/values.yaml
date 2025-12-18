@@ -79,11 +79,11 @@ pod:
       fsGroupChangePolicy: OnRootMismatch
   resources:
     requests:
-      cpu: 50m
-      memory: 192Mi
+      cpu: 1m
+      memory: 1Mi
     limits:
-      cpu: 200m
-      memory: 384Mi
+      cpu: "1"
+      memory: 1Gi
   extraContainers:
     - name: redis
       image: redis:8.4.0-alpine
@@ -97,13 +97,7 @@ pod:
       volumeMounts:
         - name: redis-data
           mountPath: /data
-      resources:
-        requests:
-          cpu: 10m
-          memory: 32Mi
-        limits:
-          cpu: 100m
-          memory: 64Mi
+
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:

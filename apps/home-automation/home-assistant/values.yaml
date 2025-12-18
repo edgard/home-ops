@@ -36,6 +36,14 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        resources:
+          requests:
+            cpu: 1m
+            memory: 1Mi
+          limits:
+            cpu: "3"
+            memory: 3Gi
+
 service:
   main:
     controller: main
