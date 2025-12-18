@@ -17,7 +17,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/tailscale/tailscale
-          tag: v1.92.3
+          tag: v1.92.4
 
         env:
           - name: TS_USERSPACE
