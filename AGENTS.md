@@ -8,14 +8,14 @@
 ## Repo Layout & Architecture
 - **`bootstrap/`**: Kind config, `bootstrap_kind.py` (docker context/network plumbing), and `helmfile.yaml.gotmpl`.
   - **Process**: `task bootstrap:create` brings up Kind, patches kubeconfig, creates `bitwarden-credentials` (from `BWS_ACCESS_TOKEN`), and runs helmfile.
-  - **Helmfile**: Installs local-path-provisioner (demotes standard SC), Multus, cert-manager, ESO (wait for CM), Argo CD.
+  - **Helmfile**: Installs local-path-provisioner (demotes standard SC), Multus, cert-manager, ESO (wait for CM), Argo CD (no Metacontroller).
   - **Secrets**: Stored in Bitwarden (Org `b4b5...`, Proj `1684...`). ESO fetches them via `external-secrets-sdk-server` (TLS via cert-manager).
 - **`argocd/`**: `root.app.yaml` and `appsets/apps.appset.yaml` (ordered by sync-wave).
 - **`apps/<group>/<app>/`**: `config.yaml` (chart source), `values.yaml`, `manifests/` (synced).
 - **`terraform/`**: Cloudflare + Tailscale config (B2 backend).
 
 ## Argo CD & Apps
-- **Sync Waves**: `-5` System/CRDs, `-4` Controllers/DNS/VPN, `-3` Mesh, `-1` k8tz, `0` Apps.
+- **Sync Waves**: `-4` System/CRDs, `-3` Controllers/DNS/VPN, `-2` Mesh, `-1` k8tz, `0` Apps.
 - **Mechanics**: ServerSideApply (`SSA`) enabled globally. Progressive syncs/rollouts disabled.
 - **Istio/Ingress**: Gateway API used (`gateway`). All apps accessed via Tailscale VPN only.
 - **DNS (Split)**: 
@@ -40,6 +40,42 @@ Secrets must exist in Bitwarden with these exact keys:
 - **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `karakeep_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`, `gatus_telegram_token`, `gatus_telegram_chatid`, `security_notifier_telegram_token`, `security_notifier_telegram_chatid`
 
 **Note**: Tailscale OAuth credentials (`TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_CLIENT_SECRET`) are used locally by Terraform only, not stored in Bitwarden.
+
+## Homelab Controller
+- **Purpose**: Custom Kubernetes operator for homelab automation tasks.
+- **Technology**: Python 3.14 + Kopf framework (standalone, no Metacontroller).
+- **Wave**: `-3` (requires CRDs/cert-manager from wave `-4`).
+
+### Features
+1. **GatusConfig CRD**: Discovers Services labeled `gatus.edgard.org/enabled=true`, generates Gatus monitoring config.
+   - Matches services to workload probes (Deployments/StatefulSets).
+   - Outputs ConfigMap (`gatus-generated-config` by default).
+   - Reconciles on CR changes + every 120s via kopf timer.
+   
+2. **Falco Integration**: Receives runtime security alerts via HTTP webhook (`/notify/falco`).
+   - Aggregates alerts, sends daily Telegram digest (8:00 AM).
+   - Persistent storage: `/data/alerts/pending.json`.
+
+### Architecture
+- **Controller**: Kopf-based operator watching `gatusconfigs.homelab.edgard.org/v1alpha1`.
+- **HTTP Server**: Background thread for Falco webhooks + health endpoints.
+- **RBAC**: ClusterRole for CRDs (read), ConfigMaps (write), Services/Deployments (read).
+
+### Debugging
+```bash
+# Check GatusConfig status
+kubectl -n selfhosted get gatusconfig gatus-config -o yaml
+
+# View controller logs
+kubectl -n platform-system logs -l app.kubernetes.io/name=homelab-controller -f
+
+# Trigger reconciliation
+kubectl -n selfhosted annotate gatusconfig gatus-config force-sync=$(date +%s) --overwrite
+
+# Test Falco webhook
+kubectl -n platform-system port-forward svc/homelab-controller 8080:80
+curl -X POST http://localhost:8080/notify/falco -H 'Content-Type: application/json' -d '{"rule":"test","priority":"INFO"}'
+```
 
 ## Resource Naming Conventions
 Files must match `metadata.name`.

@@ -45,24 +45,25 @@ spec:
               properties:
                 base:
                   type: object
-                  description: Inline Gatus base config.
+                  description: Inline Gatus base config (REQUIRED).
+                  minProperties: 1
                   x-kubernetes-preserve-unknown-fields: true
                 outputConfigMap:
                   type: string
                   description: Name of the ConfigMap to write rendered Gatus config into.
                   default: gatus-generated-config
+                  pattern: "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                  minLength: 1
+                  maxLength: 253
                 outputKey:
                   type: string
                   description: Key inside the ConfigMap containing the rendered config.
                   default: config.yaml
+                  minLength: 1
                 discoverySelector:
                   type: string
                   description: Label selector for Services to expose in Gatus.
                   default: gatus.edgard.org/enabled=true
-                resyncSeconds:
-                  type: integer
-                  description: Force resync interval for the config generator.
-                  default: 120
               required:
                 - base
             status:
@@ -81,6 +82,9 @@ spec:
                   type: integer
                 configHash:
                   type: string
+                lastError:
+                  type: string
+                  description: Last error encountered during reconciliation.
                 conditions:
                   type: array
                   items:

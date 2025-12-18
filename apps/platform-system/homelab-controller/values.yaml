@@ -26,11 +26,18 @@ controllers:
           - -c
           - |
             set -euo pipefail
-            pip install --user --no-cache-dir --quiet pyyaml >/tmp/pip.log 2>&1
-            python /scripts/webhook.py
+            if ! pip install --user --no-cache-dir kopf kubernetes pyyaml; then
+              echo "ERROR: Failed to install required packages" >&2
+              exit 1
+            fi
+            export PATH="/tmp/.local/bin:$PATH"
+            kopf run --verbose /scripts/controller.py
         env:
           HOME: /tmp
+          USER: homelab-controller
           PYTHONUNBUFFERED: "1"
+          KOPF_LOG_LEVEL: INFO
+          WEBHOOK_PORT: "8080"
         resources:
           limits: null
           requests: null
@@ -40,10 +47,24 @@ controllers:
         probes:
           startup:
             enabled: true
+            spec:
+              httpGet:
+                path: /healthz
+                port: 8080
+              failureThreshold: 30
+              periodSeconds: 10
           liveness:
             enabled: true
+            spec:
+              httpGet:
+                path: /livez
+                port: 8080
           readiness:
             enabled: true
+            spec:
+              httpGet:
+                path: /readyz
+                port: 8080
 
 serviceAccount:
   main:
@@ -55,13 +76,32 @@ rbac:
       type: ClusterRole
       rules:
         - apiGroups:
+            - homelab.edgard.org
+          resources:
+            - gatusconfigs
+          verbs:
+            - get
+            - list
+            - watch
+            - patch
+        - apiGroups:
+            - homelab.edgard.org
+          resources:
+            - gatusconfigs/status
+          verbs:
+            - update
+            - patch
+        - apiGroups:
             - ""
           resources:
             - configmaps
           verbs:
             - get
+            - list
+            - watch
             - create
             - update
+            - patch
         - apiGroups:
             - ""
           resources:
@@ -87,6 +127,32 @@ rbac:
             - get
             - list
             - watch
+        - apiGroups:
+            - ""
+          resources:
+            - events
+          verbs:
+            - create
+            - patch
+        - apiGroups:
+            - apiextensions.k8s.io
+          resources:
+            - customresourcedefinitions
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - coordination.k8s.io
+          resources:
+            - leases
+          verbs:
+            - get
+            - list
+            - watch
+            - create
+            - update
+            - patch
   bindings:
     main:
       type: ClusterRoleBinding
@@ -111,13 +177,21 @@ persistence:
     size: 100Mi
     globalMounts:
       - path: /data/alerts
-  webhook:
+  controller:
     type: configMap
-    name: homelab-controller-webhook
+    name: homelab-controller-controller
     defaultMode: 0444
     globalMounts:
-      - path: /scripts/webhook.py
-        subPath: webhook.py
+      - path: /scripts/controller.py
+        subPath: controller.py
+        readOnly: true
+  http-server:
+    type: configMap
+    name: homelab-controller-http-server
+    defaultMode: 0444
+    globalMounts:
+      - path: /scripts/http_server.py
+        subPath: http_server.py
         readOnly: true
   gatus-generator:
     type: configMap

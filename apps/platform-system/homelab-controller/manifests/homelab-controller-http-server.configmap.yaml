@@ -1,0 +1,168 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-controller-http-server
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+data:
+  http_server.py: |-
+    import json
+    import logging
+    import os
+    import ssl
+    import sys
+    import time
+    import urllib.request
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from pathlib import Path
+    from urllib.error import HTTPError, URLError
+
+    try:
+        import yaml
+    except ImportError:
+        sys.exit("PyYAML is required")
+
+    import security_notifier
+
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+
+    KUBE_TIMEOUT = float(os.environ.get("KUBE_TIMEOUT", "5"))
+    KUBE_RETRIES = int(os.environ.get("KUBE_RETRIES", "2"))
+    KUBE_BACKOFF = float(os.environ.get("KUBE_BACKOFF", "0.5"))
+
+    SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
+
+    def cluster_context():
+        """Get in-cluster Kubernetes context."""
+        host = os.environ.get("KUBERNETES_SERVICE_HOST")
+        port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+        if not host:
+            raise SystemExit("missing KUBERNETES_SERVICE_HOST")
+        token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+        token = token_path.read_text(encoding="utf-8").strip()
+        return {"host": host, "port": port, "token": token, "ca_path": ca_path}
+
+    def kube_get(
+        path: str,
+        ctx,
+        *,
+        timeout: float | None = None,
+        retries: int | None = None,
+        backoff: float | None = None,
+    ):
+        """Perform GET request to Kubernetes API with retries."""
+        retries = KUBE_RETRIES if retries is None else retries
+        backoff = KUBE_BACKOFF if backoff is None else backoff
+
+        url = f"https://{ctx['host']}:{ctx['port']}{path}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {ctx['token']}",
+                "Accept": "application/json",
+            },
+        )
+        ssl_ctx = ssl.create_default_context(cafile=str(ctx["ca_path"]))
+        ssl_ctx.check_hostname = False
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                with urllib.request.urlopen(
+                    req, context=ssl_ctx, timeout=timeout or KUBE_TIMEOUT
+                ) as resp:
+                    return yaml.safe_load(resp.read())
+            except (HTTPError, URLError) as exc:
+                if attempt > retries:
+                    raise RuntimeError(f"failed to GET {path}: {exc}") from exc
+                time.sleep(backoff * attempt)
+
+    def kube_logs(
+        path: str,
+        ctx,
+        *,
+        params: dict | None = None,
+        timeout: float | None = None,
+    ) -> str:
+        """Fetch pod logs from Kubernetes API (returns plain text)."""
+        url = f"https://{ctx['host']}:{ctx['port']}{path}"
+        if params:
+            query = "&".join(f"{k}={v}" for k, v in params.items())
+            url = f"{url}?{query}"
+
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Bearer {ctx['token']}",
+                "Accept": "*/*",
+            },
+        )
+        ssl_ctx = ssl.create_default_context(cafile=str(ctx["ca_path"]))
+        ssl_ctx.check_hostname = False
+
+        try:
+            with urllib.request.urlopen(
+                req, context=ssl_ctx, timeout=timeout or 10
+            ) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except (HTTPError, URLError) as exc:
+            raise RuntimeError(f"failed to GET logs {path}: {exc}") from exc
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(length) if length else b"{}"
+            try:
+                body = json.loads(raw_body or b"{}")
+            except json.JSONDecodeError as exc:
+                self._write_json(400, {"error": f"invalid json: {exc}"})
+                return
+
+            # Security notification endpoint
+            if self.path == "/notify/falco":
+                try:
+                    result = security_notifier.handle_falco_webhook(body)
+                    self._write_json(200, result)
+                except Exception as exc:
+                    logging.exception("falco notify error")
+                    self._write_json(500, {"error": str(exc)})
+                return
+
+            # Unknown endpoint
+            self.send_error(404, "not found")
+
+        def log_message(self, fmt, *args):
+            return
+
+        def _write_json(self, code, payload):
+            data = json.dumps(payload).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def do_GET(self):
+            if self.path in ("/healthz", "/livez"):
+                self._write_json(200, {"status": "ok"})
+            elif self.path == "/readyz":
+                # Check if server is fully initialized
+                self._write_json(200, {"status": "ready"})
+            else:
+                self.send_error(404, "not found")
+
+    def start_server():
+        """Start HTTP server (blocking call)."""
+        server = HTTPServer(("", SERVER_PORT), Handler)
+        logging.getLogger("http_server").info(
+            f"HTTP server listening on :{SERVER_PORT}"
+        )
+        server.serve_forever()

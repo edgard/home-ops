@@ -1,0 +1,248 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-controller-controller
+  namespace: platform-system
+  labels:
+    app.kubernetes.io/name: homelab-controller
+    app.kubernetes.io/part-of: homelab-controller
+data:
+  controller.py: |-
+    import hashlib
+    import logging
+    import os
+    import sys
+    import threading
+    from datetime import datetime, timezone
+
+    # Add /scripts to Python path for module imports
+    sys.path.insert(0, '/scripts')
+
+    try:
+        import kopf
+        import kubernetes.client
+        from kubernetes.client.exceptions import ApiException
+        import kubernetes.config
+        import yaml
+    except ImportError as e:
+        sys.exit(f"Required dependency missing: {e}")
+
+    import gatus_generator
+    import http_server
+    import security_notifier
+
+    # Configure logging
+    LOG_LEVEL = os.environ.get("KOPF_LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, LOG_LEVEL, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+
+    logger = logging.getLogger("controller")
+
+    # Kubernetes client
+    _k8s_client = None
+
+    def get_k8s_client():
+        """Get or create Kubernetes API client."""
+        global _k8s_client
+        if _k8s_client is None:
+            kubernetes.config.load_incluster_config()
+            _k8s_client = kubernetes.client.CoreV1Api()
+        return _k8s_client
+
+    def check_http_server_health():
+        """Check if HTTP server is responding to requests."""
+        import socket
+        import time
+        port = int(os.environ.get("WEBHOOK_PORT", "8080"))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.settimeout(1)
+            result = sock.connect_ex(('127.0.0.1', port))
+            if result == 0:
+                # Port is open, try a simple HTTP request
+                sock.sendall(b"GET /healthz HTTP/1.0\r\n\r\n")
+                time.sleep(0.1)
+                response = sock.recv(1024)
+                return b"200" in response or b"ok" in response.lower()
+            return False
+        except Exception:
+            return False
+        finally:
+            sock.close()
+
+    @kopf.on.startup()
+    def startup_handler(**kwargs):
+        """Initialize services on controller startup."""
+        logger.info("Starting homelab-controller with kopf")
+        
+        # Start HTTP server for Falco webhooks in background thread
+        def start_http_thread():
+            try:
+                http_server.start_server()
+            except Exception as exc:
+                logger.exception(f"HTTP server failed: {exc}")
+        
+        thread = threading.Thread(target=start_http_thread, daemon=True, name="http-server")
+        thread.start()
+        logger.info("HTTP server thread started")
+        
+        # Wait up to 15 seconds for HTTP server to become healthy
+        # This is non-fatal - controller can operate for GatusConfig without HTTP server
+        for i in range(30):
+            if check_http_server_health():
+                logger.info("HTTP server is healthy and responding")
+                break
+            threading.Event().wait(0.5)
+        else:
+            logger.warning("HTTP server did not become healthy within 15s - Falco webhooks may not work")
+        
+        # Start security notifier background tasks
+        try:
+            ctx = http_server.cluster_context()
+            security_notifier.start_background_tasks(
+                http_server.kube_get, 
+                http_server.kube_logs, 
+                ctx
+            )
+            logger.info("Security notifier background tasks started")
+        except Exception as exc:
+            logger.warning(f"Security notifier not started: {exc}")
+
+    def reconcile_gatusconfig_impl(spec, name, namespace, logger, patch, **kwargs):
+        """Core reconciliation logic for GatusConfig resources."""
+        # Extract spec fields with defaults
+        base_config = spec.get("base", {})
+        if not base_config or not isinstance(base_config, dict):
+            raise ValueError("spec.base is required and must be a non-empty dict containing Gatus configuration")
+        
+        selector = spec.get("discoverySelector", "gatus.edgard.org/enabled=true")
+        output_name = spec.get("outputConfigMap", "gatus-generated-config")
+        output_key = spec.get("outputKey", "config.yaml")
+        
+        logger.info(
+            f"Reconciling GatusConfig {namespace}/{name}: "
+            f"selector={selector}, output={output_name}"
+        )
+        
+        # Setup context for kube API calls
+        ctx = http_server.cluster_context()
+        
+        # Render Gatus config using existing generator
+        config, stats = gatus_generator.render_config(
+            base_config=base_config,
+            selector=selector,
+            logger=logger,
+            ctx=ctx,
+            kube_get=http_server.kube_get,
+            trace=f"{namespace}/{name}",
+        )
+        
+        # Serialize config and compute hash
+        cfg_yaml = yaml.safe_dump(config, sort_keys=False)
+        cfg_hash = hashlib.sha256(cfg_yaml.encode("utf-8")).hexdigest()
+        
+        # Create/update ConfigMap
+        k8s = get_k8s_client()
+        configmap = kubernetes.client.V1ConfigMap(
+            metadata=kubernetes.client.V1ObjectMeta(
+                name=output_name,
+                namespace=namespace,
+                labels={
+                    "app.kubernetes.io/name": "gatus",
+                    "app.kubernetes.io/part-of": "gatus",
+                    "homelab.edgard.org/managed": "gatus",
+                },
+            ),
+            data={output_key: cfg_yaml},
+        )
+        
+        try:
+            # Try to read existing ConfigMap
+            k8s.read_namespaced_config_map(output_name, namespace)
+            # If exists, patch it
+            k8s.patch_namespaced_config_map(output_name, namespace, configmap)
+            logger.info(f"Updated ConfigMap {namespace}/{output_name}")
+        except ApiException as e:
+            if e.status == 404:
+                # ConfigMap doesn't exist, create it
+                k8s.create_namespaced_config_map(namespace, configmap)
+                logger.info(f"Created ConfigMap {namespace}/{output_name}")
+            else:
+                raise
+        
+        # Update status via patch (Kopf best practice - avoids handler-specific status fields)
+        endpoint_count = stats.get("endpointCount", 0)
+        discovered_count = stats.get("discoveredCount", 0)
+        app_count = stats.get("appCount", 0)
+        
+        now = datetime.now(timezone.utc).isoformat()
+        
+        patch.status["lastSync"] = now
+        patch.status["appCount"] = app_count
+        patch.status["endpointCount"] = endpoint_count
+        patch.status["discovered"] = discovered_count
+        patch.status["configHash"] = cfg_hash
+        patch.status["observedGeneration"] = kwargs.get("body", {}).get("metadata", {}).get("generation")
+        patch.status["conditions"] = [
+            {
+                "type": "Ready",
+                "status": "True",
+                "reason": "SyncSuccessful",
+                "message": f"Rendered {endpoint_count} endpoints ({discovered_count} discovered)",
+                "lastTransitionTime": now,
+            }
+        ]
+
+    @kopf.on.create("homelab.edgard.org", "v1alpha1", "gatusconfigs")
+    @kopf.on.update("homelab.edgard.org", "v1alpha1", "gatusconfigs")
+    def reconcile_gatusconfig(spec, name, namespace, logger, patch, **kwargs):
+        """Handle create/update events for GatusConfig resources."""
+        try:
+            reconcile_gatusconfig_impl(spec, name, namespace, logger, patch, **kwargs)
+        except Exception as e:
+            logger.exception(f"Reconciliation failed for {namespace}/{name}: {e}")
+            now = datetime.now(timezone.utc).isoformat()
+            patch.status["lastSync"] = now
+            patch.status["lastError"] = str(e)
+            patch.status["conditions"] = [
+                {
+                    "type": "Ready",
+                    "status": "False",
+                    "reason": "ReconciliationError",
+                    "message": str(e)[:256],  # Truncate long errors
+                    "lastTransitionTime": now,
+                }
+            ]
+            raise  # Re-raise so Kopf can retry
+
+    @kopf.timer(
+        "homelab.edgard.org",
+        "v1alpha1",
+        "gatusconfigs",
+        interval=120.0,
+        initial_delay=30.0,
+    )
+    def periodic_resync(spec, name, namespace, logger, patch, **kwargs):
+        """Periodic resync every 120 seconds."""
+        logger.info(f"Periodic resync triggered for {namespace}/{name}")
+        try:
+            reconcile_gatusconfig_impl(spec, name, namespace, logger, patch, **kwargs)
+        except Exception as e:
+            logger.exception(f"Periodic resync failed for {namespace}/{name}: {e}")
+            # Update status to reflect timer failure
+            now = datetime.now(timezone.utc).isoformat()
+            patch.status["lastSync"] = now
+            patch.status["lastError"] = f"Timer reconciliation failed: {str(e)}"
+            patch.status["conditions"] = [
+                {
+                    "type": "Ready",
+                    "status": "False",
+                    "reason": "TimerReconciliationError",
+                    "message": str(e)[:256],
+                    "lastTransitionTime": now,
+                }
+            ]
+            raise  # Re-raise so Kopf can retry

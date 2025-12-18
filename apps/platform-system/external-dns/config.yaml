@@ -4,4 +4,4 @@ chart:
   name: external-dns
   version: 1.19.0
 sync:
-  wave: "-4"
+  wave: "-3"

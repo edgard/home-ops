@@ -6,7 +6,8 @@ configs:
     controller.diff.server.side: "true"
   cm:
     resource.ignoreResourceUpdatesEnabled: "true"
-    resource.customizations.ignoreDifferences.admissionregistration.k8s.io_ValidatingWebhookConfiguration: |
+    resource.customizations.ignoreDifferences.admissionregistration.k8s.io_ValidatingWebhookConfiguration:
+      |
       jqPathExpressions:
         - .webhooks[].clientConfig.caBundle
         - .webhooks[].failurePolicy

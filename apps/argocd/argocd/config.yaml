@@ -4,4 +4,4 @@ chart:
   path: "."
   version: 9.1.8
 sync:
-  wave: "-5"
+  wave: "-4"
