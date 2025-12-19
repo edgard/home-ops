@@ -115,37 +115,6 @@ controllers:
           readiness:
             enabled: true
 
-  sorter:
-    type: cronjob
-    cronjob:
-      schedule: "15 2 * * *"
-      concurrencyPolicy: Forbid
-      successfulJobsHistory: 0
-      failedJobsHistory: 1
-    pod:
-      restartPolicy: OnFailure
-    containers:
-      app:
-        image:
-          repository: ghcr.io/edgard/karakeep-ai-sorter
-          tag: 0.0.1
-        env:
-          KARAKEEP_API_BASE: http://karakeep.selfhosted.svc.cluster.local:3000/api/v1
-          KARAKEEP_API_KEY:
-            valueFrom:
-              secretKeyRef:
-                name: karakeep-credentials
-                key: KARAKEEP_API_KEY
-          OPENAI_API_KEY:
-            valueFrom:
-              secretKeyRef:
-                name: karakeep-credentials
-                key: OPENAI_API_KEY
-          OPENAI_BASE_URL: https://openrouter.ai/api/v1
-          OPENAI_MODEL: anthropic/claude-sonnet-4.5
-          INBOX_LISTS: Inbox
-          SKIP_LISTS: Wishlist
-
 service:
   karakeep:
     controller: karakeep
