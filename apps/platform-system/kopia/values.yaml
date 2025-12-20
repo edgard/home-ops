@@ -1,0 +1,143 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsUser: 0
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: |
+          [{
+            "name": "multus-lan-macvlan",
+            "namespace": "platform-system",
+            "ips": ["192.168.1.244/24"],
+            "mac": "02:42:c0:a8:01:f4",
+            "gateway": ["192.168.1.1"]
+          }]
+    initContainers:
+      init:
+        image:
+          repository: kopia/kopia
+          tag: 0.18.2
+          pullPolicy: IfNotPresent
+        command:
+          - /bin/sh
+          - /scripts/init.sh
+        env:
+          KOPIA_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kopia-credentials
+                key: KOPIA_REPOSITORY_PASSWORD
+          KOPIA_SERVER_CONTROL_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kopia-credentials
+                key: KOPIA_SERVER_PASSWORD
+          KOPIA_USERS:
+            value: |
+              admin@edgards-mini
+              admin@edgard-desktop
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+          runAsGroup: 0
+    containers:
+      app:
+        image:
+          repository: kopia/kopia
+          tag: 0.18.2
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+        env:
+          KOPIA_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kopia-credentials
+                key: KOPIA_REPOSITORY_PASSWORD
+          KOPIA_SERVER_CONTROL_USERNAME:
+            valueFrom:
+              secretKeyRef:
+                name: kopia-credentials
+                key: KOPIA_SERVER_USERNAME
+          KOPIA_SERVER_CONTROL_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kopia-credentials
+                key: KOPIA_SERVER_PASSWORD
+        command:
+          - kopia
+        args:
+          - server
+          - start
+          - --tls-cert-file=/certs/tls.crt
+          - --tls-key-file=/certs/tls.key
+          - --config-file=/app/config/repository.config
+          - --address=0.0.0.0:51515
+          - --server-username=$(KOPIA_SERVER_CONTROL_USERNAME)
+          - --server-password=$(KOPIA_SERVER_CONTROL_PASSWORD)
+          - --override-hostname=homelab
+          - --override-username=admin
+        resources:
+          limits: null
+          requests: null
+
+service:
+  main:
+    controller: main
+    ports:
+      https:
+        port: 51515
+        protocol: TCP
+
+persistence:
+  data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 20Gi
+    globalMounts:
+      - path: /app/config
+        subPath: config
+      - path: /app/cache
+        subPath: cache
+      - path: /app/logs
+        subPath: logs
+  repository:
+    type: persistentVolumeClaim
+    storageClass: local-bulk
+    accessMode: ReadWriteOnce
+    size: 5Ti
+    globalMounts:
+      - path: /repository
+  appdata:
+    type: hostPath
+    hostPath: /mnt/spool/appdata
+    hostPathType: Directory
+    advancedMounts:
+      main:
+        app:
+          - path: /data/appdata
+  init-script:
+    type: configMap
+    name: kopia-init
+    defaultMode: 0755
+    advancedMounts:
+      main:
+        init:
+          - path: /scripts
+            readOnly: true
+  tls-certs:
+    type: secret
+    name: gateway-wildcard-tls
+    globalMounts:
+      - path: /certs
+        readOnly: true

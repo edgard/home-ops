@@ -1,0 +1,13 @@
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: kopia
+  namespace: platform-system
+spec:
+  endpoints:
+    - dnsName: kopia.edgard.org
+      recordTTL: 60
+      recordType: A
+      targets:
+        - 192.168.1.244

@@ -35,7 +35,7 @@
 Secrets must exist in Bitwarden with these exact keys:
 - **Bootstrap**: `dockerhub_username`, `dockerhub_token`
 - **Argo**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
-- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `restic_password`, `tailscale_auth_key`
+- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `kopia_repository_password`, `kopia_server_username`, `kopia_server_password`, `tailscale_auth_key`
 - **Media**: `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
 - **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`, `gatus_telegram_token`, `gatus_telegram_chatid`, `security_notifier_telegram_token`, `security_notifier_telegram_chatid`
 
@@ -76,6 +76,20 @@ kubectl -n selfhosted annotate gatusconfig gatus-config force-sync=$(date +%s) -
 kubectl -n platform-system port-forward svc/homelab-controller 8080:80
 curl -X POST http://localhost:8080/notify/falco -H 'Content-Type: application/json' -d '{"rule":"test","priority":"INFO"}'
 ```
+
+## Kopia Backup Server
+- **Purpose**: Repository server for cluster + LAN machine backups.
+- **Technology**: Kopia 0.18.2, TLS via gateway wildcard cert (*.edgard.org).
+- **Wave**: `-3` (requires cert-manager, ESO, local-bulk StorageClass).
+- **Repository**: Local filesystem at `/repository/kopia` (5Ti local-bulk PVC).
+- **Schedule**: Daily at 03:00 (time-based scheduling via `--snapshot-time`).
+- **Retention**: 7 daily, 4 weekly, 12 monthly, 3 yearly.
+- **Access**: `https://kopia.edgard.org:51515` (VPN-only, GRPC API + Web UI via Multus LAN IP 192.168.1.244).
+- **Backup Source**: `/mnt/spool/appdata` (hostPath, read-write mount for backup and restore).
+- **Client Setup**: LAN machines connect via `kopia repository connect server --url=https://kopia.edgard.org`.
+- **User Management**: Use admin credentials for all clients (VPN-only access, trusted machines).
+- **Monitoring**: Auto-discovered by homelab-controller via `gatus.edgard.org/enabled: "true"` service label.
+- **Initialization**: InitContainer auto-creates repository and configures policies on first deployment (idempotent).
 
 ## Resource Naming Conventions
 Files must match `metadata.name`.
@@ -118,5 +132,5 @@ Applies to apps using `ghcr.io/bjw-s-labs/helm/app-template`.
 - **Exceptions**:
   - `zigbee2mqtt`: privileged (USB).
   - `qbittorrent`: `NET_ADMIN` (VPN).
-  - `restic`: Root required.
+  - `kopia`: Root required (hostPath access).
   - `tailscale-subnet-router`: `NET_ADMIN`/`NET_RAW` (VPN routing), `hostNetwork: true` (LAN bridge).
