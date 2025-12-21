@@ -23,7 +23,3 @@ GitOps-driven Kubernetes homelab running on Kind, managed by Argo CD with OpenTo
 - `argocd/` – Argo CD bootstrap configuration: `root.app.yaml`, ApplicationSets, AppProjects, and Namespaces.
 - `bootstrap/` – Cluster initialization scripts, Kind configuration, and Helmfile for pre-Argo CD dependencies.
 - `terraform/` – OpenTofu configuration for external infrastructure management.
-
-## More Details
-
-This README stays high level. The full runbook, conventions, and dependency list live in `AGENTS.md`.
