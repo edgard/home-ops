@@ -2,6 +2,9 @@
 /.envrc
 __pycache__
 
+# OpenCode
+.opencode/
+
 # Terraform
 terraform/**/.terraform/
 terraform/**/.terraform.lock.hcl
