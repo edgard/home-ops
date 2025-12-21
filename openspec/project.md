@@ -67,7 +67,7 @@ Home Operations (home-ops) is a GitOps-managed Kubernetes homelab infrastructure
 ### App Categories
 - **Home Automation**: home-assistant, mosquitto, zigbee2mqtt
 - **Media**: Jellyfin, Radarr, Sonarr, Bazarr, Prowlarr, qBittorrent (via Gluetun VPN), Recyclarr, Unpackerr
-- **Self-hosted**: Atuin, Changedetection, Gatus, Homepage, Karakeep, Paperless-ngx
+- **Self-hosted**: Atuin, Changedetection, Gatus, Homepage, Karakeep, n8n, Paperless-ngx
 - **Platform**: cert-manager, external-dns, external-secrets, Falco, Gateway API, homelab-controller, Istio, Kopia, Multus, Reloader, Tailscale
 
 ## Important Constraints
@@ -122,7 +122,7 @@ Secrets must exist with these exact keys:
 - **Argo**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
 - **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `kopia_repository_password`, `kopia_server_username`, `kopia_server_password`, `tailscale_auth_key`
 - **Media**: `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
-- **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`, `gatus_telegram_token`, `gatus_telegram_chatid`, `security_notifier_telegram_token`, `security_notifier_telegram_chatid`
+- **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `n8n_encryption_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`, `gatus_telegram_token`, `gatus_telegram_chatid`, `security_notifier_telegram_token`, `security_notifier_telegram_chatid`
 
 **Note**: Tailscale OAuth credentials (`TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_CLIENT_SECRET`) are local-only for Terraform, not in Bitwarden.
 

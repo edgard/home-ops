@@ -1,0 +1,89 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
+controllers:
+  n8n:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      app:
+        image:
+          repository: docker.io/n8nio/n8n
+          tag: 1.72.0
+        env:
+          N8N_HOST: n8n.edgard.org
+          N8N_PORT: "5678"
+          N8N_PROTOCOL: https
+          WEBHOOK_URL: https://n8n.edgard.org/
+          GENERIC_TIMEZONE: Europe/Warsaw
+          N8N_ENCRYPTION_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: n8n-credentials
+                key: N8N_ENCRYPTION_KEY
+        ports:
+          - name: http
+            containerPort: 5678
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          limits: null
+          requests: null
+
+service:
+  n8n:
+    controller: n8n
+    primary: true
+    labels:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      http:
+        port: 5678
+
+route:
+  main:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: n8n
+      gethomepage.dev/group: Selfhosted
+      gethomepage.dev/icon: n8n.svg
+      gethomepage.dev/app: n8n
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - n8n.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: n8n
+            port: 5678
+
+persistence:
+  data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    advancedMounts:
+      n8n:
+        app:
+          - path: /home/node/.n8n
