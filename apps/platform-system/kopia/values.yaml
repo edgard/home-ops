@@ -26,7 +26,7 @@ controllers:
       init:
         image:
           repository: kopia/kopia
-          tag: 0.18.2
+          tag: 0.22.3
           pullPolicy: IfNotPresent
         command:
           - /bin/sh
@@ -54,7 +54,7 @@ controllers:
       app:
         image:
           repository: kopia/kopia
-          tag: 0.18.2
+          tag: 0.22.3
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
