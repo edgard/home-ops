@@ -18,7 +18,7 @@ controllers:
       app:
         image:
           repository: docker.io/n8nio/n8n
-          tag: 1.123.7
+          tag: 2.1.1
         env:
           N8N_HOST: n8n.edgard.org
           N8N_PORT: "5678"
