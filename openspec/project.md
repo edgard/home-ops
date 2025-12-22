@@ -134,7 +134,21 @@ Secrets must exist with these exact keys:
   2. **Falco Integration**: Receives alerts via `/notify/falco` webhook. Sends daily Telegram digest (8:00 AM). Stores at `/data/alerts/pending.json`.
 - **RBAC**: ClusterRole for CRDs (read), ConfigMaps (write), Services/Deployments (read).
 
-## Resource Naming Conventions
+## Kubernetes Manifest Standards
+
+All Kubernetes manifests in the project follow consistent patterns for naming, structure, and formatting to ensure maintainability and predictability.
+
+### File Naming Convention
+
+Manifest files MUST follow the pattern: `{app}-{descriptor}.{kind}.yaml`
+
+- `{app}`: Application name in kebab-case
+- `{descriptor}`: Optional descriptor providing context (e.g., "credentials", "config", "wildcard")
+- `{kind}`: Kubernetes resource kind in lowercase (e.g., "externalsecret", "configmap", "certificate")
+
+**Exemptions**: Vendor-provided CRD files (e.g., Gateway API CRDs) may retain original filenames and multi-document structure.
+
+### Resource Naming Patterns
 
 Files must match `metadata.name`.
 
@@ -142,14 +156,50 @@ Files must match `metadata.name`.
 |---------------|---------|---------|
 | Manifest File | `{app}-{descriptor}.{kind}.yaml` | `gateway-credentials.externalsecret.yaml` |
 | ExternalSecret | `{app}-[{descriptor}-]credentials` | `gateway-credentials` |
+| ConfigMap | `{app}-{descriptor}` | `homelab-controller-controller` |
 | TLS Secret | `{app}-{descriptor}-tls` | `gateway-wildcard-tls` |
 | Certificate | `{app}-{descriptor}` | `gateway-wildcard` |
-| Generated CM | `{app}-generated-config` | `gatus-generated-config` (do not edit) |
-| Gateway | `gateway` | `gateway` |
 | Issuer | `{app}-issuer-{env}` | `gateway-issuer-production` |
-| HTTPRoute | `{app}` | `homepage` |
+| StorageClass | `{name}` | `local-fast`, `local-bulk` |
 | CRD | `{plural}.{group}` | `gatusconfigs.homelab.edgard.org` |
+| Gateway | `gateway` | `gateway` |
+| HTTPRoute | `{app}` | `homepage` |
 | ServiceAccount | `{app}` | `external-dns` |
+| ClusterRole | `{app}[-{descriptor}]` | `k8tz-wait-cert-manager` |
+| Job | `{app}-{descriptor}` | `k8tz-wait-cert-manager` |
+| Generated CM | `{app}-generated-config` | `gatus-generated-config` (do not edit) |
+
+### Manifest Structure Standards
+
+**Document Format**:
+- All manifests MUST start with `---` document separator on line 1
+- Single resource per file (except vendor-provided multi-document CRDs)
+- UTF-8 encoding, 2-space indentation, no tabs
+
+**Top-level Field Order**:
+1. `apiVersion`
+2. `kind`
+3. `metadata`
+4. `spec` (or `data` for ConfigMaps/Secrets)
+5. Additional fields as needed
+
+**Metadata Field Order**:
+1. `name`
+2. `namespace` (if namespaced resource)
+3. `labels` (if present)
+4. `annotations` (if present)
+5. Additional metadata fields
+
+**Spec Field Ordering Examples**:
+- **ExternalSecret**: `refreshInterval`, `secretStoreRef` (with `name` before `kind`), `target`, `data`
+- **ClusterRoleBinding**: `roleRef` before `subjects`
+- **Certificate**: `secretName`, `issuerRef`, `dnsNames`, additional fields
+
+**Formatting Requirements**:
+- Must pass `task lint` (yamlfmt + yamllint)
+- Indentation: 2 spaces (no tabs)
+- Line endings: LF (Unix-style)
+- Keep files ASCII-compatible where possible
 
 ## App-Template House Style (v4.5.0)
 
