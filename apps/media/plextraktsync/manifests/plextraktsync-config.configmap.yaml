@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plextraktsync-config
+  namespace: media
+data:
+  config.yml: |
+    watch:
+      username_filter: true
+    
+    sync:
+      # Disable Plex->Trakt for initial sync (we want Trakt to be source of truth)
+      plex_to_trakt:
+        collection: false
+        ratings: false
+        watched_status: false
+      
+      # Enable Trakt->Plex to import your watch history
+      trakt_to_plex:
+        liked_lists: true
+        ratings: true
+        watched_status: true
+        watchlist: true
+        watchlist_as_playlist: false
+    
+    log:
+      debug: false
+      append: true
+      filename: plextraktsync.log
