@@ -179,8 +179,8 @@ configMaps:
           "filterByLabel": "",
           "applyFiltersToDeviceEntities": false,
           "whiteList": [
-            "cover.bedroom_shades_left",
-            "cover.bedroom_shades_right",
+            "cover.bedroom_shades_left_curtain",
+            "cover.bedroom_shades_right_curtain",
             "climate.bedroom_trv",
             "climate.office_trv",
             "light.office_key_light_left",
@@ -192,8 +192,8 @@ configMaps:
           ],
           "blackList": [],
           "splitEntities": [
-            "cover.bedroom_shades_left",
-            "cover.bedroom_shades_right",
+            "cover.bedroom_shades_left_curtain",
+            "cover.bedroom_shades_right_curtain",
             "climate.bedroom_trv",
             "climate.office_trv",
             "light.office_key_light_left",
