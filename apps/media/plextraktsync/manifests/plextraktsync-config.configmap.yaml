@@ -29,7 +29,7 @@ data:
       rating_priority: plex
       plex_to_trakt:
         collection: false
-        clear_collected: false
+        clear_collected: true
         ratings: true
         watched_status: true
         watchlist: false
