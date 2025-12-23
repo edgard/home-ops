@@ -15,7 +15,7 @@ data:
         delete_old_custom_formats: true
         replace_existing_custom_formats: true
         media_naming:
-          series: jellyfin-tvdb
+          series: plex-tvdb
           season: default
           episodes:
             rename: true
@@ -43,10 +43,10 @@ data:
         delete_old_custom_formats: true
         replace_existing_custom_formats: true
         media_naming:
-          folder: jellyfin-tmdb
+          folder: plex-tmdb
           movie:
             rename: true
-            standard: jellyfin-tmdb
+            standard: plex-tmdb
         include:
           - template: radarr-quality-definition-movie
           - template: radarr-quality-profile-uhd-bluray-web

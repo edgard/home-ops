@@ -94,11 +94,6 @@
 
     // Package-specific
     {
-      description: "Jellyfin: only semver tags",
-      matchPackageNames: ["lscr.io/linuxserver/jellyfin"],
-      allowedVersions: "/^\\d{1,2}\\.\\d+\\.\\d+$/",
-    },
-    {
       description: "Gateway API: auto-download CRDs on update",
       matchPackageNames: ["kubernetes-sigs/gateway-api"],
       postUpgradeTasks: {
