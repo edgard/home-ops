@@ -182,11 +182,11 @@ configMaps:
             "Bedroom TRV",
             "Bedroom Shades Left",
             "Bedroom Shades Right",
-            "Bedroom Fan",
             "Office TRV",
             "Office Key Light Left ",
             "Office Key Light Right",
-            "Office Fan"
+            "fan.bedroom_air_purifier_matter",
+            "fan.office_air_purifier_matter"
           ],
           "blackList": [],
           "deviceEntityBlackList": {
