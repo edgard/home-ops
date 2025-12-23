@@ -177,10 +177,8 @@ configMaps:
           "reconnectRetries": 10,
           "filterByArea": "",
           "filterByLabel": "",
-          "applyFiltersToDeviceEntities": true,
-          "whiteList": [],
-          "blackList": ["*"],
-          "entityWhiteList": [
+          "applyFiltersToDeviceEntities": false,
+          "whiteList": [
             "cover.bedroom_shades_left",
             "cover.bedroom_shades_right",
             "climate.bedroom_trv",
@@ -192,6 +190,7 @@ configMaps:
             "sensor.bedroom_air_purifier_pm25",
             "sensor.office_air_purifier_pm25"
           ],
+          "blackList": [],
           "enableServerRvc": true,
           "debug": false,
           "unregisterOnShutdown": false
