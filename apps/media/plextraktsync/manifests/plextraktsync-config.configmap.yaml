@@ -15,6 +15,7 @@ data:
         collection: false
         ratings: false
         watched_status: false
+        watchlist: false  # Must disable this to avoid Plex watchlist API call
       
       # Enable Trakt->Plex to import your watch history
       trakt_to_plex:
@@ -23,11 +24,6 @@ data:
         watched_status: true
         watchlist: false
         watchlist_as_playlist: false
-    
-    # Explicitly disable watchlist plugin
-    plugins:
-      watchlist:
-        enabled: false
     
     log:
       debug: false
