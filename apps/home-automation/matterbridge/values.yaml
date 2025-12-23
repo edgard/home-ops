@@ -186,7 +186,9 @@ configMaps:
             "Office Key Light Left ",
             "Office Key Light Right",
             "fan.bedroom_air_purifier_matter",
-            "fan.office_air_purifier_matter"
+            "fan.office_air_purifier_matter",
+            "sensor.bedroom_air_purifier_pm25",
+            "sensor.office_air_purifier_pm25"
           ],
           "blackList": [],
           "deviceEntityBlackList": {
