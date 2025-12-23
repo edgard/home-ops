@@ -21,8 +21,13 @@ data:
         liked_lists: true
         ratings: true
         watched_status: true
-        watchlist: false  # Disabled due to Plex API limitation
+        watchlist: false
         watchlist_as_playlist: false
+    
+    # Explicitly disable watchlist plugin
+    plugins:
+      watchlist:
+        enabled: false
     
     log:
       debug: false
