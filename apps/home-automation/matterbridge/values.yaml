@@ -191,14 +191,7 @@ configMaps:
             "fan.office_air_purifier_matter"
           ],
           "blackList": [],
-          "splitEntities": [
-            "cover.bedroom_shades_left_curtain",
-            "cover.bedroom_shades_right_curtain",
-            "climate.bedroom_trv",
-            "climate.office_trv",
-            "light.office_key_light_left",
-            "light.office_key_light_right"
-          ],
+          "splitEntities": [],
           "enableServerRvc": true,
           "debug": false,
           "unregisterOnShutdown": false
