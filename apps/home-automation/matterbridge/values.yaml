@@ -177,7 +177,7 @@ configMaps:
           "reconnectRetries": 10,
           "filterByArea": "",
           "filterByLabel": "",
-          "applyFiltersToDeviceEntities": false,
+          "applyFiltersToDeviceEntities": true,
           "whiteList": [],
           "blackList": ["*"],
           "entityWhiteList": [
