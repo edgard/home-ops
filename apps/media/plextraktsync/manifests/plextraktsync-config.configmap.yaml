@@ -6,6 +6,9 @@ metadata:
   namespace: media
 data:
   config.yml: |
+    excluded-libraries:
+      - "Other Videos"
+    
     watch:
       username_filter: true
     
