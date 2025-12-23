@@ -91,7 +91,7 @@ releases:
             kubectl wait --for=condition=Available deployment/cert-manager-webhook -n platform-system --timeout=60s
             kubectl create secret generic bitwarden-credentials -n platform-system --from-literal=token="${BWS_ACCESS_TOKEN}" --dry-run=client -o yaml | kubectl apply -f -
             kubectl apply -f ../apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-issuer.issuer.yaml
-            kubectl apply -f ../apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-certificate.certificate.yaml
+            kubectl apply -f ../apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-tls.certificate.yaml
             kubectl wait --for=condition=Ready certificate/external-secrets-sdk-server-tls -n platform-system --timeout=120s
       - events:
           - "postsync"
