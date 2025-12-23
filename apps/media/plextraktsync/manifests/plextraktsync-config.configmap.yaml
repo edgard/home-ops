@@ -50,7 +50,3 @@ data:
       scrobble_threshold: 80
       username_filter: true
       media_progressbar: true
-    
-    xbmc-providers:
-      movies: imdb
-      shows: tvdb
