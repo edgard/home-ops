@@ -179,16 +179,16 @@ configMaps:
           "filterByLabel": "",
           "applyFiltersToDeviceEntities": false,
           "whiteList": [
-            "cover.bedroom_shades_left_curtain",
-            "cover.bedroom_shades_right_curtain",
-            "climate.bedroom_trv",
-            "climate.office_trv",
-            "light.office_key_light_left",
-            "light.office_key_light_right",
+            "50e08b118e409ab93e15de16599b8b94",
+            "e9a95dcce66ccd9b39797d23fe77bd5d",
+            "7170f00ac38ea0f8f5d8f09ef2312b84",
+            "b3538dfeb50e037b3411e777cbfd34d6",
+            "c6c22103aade48985d6bcccf38419bf5",
+            "497390d2653ba551a1cd02a780cc1f93",
+            "7043ea9dbe8e6c992b06c8a4246847cc",
+            "aa8588cf022f52ffabca618900054127",
             "fan.bedroom_air_purifier_matter",
-            "fan.office_air_purifier_matter",
-            "sensor.bedroom_air_purifier_pm25",
-            "sensor.office_air_purifier_pm25"
+            "fan.office_air_purifier_matter"
           ],
           "blackList": [],
           "splitEntities": [
