@@ -191,7 +191,18 @@ configMaps:
             "sensor.office_air_purifier_pm25"
           ],
           "blackList": [],
-          "splitEntities": [],
+          "splitEntities": [
+            "cover.bedroom_shades_left_curtain",
+            "cover.bedroom_shades_right_curtain",
+            "climate.office_trv",
+            "climate.bedroom_trv",
+            "light.office_key_light_left",
+            "light.office_key_light_right",
+            "fan.bedroom_air_purifier_matter",
+            "fan.office_air_purifier_matter",
+            "sensor.bedroom_air_purifier_pm25",
+            "sensor.office_air_purifier_pm25"
+          ],
           "enableServerRvc": true,
           "debug": false,
           "unregisterOnShutdown": false
