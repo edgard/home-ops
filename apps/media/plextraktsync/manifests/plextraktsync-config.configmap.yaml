@@ -28,7 +28,7 @@ data:
     sync:
       rating_priority: plex
       plex_to_trakt:
-        collection: true
+        collection: false
         clear_collected: false
         ratings: true
         watched_status: true
