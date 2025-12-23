@@ -179,7 +179,7 @@ configMaps:
           "filterByLabel": "",
           "applyFiltersToDeviceEntities": false,
           "whiteList": [],
-          "blackList": [],
+          "blackList": ["*"],
           "entityWhiteList": [
             "cover.bedroom_shades_left",
             "cover.bedroom_shades_right",
