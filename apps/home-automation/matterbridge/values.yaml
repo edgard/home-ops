@@ -178,28 +178,20 @@ configMaps:
           "filterByArea": "",
           "filterByLabel": "",
           "applyFiltersToDeviceEntities": false,
-          "whiteList": [
-            "Bedroom TRV",
-            "Bedroom Shades Left",
-            "Bedroom Shades Right",
-            "Office TRV",
-            "Office Key Light Left ",
-            "Office Key Light Right",
-            "Bedroom Air Purifier",
-            "Office Air Purifier"
-          ],
+          "whiteList": [],
           "blackList": [],
-          "deviceEntityWhiteList": {
-            "Bedroom Shades Left": ["cover.bedroom_shades_left"],
-            "Bedroom Shades Right": ["cover.bedroom_shades_right"],
-            "Bedroom TRV": ["climate.bedroom_trv"],
-            "Office TRV": ["climate.office_trv"],
-            "Office Key Light Left ": ["light.office_key_light_left"],
-            "Office Key Light Right": ["light.office_key_light_right"],
-            "Bedroom Air Purifier": ["fan.bedroom_air_purifier_matter", "sensor.bedroom_air_purifier_pm25"],
-            "Office Air Purifier": ["fan.office_air_purifier_matter", "sensor.office_air_purifier_pm25"]
-          },
-          "airQualityRegex": "^sensor\\.(bedroom|office)_air_purifier_pm25$",
+          "entityWhiteList": [
+            "cover.bedroom_shades_left",
+            "cover.bedroom_shades_right",
+            "climate.bedroom_trv",
+            "climate.office_trv",
+            "light.office_key_light_left",
+            "light.office_key_light_right",
+            "fan.bedroom_air_purifier_matter",
+            "fan.office_air_purifier_matter",
+            "sensor.bedroom_air_purifier_pm25",
+            "sensor.office_air_purifier_pm25"
+          ],
           "enableServerRvc": true,
           "debug": false,
           "unregisterOnShutdown": false
