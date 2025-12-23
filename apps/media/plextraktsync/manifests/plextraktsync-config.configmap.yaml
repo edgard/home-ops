@@ -10,19 +10,18 @@ data:
       username_filter: true
     
     sync:
-      # Disable Plex->Trakt for initial sync (we want Trakt to be source of truth)
+      # Now enable bidirectional sync
       plex_to_trakt:
-        collection: false
-        ratings: false
-        watched_status: false
-        watchlist: false  # Must disable this to avoid Plex watchlist API call
+        collection: true
+        ratings: true
+        watched_status: true
+        watchlist: false  # Keep disabled due to Plex API limitation
       
-      # Enable Trakt->Plex to import your watch history
       trakt_to_plex:
         liked_lists: true
         ratings: true
         watched_status: true
-        watchlist: false
+        watchlist: false  # Keep disabled due to Plex API limitation
         watchlist_as_playlist: false
     
     log:
