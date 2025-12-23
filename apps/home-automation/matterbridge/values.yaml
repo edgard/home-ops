@@ -189,38 +189,15 @@ configMaps:
             "Office Air Purifier"
           ],
           "blackList": [],
-          "deviceEntityBlackList": {
-            "Bedroom Shades Left": ["switch.bedroom_shades_left_reverse"],
-            "Bedroom Shades Right": ["switch.bedroom_shades_right_reverse"],
-            "Bedroom TRV": ["sensor.bedroom_trv_ema_temperature", "binary_sensor.bedroom_trv_window_state"],
-            "Office TRV": ["sensor.office_trv_ema_temperature", "binary_sensor.office_trv_window_state"],
-            "Bedroom Air Purifier": [
-              "fan.bedroom_air_purifier",
-              "switch.bedroom_air_purifier_power",
-              "switch.bedroom_air_purifier_alarm",
-              "switch.bedroom_air_purifier_physical_control_locked",
-              "light.bedroom_air_purifier_indicator_light",
-              "number.bedroom_air_purifier_favorite_fan_level",
-              "button.bedroom_air_purifier_info",
-              "sensor.bedroom_air_purifier_filter_life_level",
-              "sensor.bedroom_air_purifier_filter_used_time",
-              "sensor.bedroom_air_purifier_motor_speed",
-              "sensor.bedroom_air_purifier_humidity",
-              "sensor.bedroom_air_purifier_temperature"
-            ],
-            "Office Air Purifier": [
-              "fan.office_air_purifier",
-              "switch.office_air_purifier_power",
-              "switch.office_air_purifier_alarm",
-              "switch.office_air_purifier_physical_control_locked",
-              "light.office_air_purifier_indicator_light",
-              "number.office_air_purifier_favorite_fan_level",
-              "button.office_air_purifier_info",
-              "sensor.office_air_purifier_filter_life_level",
-              "sensor.office_air_purifier_filter_used_time",
-              "sensor.office_air_purifier_humidity",
-              "sensor.office_air_purifier_temperature"
-            ]
+          "deviceEntityWhiteList": {
+            "Bedroom Shades Left": ["cover.bedroom_shades_left"],
+            "Bedroom Shades Right": ["cover.bedroom_shades_right"],
+            "Bedroom TRV": ["climate.bedroom_trv"],
+            "Office TRV": ["climate.office_trv"],
+            "Office Key Light Left ": ["light.office_key_light_left"],
+            "Office Key Light Right": ["light.office_key_light_right"],
+            "Bedroom Air Purifier": ["fan.bedroom_air_purifier_matter", "sensor.bedroom_air_purifier_pm25"],
+            "Office Air Purifier": ["fan.office_air_purifier_matter", "sensor.office_air_purifier_pm25"]
           },
           "airQualityRegex": "^sensor\\.(bedroom|office)_air_purifier_pm25$",
           "enableServerRvc": true,
