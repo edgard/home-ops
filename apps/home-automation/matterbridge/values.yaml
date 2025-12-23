@@ -185,10 +185,8 @@ configMaps:
             "Office TRV",
             "Office Key Light Left ",
             "Office Key Light Right",
-            "fan.bedroom_air_purifier_matter",
-            "fan.office_air_purifier_matter",
-            "sensor.bedroom_air_purifier_pm25",
-            "sensor.office_air_purifier_pm25"
+            "Bedroom Air Purifier",
+            "Office Air Purifier"
           ],
           "blackList": [],
           "deviceEntityBlackList": {
@@ -197,6 +195,7 @@ configMaps:
             "Bedroom TRV": ["sensor.bedroom_trv_ema_temperature", "binary_sensor.bedroom_trv_window_state"],
             "Office TRV": ["sensor.office_trv_ema_temperature", "binary_sensor.office_trv_window_state"],
             "Bedroom Air Purifier": [
+              "fan.bedroom_air_purifier",
               "switch.bedroom_air_purifier_power",
               "switch.bedroom_air_purifier_alarm",
               "switch.bedroom_air_purifier_physical_control_locked",
@@ -210,6 +209,7 @@ configMaps:
               "sensor.bedroom_air_purifier_temperature"
             ],
             "Office Air Purifier": [
+              "fan.office_air_purifier",
               "switch.office_air_purifier_power",
               "switch.office_air_purifier_alarm",
               "switch.office_air_purifier_physical_control_locked",
