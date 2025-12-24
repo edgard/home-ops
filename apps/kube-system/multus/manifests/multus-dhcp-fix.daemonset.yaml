@@ -1,0 +1,14 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: multus-dhcp
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      volumes:
+        - name: netnspath
+          hostPath:
+            path: /var/run/netns
+            type: ""
