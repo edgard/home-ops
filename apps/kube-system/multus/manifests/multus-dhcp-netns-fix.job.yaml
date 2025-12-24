@@ -1,0 +1,70 @@
+---
+# This Job patches the Multus DHCP DaemonSet to use the correct netns path for k3s
+# The RKE2 Multus chart uses /run/netns but k3s creates network namespaces at /var/run/netns
+# Reference: https://docs.siderolabs.com/kubernetes-guides/cni/multus/#patching-the-daemonset
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: multus-dhcp-netns-fix
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      serviceAccountName: multus-dhcp-netns-fix
+      restartPolicy: OnFailure
+      containers:
+        - name: patch
+          image: bitnami/kubectl:1.31
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Patching multus-dhcp DaemonSet netns path..."
+              kubectl patch daemonset -n kube-system multus-dhcp \
+                --type='json' \
+                -p='[{"op": "replace", "path": "/spec/template/spec/volumes/2/hostPath/path", "value": "/var/run/netns"}]'
+              echo "Patch applied successfully"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: multus-dhcp-netns-fix
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: multus-dhcp-netns-fix
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+rules:
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    resourceNames: ["multus-dhcp"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: multus-dhcp-netns-fix
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: multus-dhcp-netns-fix
+subjects:
+  - kind: ServiceAccount
+    name: multus-dhcp-netns-fix
+    namespace: kube-system
