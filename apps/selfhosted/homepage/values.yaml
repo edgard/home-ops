@@ -26,7 +26,6 @@ controllers:
           - -c
           - |
             cp -r /tmp/config-ro/* /app/config/
-            chmod -R 755 /app/config
     containers:
       app:
         image:
