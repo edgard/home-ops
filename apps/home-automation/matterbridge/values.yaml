@@ -179,21 +179,26 @@ configMaps:
           "filterByLabel": "",
           "applyFiltersToDeviceEntities": false,
           "whiteList": [
-            "Bedroom Air Purifier",
             "Bedroom Shades Left",
             "Bedroom Shades Right",
             "Bedroom TRV",
-            "Office Air Purifier",
             "Office Key Light Left",
             "Office Key Light Right",
             "Office TRV",
             "fan.zhimi_mb3_6b72_air_purifier",
-            "fan.zhimi_m1_e123_air_purifier"
+            "fan.zhimi_m1_e123_air_purifier",
+            "sensor.zhimi_mb3_6b72_pm25",
+            "sensor.zhimi_m1_e123_pm25_density"
           ],
-          "blackList": [],
+          "blackList": [
+            "Bedroom Air Purifier",
+            "Office Air Purifier"
+          ],
           "splitEntities": [
             "fan.zhimi_mb3_6b72_air_purifier",
-            "fan.zhimi_m1_e123_air_purifier"
+            "fan.zhimi_m1_e123_air_purifier",
+            "sensor.zhimi_mb3_6b72_pm25",
+            "sensor.zhimi_m1_e123_pm25_density"
           ],
           "enableServerRvc": true,
           "debug": false,
