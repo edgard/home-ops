@@ -18,7 +18,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: patch
-          image: bitnami/kubectl:1.31
+          image: rancher/kubectl:v1.33.6
           command:
             - /bin/sh
             - -c
