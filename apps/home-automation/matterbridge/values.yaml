@@ -186,7 +186,7 @@ configMaps:
             "Office Air Purifier",
             "Office Key Light Left",
             "Office Key Light Right",
-            "Office TRV",
+            "Office TRV"
           ],
           "blackList": [],
           "splitEntities": [],
