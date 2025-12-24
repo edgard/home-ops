@@ -12,6 +12,29 @@ controllers:
     type: deployment
     replicas: 1
     strategy: Recreate
+    initContainers:
+      create-device:
+        image:
+          repository: busybox
+          tag: 1.37.0
+        command:
+          - /bin/sh
+          - -c
+        args:
+          - |
+            # Create the character device node for the USB serial adapter
+            # The USB device is passed through from host, we just need the device node
+            if [ ! -c /dev/ttyUSB0 ]; then
+              echo "Creating /dev/ttyUSB0 device node (major 188, minor 0)"
+              mknod /dev/ttyUSB0 c 188 0
+              chmod 666 /dev/ttyUSB0
+              echo "Device node created successfully"
+            else
+              echo "/dev/ttyUSB0 already exists"
+            fi
+            ls -la /dev/ttyUSB0
+        securityContext:
+          privileged: true
     containers:
       app:
         image:
@@ -70,9 +93,13 @@ persistence:
     size: 5Gi
     globalMounts:
       - path: /app/data
+  dev:
+    type: emptyDir
+    globalMounts:
+      - path: /dev
   usb:
     type: hostPath
-    hostPath: /dev/ttyUSB0
-    hostPathType: CharDevice
+    hostPath: /dev/bus/usb
+    hostPathType: Directory
     globalMounts:
-      - path: /dev/ttyUSB0
+      - path: /dev/bus/usb
