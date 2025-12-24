@@ -1,4 +1,6 @@
 ---
+updateStrategy:
+  type: Recreate
 fullnameOverride: metrics-server
 resources:
   limits: null
