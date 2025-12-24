@@ -11,7 +11,7 @@ BWS_ACCESS_TOKEN="${BWS_ACCESS_TOKEN:-}"
 KUBECONFIG_PATH="$HOME/.kube/config"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Volume mounts for k3d agents (path:path@agent:* format)
+# Volume mounts for k3d server (path:path format)
 VOLUME_MOUNTS=(
     "/mnt/spool/appdata:/mnt/spool/appdata"
     "/mnt/dpool/media:/mnt/dpool/media"
@@ -93,17 +93,16 @@ create_k3d_cluster() {
     # Build volume mount arguments
     local volume_args=()
     for mount in "${VOLUME_MOUNTS[@]}"; do
-        volume_args+=(--volume "${mount}@agent:*")
+        volume_args+=(--volume "${mount}")
     done
     
     k3d cluster create "$CLUSTER_NAME" \
         --servers 1 \
-        --agents 1 \
+        --agents 0 \
         --api-port "${docker_host_ip}:6443" \
-        --port "8080:80@loadbalancer" \
-        --port "8443:443@loadbalancer" \
+        --no-lb \
         "${volume_args[@]}" \
-        --k3s-arg "--disable=traefik@server:*" \
+        --k3s-arg "--disable=traefik" \
         --image "rancher/k3s:${K3S_VERSION}"
     
     echo "✓ k3d cluster created"
