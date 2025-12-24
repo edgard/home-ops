@@ -199,7 +199,6 @@ persistence:
   data:
     type: persistentVolumeClaim
     enabled: true
-    storageClass: local-fast
     accessMode: ReadWriteOnce
     size: 5Gi
     globalMounts:
