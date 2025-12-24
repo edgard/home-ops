@@ -74,3 +74,123 @@ Default values (can be overridden via environment variables):
 - `argocd/` – Argo CD bootstrap configuration: `root.app.yaml`, ApplicationSets, AppProjects, and Namespaces.
 - `bootstrap/` – Cluster initialization scripts, K3s container configuration, and Helmfile for pre-Argo CD dependencies.
 - `terraform/` – OpenTofu configuration for external infrastructure management.
+
+## Troubleshooting
+
+### Security Contexts and Permissions
+
+**s6-overlay Images (LinuxServer.io, Plex, etc.)**
+
+Many container images use [s6-overlay](https://github.com/just-containers/s6-overlay) for process supervision. These images require running as root initially to properly drop privileges to the configured `PUID`/`PGID`.
+
+**Problem:** Pod crashes with "Permission denied" errors on s6 scripts.
+
+**Solution:** Remove `runAsNonRoot: true`, `runAsUser`, and `runAsGroup` from the pod's `securityContext`. The image will handle privilege dropping internally.
+
+```yaml
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    # Remove: runAsNonRoot, runAsUser, runAsGroup
+```
+
+**Examples:** Plex, qBittorrent (LinuxServer images)
+
+**Init Containers Requiring Root**
+
+Init containers may need different security contexts than main containers to perform privileged operations.
+
+**Problem:** Init container fails with "Permission denied" when running system commands like `apt-get`, `chown`, etc.
+
+**Solution:** Override security context for specific init containers:
+
+```yaml
+initContainers:
+  setup:
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      runAsNonRoot: false
+```
+
+**Example:** Paperless tesseract-langs init container (`apps/selfhosted/paperless/values.yaml:18-27`)
+
+### Incus/LXC User Namespace Mapping
+
+When running Kubernetes in Incus/LXC containers with user namespaces, file ownership must account for UID/GID mapping.
+
+**Container Configuration:**
+- `volatile.idmap.base: "0"` – Stable mapping anchor
+- Container UID 0 → Host UID 2147000001
+- Container UID 568 → Host UID 568 (identity mapped)
+- Container UID 1000 → Host UID 2147001001
+- Container UID 569+ → Host UID 2147000570+
+
+**Problem:** Pods fail with "Permission denied" when accessing PVCs on host-mounted storage.
+
+**Solution:** Change file ownership on the host to match the mapped UID:
+
+```bash
+# For pods running as UID 1000 in container
+ssh host "sudo chown -R 2147001001:2147001001 /path/to/data"
+
+# For pods running as UID 0 (root) in container
+ssh host "sudo chown -R 2147000001:2147000001 /path/to/data"
+```
+
+**Storage Mounts:** ZFS child datasets must be explicitly mounted in Incus:
+
+```bash
+incus config device add container-name disk2 disk \
+  source=/mnt/pool/dataset \
+  path=/mnt/pool/dataset
+```
+
+### USB Device Passthrough
+
+**Problem:** Pod cannot access USB device (e.g., Zigbee coordinator at `/dev/ttyUSB0`).
+
+**Kubernetes Limitation:** You cannot create device nodes inside containers, even with `privileged: true`. Device nodes must exist on the host.
+
+**Solution for Incus/LXC:**
+
+1. Verify device exists on host:
+   ```bash
+   ls -la /dev/ttyUSB0
+   ```
+
+2. Pass character device to container:
+   ```bash
+   incus config device add container-name device-name unix-char \
+     source=/dev/ttyUSB0 \
+     path=/dev/ttyUSB0
+   ```
+
+3. Mount in pod as hostPath:
+   ```yaml
+   persistence:
+     usb:
+       type: hostPath
+       hostPath: /dev/ttyUSB0
+       hostPathType: CharDevice
+       globalMounts:
+         - path: /dev/ttyUSB0
+   ```
+
+**Example:** Zigbee2MQTT (`apps/home-automation/zigbee2mqtt/values.yaml:73-78`)
+
+### Multus Network Issues
+
+**Problem:** Pod stuck with "address already in use" or "no more tries" errors when using macvlan with DHCP.
+
+**Common Causes:**
+- Stale DHCP lease for MAC address
+- DHCP pool exhausted
+- Another device using the same MAC address
+
+**Solution:**
+- Check DHCP server for conflicting leases
+- Release/delete stale leases for the MAC address
+- Verify DHCP pool has available addresses
+- Ensure MAC addresses are unique across all pods
