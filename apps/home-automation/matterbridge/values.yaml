@@ -179,14 +179,14 @@ configMaps:
           "filterByLabel": "",
           "applyFiltersToDeviceEntities": false,
           "whiteList": [
+            "Bedroom Air Purifier",
             "Bedroom Shades Left",
             "Bedroom Shades Right",
-            "Office TRV",
             "Bedroom TRV",
-            "Office Key Light Left ",
+            "Office Air Purifier",
+            "Office Key Light Left",
             "Office Key Light Right",
-            "fan.bedroom_air_purifier_matter",
-            "fan.office_air_purifier_matter"
+            "Office TRV",
           ],
           "blackList": [],
           "splitEntities": [],
