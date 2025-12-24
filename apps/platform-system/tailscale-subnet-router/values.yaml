@@ -1,8 +1,6 @@
 ---
 defaultPodOptions:
   hostNetwork: true
-  nodeSelector:
-    kubernetes.io/hostname: homelab
   securityContext:
     fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
