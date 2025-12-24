@@ -186,10 +186,15 @@ configMaps:
             "Office Air Purifier",
             "Office Key Light Left",
             "Office Key Light Right",
-            "Office TRV"
+            "Office TRV",
+            "fan.zhimi_mb3_6b72_air_purifier",
+            "fan.zhimi_m1_e123_air_purifier"
           ],
           "blackList": [],
-          "splitEntities": [],
+          "splitEntities": [
+            "fan.zhimi_mb3_6b72_air_purifier",
+            "fan.zhimi_m1_e123_air_purifier"
+          ],
           "enableServerRvc": true,
           "debug": false,
           "unregisterOnShutdown": false
