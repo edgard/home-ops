@@ -5,13 +5,13 @@ metadata:
   name: plextraktsync-config
   namespace: media
 data:
-  config.yml: |
+  config.yml: |-
     excluded-libraries:
       - "Other Videos"
-    
+
     plex:
       timeout: 30
-    
+
     logging:
       append: true
       console_time: false
@@ -24,7 +24,7 @@ data:
       filter:
         - message: "because provider none has no external Id"
         - message: "because provider local has no external Id"
-    
+
     sync:
       rating_priority: plex
       plex_to_trakt:
@@ -40,10 +40,10 @@ data:
         watchlist: false
         watchlist_as_playlist: false
         playback_status: false
-    
+
     liked_lists:
       keep_watched: true
-    
+
     watch:
       add_collection: false
       remove_collection: false

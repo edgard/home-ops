@@ -5,6 +5,10 @@
 {{- $argocdCfg := readFile "../apps/argocd/argocd/config.yaml" | fromYaml -}}
 {{- $k8tzCfg := readFile "../apps/kube-system/k8tz/config.yaml" | fromYaml -}}
 
+repositories:
+  - name: rke2-charts
+    url: "{{ $multusCfg.chart.repo }}"
+
 helmDefaults:
   cleanupOnFail: true
   wait: true
@@ -43,8 +47,8 @@ releases:
           - |
             set -euo pipefail
             kubectl apply -f ../apps/kube-system/local-path-provisioner/manifests
-            if kubectl get storageclass standard >/dev/null 2>&1; then
-              kubectl patch storageclass standard --type merge -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false","storageclass.beta.kubernetes.io/is-default-class":"false"}}}'
+            if kubectl get storageclass local-path >/dev/null 2>&1; then
+              kubectl patch storageclass local-path --type merge -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false","storageclass.beta.kubernetes.io/is-default-class":"false"}}}'
             fi
             # Restart K3s local-path-provisioner to pick up the custom local-path-config ConfigMap
             kubectl rollout restart deploy/local-path-provisioner -n kube-system
@@ -52,7 +56,7 @@ releases:
 
   - name: multus
     namespace: kube-system
-    chart: "{{ $multusCfg.chart.repo }}"
+    chart: "rke2-charts/{{ $multusCfg.chart.name }}"
     version: "{{ $multusCfg.chart.version }}"
     values:
       - ../apps/kube-system/multus/values.yaml

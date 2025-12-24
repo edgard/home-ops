@@ -76,7 +76,7 @@ print_header() {
 ensure_tool() {
     local tool="$1"
     local install_hint="${2:-}"
-    
+
     if ! command -v "$tool" &> /dev/null; then
         echo "ERROR: $tool is not installed"
         [ -n "$install_hint" ] && echo "Install with: $install_hint"
@@ -86,12 +86,12 @@ ensure_tool() {
 
 ensure_target_prerequisites() {
     echo "==> Checking target host prerequisites..."
-    
+
     if ssh_target "! command -v curl &> /dev/null || ! command -v iptables &> /dev/null || ! command -v modprobe &> /dev/null"; then
         echo "==> Installing prerequisites (curl, kmod, iptables)..."
         ssh_target "apt-get update -qq && apt-get install -y curl kmod iptables"
     fi
-    
+
     echo "✓ Prerequisites available"
 }
 
@@ -110,12 +110,12 @@ EOF
 
 run_k3sup_install() {
     local action="${1:-Installing}"
-    
+
     ensure_tool "k3sup" "curl -sLS https://get.k3sup.dev | sh && sudo install k3sup /usr/local/bin/"
     ensure_target_prerequisites
     ensure_containerd_config
     mkdir -p "$(dirname "$KUBECONFIG_PATH")"
-    
+
     echo "==> ${action} K3s ${K3S_VERSION}..."
     k3sup install \
         --ip "$TARGET_HOST" \
@@ -126,7 +126,7 @@ run_k3sup_install() {
         --local-path "$KUBECONFIG_PATH" \
         --context "$CLUSTER_NAME" \
         --k3s-extra-args '--disable traefik --kubelet-arg=feature-gates=KubeletInUserNamespace=true'
-    
+
     echo "✓ ${action} complete"
 }
 
@@ -135,11 +135,14 @@ wait_for_resource() {
     local check_command="$2"
     local max_attempts=30
     local attempt=0
-    
+
     echo "==> Waiting for ${description}..."
-    
+
+    # Give k3s a moment to fully initialize after k3sup
+    sleep 3
+
     while [ $attempt -lt $max_attempts ]; do
-        if eval "$check_command" &> /dev/null; then
+        if eval "$check_command" 2>&1 | grep -v "Unable to connect" > /dev/null; then
             echo "✓ ${description} ready"
             return 0
         fi
@@ -147,36 +150,43 @@ wait_for_resource() {
         echo "   Attempt $attempt/$max_attempts..."
         sleep 2
     done
-    
+
     echo "ERROR: ${description} not ready after $max_attempts attempts"
     return 1
 }
 
 wait_for_api_server() {
-    wait_for_resource "K3s API server" "kubectl cluster-info"
+    # Wait for API server to be responsive
+    wait_for_resource "K3s API server" "ssh_target 'kubectl get --raw /healthz'"
+
+    # Verify kubeconfig works locally
+    export KUBECONFIG="$KUBECONFIG_PATH"
+    kubectl config use-context "$CLUSTER_NAME" > /dev/null 2>&1
+
     wait_for_resource "kube-system service account" "kubectl get serviceaccount default -n kube-system"
 }
 
 cmd_create() {
     require_env "TARGET_HOST"
     require_env "BWS_ACCESS_TOKEN"
-    
+
     ensure_tool "kubectl"
     ensure_tool "helmfile"
-    
+
     print_header "Bootstrap K3s Cluster"
-    
+
+    cleanup_kubeconfig
     run_k3sup_install "Installing"
-    
+
     echo "==> Deploying platform components..."
     export KUBECONFIG="$KUBECONFIG_PATH" BWS_ACCESS_TOKEN
     kubectl config use-context "$CLUSTER_NAME" > /dev/null
-    
+
     wait_for_api_server
-    
+
     cd "$SCRIPT_DIR"
     helmfile -f helmfile.yaml.gotmpl sync
-    
+
     echo "✓ Bootstrap complete"
     echo "  kubectl config use-context ${CLUSTER_NAME}"
 }
@@ -184,20 +194,22 @@ cmd_create() {
 cmd_destroy() {
     require_env "TARGET_HOST"
     print_header "Destroy K3s Cluster"
-    
+
     confirm "⚠ This will uninstall K3s from ${TARGET_HOST}"
-    
+
     echo "==> Uninstalling K3s..."
     ssh_target << 'EOF'
 if [ -f /usr/local/bin/k3s-uninstall.sh ]; then
-    /usr/local/bin/k3s-uninstall.sh
+    /usr/local/bin/k3s-killall.sh || true
+    sleep 10
+    /usr/local/bin/k3s-uninstall.sh || true
 else
     echo "⚠ K3s not found"
 fi
 EOF
-    
+
     cleanup_kubeconfig
-    
+
     echo "✓ Destroy complete"
 }
 
@@ -209,22 +221,22 @@ cmd_recreate() {
 cmd_update() {
     require_env "TARGET_HOST"
     ensure_tool "kubectl"
-    
+
     print_header "Update K3s Cluster"
-    
+
     [ -f "$KUBECONFIG_PATH" ] || { echo "ERROR: Kubeconfig not found - run 'create' first"; exit 1; }
-    
+
     export KUBECONFIG="$KUBECONFIG_PATH"
     CURRENT_VERSION=$(kubectl get node -o jsonpath='{.items[0].status.nodeInfo.kubeletVersion}' 2>/dev/null || echo "unknown")
-    
+
     echo "Current: ${CURRENT_VERSION} → Target: ${K3S_VERSION}"
-    
+
     if [ "$CURRENT_VERSION" = "$K3S_VERSION" ]; then
         confirm "⚠ Already at ${K3S_VERSION}"
     fi
-    
+
     run_k3sup_install "Upgrading"
-    
+
     NEW_VERSION=$(kubectl get node -o jsonpath='{.items[0].status.nodeInfo.kubeletVersion}' 2>/dev/null || echo "unknown")
     echo "✓ Update complete"
     echo "  Version: ${NEW_VERSION}"
