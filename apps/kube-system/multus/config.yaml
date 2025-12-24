@@ -5,3 +5,9 @@ chart:
   version: v4.2.305
 sync:
   wave: "-4"
+ignoreDifferences:
+  - group: apps
+    kind: DaemonSet
+    name: multus-dhcp
+    jsonPointers:
+      - /spec/template/spec/volumes/2/hostPath/path
