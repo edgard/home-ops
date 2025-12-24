@@ -25,7 +25,12 @@ controllers:
           - sh
           - -c
           - |
-            cp -r /tmp/config-ro/* /app/config/
+            echo "Listing /tmp/config-ro:"
+            ls -la /tmp/config-ro/
+            echo "Copying files..."
+            cp -v /tmp/config-ro/* /app/config/ 2>&1 || echo "Copy failed: $?"
+            echo "Listing /app/config after copy:"
+            ls -la /app/config/
     containers:
       app:
         image:
