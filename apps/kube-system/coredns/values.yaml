@@ -1,40 +1,21 @@
 controllers: {}
 
 configMaps:
+  # Do not overwrite the main coredns ConfigMap
   corefile:
+    enabled: false
+  
+  # Create the custom ConfigMap that k3s CoreDNS automatically mounts
+  custom:
     enabled: true
-    forceRename: coredns
+    name: coredns-custom
     data:
-      Corefile: |-
+      # This file ends with .server so it will be imported by "import /etc/coredns/custom/*.server"
+      # at the top level of the Corefile (outside the main server block)
+      edgard.server: |-
         edgard.org:53 {
             errors
             forward . 192.168.1.1
             cache 30
             log
-        }
-
-        .:53 {
-            errors
-            health {
-               lameduck 5s
-            }
-            ready
-            kubernetes cluster.local in-addr.arpa ip6.arpa {
-               pods insecure
-               fallthrough in-addr.arpa ip6.arpa
-               ttl 30
-            }
-            prometheus :9153
-            forward . /etc/resolv.conf {
-               max_concurrent 1000
-            }
-            cache 30 {
-               disable success cluster.local
-               disable denial cluster.local
-               prefetch 20
-               serve_stale
-            }
-            loop
-            reload
-            loadbalance
         }
