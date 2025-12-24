@@ -12,8 +12,7 @@ shell: bash -c
 vars:
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "homelab"}}'
-  K3S_VERSION: '{{.K3S_VERSION | default "v1.34.3+k3s1"}}'
-  SSH_USER: '{{.SSH_USER | default "root"}}'
+  K3S_VERSION: '{{.K3S_VERSION | default "v1.33.6+k3s1"}}'
 
 tasks:
   default:
@@ -22,66 +21,48 @@ tasks:
       - task --list
 
   bootstrap:create:
-    desc: Bootstrap K3s cluster with k3sup and deploy platform via helmfile
+    desc: Bootstrap k3d cluster and deploy platform via helmfile
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
-        - TARGET_HOST
+        - DOCKER_HOST_SSH
         - BWS_ACCESS_TOKEN
     env:
-      TARGET_HOST: "{{.TARGET_HOST}}"
+      DOCKER_HOST_SSH: "{{.DOCKER_HOST_SSH}}"
       BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
       CLUSTER_NAME: "{{.CLUSTER_NAME}}"
       K3S_VERSION: "{{.K3S_VERSION}}"
-      SSH_USER: "{{.SSH_USER}}"
     cmds:
-      - ./bootstrap.sh create
+      - ./bootstrap-k3d.sh create
 
   bootstrap:destroy:
-    desc: Destroy K3s cluster
+    desc: Destroy k3d cluster
     interactive: true
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
-        - TARGET_HOST
+        - DOCKER_HOST_SSH
     env:
-      TARGET_HOST: "{{.TARGET_HOST}}"
+      DOCKER_HOST_SSH: "{{.DOCKER_HOST_SSH}}"
       CLUSTER_NAME: "{{.CLUSTER_NAME}}"
-      SSH_USER: "{{.SSH_USER}}"
     cmds:
-      - ./bootstrap.sh destroy
+      - ./bootstrap-k3d.sh destroy
 
   bootstrap:recreate:
-    desc: Destroy and recreate K3s cluster
+    desc: Destroy and recreate k3d cluster
     interactive: true
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
-        - TARGET_HOST
+        - DOCKER_HOST_SSH
         - BWS_ACCESS_TOKEN
     env:
-      TARGET_HOST: "{{.TARGET_HOST}}"
+      DOCKER_HOST_SSH: "{{.DOCKER_HOST_SSH}}"
       BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
       CLUSTER_NAME: "{{.CLUSTER_NAME}}"
       K3S_VERSION: "{{.K3S_VERSION}}"
-      SSH_USER: "{{.SSH_USER}}"
     cmds:
-      - ./bootstrap.sh recreate
-
-  bootstrap:update:
-    desc: Update K3s to specified version
-    interactive: true
-    dir: "{{.TASKFILE_DIR}}/bootstrap"
-    requires:
-      vars:
-        - TARGET_HOST
-    env:
-      TARGET_HOST: "{{.TARGET_HOST}}"
-      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
-      K3S_VERSION: "{{.K3S_VERSION}}"
-      SSH_USER: "{{.SSH_USER}}"
-    cmds:
-      - ./bootstrap.sh update
+      - ./bootstrap-k3d.sh recreate
 
   lint:
     desc: Format + lint YAML

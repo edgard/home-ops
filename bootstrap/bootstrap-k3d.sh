@@ -3,10 +3,9 @@ set -euo pipefail
 
 # Configuration from environment
 COMMAND="${1:-}"
-DOCKER_HOST_SSH="${DOCKER_HOST_SSH:-edgard@sc01.home.arpa}"
-DOCKER_HOST_IP="${DOCKER_HOST_IP:-192.168.1.254}"
+DOCKER_HOST_SSH="${DOCKER_HOST_SSH:-}"
 CLUSTER_NAME="${CLUSTER_NAME:-homelab}"
-K3S_VERSION="${K3S_VERSION:-v1.33.4+k3s1}"
+K3S_VERSION="${K3S_VERSION:-v1.33.6+k3s1}"
 BWS_ACCESS_TOKEN="${BWS_ACCESS_TOKEN:-}"
 
 KUBECONFIG_PATH="$HOME/.kube/config"
@@ -46,17 +45,16 @@ Commands:
 
 Required environment variables:
   BWS_ACCESS_TOKEN - Bitwarden Secrets Manager token (create/recreate only)
+  DOCKER_HOST_SSH  - SSH connection string to TrueNAS (e.g., user@host.local)
 
 Optional environment variables:
-  DOCKER_HOST_SSH  - SSH connection string to TrueNAS (default: edgard@sc01.home.arpa)
-  DOCKER_HOST_IP   - TrueNAS IP address (default: 192.168.1.254)
   CLUSTER_NAME     - Cluster name (default: homelab)
-  K3S_VERSION      - K3s version (default: v1.33.4+k3s1)
+  K3S_VERSION      - K3s version (default: v1.33.6+k3s1)
 
 Examples:
-  BWS_ACCESS_TOKEN=xxx $0 create
-  $0 destroy
-  DOCKER_HOST_SSH=user@host.local DOCKER_HOST_IP=192.168.1.100 $0 create
+  DOCKER_HOST_SSH=edgard@sc01.home.arpa BWS_ACCESS_TOKEN=xxx $0 create
+  DOCKER_HOST_SSH=edgard@sc01.home.arpa $0 destroy
+  DOCKER_HOST_SSH=user@192.168.1.100 CLUSTER_NAME=mycluster $0 create
 EOF
     exit 1
 }
@@ -84,6 +82,23 @@ ensure_tool() {
         [ -n "$install_hint" ] && echo "Install with: $install_hint"
         exit 1
     fi
+}
+
+resolve_docker_host_ip() {
+    echo "==> Resolving Docker host IP..."
+    
+    # Extract hostname from user@hostname format
+    local hostname="${DOCKER_HOST_SSH#*@}"
+    
+    # Resolve hostname to IP address
+    DOCKER_HOST_IP=$(getent hosts "$hostname" | awk '{ print $1 }' | head -n1)
+    
+    if [ -z "$DOCKER_HOST_IP" ]; then
+        echo "ERROR: Could not resolve hostname '$hostname' to IP address"
+        exit 1
+    fi
+    
+    echo "✓ Resolved $hostname to $DOCKER_HOST_IP"
 }
 
 setup_docker_context() {
@@ -133,15 +148,15 @@ create_k3d_cluster() {
     
     k3d cluster create "$CLUSTER_NAME" \
         --servers 1 \
-        --agents 0 \
+        --agents 1 \
         --api-port "${DOCKER_HOST_IP}:6443" \
-        --port "80:80@loadbalancer" \
-        --port "443:443@loadbalancer" \
-        --volume "${STORAGE_PATH}:${STORAGE_PATH}@server:0" \
-        --volume "${MEDIA_PATH}:${MEDIA_PATH}@server:0" \
-        --volume "${KOPIA_PATH}:${KOPIA_PATH}@server:0" \
-        --volume "${USB_DEVICE}:${USB_DEVICE}@server:0" \
-        --k3s-arg "--disable=traefik@server:0" \
+        --port "8080:80@loadbalancer" \
+        --port "8443:443@loadbalancer" \
+        --volume "${STORAGE_PATH}:${STORAGE_PATH}@agent:*" \
+        --volume "${MEDIA_PATH}:${MEDIA_PATH}@agent:*" \
+        --volume "${KOPIA_PATH}:${KOPIA_PATH}@agent:*" \
+        --volume "${USB_DEVICE}:${USB_DEVICE}@agent:*" \
+        --k3s-arg "--disable=traefik@server:*" \
         --image "rancher/k3s:${K3S_VERSION}"
     
     echo "✓ k3d cluster created"
@@ -153,30 +168,33 @@ wait_for_resource() {
     local max_attempts=30
     local attempt=0
 
-    echo "==> Waiting for ${description}..."
+    echo -n "==> Waiting for ${description}..."
 
     while [ $attempt -lt $max_attempts ]; do
         if eval "$check_command" &> /dev/null; then
-            echo "✓ ${description} ready"
+            echo " ✓"
             return 0
         fi
         attempt=$((attempt + 1))
-        echo "   Attempt $attempt/$max_attempts..."
+        echo -n "."
         sleep 2
     done
 
+    echo " ✗"
     echo "ERROR: ${description} not ready after $max_attempts attempts"
     return 1
 }
 
 cmd_create() {
     require_env "BWS_ACCESS_TOKEN"
+    require_env "DOCKER_HOST_SSH"
 
     ensure_tool "k3d" "brew install k3d"
     ensure_tool "kubectl" "brew install kubectl"
     ensure_tool "helmfile" "brew install helmfile"
     ensure_tool "docker" "brew install docker"
 
+    resolve_docker_host_ip
     print_header "Bootstrap k3d Cluster"
 
     setup_docker_context
@@ -202,6 +220,9 @@ cmd_create() {
 }
 
 cmd_destroy() {
+    require_env "DOCKER_HOST_SSH"
+
+    resolve_docker_host_ip
     print_header "Destroy k3d Cluster"
 
     setup_docker_context
