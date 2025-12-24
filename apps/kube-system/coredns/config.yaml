@@ -1,22 +1,6 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: coredns
-  namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
-spec:
-  project: kube-system
-  source:
-    repoURL: https://github.com/edgard/home-ops.git
-    targetRevision: HEAD
-    path: apps/kube-system/coredns
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: kube-system
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
+---
+chart:
+  repo: oci://ghcr.io/bjw-s-labs/helm/app-template
+  version: 4.5.0
+sync:
+  wave: "-4"

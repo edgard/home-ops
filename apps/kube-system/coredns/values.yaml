@@ -1,14 +1,10 @@
 controllers: {}
 
 configMaps:
-  # Do not overwrite the main coredns ConfigMap
-  corefile:
-    enabled: false
-  
   # Create the custom ConfigMap that k3s CoreDNS automatically mounts
   custom:
     enabled: true
-    name: coredns-custom
+    forceRename: coredns-custom
     data:
       # This file ends with .server so it will be imported by "import /etc/coredns/custom/*.server"
       # at the top level of the Corefile (outside the main server block)
