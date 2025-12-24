@@ -1,7 +1,0 @@
----
-chart:
-  repo: oci://ghcr.io/falcosecurity/charts/falco
-  path: "."
-  version: 7.0.2
-sync:
-  wave: "-3"
