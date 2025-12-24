@@ -20,14 +20,14 @@ spec:
         - name: patch
           image: rancher/kubectl:v1.33.6
           command:
-            - /bin/sh
-            - -c
-            - |
-              echo "Patching multus-dhcp DaemonSet netns path..."
-              kubectl patch daemonset -n kube-system multus-dhcp \
-                --type='json' \
-                -p='[{"op": "replace", "path": "/spec/template/spec/volumes/2/hostPath/path", "value": "/var/run/netns"}]'
-              echo "Patch applied successfully"
+            - kubectl
+            - patch
+            - daemonset
+            - -n
+            - kube-system
+            - multus-dhcp
+            - --type=json
+            - -p=[{"op":"replace","path":"/spec/template/spec/volumes/2/hostPath/path","value":"/var/run/netns"}]
 ---
 apiVersion: v1
 kind: ServiceAccount
