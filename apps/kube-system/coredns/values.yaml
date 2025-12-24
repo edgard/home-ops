@@ -20,6 +20,10 @@ configMaps:
                lameduck 5s
             }
             ready
+            rewrite stop {
+                name regex (.*)\.svc$ {1}.svc.cluster.local
+                answer name (.*)\.svc\.cluster\.local$ {1}.svc
+            }
             kubernetes cluster.local in-addr.arpa ip6.arpa {
                pods verified
                fallthrough in-addr.arpa ip6.arpa
