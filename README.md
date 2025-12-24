@@ -151,18 +151,20 @@ incus config device add container-name disk2 disk \
 
 **Problem:** Pod cannot access USB device (e.g., Zigbee coordinator at `/dev/ttyUSB0`).
 
-**Kubernetes Limitation:** You cannot create device nodes inside containers, even with `privileged: true`. Device nodes must exist on the host.
+**Kubernetes Limitation:** You cannot create device nodes inside containers, even with `privileged: true`, because `/dev` is a special tmpfs filesystem managed by the container runtime. Device nodes must be passed from the host.
+
+**Why `mknod` in init containers doesn't work:** Even with all privileges (`privileged: true`, `CAP_MKNOD`, `hostPID`, unconfined AppArmor/seccomp), you cannot create device nodes in the container's `/dev` tmpfs. This is by design for security.
 
 **Solution for Incus/LXC:**
 
-1. Verify device exists on host:
+1. Verify device exists on TrueNAS host:
    ```bash
-   ls -la /dev/ttyUSB0
+   ssh user@truenas-host "ls -la /dev/ttyUSB0"
    ```
 
-2. Pass character device to container:
+2. Pass character device to Incus container (this is the ONLY manual config needed):
    ```bash
-   incus config device add container-name device-name unix-char \
+   incus config device add homelab zigbee-usb unix-char \
      source=/dev/ttyUSB0 \
      path=/dev/ttyUSB0
    ```
@@ -177,6 +179,8 @@ incus config device add container-name disk2 disk \
        globalMounts:
          - path: /dev/ttyUSB0
    ```
+
+**Note:** You only need the `unix-char` device. Raw USB device passthrough (`type: usb`) is NOT required.
 
 **Example:** Zigbee2MQTT (`apps/home-automation/zigbee2mqtt/values.yaml:73-78`)
 
