@@ -19,6 +19,10 @@ controllers:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
           tag: 2.20.3
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          runAsNonRoot: false
         env:
           PAPERLESS_OCR_LANGUAGES: eng por pol
         command:
