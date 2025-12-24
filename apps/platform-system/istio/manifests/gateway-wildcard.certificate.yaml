@@ -8,7 +8,7 @@ spec:
   secretName: gateway-wildcard-tls
   issuerRef:
     kind: Issuer
-    name: gateway-issuer-production
+    name: gateway-issuer-staging
   dnsNames:
     - "*.edgard.org"
     - edgard.org

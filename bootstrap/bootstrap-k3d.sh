@@ -90,6 +90,18 @@ create_k3d_cluster() {
     # Extract IP from DOCKER_HOST (ssh://edgard@192.168.1.254 -> 192.168.1.254)
     local docker_host_ip=$(echo "$DOCKER_HOST" | sed -n 's|^ssh://[^@]*@\(.*\)|\1|p')
     
+    # Ensure k3d-lan macvlan network exists
+    if ! docker network inspect k3d-lan >/dev/null 2>&1; then
+        echo "==> Creating k3d-lan macvlan network on br0..."
+        docker network create -d macvlan \
+            --subnet=192.168.1.0/24 \
+            --gateway=192.168.1.1 \
+            --ip-range=192.168.1.240/28 \
+            -o parent=br0 \
+            k3d-lan
+        echo "✓ k3d-lan network created"
+    fi
+    
     # Build volume mount arguments
     local volume_args=()
     for mount in "${VOLUME_MOUNTS[@]}"; do
@@ -99,6 +111,7 @@ create_k3d_cluster() {
     k3d cluster create "$CLUSTER_NAME" \
         --api-port "${docker_host_ip}:6443" \
         --no-lb \
+        --network k3d-lan \
         "${volume_args[@]}" \
         --k3s-arg "--disable=traefik" \
         --image "rancher/k3s:${K3S_VERSION}"
