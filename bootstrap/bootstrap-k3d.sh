@@ -97,8 +97,6 @@ create_k3d_cluster() {
     done
     
     k3d cluster create "$CLUSTER_NAME" \
-        --servers 1 \
-        --agents 0 \
         --api-port "${docker_host_ip}:6443" \
         --no-lb \
         "${volume_args[@]}" \
