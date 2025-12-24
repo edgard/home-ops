@@ -12,7 +12,7 @@ shell: bash -c
 vars:
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "homelab"}}'
-  K3S_VERSION: '{{.K3S_VERSION | default "v1.33.6+k3s1"}}'
+  K3S_VERSION: '{{.K3S_VERSION | default "v1.33.6-k3s1"}}'
 
 tasks:
   default:
@@ -25,10 +25,10 @@ tasks:
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
-        - DOCKER_HOST_SSH
+        - DOCKER_HOST
         - BWS_ACCESS_TOKEN
     env:
-      DOCKER_HOST_SSH: "{{.DOCKER_HOST_SSH}}"
+      DOCKER_HOST: "{{.DOCKER_HOST}}"
       BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
       CLUSTER_NAME: "{{.CLUSTER_NAME}}"
       K3S_VERSION: "{{.K3S_VERSION}}"
@@ -41,9 +41,9 @@ tasks:
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
-        - DOCKER_HOST_SSH
+        - DOCKER_HOST
     env:
-      DOCKER_HOST_SSH: "{{.DOCKER_HOST_SSH}}"
+      DOCKER_HOST: "{{.DOCKER_HOST}}"
       CLUSTER_NAME: "{{.CLUSTER_NAME}}"
     cmds:
       - ./bootstrap-k3d.sh destroy
@@ -54,10 +54,10 @@ tasks:
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
-        - DOCKER_HOST_SSH
+        - DOCKER_HOST
         - BWS_ACCESS_TOKEN
     env:
-      DOCKER_HOST_SSH: "{{.DOCKER_HOST_SSH}}"
+      DOCKER_HOST: "{{.DOCKER_HOST}}"
       BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
       CLUSTER_NAME: "{{.CLUSTER_NAME}}"
       K3S_VERSION: "{{.K3S_VERSION}}"

@@ -3,20 +3,21 @@ set -euo pipefail
 
 # Configuration from environment
 COMMAND="${1:-}"
-DOCKER_HOST_SSH="${DOCKER_HOST_SSH:-}"
+DOCKER_HOST="${DOCKER_HOST:-}"
 CLUSTER_NAME="${CLUSTER_NAME:-homelab}"
-K3S_VERSION="${K3S_VERSION:-v1.33.6+k3s1}"
+K3S_VERSION="${K3S_VERSION:-v1.33.6-k3s1}"
 BWS_ACCESS_TOKEN="${BWS_ACCESS_TOKEN:-}"
 
 KUBECONFIG_PATH="$HOME/.kube/config"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DOCKER_CONTEXT_NAME="truenas"
 
-# Storage paths on TrueNAS host
-STORAGE_PATH="/mnt/spool/appdata"
-MEDIA_PATH="/mnt/dpool/media"
-KOPIA_PATH="/mnt/dpool/kopia-repo"
-USB_DEVICE="/dev/ttyUSB0"
+# Volume mounts for k3d agents (path:path@agent:* format)
+VOLUME_MOUNTS=(
+    "/mnt/spool/appdata:/mnt/spool/appdata"
+    "/mnt/dpool/media:/mnt/dpool/media"
+    "/mnt/dpool/kopia-repo:/mnt/dpool/kopia-repo"
+    "/dev/ttyUSB0:/dev/ttyUSB0"
+)
 
 confirm() {
     local message="$1"
@@ -45,16 +46,15 @@ Commands:
 
 Required environment variables:
   BWS_ACCESS_TOKEN - Bitwarden Secrets Manager token (create/recreate only)
-  DOCKER_HOST_SSH  - SSH connection string to TrueNAS (e.g., user@host.local)
+  DOCKER_HOST      - Docker host SSH connection (e.g., ssh://edgard@192.168.1.254)
 
 Optional environment variables:
   CLUSTER_NAME     - Cluster name (default: homelab)
-  K3S_VERSION      - K3s version (default: v1.33.6+k3s1)
+  K3S_VERSION      - K3s version (default: v1.33.6-k3s1)
 
 Examples:
-  DOCKER_HOST_SSH=edgard@sc01.home.arpa BWS_ACCESS_TOKEN=xxx $0 create
-  DOCKER_HOST_SSH=edgard@sc01.home.arpa $0 destroy
-  DOCKER_HOST_SSH=user@192.168.1.100 CLUSTER_NAME=mycluster $0 create
+  DOCKER_HOST=ssh://edgard@192.168.1.254 BWS_ACCESS_TOKEN=xxx $0 create
+  DOCKER_HOST=ssh://edgard@192.168.1.254 $0 destroy
 EOF
     exit 1
 }
@@ -68,7 +68,7 @@ require_env() {
 print_header() {
     local title="$1"
     echo "==> $title"
-    echo "    Docker Host: ${DOCKER_HOST_SSH} (${DOCKER_HOST_IP})"
+    echo "    Docker Host: ${DOCKER_HOST}"
     echo "    Cluster: ${CLUSTER_NAME} | K3s: ${K3S_VERSION}"
     echo ""
 }
@@ -84,78 +84,25 @@ ensure_tool() {
     fi
 }
 
-resolve_docker_host_ip() {
-    echo "==> Resolving Docker host IP..."
-    
-    # Extract hostname from user@hostname format
-    local hostname="${DOCKER_HOST_SSH#*@}"
-    
-    # Resolve hostname to IP address
-    DOCKER_HOST_IP=$(getent hosts "$hostname" | awk '{ print $1 }' | head -n1)
-    
-    if [ -z "$DOCKER_HOST_IP" ]; then
-        echo "ERROR: Could not resolve hostname '$hostname' to IP address"
-        exit 1
-    fi
-    
-    echo "✓ Resolved $hostname to $DOCKER_HOST_IP"
-}
-
-setup_docker_context() {
-    echo "==> Setting up Docker context..."
-    
-    # Create or update Docker context for remote TrueNAS
-    if docker context inspect "$DOCKER_CONTEXT_NAME" &> /dev/null; then
-        echo "   Docker context '$DOCKER_CONTEXT_NAME' already exists"
-    else
-        docker context create "$DOCKER_CONTEXT_NAME" --docker "host=ssh://${DOCKER_HOST_SSH}"
-        echo "✓ Docker context created"
-    fi
-    
-    docker context use "$DOCKER_CONTEXT_NAME"
-    echo "✓ Using Docker context: $DOCKER_CONTEXT_NAME"
-}
-
-verify_storage_paths() {
-    echo "==> Verifying storage paths on TrueNAS..."
-    
-    ssh "$DOCKER_HOST_SSH" "test -d $STORAGE_PATH" || {
-        echo "ERROR: Storage path $STORAGE_PATH does not exist on TrueNAS"
-        exit 1
-    }
-    
-    ssh "$DOCKER_HOST_SSH" "test -d $MEDIA_PATH" || {
-        echo "ERROR: Media path $MEDIA_PATH does not exist on TrueNAS"
-        exit 1
-    }
-    
-    ssh "$DOCKER_HOST_SSH" "test -d $KOPIA_PATH" || {
-        echo "ERROR: Kopia path $KOPIA_PATH does not exist on TrueNAS"
-        exit 1
-    }
-    
-    if ssh "$DOCKER_HOST_SSH" "test -c $USB_DEVICE"; then
-        echo "✓ USB device $USB_DEVICE found"
-    else
-        echo "⚠ WARNING: USB device $USB_DEVICE not found (Zigbee2MQTT will not work)"
-    fi
-    
-    echo "✓ Storage paths verified"
-}
-
 create_k3d_cluster() {
     echo "==> Creating k3d cluster '${CLUSTER_NAME}'..."
+    
+    # Extract IP from DOCKER_HOST (ssh://edgard@192.168.1.254 -> 192.168.1.254)
+    local docker_host_ip=$(echo "$DOCKER_HOST" | sed -n 's|^ssh://[^@]*@\(.*\)|\1|p')
+    
+    # Build volume mount arguments
+    local volume_args=()
+    for mount in "${VOLUME_MOUNTS[@]}"; do
+        volume_args+=(--volume "${mount}@agent:*")
+    done
     
     k3d cluster create "$CLUSTER_NAME" \
         --servers 1 \
         --agents 1 \
-        --api-port "${DOCKER_HOST_IP}:6443" \
+        --api-port "${docker_host_ip}:6443" \
         --port "8080:80@loadbalancer" \
         --port "8443:443@loadbalancer" \
-        --volume "${STORAGE_PATH}:${STORAGE_PATH}@agent:*" \
-        --volume "${MEDIA_PATH}:${MEDIA_PATH}@agent:*" \
-        --volume "${KOPIA_PATH}:${KOPIA_PATH}@agent:*" \
-        --volume "${USB_DEVICE}:${USB_DEVICE}@agent:*" \
+        "${volume_args[@]}" \
         --k3s-arg "--disable=traefik@server:*" \
         --image "rancher/k3s:${K3S_VERSION}"
     
@@ -187,18 +134,14 @@ wait_for_resource() {
 
 cmd_create() {
     require_env "BWS_ACCESS_TOKEN"
-    require_env "DOCKER_HOST_SSH"
+    require_env "DOCKER_HOST"
 
     ensure_tool "k3d" "brew install k3d"
     ensure_tool "kubectl" "brew install kubectl"
     ensure_tool "helmfile" "brew install helmfile"
     ensure_tool "docker" "brew install docker"
 
-    resolve_docker_host_ip
     print_header "Bootstrap k3d Cluster"
-
-    setup_docker_context
-    verify_storage_paths
     
     cleanup_kubeconfig
     create_k3d_cluster
@@ -220,12 +163,9 @@ cmd_create() {
 }
 
 cmd_destroy() {
-    require_env "DOCKER_HOST_SSH"
+    require_env "DOCKER_HOST"
 
-    resolve_docker_host_ip
     print_header "Destroy k3d Cluster"
-
-    setup_docker_context
     
     confirm "⚠ This will delete the k3d cluster '${CLUSTER_NAME}'"
 
