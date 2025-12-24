@@ -18,10 +18,8 @@ controllers:
           [
             {
               "name": "multus-lan-macvlan",
-              "namespace": "platform-system",
-              "ips": ["192.168.1.243/24"],
-              "mac": "02:42:c0:a8:01:f3",
-              "gateway": ["192.168.1.1"]
+              "namespace": "kube-system",
+              "mac": "02:42:c0:a8:01:f3"
             }
           ]
     initContainers:
