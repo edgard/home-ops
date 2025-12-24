@@ -93,10 +93,6 @@ persistence:
     size: 5Gi
     globalMounts:
       - path: /app/data
-  dev:
-    type: emptyDir
-    globalMounts:
-      - path: /dev
   usb:
     type: hostPath
     hostPath: /dev/bus/usb
