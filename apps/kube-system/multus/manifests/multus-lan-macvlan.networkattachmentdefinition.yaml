@@ -15,7 +15,7 @@ spec:
           "master": "br0",
           "mode": "bridge",
           "ipam": {
-            "type": "dhcp"
+            "type": "static"
           }
         }
       ]
