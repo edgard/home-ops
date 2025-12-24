@@ -16,6 +16,17 @@ controllers:
     strategy: Recreate
     serviceAccount:
       identifier: homepage
+    initContainers:
+      init-config:
+        image:
+          repository: ghcr.io/gethomepage/homepage
+          tag: v1.8.0
+        command:
+          - sh
+          - -c
+          - |
+            cp -r /tmp/config-ro/* /app/config/
+            chmod -R 755 /app/config
     containers:
       app:
         image:
@@ -123,19 +134,17 @@ route:
 
 persistence:
   config:
+    type: emptyDir
+    globalMounts:
+      - path: /app/config
+  config-ro:
     type: configMap
     identifier: config
-    globalMounts:
-      - path: /app/config/settings.yaml
-        subPath: settings.yaml
-      - path: /app/config/kubernetes.yaml
-        subPath: kubernetes.yaml
-      - path: /app/config/widgets.yaml
-        subPath: widgets.yaml
-      - path: /app/config/services.yaml
-        subPath: services.yaml
-      - path: /app/config/bookmarks.yaml
-        subPath: bookmarks.yaml
+    advancedMounts:
+      main:
+        init-config:
+          - path: /tmp/config-ro
+            readOnly: true
 
 configMaps:
   config:
