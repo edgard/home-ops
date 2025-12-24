@@ -17,6 +17,8 @@ data:
                 {
                   "name": "multus-lan-macvlan",
                   "namespace": "kube-system",
-                  "mac": "02:42:c0:a8:01:f1"
+                  "mac": "02:42:c0:a8:01:f1",
+                  "ips": ["192.168.1.241/24"],
+                  "gateway": ["192.168.1.1"]
                 }
               ]
