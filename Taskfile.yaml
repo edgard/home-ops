@@ -11,6 +11,9 @@ shell: bash -c
 
 vars:
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
+  CLUSTER_NAME: '{{.CLUSTER_NAME | default "homelab"}}'
+  K3S_VERSION: '{{.K3S_VERSION | default "v1.34.3+k3s1"}}'
+  SSH_USER: '{{.SSH_USER | default "root"}}'
 
 tasks:
   default:
@@ -19,27 +22,66 @@ tasks:
       - task --list
 
   bootstrap:create:
-    desc: Provision Kind cluster and install Argo CD
+    desc: Bootstrap K3s cluster with k3sup and deploy platform via helmfile
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
+        - TARGET_HOST
         - BWS_ACCESS_TOKEN
+    env:
+      TARGET_HOST: "{{.TARGET_HOST}}"
+      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
+      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
+      K3S_VERSION: "{{.K3S_VERSION}}"
+      SSH_USER: "{{.SSH_USER}}"
     cmds:
-      - "python3 bootstrap_kind.py"
-      - "helmfile -f helmfile.yaml.gotmpl sync"
+      - ./bootstrap.sh create
 
   bootstrap:destroy:
-    desc: Destroy Kind cluster via bootstrap
+    desc: Destroy K3s cluster
+    interactive: true
     dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - TARGET_HOST
+    env:
+      TARGET_HOST: "{{.TARGET_HOST}}"
+      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
+      SSH_USER: "{{.SSH_USER}}"
     cmds:
-      - "python3 bootstrap_kind.py --destroy"
+      - ./bootstrap.sh destroy
 
   bootstrap:recreate:
-    desc: Recreate Kind cluster via bootstrap
+    desc: Destroy and recreate K3s cluster
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - TARGET_HOST
+        - BWS_ACCESS_TOKEN
+    env:
+      TARGET_HOST: "{{.TARGET_HOST}}"
+      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
+      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
+      K3S_VERSION: "{{.K3S_VERSION}}"
+      SSH_USER: "{{.SSH_USER}}"
     cmds:
-      - task: bootstrap:destroy
-        ignore_error: true
-      - task: bootstrap:create
+      - ./bootstrap.sh recreate
+
+  bootstrap:update:
+    desc: Update K3s to specified version
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - TARGET_HOST
+    env:
+      TARGET_HOST: "{{.TARGET_HOST}}"
+      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
+      K3S_VERSION: "{{.K3S_VERSION}}"
+      SSH_USER: "{{.SSH_USER}}"
+    cmds:
+      - ./bootstrap.sh update
 
   lint:
     desc: Format + lint YAML
@@ -51,8 +93,6 @@ tasks:
 
   argo:sync:
     desc: Force Argo CD Applications to refresh
-    summary: |
-      Refreshes Argo CD Applications. Pass `app=<name>` to target a label `app=<name>`; leave empty to refresh all.
     vars:
       app: '{{.app | default ""}}'
     cmds:

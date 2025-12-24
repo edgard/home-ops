@@ -3,7 +3,7 @@ apiVersion: k8s.cni.cncf.io/v1
 kind: NetworkAttachmentDefinition
 metadata:
   name: multus-lan-macvlan
-  namespace: platform-system
+  namespace: kube-system
 spec:
   config: |-
     {
@@ -12,7 +12,7 @@ spec:
       "plugins": [
         {
           "type": "macvlan",
-          "master": "eth1",
+          "master": "eth0",
           "mode": "bridge",
           "ipam": {
             "type": "static"

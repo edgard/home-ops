@@ -1,10 +1,10 @@
 # Project Context
 
 ## Purpose
-Home Operations (home-ops) is a GitOps-managed Kubernetes homelab infrastructure running on Kind (Kubernetes in Docker). The project automates deployment of home automation, media management, and self-hosted services with a focus on security, reproducibility, and VPN-only access.
+Home Operations (home-ops) is a GitOps-managed Kubernetes homelab infrastructure running on K3s in TrueNAS containers. The project automates deployment of home automation, media management, and self-hosted services with a focus on security, reproducibility, and VPN-only access.
 
 ## Tech Stack
-- **Container Orchestration**: Kubernetes (Kind cluster)
+- **Container Orchestration**: Kubernetes (K3s v1.34.3)
 - **GitOps**: Argo CD with ApplicationSets
 - **Infrastructure as Code**: Terraform (Cloudflare, Tailscale)
 - **Package Management**: Helm, Helmfile
@@ -46,8 +46,8 @@ Home Operations (home-ops) is a GitOps-managed Kubernetes homelab infrastructure
 ## Domain Context
 
 ### Kubernetes Homelab
-- **Cluster Type**: Kind (single-node, Docker-based)
-- **Bootstrap**: `bootstrap_kind.py` handles Docker context/network setup, then `helmfile.yaml.gotmpl` installs core platform
+- **Cluster Type**: K3s (single-node, running in TrueNAS systemd-nspawn container)
+- **Bootstrap**: `bootstrap.py` handles container creation, K3s installation, and platform setup via `helmfile.yaml.gotmpl`
 - **Namespaces**: Grouped by function (argocd, platform-system, home-automation, media, selfhosted, etc.)
 - **Storage Tiers**: `local-fast` (default, `/mnt/spool/appdata`) and `local-bulk` (`/mnt/dpool`)
 
@@ -65,16 +65,16 @@ Home Operations (home-ops) is a GitOps-managed Kubernetes homelab infrastructure
 - **Container Security**: Non-root by default, drop all capabilities, read-only root filesystem where possible.
 
 ### App Categories
-- **Home Automation**: home-assistant, mosquitto, zigbee2mqtt
-- **Media**: Jellyfin, Radarr, Sonarr, Bazarr, Prowlarr, qBittorrent (via Gluetun VPN), Recyclarr, Unpackerr
+- **Home Automation**: home-assistant, matterbridge, mosquitto, zigbee2mqtt
+- **Media**: Plex, Plextraktsync, Radarr, Sonarr, Bazarr, Prowlarr, qBittorrent (via Gluetun VPN), Recyclarr, Unpackerr
 - **Self-hosted**: Atuin, Changedetection, Gatus, Homepage, Karakeep, Paperless-ngx
 - **Platform**: cert-manager, external-dns, external-secrets, Falco, Gateway API, homelab-controller, Istio, Kopia, Multus, Reloader, Tailscale
 
 ## Important Constraints
 - **VPN-Only Access**: All services require Tailscale connection. No public internet exposure.
-- **Single-Node Cluster**: Kind-based. Limited HA options. Use `Recreate` deployment strategy.
-- **Host Dependencies**: Requires `/mnt/spool/appdata` and `/mnt/dpool` on Docker host.
-- **Docker Context**: Must use Kind's Docker context (handled by `bootstrap_kind.py`).
+- **Single-Node Cluster**: K3s-based. Limited HA options. Use `Recreate` deployment strategy.
+- **Host Dependencies**: Requires `/mnt/spool` and `/mnt/dpool` bind mounts in K3s container.
+- **TrueNAS Container**: Requires TrueNAS Scale 25.04+ with Container API access.
 - **Secret Keys**: Bitwarden secrets must match exact keys listed in AGENTS.md.
 - **Resource Philosophy**: No limits/requests set. Trust VPN-protected environment.
 
@@ -83,7 +83,7 @@ Home Operations (home-ops) is a GitOps-managed Kubernetes homelab infrastructure
 - **Cloudflare**: DNS and ACME TLS challenge. Terraform-managed.
 - **Tailscale**: VPN access layer. OAuth credentials for Terraform, auth key in Bitwarden for subnet router.
 - **Unifi Network**: Internal DNS server (192.168.1.1). Receives DNSEndpoint updates from external-dns.
-- **Docker**: Cluster runtime. Requires Docker daemon with overlay2 storage driver.
+- **TrueNAS Scale**: Container host (25.04+). Requires API key (`TRUENAS_API_KEY`) for bootstrap.
 - **Telegram**: Alert delivery for Gatus and Falco (via homelab-controller).
 
 ---
@@ -94,8 +94,8 @@ This section contains runtime operational details for day-to-day maintenance.
 
 ## Repo Layout & Bootstrap
 
-- **`bootstrap/`**: Kind config, `bootstrap_kind.py` (docker context/network plumbing), and `helmfile.yaml.gotmpl`.
-  - **Process**: `task bootstrap:create` brings up Kind, patches kubeconfig, creates `bitwarden-credentials` (from `BWS_ACCESS_TOKEN`), and runs helmfile.
+- **`bootstrap/`**: K3s container config, `bootstrap.py` (TrueNAS Container API + K3s installation), and `helmfile.yaml.gotmpl`.
+  - **Process**: `task bootstrap:create` creates container in TrueNAS, installs K3s, patches kubeconfig, creates `bitwarden-credentials` (from `BWS_ACCESS_TOKEN`), and runs helmfile.
   - **Helmfile**: Installs local-path-provisioner (demotes standard SC), Multus, cert-manager, ESO (wait for CM), Argo CD.
   - **Secrets**: Stored in Bitwarden (Org `b4b5...`, Proj `1684...`). ESO fetches via `external-secrets-sdk-server` (TLS via cert-manager).
 - **`argocd/`**: `root.app.yaml` and `appsets/apps.appset.yaml` (ordered by sync-wave).
@@ -121,7 +121,7 @@ Secrets must exist with these exact keys:
 - **Bootstrap**: `dockerhub_username`, `dockerhub_token`
 - **Argo**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
 - **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `kopia_repository_password`, `kopia_server_username`, `kopia_server_password`, `tailscale_auth_key`
-- **Media**: `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
+- **Media**: `plex_claim`, `plextraktsync_plex_token`, `plextraktsync_plex_username`, `plextraktsync_trakt_username`, `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
 - **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`, `gatus_telegram_token`, `gatus_telegram_chatid`, `security_notifier_telegram_token`, `security_notifier_telegram_chatid`
 
 **Note**: Tailscale OAuth credentials (`TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_CLIENT_SECRET`) are local-only for Terraform, not in Bitwarden.
@@ -213,7 +213,7 @@ Applies to apps using `ghcr.io/bjw-s-labs/helm/app-template`.
 ### Security Contexts
 
 - **Pod Baseline**: `defaultPodOptions.securityContext: { fsGroupChangePolicy: OnRootMismatch }`.
-- **Pod Non-Root (Preferred)**: Add `fsGroup: 568`, `runAsGroup: 568`, `runAsUser: 568`, `runAsNonRoot: true`.
+- **Pod Non-Root (Preferred)**: Add `fsGroup: 1000`, `runAsGroup: 1000`, `runAsUser: 1000`, `runAsNonRoot: true`.
 - **Container Baseline**: `securityContext: { allowPrivilegeEscalation: false }`.
 - **Container Strict**: Add `capabilities: { drop: ["ALL"] }`.
 - **Exceptions**: Bind <1024 (`NET_BIND_SERVICE`), VPN (`NET_ADMIN`), Hardware (`privileged: true`).

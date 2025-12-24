@@ -1,4 +1,12 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
 controllers:
   main:
     type: deployment
@@ -21,12 +29,15 @@ controllers:
     containers:
       app:
         image:
-          repository: lscr.io/linuxserver/jellyfin
-          tag: 10.11.5
+          repository: plexinc/pms-docker
+          tag: 1.42.2.10156-f737b826c
         env:
-          PUID: "568"
-          PGID: "568"
-          UMASK: "022"
+          PLEX_UID: "1000"
+          PLEX_GID: "1000"
+          ADVERTISE_IP: "http://192.168.1.245:32400"
+        envFrom:
+          - secretRef:
+              name: plex-credentials
         probes:
           startup:
             enabled: true
@@ -43,30 +54,26 @@ service:
     ports:
       http:
         enabled: true
-        port: 8096
-        targetPort: 8096
-      https:
-        enabled: true
-        port: 8920
-        targetPort: 8920
+        port: 32400
+        targetPort: 32400
 route:
   main:
     annotations:
       gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Jellyfin
+      gethomepage.dev/name: Plex
       gethomepage.dev/group: Media
-      gethomepage.dev/icon: jellyfin.svg
-      gethomepage.dev/app: jellyfin
+      gethomepage.dev/icon: plex.svg
+      gethomepage.dev/app: plex
     parentRefs:
       - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:
-      - jellyfin.edgard.org
+      - plex.edgard.org
     rules:
       - backendRefs:
           - identifier: main
-            port: 8096
+            port: 32400
 
 persistence:
   data:
@@ -79,4 +86,4 @@ persistence:
     type: persistentVolumeClaim
     existingClaim: media
     globalMounts:
-      - path: /media
+      - path: /data

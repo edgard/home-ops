@@ -1,14 +1,65 @@
 # Home Ops
 
-GitOps-driven Kubernetes homelab running on Kind, managed by Argo CD with OpenTofu for external infrastructure.
+GitOps-driven Kubernetes homelab running on K3s, managed by Argo CD with OpenTofu for external infrastructure.
 
 ## Quick Start
 
-1. Install docker, kind, kubectl, helm, python3, opentofu (`tofu`), and go-task (`task`).
-2. Create a Docker context that matches `bootstrap/cluster-config.yaml` (default `kind-homelab`).
-3. Set up secrets in Bitwarden Secrets Manager with names matching the secret keys.
-4. Export `BWS_ACCESS_TOKEN` environment variable with your Bitwarden machine identity token.
-5. Bootstrap the cluster: `task bootstrap:create`. Tear down with `task bootstrap:destroy` (or `task bootstrap:recreate`).
+### Prerequisites
+
+```bash
+# Install CLI tools
+# - kubectl
+# - helm
+# - helmfile
+# - opentofu (tofu)
+# - go-task (task)
+# - k3sup (https://github.com/alexellis/k3sup)
+
+# Install k3sup
+curl -sLS https://get.k3sup.dev | sh
+sudo install k3sup /usr/local/bin/
+
+# Verify k3sup installation
+k3sup version
+
+# Set environment variables
+export BWS_ACCESS_TOKEN="your-bitwarden-secrets-token"
+```
+
+### Bootstrap Cluster
+
+```bash
+# Create K3s cluster on target host
+task bootstrap:create TARGET_HOST=192.168.1.100
+
+# Destroy cluster
+task bootstrap:destroy TARGET_HOST=192.168.1.100
+
+# Recreate cluster (destroy + create)
+task bootstrap:recreate TARGET_HOST=192.168.1.100
+
+# Update K3s version on existing cluster
+task bootstrap:update TARGET_HOST=192.168.1.100 K3S_VERSION=v1.35.0+k3s1
+```
+
+The bootstrap process will:
+1. Install K3s v1.34.3+k3s1 on target host via SSH using k3sup (Flannel CNI, ServiceLB enabled, Traefik disabled)
+2. Merge kubeconfig into `~/.kube/config` with context name `homelab`
+3. Deploy platform components via Helmfile (cert-manager, external-secrets, k8tz)
+4. Deploy ArgoCD and sync all applications via ApplicationSet
+
+### Configuration
+
+Default values (can be overridden via environment variables):
+- `CLUSTER_NAME`: `homelab` – Kubernetes context name in kubeconfig
+- `K3S_VERSION`: `v1.34.3+k3s1` – K3s version to install
+- `SSH_USER`: `root` – SSH user for target host
+- `BWS_ACCESS_TOKEN`: Required for Bitwarden Secrets integration
+
+**SSH Access**: The bootstrap script connects to the target host via SSH. Ensure:
+- SSH key-based authentication is configured on the target host
+- Your default SSH keys (`~/.ssh/id_rsa`, `~/.ssh/id_ed25519`, etc.) are authorized or available through ssh-agent
+- The `SSH_USER` (default: `root`) has permission to install K3s
 
 ## Everyday Commands
 
@@ -19,7 +70,7 @@ GitOps-driven Kubernetes homelab running on Kind, managed by Argo CD with OpenTo
 
 ## Repo Map
 
-- `apps/` – Application definitions grouped by category (argocd, home-automation, kube-system, local-path-storage, media, platform-system, selfhosted). Each app contains `config.yaml` (chart source), `values.yaml`, and optional `manifests/`.
+- `apps/` – Application definitions grouped by category (argocd, home-automation, kube-system, media, platform-system, selfhosted). Each app contains `config.yaml` (chart source), `values.yaml`, and optional `manifests/`.
 - `argocd/` – Argo CD bootstrap configuration: `root.app.yaml`, ApplicationSets, AppProjects, and Namespaces.
-- `bootstrap/` – Cluster initialization scripts, Kind configuration, and Helmfile for pre-Argo CD dependencies.
+- `bootstrap/` – Cluster initialization scripts, K3s container configuration, and Helmfile for pre-Argo CD dependencies.
 - `terraform/` – OpenTofu configuration for external infrastructure management.

@@ -1,6 +1,7 @@
 ---
 defaultPodOptions:
   securityContext:
+    fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
     runAsGroup: 0
     runAsUser: 0
@@ -111,7 +112,7 @@ persistence:
         subPath: cache
       - path: /app/logs
         subPath: logs
-  repository:
+  repo:
     type: persistentVolumeClaim
     storageClass: local-bulk
     accessMode: ReadWriteOnce
