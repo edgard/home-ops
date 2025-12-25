@@ -152,7 +152,6 @@ configMaps:
             "Office Key Light Left",
             "Office Key Light Right",
             "Office TRV",
-            "Roborock S7 MaxV",
             "fan.bedroom_air_purifier_clean",
             "fan.office_air_purifier_clean",
             "sensor.bedroom_air_quality",
