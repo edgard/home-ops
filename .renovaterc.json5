@@ -12,26 +12,6 @@
 
   // === Custom Managers ===
   customManagers: [
-    // Bootstrap
-    {
-      customType: "regex",
-      description: "Kind node images",
-      managerFilePatterns: ["/^bootstrap/cluster-config\\.ya?ml$/"],
-      matchStrings: [
-        "image:\\s*(?:&\\S+\\s+)?(?<packageName>kindest/node):(?<currentValue>[0-9A-Za-z_.\\-]+)",
-      ],
-      datasourceTemplate: "docker",
-    },
-    {
-      customType: "regex",
-      description: "Bitwarden BWS CLI in bootstrap script",
-      managerFilePatterns: ["/^bootstrap\\/bootstrap_kind\\.py$/"],
-      matchStrings: [
-        '"(?<packageName>bitwarden/bws):(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"',
-      ],
-      datasourceTemplate: "docker",
-    },
-
     // Apps - Helm charts
     {
       customType: "regex",
@@ -78,13 +58,6 @@
       addLabels: ["renovate/manual-review"],
     },
 
-    // Grouping
-    {
-      description: "Group Kind node updates",
-      matchFileNames: ["bootstrap/cluster-config.yaml"],
-      groupName: "kind-nodes",
-    },
-
     // Disabled
     {
       description: "Disable Terraform version manager (using OpenTofu)",
@@ -93,11 +66,6 @@
     },
 
     // Package-specific
-    {
-      description: "Jellyfin: only semver tags",
-      matchPackageNames: ["lscr.io/linuxserver/jellyfin"],
-      allowedVersions: "/^\\d{1,2}\\.\\d+\\.\\d+$/",
-    },
     {
       description: "Gateway API: auto-download CRDs on update",
       matchPackageNames: ["kubernetes-sigs/gateway-api"],

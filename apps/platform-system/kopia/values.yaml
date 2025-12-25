@@ -1,6 +1,7 @@
 ---
 defaultPodOptions:
   securityContext:
+    fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
     runAsGroup: 0
     runAsUser: 0
@@ -17,10 +18,10 @@ controllers:
         k8s.v1.cni.cncf.io/networks: |
           [{
             "name": "multus-lan-macvlan",
-            "namespace": "platform-system",
+            "namespace": "kube-system",
             "ips": ["192.168.1.244/24"],
-            "mac": "02:42:c0:a8:01:f4",
-            "gateway": ["192.168.1.1"]
+            "gateway": ["192.168.1.1"],
+            "mac": "02:42:c0:a8:01:f4"
           }]
     initContainers:
       init:
@@ -111,7 +112,7 @@ persistence:
         subPath: cache
       - path: /app/logs
         subPath: logs
-  repository:
+  repo:
     type: persistentVolumeClaim
     storageClass: local-bulk
     accessMode: ReadWriteOnce

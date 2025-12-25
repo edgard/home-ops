@@ -2,6 +2,6 @@
 chart:
   repo: oci://gcr.io/istio-release/charts/istiod
   path: "."
-  version: 1.28.1
+  version: 1.28.2
 sync:
   wave: "-2"

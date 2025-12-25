@@ -1,11 +1,11 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 1883
+    fsGroup: 1000
     fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 1883
+    runAsGroup: 1000
     runAsNonRoot: true
-    runAsUser: 1883
+    runAsUser: 1000
 
 controllers:
   main:

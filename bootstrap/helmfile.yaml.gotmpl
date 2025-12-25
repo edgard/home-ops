@@ -1,9 +1,13 @@
-{{- $lppCfg := readFile "../apps/local-path-storage/local-path-provisioner/config.yaml" | fromYaml -}}
-{{- $multusCfg := readFile "../apps/platform-system/multus/config.yaml" | fromYaml -}}
+{{- $lppCfg := readFile "../apps/kube-system/local-path-provisioner/config.yaml" | fromYaml -}}
+{{- $multusCfg := readFile "../apps/kube-system/multus/config.yaml" | fromYaml -}}
 {{- $certManagerCfg := readFile "../apps/platform-system/cert-manager/config.yaml" | fromYaml -}}
 {{- $externalSecretsCfg := readFile "../apps/platform-system/external-secrets/config.yaml" | fromYaml -}}
 {{- $argocdCfg := readFile "../apps/argocd/argocd/config.yaml" | fromYaml -}}
 {{- $k8tzCfg := readFile "../apps/kube-system/k8tz/config.yaml" | fromYaml -}}
+
+repositories:
+  - name: rke2-charts
+    url: "{{ $multusCfg.chart.repo }}"
 
 helmDefaults:
   cleanupOnFail: true
@@ -21,7 +25,7 @@ hooks:
       - -c
       - |
         set -euo pipefail
-        for ns in local-path-storage media platform-system; do
+        for ns in media platform-system; do
           kubectl create namespace "${ns}" --dry-run=client -o yaml | kubectl apply -f -
         done
         kubectl -n kube-system run -q bootstrap-image-warmup-busybox --rm --attach --restart=Never --image=docker.io/library/busybox:stable --command -- sh -c "true" >/dev/null
@@ -29,11 +33,11 @@ hooks:
 
 releases:
   - name: local-path-provisioner
-    namespace: local-path-storage
+    namespace: kube-system
     chart: "{{ $lppCfg.chart.repo }}"
     version: "{{ $lppCfg.chart.version }}"
     values:
-      - ../apps/local-path-storage/local-path-provisioner/values.yaml
+      - ../apps/kube-system/local-path-provisioner/values.yaml
     hooks:
       - events:
           - "postsync"
@@ -42,19 +46,20 @@ releases:
           - -c
           - |
             set -euo pipefail
-            kubectl apply -f ../apps/local-path-storage/local-path-provisioner/manifests
-            if kubectl get storageclass standard >/dev/null 2>&1; then
-              kubectl patch storageclass standard --type merge -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false","storageclass.beta.kubernetes.io/is-default-class":"false"}}}'
+            kubectl apply -f ../apps/kube-system/local-path-provisioner/manifests
+            if kubectl get storageclass local-path >/dev/null 2>&1; then
+              kubectl patch storageclass local-path --type merge -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false","storageclass.beta.kubernetes.io/is-default-class":"false"}}}'
             fi
-            kubectl rollout restart deploy/local-path-provisioner -n local-path-storage
-            kubectl rollout status deploy/local-path-provisioner -n local-path-storage --timeout=120s
+            # Restart K3s local-path-provisioner to pick up the custom local-path-config ConfigMap
+            kubectl rollout restart deploy/local-path-provisioner -n kube-system
+            kubectl rollout status deploy/local-path-provisioner -n kube-system --timeout=120s
 
   - name: multus
-    namespace: platform-system
-    chart: "{{ $multusCfg.chart.repo }}"
+    namespace: kube-system
+    chart: "rke2-charts/{{ $multusCfg.chart.name }}"
     version: "{{ $multusCfg.chart.version }}"
     values:
-      - ../apps/platform-system/multus/values.yaml
+      - ../apps/kube-system/multus/values.yaml
     hooks:
       - events:
           - "postsync"
@@ -62,7 +67,7 @@ releases:
         args:
           - apply
           - -f
-          - ../apps/platform-system/multus/manifests
+          - ../apps/kube-system/multus/manifests
 
   - name: cert-manager
     namespace: platform-system
@@ -91,7 +96,7 @@ releases:
             kubectl wait --for=condition=Available deployment/cert-manager-webhook -n platform-system --timeout=60s
             kubectl create secret generic bitwarden-credentials -n platform-system --from-literal=token="${BWS_ACCESS_TOKEN}" --dry-run=client -o yaml | kubectl apply -f -
             kubectl apply -f ../apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-issuer.issuer.yaml
-            kubectl apply -f ../apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-certificate.certificate.yaml
+            kubectl apply -f ../apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-tls.certificate.yaml
             kubectl wait --for=condition=Ready certificate/external-secrets-sdk-server-tls -n platform-system --timeout=120s
       - events:
           - "postsync"

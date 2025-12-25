@@ -1,10 +1,6 @@
-/.venv
 /.envrc
-__pycache__
-
-# Terraform
-terraform/**/.terraform/
-terraform/**/.terraform.lock.hcl
-terraform/**/terraform.tfstate
-terraform/**/terraform.tfstate.backup
-terraform/**/*.tfplan
+/terraform/**/.terraform/
+/terraform/**/.terraform.lock.hcl
+/terraform/**/terraform.tfstate
+/terraform/**/terraform.tfstate.backup
+/terraform/**/*.tfplan

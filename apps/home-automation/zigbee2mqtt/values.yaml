@@ -1,4 +1,12 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 0
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsUser: 0
+    runAsNonRoot: false
+
 controllers:
   main:
     type: deployment
