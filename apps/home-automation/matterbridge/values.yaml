@@ -152,14 +152,16 @@ configMaps:
             "Office Key Light Left",
             "Office Key Light Right",
             "Office TRV",
-            "fan.zhimi_mb3_6b72_air_purifier",
-            "fan.zhimi_m1_e123_air_purifier",
+            "fan.bedroom_air_purifier_clean",
+            "fan.office_air_purifier_clean",
             "sensor.bedroom_air_quality",
             "sensor.office_air_quality"
           ],
           "blackList": [
             "Bedroom Air Purifier",
-            "Office Air Purifier"
+            "Office Air Purifier",
+            "fan.zhimi_mb3_6b72_air_purifier",
+            "fan.zhimi_m1_e123_air_purifier"
           ],
           "deviceEntityBlackList": {
             "Bedroom Shades Left": ["switch.bedroom_shades_left_reverse"],
@@ -167,10 +169,7 @@ configMaps:
             "Bedroom TRV": ["sensor.bedroom_trv_ema_temperature", "binary_sensor.bedroom_trv_window_state"],
             "Office TRV": ["sensor.office_trv_ema_temperature", "binary_sensor.office_trv_window_state"]
           },
-          "splitEntities": [
-            "fan.zhimi_mb3_6b72_air_purifier",
-            "fan.zhimi_m1_e123_air_purifier"
-          ],
+          "splitEntities": [],
           "enableServerRvc": true,
           "debug": false,
           "unregisterOnShutdown": false
