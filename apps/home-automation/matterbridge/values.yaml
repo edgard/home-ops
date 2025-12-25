@@ -196,7 +196,9 @@ configMaps:
           ],
           "deviceEntityBlackList": {
             "Bedroom Shades Left": ["switch.bedroom_shades_left_reverse"],
-            "Bedroom Shades Right": ["switch.bedroom_shades_right_reverse"]
+            "Bedroom Shades Right": ["switch.bedroom_shades_right_reverse"],
+            "Bedroom TRV": ["sensor.bedroom_trv_ema_temperature", "binary_sensor.bedroom_window_sensor_contact"],
+            "Office TRV": ["sensor.office_trv_ema_temperature", "binary_sensor.office_window_sensor_contact"]
           },
           "splitEntities": [
             "fan.zhimi_mb3_6b72_air_purifier",
