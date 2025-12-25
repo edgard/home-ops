@@ -47,10 +47,8 @@ controllers:
           - -c
           - |
             matterbridge --add matterbridge-zigbee2mqtt
-            #matterbridge --add matterbridge-shelly
             matterbridge --add matterbridge-hass
             matterbridge --enable matterbridge-zigbee2mqtt
-            #matterbridge --disable matterbridge-shelly
             matterbridge --enable matterbridge-hass
             matterbridge --list
     containers:
@@ -131,37 +129,6 @@ configMaps:
           "scenesType": "outlet",
           "scenesPrefix": true,
           "debug": false,
-          "unregisterOnShutdown": false
-        }
-      matterbridge-shelly.config.json: |
-        {
-          "name": "matterbridge-shelly",
-          "type": "DynamicPlatform",
-          "enabled": true,
-          "username": "",
-          "password": "",
-          "switchList": [],
-          "lightList": [],
-          "inputContactList": [],
-          "inputMomentaryList": [],
-          "inputLatchingList": [],
-          "whiteList": [],
-          "blackList": [],
-          "entityBlackList": [],
-          "deviceEntityBlackList": {},
-          "nocacheList": [],
-          "deviceIp": {},
-          "enableMdnsDiscover": true,
-          "enableStorageDiscover": true,
-          "resetStorageDiscover": false,
-          "enableConfigDiscover": false,
-          "enableBleDiscover": false,
-          "interfaceAddress": "192.168.1.243",
-          "failsafeCount": 0,
-          "debug": false,
-          "debugMdns": false,
-          "debugCoap": false,
-          "debugWs": false,
           "unregisterOnShutdown": false
         }
       matterbridge-hass.config.json: |
