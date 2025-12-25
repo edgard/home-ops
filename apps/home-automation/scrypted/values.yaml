@@ -28,7 +28,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/koush/scrypted
-          tag: v0.143.0-noble-full
+          tag: v0.144.1-noble-full
         env:
           SCRYPTED_WEBHOOK_UPDATE_AUTHORIZATION: "Bearer disabled"
           SCRYPTED_WEBHOOK_UPDATE: ""
