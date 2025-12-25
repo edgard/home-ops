@@ -154,8 +154,8 @@ configMaps:
             "Office TRV",
             "fan.zhimi_mb3_6b72_air_purifier",
             "fan.zhimi_m1_e123_air_purifier",
-            "sensor.zhimi_mb3_6b72_pm25",
-            "sensor.zhimi_m1_e123_pm25_density"
+            "sensor.bedroom_air_quality",
+            "sensor.office_air_quality"
           ],
           "blackList": [
             "Bedroom Air Purifier",
@@ -169,9 +169,7 @@ configMaps:
           },
           "splitEntities": [
             "fan.zhimi_mb3_6b72_air_purifier",
-            "fan.zhimi_m1_e123_air_purifier",
-            "sensor.zhimi_mb3_6b72_pm25",
-            "sensor.zhimi_m1_e123_pm25_density"
+            "fan.zhimi_m1_e123_air_purifier"
           ],
           "enableServerRvc": true,
           "debug": false,
