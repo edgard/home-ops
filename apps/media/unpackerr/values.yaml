@@ -1,11 +1,11 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 568
+    fsGroup: 1000
     fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 568
+    runAsGroup: 1000
     runAsNonRoot: true
-    runAsUser: 568
+    runAsUser: 1000
 
 controllers:
   main:
@@ -20,8 +20,8 @@ controllers:
           repository: golift/unpackerr
           tag: 0.14.5
         env:
-          PUID: "568"
-          PGID: "568"
+          PUID: "1000"
+          PGID: "1000"
           UN_RADARR_0_URL: http://radarr.media.svc.cluster.local:7878
           UN_SONARR_0_URL: http://sonarr.media.svc.cluster.local:8989
         envFrom:

@@ -1,0 +1,86 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    pod:
+      annotations:
+        reloader.stakater.com/auto: "true"
+    containers:
+      app:
+        image:
+          repository: ghcr.io/taxel/plextraktsync
+          tag: 0.34.19
+        args:
+          - watch
+        env:
+          PLEX_BASEURL: http://plex.media.svc.cluster.local:32400
+        envFrom:
+          - secretRef:
+              name: plextraktsync-credentials
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - pgrep
+                  - -f
+                  - plextraktsync
+              initialDelaySeconds: 30
+              periodSeconds: 60
+          readiness:
+            enabled: false
+          startup:
+            enabled: false
+  sync:
+    type: cronjob
+    cronjob:
+      schedule: "0 */12 * * *"
+      successfulJobsHistory: 1
+      failedJobsHistory: 1
+    containers:
+      app:
+        image:
+          repository: ghcr.io/taxel/plextraktsync
+          tag: 0.34.19
+        args:
+          - sync
+        env:
+          PLEX_BASEURL: http://plex.media.svc.cluster.local:32400
+        envFrom:
+          - secretRef:
+              name: plextraktsync-credentials
+        probes:
+          liveness:
+            enabled: false
+          readiness:
+            enabled: false
+          startup:
+            enabled: false
+service:
+  main:
+    enabled: false
+persistence:
+  config:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    globalMounts:
+      - path: /app/config
+  config-file:
+    type: configMap
+    name: plextraktsync-config
+    globalMounts:
+      - path: /app/config/config.yml
+        subPath: config.yml
+        readOnly: true

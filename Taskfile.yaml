@@ -11,6 +11,8 @@ shell: bash -c
 
 vars:
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
+  CLUSTER_NAME: '{{.CLUSTER_NAME | default "homelab"}}'
+  K3S_VERSION: '{{.K3S_VERSION | default "v1.33.6-k3s1"}}'
 
 tasks:
   default:
@@ -19,27 +21,48 @@ tasks:
       - task --list
 
   bootstrap:create:
-    desc: Provision Kind cluster and install Argo CD
+    desc: Bootstrap k3d cluster and deploy platform via helmfile
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
+        - DOCKER_HOST
         - BWS_ACCESS_TOKEN
+    env:
+      DOCKER_HOST: "{{.DOCKER_HOST}}"
+      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
+      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
+      K3S_VERSION: "{{.K3S_VERSION}}"
     cmds:
-      - "python3 bootstrap_kind.py"
-      - "helmfile -f helmfile.yaml.gotmpl sync"
+      - ./bootstrap-k3d.sh create
 
   bootstrap:destroy:
-    desc: Destroy Kind cluster via bootstrap
+    desc: Destroy k3d cluster
+    interactive: true
     dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - DOCKER_HOST
+    env:
+      DOCKER_HOST: "{{.DOCKER_HOST}}"
+      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
     cmds:
-      - "python3 bootstrap_kind.py --destroy"
+      - ./bootstrap-k3d.sh destroy
 
   bootstrap:recreate:
-    desc: Recreate Kind cluster via bootstrap
+    desc: Destroy and recreate k3d cluster
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - DOCKER_HOST
+        - BWS_ACCESS_TOKEN
+    env:
+      DOCKER_HOST: "{{.DOCKER_HOST}}"
+      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
+      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
+      K3S_VERSION: "{{.K3S_VERSION}}"
     cmds:
-      - task: bootstrap:destroy
-        ignore_error: true
-      - task: bootstrap:create
+      - ./bootstrap-k3d.sh recreate
 
   lint:
     desc: Format + lint YAML
@@ -51,8 +74,6 @@ tasks:
 
   argo:sync:
     desc: Force Argo CD Applications to refresh
-    summary: |
-      Refreshes Argo CD Applications. Pass `app=<name>` to target a label `app=<name>`; leave empty to refresh all.
     vars:
       app: '{{.app | default ""}}'
     cmds:

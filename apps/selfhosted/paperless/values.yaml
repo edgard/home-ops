@@ -1,4 +1,12 @@
 ---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
 controllers:
   paperless:
     type: deployment
@@ -11,6 +19,10 @@ controllers:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
           tag: 2.20.3
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          runAsNonRoot: false
         env:
           PAPERLESS_OCR_LANGUAGES: eng por pol
         command:
@@ -77,6 +89,8 @@ controllers:
           PAPERLESS_CONSUMER_RECURSIVE: "true"
           PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
           PAPERLESS_CONSUMPTION_DIR: /usr/src/paperless/inbox
+          USERMAP_UID: "1000"
+          USERMAP_GID: "1000"
           PAPERLESS_SECRET_KEY:
             valueFrom:
               secretKeyRef:
@@ -109,6 +123,13 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
     containers:
       app:
         image:
@@ -132,6 +153,13 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
     containers:
       app:
         image:
@@ -150,6 +178,13 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
     containers:
       app:
         image:
@@ -173,6 +208,10 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
     initContainers:
       init-config:
         image:
@@ -187,7 +226,7 @@ controllers:
             if [ ! -f /app/data/.env ]; then
               echo "No .env found, seeding from secret..."
               cp /secret/.env /app/data/.env
-              chown 0:0 /app/data/.env
+              chown 1000:1000 /app/data/.env
               chmod 644 /app/data/.env
             else
               echo ".env already exists, preserving existing config"

@@ -1,11 +1,11 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 1000
+    fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 1000
-    runAsNonRoot: true
-    runAsUser: 1000
+    runAsGroup: 0
+    runAsUser: 0
+    runAsNonRoot: false
 
 controllers:
   main:
@@ -19,23 +19,40 @@ controllers:
             {
               "name": "multus-lan-macvlan",
               "namespace": "kube-system",
-              "ips": ["192.168.1.246/24"],
+              "ips": ["192.168.1.247/24"],
               "gateway": ["192.168.1.1"],
-              "mac": "02:42:c0:a8:01:f6"
+              "mac": "02:42:c0:a8:01:f7"
             }
           ]
     containers:
       app:
         image:
-          repository: ghcr.io/home-assistant/home-assistant
-          tag: 2025.12.4
+          repository: ghcr.io/koush/scrypted
+          tag: v0.144.1-noble-full
+        env:
+          SCRYPTED_WEBHOOK_UPDATE_AUTHORIZATION: "Bearer disabled"
+          SCRYPTED_WEBHOOK_UPDATE: ""
         probes:
           startup:
             enabled: true
+            spec:
+              httpGet:
+                path: /
+                port: 11080
+              failureThreshold: 30
+              periodSeconds: 10
           liveness:
             enabled: true
+            spec:
+              httpGet:
+                path: /
+                port: 11080
           readiness:
             enabled: true
+            spec:
+              httpGet:
+                path: /
+                port: 11080
         resources:
           limits: null
           requests: null
@@ -49,27 +66,28 @@ service:
     ports:
       http:
         enabled: true
-        port: 8123
+        port: 11080
         protocol: TCP
-        targetPort: 8123
+        targetPort: 11080
+
 route:
   main:
     annotations:
       gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Home Assistant
+      gethomepage.dev/name: Scrypted
       gethomepage.dev/group: Home Automation
-      gethomepage.dev/icon: home-assistant.svg
-      gethomepage.dev/app: home-assistant
+      gethomepage.dev/icon: scrypted.svg
+      gethomepage.dev/app: scrypted
     parentRefs:
       - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:
-      - home-assistant.edgard.org
+      - scrypted.edgard.org
     rules:
       - backendRefs:
           - identifier: main
-            port: 8123
+            port: 11080
 
 persistence:
   data:
@@ -77,4 +95,4 @@ persistence:
     accessMode: ReadWriteOnce
     size: 10Gi
     globalMounts:
-      - path: /config
+      - path: /server/volume
