@@ -158,8 +158,6 @@ configMaps:
             "sensor.office_air_quality"
           ],
           "blackList": [
-            "Bedroom Air Purifier",
-            "Office Air Purifier",
             "fan.zhimi_mb3_6b72_air_purifier",
             "fan.zhimi_m1_e123_air_purifier"
           ],
