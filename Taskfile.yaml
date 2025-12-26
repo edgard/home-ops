@@ -79,12 +79,6 @@ tasks:
     cmds:
       - 'kubectl -n argocd get applications {{if .app}}-l "app={{.app}}"{{end}} -o name | xargs -r -n1 -I{} kubectl -n argocd patch {} --type merge -p ''{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'' >/dev/null || true'
 
-  argo:pf:
-    desc: Port-forward Argo CD server locally
-    interactive: true
-    cmds:
-      - kubectl -n argocd port-forward svc/argocd-server 8080:80
-
   tf:plan:
     desc: Terraform plan
     dir: "{{.TERRAFORM_DIR}}"

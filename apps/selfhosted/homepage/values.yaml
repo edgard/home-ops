@@ -166,6 +166,14 @@ configMaps:
             text_size: 4xl
             text: Homelab
       services.yaml: |-
-        []
+        - Platform:
+          - Kopia:
+              icon: kopia.svg
+              href: https://kopia.edgard.org:51515
+              siteMonitor: https://kopia.platform-system.svc.cluster.local:51515
+          - Unifi:
+              icon: unifi.svg
+              href: https://unifi.ui.com
+              siteMonitor: https://unifi.home.arpa
       bookmarks.yaml: |-
         []
