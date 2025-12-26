@@ -76,7 +76,7 @@ route:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Scrypted
       gethomepage.dev/group: Home Automation
-      gethomepage.dev/icon: scrypted.svg
+      gethomepage.dev/icon: scrypted.png
       gethomepage.dev/app: scrypted
     parentRefs:
       - name: gateway
