@@ -20,17 +20,6 @@ spec:
       checker:
         target: 1.1.1.1:53
         interval: 30s
-    alerting:
-      telegram:
-        token: ${GATUS_TELEGRAM_TOKEN}
-        id: ${GATUS_TELEGRAM_CHAT_ID}
-        parse-mode: Markdown
-      default-alert:
-        enabled: true
-        description: Endpoint is down
-        send-on-resolved: true
-        failure-threshold: 3
-        success-threshold: 2
     endpoints:
       - name: dns-edgard-cloudflare
         group: 01-dns

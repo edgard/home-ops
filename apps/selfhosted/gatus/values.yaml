@@ -19,9 +19,6 @@ controllers:
         image:
           repository: ghcr.io/twin/gatus
           tag: v5.33.1
-        envFrom:
-          - secretRef:
-              name: gatus-credentials
         ports:
           - name: http
             containerPort: 8080

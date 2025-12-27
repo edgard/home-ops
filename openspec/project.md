@@ -83,7 +83,6 @@ Home Operations (home-ops) is a GitOps-managed Kubernetes homelab infrastructure
 - **Tailscale**: VPN access layer. OAuth credentials for Terraform, auth key in Bitwarden for subnet router.
 - **Unifi Network**: Internal DNS server (192.168.1.1). Receives DNSEndpoint updates from external-dns.
 - **TrueNAS Scale**: Docker host accessed via SSH. Requires `DOCKER_HOST_SSH` env var for bootstrap.
-- **Telegram**: Alert delivery for Gatus (via homelab-controller).
 
 ---
 
@@ -122,7 +121,7 @@ Secrets must exist with these exact keys:
 - **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `kopia_repository_password`, `kopia_server_username`, `kopia_server_password`, `tailscale_auth_key`
 - **Home Automation**: `nodered_credential_secret`
 - **Media**: `plex_claim`, `plextraktsync_plex_token`, `plextraktsync_plex_username`, `plextraktsync_trakt_username`, `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
-- **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`, `gatus_telegram_token`, `gatus_telegram_chatid`, `security_notifier_telegram_token`, `security_notifier_telegram_chatid`
+- **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `karakeep_openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`, `paperless_ai_openai_api_key`, `paperless_ai_jwt_secret`
 
 **Note**: Tailscale OAuth credentials (`TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_CLIENT_SECRET`) are local-only for Terraform, not in Bitwarden.
 
@@ -131,7 +130,6 @@ Secrets must exist with these exact keys:
 - **Technology**: Python 3.14 + Kopf framework. Wave `-3`.
 - **Features**:
   1. **GatusConfig CRD**: Discovers Services labeled `gatus.edgard.org/enabled=true`, generates Gatus config. Matches workload probes. Outputs `gatus-generated-config` ConfigMap. Reconciles on changes + every 120s.
-  2. **Falco Integration**: Receives alerts via `/notify/falco` webhook. Sends daily Telegram digest (8:00 AM). Stores at `/data/alerts/pending.json`.
 - **RBAC**: ClusterRole for CRDs (read), ConfigMaps (write), Services/Deployments (read).
 
 ## Kubernetes Manifest Standards

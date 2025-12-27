@@ -37,13 +37,10 @@ controllers:
           USER: homelab-controller
           PYTHONUNBUFFERED: "1"
           KOPF_LOG_LEVEL: INFO
-          WEBHOOK_PORT: "8080"
+          HTTP_PORT: "8080"
         resources:
           limits: null
           requests: null
-        envFrom:
-          - secretRef:
-              name: homelab-controller-credentials
         probes:
           startup:
             enabled: true
@@ -111,14 +108,6 @@ rbac:
             - list
             - watch
         - apiGroups:
-            - ""
-          resources:
-            - pods
-            - pods/log
-          verbs:
-            - get
-            - list
-        - apiGroups:
             - apps
           resources:
             - deployments
@@ -171,12 +160,6 @@ service:
         targetPort: 8080
 
 persistence:
-  alerts:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 100Mi
-    globalMounts:
-      - path: /data/alerts
   controller:
     type: configMap
     name: homelab-controller-controller
@@ -200,12 +183,4 @@ persistence:
     globalMounts:
       - path: /scripts/gatus_generator.py
         subPath: gatus_generator.py
-        readOnly: true
-  security-notifier:
-    type: configMap
-    name: homelab-controller-security-notifier
-    defaultMode: 0444
-    globalMounts:
-      - path: /scripts/security_notifier.py
-        subPath: security_notifier.py
         readOnly: true

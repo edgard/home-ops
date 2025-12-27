@@ -25,8 +25,6 @@ data:
     except ImportError:
         sys.exit("PyYAML is required")
 
-    import security_notifier
-
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
         level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -37,7 +35,7 @@ data:
     KUBE_RETRIES = int(os.environ.get("KUBE_RETRIES", "2"))
     KUBE_BACKOFF = float(os.environ.get("KUBE_BACKOFF", "0.5"))
 
-    SERVER_PORT = int(os.environ.get("WEBHOOK_PORT", "8080"))
+    SERVER_PORT = int(os.environ.get("HTTP_PORT", "8080"))
 
     def cluster_context():
         """Get in-cluster Kubernetes context."""
@@ -85,60 +83,7 @@ data:
                     raise RuntimeError(f"failed to GET {path}: {exc}") from exc
                 time.sleep(backoff * attempt)
 
-    def kube_logs(
-        path: str,
-        ctx,
-        *,
-        params: dict | None = None,
-        timeout: float | None = None,
-    ) -> str:
-        """Fetch pod logs from Kubernetes API (returns plain text)."""
-        url = f"https://{ctx['host']}:{ctx['port']}{path}"
-        if params:
-            query = "&".join(f"{k}={v}" for k, v in params.items())
-            url = f"{url}?{query}"
-
-        req = urllib.request.Request(
-            url,
-            headers={
-                "Authorization": f"Bearer {ctx['token']}",
-                "Accept": "*/*",
-            },
-        )
-        ssl_ctx = ssl.create_default_context(cafile=str(ctx["ca_path"]))
-        ssl_ctx.check_hostname = False
-
-        try:
-            with urllib.request.urlopen(
-                req, context=ssl_ctx, timeout=timeout or 10
-            ) as resp:
-                return resp.read().decode("utf-8", errors="replace")
-        except (HTTPError, URLError) as exc:
-            raise RuntimeError(f"failed to GET logs {path}: {exc}") from exc
-
     class Handler(BaseHTTPRequestHandler):
-        def do_POST(self):
-            length = int(self.headers.get("Content-Length", "0"))
-            raw_body = self.rfile.read(length) if length else b"{}"
-            try:
-                body = json.loads(raw_body or b"{}")
-            except json.JSONDecodeError as exc:
-                self._write_json(400, {"error": f"invalid json: {exc}"})
-                return
-
-            # Security notification endpoint
-            if self.path == "/notify/falco":
-                try:
-                    result = security_notifier.handle_falco_webhook(body)
-                    self._write_json(200, result)
-                except Exception as exc:
-                    logging.exception("falco notify error")
-                    self._write_json(500, {"error": str(exc)})
-                return
-
-            # Unknown endpoint
-            self.send_error(404, "not found")
-
         def log_message(self, fmt, *args):
             return
 
