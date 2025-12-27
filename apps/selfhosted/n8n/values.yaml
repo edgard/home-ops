@@ -1,0 +1,92 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
+controllers:
+  n8n:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      app:
+        image:
+          repository: docker.n8n.io/n8nio/n8n
+          tag: "2.0.3"
+        env:
+          GENERIC_TIMEZONE: Europe/Warsaw
+          N8N_HOST: https://n8n.edgard.org
+          N8N_PORT: "5678"
+          N8N_PROTOCOL: https
+          N8N_PROXY_HOPS: "1"
+          DB_TYPE: sqlite
+          DB_SQLITE_VACUUM_ON_STARTUP: "true"
+          WORKFLOWS_STORAGE_TYPE: filesystem
+          N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+          N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+          N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+          N8N_RUNNERS_ENABLED: "true"
+          N8N_ENCRYPTION_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: n8n-credentials
+                key: N8N_ENCRYPTION_KEY
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        resources: {}
+
+service:
+  n8n:
+    controller: n8n
+    primary: true
+    annotations:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      http:
+        port: 5678
+
+route:
+  main:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: n8n
+      gethomepage.dev/group: Selfhosted
+      gethomepage.dev/icon: n8n.svg
+      gethomepage.dev/app: n8n
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - n8n.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: n8n
+            port: 5678
+
+persistence:
+  data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    storageClass: local-fast
+    advancedMounts:
+      n8n:
+        app:
+          - path: /home/node/.n8n

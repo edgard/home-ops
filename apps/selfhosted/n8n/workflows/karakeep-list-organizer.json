@@ -1,0 +1,305 @@
+{
+  "name": "Karakeep AI List Organizer",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://karakeep.selfhosted.svc.cluster.local:3000/api/v1/lists",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "fetch-all-lists",
+      "name": "Fetch All Lists",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "karakeep-api",
+          "name": "Karakeep API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract list names and IDs into a lookup object\nconst lists = $input.first().json.lists || [];\n\nconst listLookup = {};\nconst listNames = [];\n\nfor (const list of lists) {\n  listLookup[list.name] = list.id;\n  listNames.push(list.name);\n}\n\nreturn [{\n  json: {\n    listLookup,\n    listNames,\n    totalLists: lists.length\n  }\n}];"
+      },
+      "id": "extract-list-names",
+      "name": "Extract List Names",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://karakeep.selfhosted.svc.cluster.local:3000/api/v1/bookmarks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "archived",
+              "value": "false"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-unorganized-bookmarks",
+      "name": "Fetch Unorganized Bookmarks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "karakeep-api",
+          "name": "Karakeep API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter bookmarks that are not in any list\nconst bookmarks = $input.last().json.bookmarks || [];\nconst listData = $input.first().json;\n\nconst unorganizedBookmarks = bookmarks.filter(bookmark => {\n  // Check if bookmark has no list or is in the \"Inbox\" list\n  return !bookmark.listId || bookmark.listId === null;\n});\n\nreturn unorganizedBookmarks.map(bookmark => ({\n  json: {\n    ...bookmark,\n    availableListNames: listData.listNames,\n    listLookup: listData.listLookup\n  }\n}));"
+      },
+      "id": "filter-unorganized-bookmarks",
+      "name": "Filter Unorganized Bookmarks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-over-bookmarks",
+      "name": "Loop Over Bookmarks",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build AI prompt with bookmark data and available lists\nconst bookmark = $input.first().json;\n\nconst prompt = `You are a bookmark organization assistant. Analyze this bookmark and determine which list it belongs to.\n\nAVAILABLE LISTS:\n${bookmark.availableListNames.join(', ')}\n\nBOOKMARK DATA:\n- Title: ${bookmark.title || 'No title'}\n- AI Tags: ${bookmark.aiTags ? bookmark.aiTags.join(', ') : 'No tags'}\n- Summary: ${bookmark.aiSummary || 'No summary'}\n- URL: ${bookmark.url}\n- Description: ${bookmark.note || 'No description'}\n\nRULES:\n1. Return ONLY the list name from the AVAILABLE LISTS above\n2. If no good match, return \"null\"\n3. Provide confidence score (0-1)\n4. Brief reasoning (1 sentence)`;\n\nreturn [{\n  json: {\n    ...bookmark,\n    aiPrompt: prompt\n  }\n}];"
+      },
+      "id": "build-ai-prompt",
+      "name": "Build AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.aiPrompt }}",
+        "options": {
+          "systemMessage": "You are a helpful bookmark assistant."
+        }
+      },
+      "id": "ai-categorize-bookmark",
+      "name": "AI Categorize Bookmark",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "openrouter-chat-model",
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmchatopenrouter",
+      "typeVersion": 1,
+      "position": [1650, 450],
+      "credentials": {
+        "openRouterApi": {
+          "id": "openrouter-api",
+          "name": "OpenRouter API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"list_name\": {\"type\": \"string\"},\n    \"confidence\": {\"type\": \"number\"},\n    \"reasoning\": {\"type\": \"string\"}\n  },\n  \"required\": [\"list_name\", \"confidence\", \"reasoning\"]\n}",
+        "options": {}
+      },
+      "id": "structured-output-parser",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputparserstructured",
+      "typeVersion": 1.2,
+      "position": [1650, 600]
+    },
+    {
+      "parameters": {},
+      "id": "memory-buffer",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memorybufferwindow",
+      "typeVersion": 1.3,
+      "position": [1750, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI response and validate confidence\nconst aiResult = $input.first().json;\nconst bookmark = $('Build AI Prompt').first().json;\n\n// Validate list name exists\nconst listId = bookmark.listLookup[aiResult.list_name];\n\nreturn [{\n  json: {\n    bookmarkId: bookmark.id,\n    bookmarkTitle: bookmark.title,\n    listName: aiResult.list_name,\n    listId: listId,\n    confidence: aiResult.confidence,\n    reasoning: aiResult.reasoning,\n    shouldOrganize: aiResult.confidence > 0.7 && listId !== undefined && aiResult.list_name !== 'null'\n  }\n}];"
+      },
+      "id": "parse-and-validate",
+      "name": "Parse and Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldOrganize }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-confidence",
+      "name": "Check Confidence",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://karakeep.selfhosted.svc.cluster.local:3000/api/v1/lists/{{ $json.listId }}/bookmarks/{{ $json.bookmarkId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "add-to-list",
+      "name": "Add Bookmark to List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2250, 250],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "karakeep-api",
+          "name": "Karakeep API"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate results and send summary\nconst items = $input.all();\n\nconst organized = items.filter(item => item.json.shouldOrganize && !item.json.error);\nconst skipped = items.filter(item => !item.json.shouldOrganize);\nconst errors = items.filter(item => item.json.error);\n\nconst summary = `\ud83d\udcda Karakeep List Organization Complete\n\n\u2705 Organized: ${organized.length} bookmarks\n\u23ed\ufe0f Skipped (low confidence): ${skipped.length} bookmarks\n\u274c Errors: ${errors.length} bookmarks\n\n${organized.length > 0 ? 'Organized bookmarks:\\n' + organized.slice(0, 5).map(item => \n  `\u2022 ${item.json.bookmarkTitle} \u2192 ${item.json.listName} (${Math.round(item.json.confidence * 100)}% confidence)`\n).join('\\n') : ''}\n\n${organized.length > 5 ? `...and ${organized.length - 5} more` : ''}`;\n\nreturn [{\n  json: {\n    summary,\n    stats: {\n      total: items.length,\n      organized: organized.length,\n      skipped: skipped.length,\n      errors: errors.length\n    }\n  }\n}];"
+      },
+      "id": "aggregate-summary",
+      "name": "Aggregate Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2650, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "52094995",
+        "text": "={{ $json.summary }}",
+        "additionalFields": {}
+      },
+      "id": "send-telegram-summary",
+      "name": "Send Telegram Summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2850, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "Fetch All Lists", "type": "main", "index": 0}]]
+    },
+    "Fetch All Lists": {
+      "main": [[{"node": "Extract List Names", "type": "main", "index": 0}]]
+    },
+    "Extract List Names": {
+      "main": [[{"node": "Fetch Unorganized Bookmarks", "type": "main", "index": 0}]]
+    },
+    "Fetch Unorganized Bookmarks": {
+      "main": [[{"node": "Filter Unorganized Bookmarks", "type": "main", "index": 0}]]
+    },
+    "Filter Unorganized Bookmarks": {
+      "main": [[{"node": "Loop Over Bookmarks", "type": "main", "index": 0}]]
+    },
+    "Loop Over Bookmarks": {
+      "main": [[{"node": "Build AI Prompt", "type": "main", "index": 0}]]
+    },
+    "Build AI Prompt": {
+      "main": [[{"node": "AI Categorize Bookmark", "type": "main", "index": 0}]]
+    },
+    "AI Categorize Bookmark": {
+      "main": [[{"node": "Parse and Validate", "type": "main", "index": 0}]]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [[{"node": "AI Categorize Bookmark", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [[{"node": "AI Categorize Bookmark", "type": "ai_outputParser", "index": 0}]]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [[{"node": "AI Categorize Bookmark", "type": "ai_memory", "index": 0}]]
+    },
+    "Parse and Validate": {
+      "main": [[{"node": "Check Confidence", "type": "main", "index": 0}]]
+    },
+    "Check Confidence": {
+      "main": [
+        [{"node": "Add Bookmark to List", "type": "main", "index": 0}],
+        [{"node": "Merge Results", "type": "main", "index": 1}]
+      ]
+    },
+    "Add Bookmark to List": {
+      "main": [[{"node": "Merge Results", "type": "main", "index": 0}]]
+    },
+    "Merge Results": {
+      "main": [[{"node": "Aggregate Summary", "type": "main", "index": 0}]]
+    },
+    "Aggregate Summary": {
+      "main": [[{"node": "Send Telegram Summary", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

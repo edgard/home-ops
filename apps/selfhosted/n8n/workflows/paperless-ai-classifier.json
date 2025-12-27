@@ -1,0 +1,234 @@
+{
+  "name": "Paperless AI Document Classifier",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "5 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://paperless.selfhosted.svc.cluster.local:8000/api/documents/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "tags__name__none",
+              "value": "ai-processed"
+            },
+            {
+              "name": "page_size",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-unprocessed-docs",
+      "name": "Fetch Unprocessed Documents",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "paperless-api",
+          "name": "Paperless API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop through documents and prepare for processing\nconst documents = $input.first().json.results;\n\nreturn documents.map(doc => ({\n  json: {\n    id: doc.id,\n    title: doc.title,\n    content: doc.content,\n    created: doc.created\n  }\n}));"
+      },
+      "id": "loop-documents",
+      "name": "Loop Through Documents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://paperless.selfhosted.svc.cluster.local:8000/api/documents/={{ $json.id }}/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "fetch-document-details",
+      "name": "Fetch Document Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "paperless-api",
+          "name": "Paperless API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=`Analyze this document and classify it:\n\nTitle: ${$json.title}\nContent: ${$json.content}\nCreated: ${$json.created}\n\nProvide classification in JSON format.`",
+        "options": {
+          "systemMessage": "You are a document analysis AI for a multilingual user (English, Portuguese-BR, Polish).\n\nAVAILABLE TAGS (use ONLY these English tags): bank-statement, contract, employment, government, housing, insurance, invoice, legal, medical, payslip, receipt, shopping, subscription, tax, travel, user-manual, utilities.\n\nRULES:\n1) Select tags ONLY from the list above - do NOT translate or create new tags\n2) For correspondents, use official/international company name\n3) Document_type must be in English (Invoice, Contract, Receipt, Letter, Bank Statement, etc)\n4) Title: concise, in the ORIGINAL document language\n5) Dates: convert to YYYY-MM-DD format\n6) Return ONLY valid JSON in this exact format:\n{\n  \"tags\": [\"tag1\", \"tag2\"],\n  \"correspondent\": \"Company Name\",\n  \"document_type\": \"Invoice\",\n  \"title\": \"Document Title\",\n  \"date\": \"YYYY-MM-DD\"\n}"
+        }
+      },
+      "id": "ai-classify-document",
+      "name": "AI Classify Document",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-sonnet-4-20250514",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "openrouter-chat-model",
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmchatopenrouter",
+      "typeVersion": 1,
+      "position": [1050, 500],
+      "credentials": {
+        "openRouterApi": {
+          "id": "openrouter-api",
+          "name": "OpenRouter API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"tags\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"}\n    },\n    \"correspondent\": {\"type\": \"string\"},\n    \"document_type\": {\"type\": \"string\"},\n    \"title\": {\"type\": \"string\"},\n    \"date\": {\"type\": \"string\", \"format\": \"date\"}\n  },\n  \"required\": [\"tags\", \"document_type\", \"title\"]\n}",
+        "options": {}
+      },
+      "id": "structured-output-parser",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputparserstructured",
+      "typeVersion": 1.2,
+      "position": [1150, 500]
+    },
+    {
+      "parameters": {},
+      "id": "memory-buffer",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memorybufferwindow",
+      "typeVersion": 1.3,
+      "position": [1250, 500]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://paperless.selfhosted.svc.cluster.local:8000/api/documents/{{ $('Fetch Document Details').item.json.id }}/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tags\": {{ $json.tags }},\n  \"correspondent\": {{ $json.correspondent }},\n  \"document_type\": {{ $json.document_type }},\n  \"title\": {{ $json.title }},\n  \"created_date\": {{ $json.date }}\n}",
+        "options": {}
+      },
+      "id": "update-document",
+      "name": "Update Document in Paperless",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1350, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "paperless-api",
+          "name": "Paperless API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://paperless.selfhosted.svc.cluster.local:8000/api/documents/{{ $('Fetch Document Details').item.json.id }}/tags/add/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"tags\": [\"ai-processed\"]}",
+        "options": {}
+      },
+      "id": "tag-as-processed",
+      "name": "Tag as AI-Processed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1550, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "paperless-api",
+          "name": "Paperless API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "52094995",
+        "text": "=✅ Classified document: {{ $('Fetch Document Details').item.json.title }}\n\nTags: {{ $('AI Classify Document').item.json.tags.join(', ') }}\nType: {{ $('AI Classify Document').item.json.document_type }}",
+        "additionalFields": {}
+      },
+      "id": "send-telegram-notification",
+      "name": "Send Telegram Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1750, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "Fetch Unprocessed Documents", "type": "main", "index": 0}]]
+    },
+    "Fetch Unprocessed Documents": {
+      "main": [[{"node": "Loop Through Documents", "type": "main", "index": 0}]]
+    },
+    "Loop Through Documents": {
+      "main": [[{"node": "Fetch Document Details", "type": "main", "index": 0}]]
+    },
+    "Fetch Document Details": {
+      "main": [[{"node": "AI Classify Document", "type": "main", "index": 0}]]
+    },
+    "AI Classify Document": {
+      "main": [[{"node": "Update Document in Paperless", "type": "main", "index": 0}]]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [[{"node": "AI Classify Document", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [[{"node": "AI Classify Document", "type": "ai_outputParser", "index": 0}]]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [[{"node": "AI Classify Document", "type": "ai_memory", "index": 0}]]
+    },
+    "Update Document in Paperless": {
+      "main": [[{"node": "Tag as AI-Processed", "type": "main", "index": 0}]]
+    },
+    "Tag as AI-Processed": {
+      "main": [[{"node": "Send Telegram Notification", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
