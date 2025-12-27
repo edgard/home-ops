@@ -112,7 +112,7 @@ rbac:
 service:
   main:
     controller: main
-    labels:
+    annotations:
       gatus.edgard.org/enabled: "true"
     ports:
       http:

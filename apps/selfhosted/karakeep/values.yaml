@@ -142,7 +142,7 @@ service:
     controller: karakeep
     primary: true
     forceRename: karakeep
-    labels:
+    annotations:
       gatus.edgard.org/enabled: "true"
     ports:
       http:

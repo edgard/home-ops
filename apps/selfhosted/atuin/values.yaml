@@ -46,7 +46,7 @@ service:
     controller: atuin
     primary: true
     forceRename: atuin
-    labels:
+    annotations:
       gatus.edgard.org/enabled: "true"
     ports:
       http:

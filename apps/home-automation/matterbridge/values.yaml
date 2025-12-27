@@ -194,6 +194,8 @@ persistence:
 service:
   main:
     controller: main
+    annotations:
+      gatus.edgard.org/enabled: "true"
     ports:
       http:
         port: 8283

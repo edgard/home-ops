@@ -251,7 +251,7 @@ service:
   paperless:
     controller: paperless
     primary: true
-    labels:
+    annotations:
       gatus.edgard.org/enabled: "true"
     ports:
       http:
@@ -259,7 +259,7 @@ service:
 
   ai:
     controller: paperless-ai
-    labels:
+    annotations:
       gatus.edgard.org/enabled: "true"
     ports:
       http:

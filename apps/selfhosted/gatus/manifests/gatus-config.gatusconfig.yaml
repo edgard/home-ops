@@ -72,21 +72,3 @@ spec:
         interval: 1m
         conditions:
           - "[CONNECTED] == true"
-      - name: gateway
-        group: 03-gateway
-        url: tcp://gateway-istio.platform-system.svc.cluster.local:443
-        labels:
-          namespace: platform-system
-        interval: 30s
-        conditions:
-          - "[CONNECTED] == true"
-      - name: gateway-https
-        group: 03-gateway
-        url: https://dash.edgard.org/
-        labels:
-          namespace: platform-system
-        interval: 1m
-        conditions:
-          - "[STATUS] >= 200"
-          - "[STATUS] < 400"
-          - "[CERTIFICATE_EXPIRATION] > 168h"

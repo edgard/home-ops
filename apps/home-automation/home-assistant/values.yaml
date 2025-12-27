@@ -44,7 +44,7 @@ service:
   main:
     controller: main
     type: ClusterIP
-    labels:
+    annotations:
       gatus.edgard.org/enabled: "true"
     ports:
       http:

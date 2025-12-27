@@ -22,3 +22,7 @@ data:
                   "mac": "02:42:c0:a8:01:f1"
                 }
               ]
+  service: |-
+    metadata:
+      annotations:
+        gatus.edgard.org/enabled: "true"

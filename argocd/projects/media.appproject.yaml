@@ -26,11 +26,3 @@ spec:
       - group: ""
         kind: ServiceAccount
         name: default
-  syncWindows:
-    # Deny automated syncs during prime viewing hours (9pm-2am) to avoid disrupting streams
-    - kind: deny
-      schedule: "0 21 * * *"
-      duration: 5h
-      applications:
-        - "*"
-      manualSync: true

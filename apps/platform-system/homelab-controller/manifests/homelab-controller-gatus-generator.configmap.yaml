@@ -13,10 +13,10 @@ data:
     import urllib.parse
     from typing import Dict, Iterable, List
 
-    DEFAULT_SELECTOR = "gatus.edgard.org/enabled=true"
+    DEFAULT_ANNOTATION = "gatus.edgard.org/enabled"
 
     def discover(selector: str, logger, ctx, kube_get):
-        selector = selector or DEFAULT_SELECTOR
+        selector = selector or f"{DEFAULT_ANNOTATION}=true"
 
         def guess_scheme(port_name, port_number):
             name = (port_name or "").lower()
@@ -89,29 +89,46 @@ data:
 
         def resolve_port(ports: list, probe_port):
             if probe_port:
+                # Map container port to service port
+                for port_entry in ports:
+                    if port_entry.get("targetPort") == probe_port or port_entry.get("port") == probe_port:
+                        return port_entry.get("port")
+                # Fallback to probe port if no mapping found
                 return probe_port
             if not ports:
                 return None
             return ports[0].get("port")
 
-        encoded = urllib.parse.quote(selector, safe="=,")
-        svc_data = kube_get(f"/api/v1/services?labelSelector={encoded}", ctx)
+        # Get all services and filter by annotation
+        svc_data = kube_get(f"/api/v1/services", ctx)
         services = svc_data.get("items", []) if svc_data else []
 
-        namespaces = {item.get("metadata", {}).get("namespace") for item in services}
+        # Filter services by annotation
+        filtered_services = []
+        for item in services:
+            meta = item.get("metadata", {})
+            annotations = meta.get("annotations", {}) or {}
+            labels = meta.get("labels", {}) or {}
+
+            # Skip if not enabled via annotation
+            if annotations.get("gatus.edgard.org/enabled") != "true":
+                continue
+            # Skip if managed by gatus itself
+            if labels.get("homelab.edgard.org/managed") == "gatus":
+                continue
+
+            filtered_services.append(item)
+
+        namespaces = {item.get("metadata", {}).get("namespace") for item in filtered_services}
         workloads = list_workloads(namespaces)
 
         discovered = []
-        for item in services:
+        for item in filtered_services:
             meta = item.get("metadata", {})
             spec = item.get("spec", {})
             name = meta.get("name")
             namespace = meta.get("namespace")
-            labels = meta.get("labels", {})
-            if labels.get("gatus.edgard.org/enabled") != "true":
-                continue
-            if labels.get("homelab.edgard.org/managed") == "gatus":
-                continue
+            annotations = meta.get("annotations", {}) or {}
             svc_selector = spec.get("selector") or {}
 
             ports = spec.get("ports", []) or []
@@ -151,19 +168,23 @@ data:
                 url = f"{scheme}://{name}.{namespace}.svc.cluster.local:{port_number}{path}"
                 conditions = ["[STATUS] == 200"]
 
-            discovered.append(
-                {
-                    "name": name,
-                    "group": namespace,
-                    "url": url,
-                    "labels": {
-                        "namespace": namespace,
-                        "scope": "internal",
-                    },
-                    "interval": f"{period}s" if period else "1m",
-                    "conditions": conditions,
-                }
-            )
+            endpoint = {
+                "name": name,
+                "group": namespace,
+                "url": url,
+                "labels": {
+                    "namespace": namespace,
+                    "scope": "internal",
+                },
+                "interval": f"{period}s" if period else "1m",
+                "conditions": conditions,
+            }
+
+            # Add client.insecure if annotation is set
+            if annotations.get("gatus.edgard.org/insecure") == "true":
+                endpoint["client"] = {"insecure": True}
+
+            discovered.append(endpoint)
         return discovered, {
             "endpointCount": len(discovered),
             "discoveredCount": len(discovered),

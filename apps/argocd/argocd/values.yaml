@@ -30,6 +30,9 @@ controller:
 server:
   podAnnotations:
     reloader.stakater.com/auto: "true"
+  service:
+    annotations:
+      gatus.edgard.org/enabled: "true"
   extraArgs:
     - --insecure
 

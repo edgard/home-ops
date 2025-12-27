@@ -75,6 +75,13 @@ controllers:
               secretKeyRef:
                 name: kopia-credentials
                 key: KOPIA_SERVER_PASSWORD
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
         command:
           - kopia
         args:
@@ -95,6 +102,9 @@ controllers:
 service:
   main:
     controller: main
+    annotations:
+      gatus.edgard.org/enabled: "true"
+      gatus.edgard.org/insecure: "true"
     ports:
       https:
         port: 51515
