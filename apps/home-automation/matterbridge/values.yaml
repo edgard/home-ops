@@ -155,7 +155,8 @@ configMaps:
             "fan.bedroom_air_purifier_clean",
             "fan.office_air_purifier_clean",
             "sensor.bedroom_air_quality",
-            "sensor.office_air_quality"
+            "sensor.office_air_quality",
+            "input_boolean.home_presence"
           ],
           "blackList": [
             "fan.zhimi_mb3_6b72_air_purifier",
