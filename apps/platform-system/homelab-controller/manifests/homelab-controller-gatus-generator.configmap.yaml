@@ -176,8 +176,9 @@ data:
                     "namespace": namespace,
                     "scope": "internal",
                 },
-                "interval": f"{period}s" if period else "1m",
+                "interval": "30s",
                 "conditions": conditions,
+                "alerts": [{"type": "telegram"}],
             }
 
             # Add client.insecure if annotation is set

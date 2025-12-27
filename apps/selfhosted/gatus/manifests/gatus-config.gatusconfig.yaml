@@ -20,19 +20,17 @@ spec:
       checker:
         target: 1.1.1.1:53
         interval: 30s
+    alerting:
+      telegram:
+        token: ${TELEGRAM_TOKEN}
+        id: ${TELEGRAM_CHAT_ID}
+        default-alert:
+          enabled: true
+          failure-threshold: 3
+          success-threshold: 2
+          send-on-resolved: true
+          description: "Service health check failed"
     endpoints:
-      - name: dns-edgard-cloudflare
-        group: 01-dns
-        url: 1.1.1.1
-        dns:
-          query-name: edgard.org
-          query-type: A
-        labels:
-          namespace: network
-          scope: external
-        interval: 1m
-        conditions:
-          - "[DNS_RCODE] == NOERROR"
       - name: dns-edgard-google
         group: 01-dns
         url: 8.8.8.8
@@ -45,24 +43,36 @@ spec:
         interval: 1m
         conditions:
           - "[DNS_RCODE] == NOERROR"
-      - name: ping-google
-        group: 02-connectivity
-        url: icmp://www.google.com
+        alerts:
+          - type: telegram
+      - name: dns-edgard-cloudflare
+        group: 01-dns
+        url: 1.1.1.1
+        dns:
+          query-name: edgard.org
+          query-type: A
         labels:
           namespace: network
           scope: external
         interval: 1m
         conditions:
-          - "[CONNECTED] == true"
-      - name: ping-microsoft
-        group: 02-connectivity
-        url: icmp://www.microsoft.com
+          - "[DNS_RCODE] == NOERROR"
+        alerts:
+          - type: telegram
+      - name: dns-edgard-quad9
+        group: 01-dns
+        url: 9.9.9.9
+        dns:
+          query-name: edgard.org
+          query-type: A
         labels:
           namespace: network
           scope: external
         interval: 1m
         conditions:
-          - "[CONNECTED] == true"
+          - "[DNS_RCODE] == NOERROR"
+        alerts:
+          - type: telegram
       - name: ping-amazon
         group: 02-connectivity
         url: icmp://www.amazon.com
@@ -72,3 +82,60 @@ spec:
         interval: 1m
         conditions:
           - "[CONNECTED] == true"
+        alerts:
+          - type: telegram
+      - name: ping-google
+        group: 02-connectivity
+        url: icmp://www.google.com
+        labels:
+          namespace: network
+          scope: external
+        interval: 1m
+        conditions:
+          - "[CONNECTED] == true"
+        alerts:
+          - type: telegram
+      - name: ping-microsoft
+        group: 02-connectivity
+        url: icmp://www.microsoft.com
+        labels:
+          namespace: network
+          scope: external
+        interval: 1m
+        conditions:
+          - "[CONNECTED] == true"
+        alerts:
+          - type: telegram
+      - name: ping-cloudflare
+        group: 02-connectivity
+        url: icmp://www.cloudflare.com
+        labels:
+          namespace: network
+          scope: external
+        interval: 1m
+        conditions:
+          - "[CONNECTED] == true"
+        alerts:
+          - type: telegram
+      - name: ping-akamai
+        group: 02-connectivity
+        url: icmp://www.akamai.com
+        labels:
+          namespace: network
+          scope: external
+        interval: 1m
+        conditions:
+          - "[CONNECTED] == true"
+        alerts:
+          - type: telegram
+      - name: ping-fastly
+        group: 02-connectivity
+        url: icmp://www.fastly.com
+        labels:
+          namespace: network
+          scope: external
+        interval: 1m
+        conditions:
+          - "[CONNECTED] == true"
+        alerts:
+          - type: telegram
