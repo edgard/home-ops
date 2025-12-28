@@ -1,7 +1,7 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
 
-  // === Base Configuration ===
+  // === Presets ===
   extends: [
     "config:recommended",
     ":semanticCommits",
@@ -12,7 +12,7 @@
 
   // === Custom Managers ===
   customManagers: [
-    // Apps - Helm charts
+    // Helm charts in app config.yaml files (OCI and HTTP repositories)
     {
       customType: "regex",
       description: "Helm charts in app config files",
@@ -25,23 +25,38 @@
       datasourceTemplate: "{{#if packageName}}docker{{else}}helm{{/if}}",
     },
 
-    // Apps - Manifests
+    // Container images in Kubernetes manifests
+    {
+      customType: "regex",
+      description: "Container images in manifest files",
+      managerFilePatterns: ["/^apps\\/.*\\/manifests\\/.*\\.ya?ml$/"],
+      matchStrings: ["image:\\s*(?<depName>[^:]+):(?<currentValue>[^\\s]+)"],
+      datasourceTemplate: "docker",
+    },
+
+    // Gateway API CRDs (uses renovate comment hint)
     {
       customType: "regex",
       description: "Gateway API CRDs version",
-      managerFilePatterns: [
-        "/^apps\\/platform-system\\/gateway-api\\/manifests\\/gateway-api-version\\.ya?ml$/",
-      ],
-      matchStrings: [
-        "# renovate: datasource=github-releases depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
-      ],
+      managerFilePatterns: ["/^apps\\/platform-system\\/gateway-api\\/manifests\\/gateway-api-version\\.ya?ml$/"],
+      matchStrings: ["# renovate: datasource=github-releases depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?"],
+      datasourceTemplate: "github-releases",
+    },
+
+    // K3s version in Taskfile
+    {
+      customType: "regex",
+      description: "K3s version in Taskfile",
+      managerFilePatterns: ["/^Taskfile\\.ya?ml$/"],
+      matchStrings: ["K3S_VERSION:.+default\\s+\"(?<currentValue>v[^\"]+)\""],
+      depNameTemplate: "rancher/k3s",
       datasourceTemplate: "github-releases",
     },
   ],
 
   // === Package Rules ===
   packageRules: [
-    // Global automerge behavior
+    // Automerge: non-major updates
     {
       description: "Auto-merge non-major updates",
       matchUpdateTypes: ["minor", "patch", "digest", "pin", "rollback"],
@@ -51,6 +66,8 @@
       platformAutomerge: false,
       ignoreTests: true,
     },
+
+    // Automerge: major updates require manual review
     {
       description: "Require manual review for major updates",
       matchUpdateTypes: ["major"],
@@ -58,14 +75,22 @@
       addLabels: ["renovate/manual-review"],
     },
 
-    // Disabled
+    // Manual review: K3s updates (cluster-critical)
+    {
+      description: "Require manual review for K3s updates",
+      matchPackageNames: ["rancher/k3s"],
+      automerge: false,
+      addLabels: ["renovate/manual-review"],
+    },
+
+    // Disabled: Terraform version manager (using OpenTofu)
     {
       description: "Disable Terraform version manager (using OpenTofu)",
       matchManagers: ["terraform-version"],
       enabled: false,
     },
 
-    // Package-specific
+    // Post-upgrade: Gateway API CRDs auto-download
     {
       description: "Gateway API: auto-download CRDs on update",
       matchPackageNames: ["kubernetes-sigs/gateway-api"],
