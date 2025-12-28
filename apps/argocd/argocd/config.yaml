@@ -2,6 +2,6 @@
 chart:
   repo: oci://ghcr.io/argoproj/argo-helm/argo-cd
   path: "."
-  version: 9.2.2
+  version: 9.2.3
 sync:
   wave: "-4"
