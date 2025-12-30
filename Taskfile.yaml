@@ -12,7 +12,7 @@ shell: bash -c
 vars:
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "homelab"}}'
-  K3S_VERSION: '{{.K3S_VERSION | default "v1.33.6-k3s1"}}'
+  K3S_VERSION: '{{.K3S_VERSION | default "v1.35.0+k3s1"}}'
 
 tasks:
   default:
