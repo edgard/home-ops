@@ -28,7 +28,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/home-assistant/home-assistant
-          tag: 2025.12.4
+          tag: 2025.12.5
         probes:
           startup:
             enabled: true
