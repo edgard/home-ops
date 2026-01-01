@@ -80,8 +80,16 @@ persistence:
       - path: /data
   settings:
     type: configMap
-    name: nodered-settings
+    identifier: settings
     globalMounts:
       - path: /data/settings.js
         subPath: settings.js
         readOnly: true
+
+configMaps:
+  settings:
+    data:
+      settings.js: |-
+        module.exports = {
+            credentialSecret: process.env.NODE_RED_CREDENTIAL_SECRET
+        }
