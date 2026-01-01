@@ -39,6 +39,15 @@ controllers:
           INFERENCE_CONTEXT_LENGTH: "4096"
           INFERENCE_TEXT_MODEL: github_copilot/gpt-5-mini
           INFERENCE_IMAGE_MODEL: github_copilot/gpt-5-mini
+          INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
+          INFERENCE_ENABLE_AUTO_TAGGING: "true"
+          INFERENCE_MAX_OUTPUT_TOKENS: "4096"
+          INFERENCE_NUM_WORKERS: "2"
+          CRAWLER_NUM_WORKERS: "2"
+          CRAWLER_FULL_PAGE_SCREENSHOT: "true"
+          CRAWLER_FULL_PAGE_ARCHIVE: "true"
+          CRAWLER_NAVIGATE_TIMEOUT_SEC: "60"
+          LOG_LEVEL: info
           OCR_LANGS: eng,por,pol
           OCR_CACHE_DIR: /data/ocr
           MEILI_MASTER_KEY:
