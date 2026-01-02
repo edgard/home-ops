@@ -55,7 +55,7 @@ GitOps-managed K3s homelab on TrueNAS (k3d). VPN-only access. Single-node cluste
 - **Bootstrap**: `dockerhub_username`, `dockerhub_token`
 - **Argo**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
 - **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `kopia_repository_password`, `kopia_server_username`, `kopia_server_password`, `tailscale_auth_key`
-- **Home Automation**: `nodered_credential_secret`
+
 - **Media**: `plex_claim`, `plextraktsync_plex_token`, `plextraktsync_plex_username`, `plextraktsync_trakt_username`, `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
 - **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `gatus_telegram_token`, `gatus_telegram_chat_id`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `litellm_master_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`
 
@@ -96,6 +96,6 @@ Python 3.14.2 + Kopf. Wave `-3`. Reconciles **GatusConfig CRD**: discovers Servi
 
 ## App Categories
 - **Platform**: cert-manager, external-dns, external-secrets, gateway-api, homelab-controller, istio, kopia, reloader, tailscale
-- **Home Automation**: home-assistant, matterbridge, mosquitto, nodered, scrypted, zigbee2mqtt
+- **Home Automation**: home-assistant, matterbridge, mosquitto, scrypted, zigbee2mqtt
 - **Media**: plex, radarr, sonarr, bazarr, prowlarr, qbittorrent, recyclarr, unpackerr
 - **Selfhosted**: atuin, changedetection, gatus, homepage, karakeep, litellm, paperless
