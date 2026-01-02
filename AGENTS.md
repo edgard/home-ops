@@ -2,7 +2,7 @@
 <!-- When editing: Keep this file under 100 lines. Be concise. -->
 
 ## Project Overview
-GitOps-managed K3s homelab on TrueNAS (k3d). VPN-only access. Single-node cluster. Direct commits to master.
+GitOps-managed K3s homelab on TrueNAS (k3d). VPN-only access. Single-node cluster. All changes via PR.
 
 **Tech Stack**: K3s v1.33.6 • Argo CD • Istio Gateway API • External Secrets (Bitwarden) • Helm • Terraform (Cloudflare/Tailscale)
 
@@ -83,7 +83,7 @@ Python 3.14.2 + Kopf. Wave `-3`. Reconciles **GatusConfig CRD**: discovers Servi
 - **VPN-Only**: All services require Tailscale. No public exposure
 - **Single-Node**: No HA. Use `Recreate` strategy
 - **Host Mounts**: Requires `/mnt/spool/appdata`, `/mnt/dpool/media`, `/mnt/dpool/kopia-repo` on TrueNAS host
-- **Direct to Master**: No PRs. Commit directly to master branch
+- **PR Workflow**: All changes must go through pull requests. Never commit directly to master
 
 ## Resource Naming
 | Type | Pattern | Example |
