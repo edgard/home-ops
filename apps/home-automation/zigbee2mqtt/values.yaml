@@ -18,8 +18,30 @@ controllers:
           repository: koenkk/zigbee2mqtt
           tag: 2.7.2
         env:
+          # MQTT
           ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://mosquitto.home-automation.svc.cluster.local:1883
+          ZIGBEE2MQTT_CONFIG_MQTT_KEEPALIVE: "60"
+          ZIGBEE2MQTT_CONFIG_MQTT_REJECT_UNAUTHORIZED: "false"
+          ZIGBEE2MQTT_CONFIG_MQTT_VERSION: "5"
+          ZIGBEE2MQTT_CONFIG_MQTT_INCLUDE_DEVICE_INFORMATION: "true"
+          # Serial
           ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyUSB0
+          ZIGBEE2MQTT_CONFIG_SERIAL_ADAPTER: ember
+          ZIGBEE2MQTT_CONFIG_SERIAL_BAUDRATE: "115200"
+          ZIGBEE2MQTT_CONFIG_SERIAL_RTSCTS: "true"
+          # Frontend
+          ZIGBEE2MQTT_CONFIG_FRONTEND_ENABLED: "true"
+          ZIGBEE2MQTT_CONFIG_FRONTEND_PORT: "8080"
+          # Home Assistant
+          ZIGBEE2MQTT_CONFIG_HOMEASSISTANT_ENABLED: "true"
+          # Advanced
+          ZIGBEE2MQTT_CONFIG_ADVANCED_LOG_LEVEL: warning
+          ZIGBEE2MQTT_CONFIG_ADVANCED_LAST_SEEN: ISO_8601_local
+          # Device options
+          ZIGBEE2MQTT_CONFIG_DEVICE_OPTIONS_RETAIN: "true"
+          # Availability
+          ZIGBEE2MQTT_CONFIG_AVAILABILITY_ENABLED: "true"
+          ZIGBEE2MQTT_CONFIG_AVAILABILITY_ACTIVE_TIMEOUT: "10"
         ports:
           - name: http
             containerPort: 8080
