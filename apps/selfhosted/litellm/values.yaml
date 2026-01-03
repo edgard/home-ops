@@ -94,24 +94,33 @@ configMaps:
         general_settings:
           master_key: os.environ/LITELLM_MASTER_KEY
 
+        litellm_settings:
+          drop_params: true
+          num_retries: 3
+          request_timeout: 600
+          telemetry: false
+
         model_list:
           - model_name: github_copilot/gpt-4.1
             litellm_params:
               model: github_copilot/gpt-4.1
+              drop_params: true
               extra_headers:
-                Editor-Version: vscode/1.85.1
+                Editor-Version: vscode/1.95.0
                 Copilot-Integration-Id: vscode-chat
 
           - model_name: github_copilot/gpt-4o
             litellm_params:
               model: github_copilot/gpt-4o
+              drop_params: true
               extra_headers:
-                Editor-Version: vscode/1.85.1
+                Editor-Version: vscode/1.95.0
                 Copilot-Integration-Id: vscode-chat
 
           - model_name: github_copilot/gpt-5-mini
             litellm_params:
               model: github_copilot/gpt-5-mini
+              drop_params: true
               extra_headers:
-                Editor-Version: vscode/1.85.1
+                Editor-Version: vscode/1.95.0
                 Copilot-Integration-Id: vscode-chat
