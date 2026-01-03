@@ -51,27 +51,12 @@ speaker:
 
 media_player:
   - platform: speaker
-    name: "Chime Player"
-    id: chime_player
+    name: "Media Player"
+    id: media_player_speaker
     announcement_pipeline:
       speaker: echo_speaker
       format: WAV
     volume_min: 0.3
-    files:
-      - id: alert_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Alarmed.wav
-      - id: complete_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Chord.wav
-      - id: gentle_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Polite.wav
-      - id: error_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Beeper.wav
-      - id: presence_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Whistleronic.wav
-      - id: doorbell_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Taptap.wav
-      - id: timer_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Sharp.wav
 
 sensor:
   - platform: sound_level
@@ -87,8 +72,8 @@ sensor:
 
 number:
   - platform: template
-    name: "Chime Volume"
-    id: chime_volume
+    name: "Volume"
+    id: speaker_volume
     optimistic: true
     min_value: 0.1
     max_value: 1.0
@@ -98,7 +83,7 @@ number:
     on_value:
       then:
         - media_player.volume_set:
-            id: chime_player
+            id: media_player_speaker
             volume: !lambda return x;
 
 binary_sensor:
