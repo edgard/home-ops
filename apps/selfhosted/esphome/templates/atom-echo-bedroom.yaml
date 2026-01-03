@@ -1,0 +1,132 @@
+---
+# ESPHome device config for M5 Atom Echo - Bedroom
+# Copy this to ESPHome dashboard after deployment
+substitutions:
+  name: atom-echo-bedroom
+  friendly_name: "Bedroom Echo"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2025.5.0
+
+esp32:
+  board: m5stack-atom
+  framework:
+    type: esp-idf
+
+logger:
+api:
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${name}-fallback"
+
+captive_portal:
+
+i2s_audio:
+  - id: i2s_audio_bus
+    i2s_lrclk_pin: GPIO33
+    i2s_bclk_pin: GPIO19
+
+microphone:
+  - platform: i2s_audio
+    id: echo_microphone
+    i2s_din_pin: GPIO23
+    adc_type: external
+    pdm: true
+    sample_rate: 16000
+
+speaker:
+  - platform: i2s_audio
+    id: echo_speaker
+    i2s_dout_pin: GPIO22
+    dac_type: external
+    sample_rate: 16000
+    channel: stereo
+
+media_player:
+  - platform: speaker
+    name: "Chime Player"
+    id: chime_player
+    announcement_pipeline:
+      speaker: echo_speaker
+      format: WAV
+    volume_min: 0.3
+    files:
+      - id: alert_chime
+        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Alarmed.wav
+      - id: complete_chime
+        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Chord.wav
+      - id: gentle_chime
+        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Polite.wav
+      - id: error_chime
+        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Beeper.wav
+      - id: presence_chime
+        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Whistleronic.wav
+      - id: doorbell_chime
+        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Taptap.wav
+      - id: timer_chime
+        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Sharp.wav
+
+sensor:
+  - platform: sound_level
+    id: sound_monitor
+    passive: false
+    measurement_duration: 5s
+    microphone:
+      microphone: echo_microphone
+    rms:
+      name: "Sound Level"
+      filters:
+        - throttle: 30s
+
+number:
+  - platform: template
+    name: "Chime Volume"
+    id: chime_volume
+    optimistic: true
+    min_value: 0.1
+    max_value: 1.0
+    step: 0.1
+    initial_value: 0.7
+    restore_value: true
+    on_value:
+      then:
+        - media_player.volume_set:
+            id: chime_player
+            volume: !lambda return x;
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+  - platform: gpio
+    pin:
+      number: GPIO39
+      inverted: true
+    id: echo_button
+    internal: true
+    on_click:
+      - min_length: 10000ms
+        max_length: 30000ms
+        then:
+          - button.press: factory_reset_btn
+
+button:
+  - platform: factory_reset
+    id: factory_reset_btn
+    name: "Factory Reset"
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: status_led
+    name: "Status LED"
+    pin: GPIO27
+    chipset: SK6812
+    num_leds: 1
+    rgb_order: grb
+    default_transition_length: 0s
