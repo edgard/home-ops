@@ -59,19 +59,19 @@ media_player:
     volume_min: 0.3
     files:
       - id: alert_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Alarmed.wav
+        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Alarmed.wav
       - id: complete_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Chord.wav
+        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Chord.wav
       - id: gentle_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Polite.wav
+        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Polite.wav
       - id: error_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Beeper.wav
+        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Beeper.wav
       - id: presence_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Whistleronic.wav
+        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Whistleronic.wav
       - id: doorbell_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Taptap.wav
+        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Taptap.wav
       - id: timer_chime
-        file: https://raw.githubusercontent.com/akx/Notifications/main/WAV/Sharp.wav
+        file: https://raw.githubusercontent.com/akx/Notifications/master/WAV/Sharp.wav
 
 sensor:
   - platform: sound_level
