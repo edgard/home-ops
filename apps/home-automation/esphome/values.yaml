@@ -51,7 +51,7 @@ route:
     annotations:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: ESPHome
-      gethomepage.dev/group: Selfhosted
+      gethomepage.dev/group: Home Automation
       gethomepage.dev/icon: esphome.svg
       gethomepage.dev/app: esphome
     parentRefs:
