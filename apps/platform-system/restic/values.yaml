@@ -8,8 +8,6 @@ defaultPodOptions:
 
 controllers:
   main:
-    type: deployment
-    replicas: 1
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
@@ -28,10 +26,14 @@ controllers:
         image:
           repository: restic/rest-server
           tag: 0.14.0
-          pullPolicy: IfNotPresent
         command:
           - /bin/sh
-          - /scripts/init.sh
+          - -c
+          - |
+            if [ ! -f /repository/.htpasswd ]; then
+              echo "Creating htpasswd file..."
+              htpasswd -Bbc /repository/.htpasswd restic "$RESTIC_PASSWORD"
+            fi
         env:
           RESTIC_PASSWORD:
             valueFrom:
@@ -40,16 +42,15 @@ controllers:
                 key: RESTIC_PASSWORD
         securityContext:
           allowPrivilegeEscalation: false
-          runAsUser: 0
-          runAsGroup: 0
     containers:
       app:
         image:
           repository: restic/rest-server
           tag: 0.14.0
-          pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
+        command:
+          - rest-server
         args:
           - --tls
           - --tls-cert=/certs/tls.crt
@@ -60,63 +61,55 @@ controllers:
         probes:
           startup:
             enabled: true
-            spec:
-              httpGet:
-                path: /
-                port: 8000
-                scheme: HTTPS
-              initialDelaySeconds: 5
-              periodSeconds: 5
-              failureThreshold: 30
           liveness:
             enabled: true
-            spec:
-              httpGet:
-                path: /
-                port: 8000
-                scheme: HTTPS
-              periodSeconds: 30
           readiness:
             enabled: true
-            spec:
-              httpGet:
-                path: /
-                port: 8000
-                scheme: HTTPS
-              periodSeconds: 10
-        resources: {}
 
   backup:
     type: cronjob
     cronjob:
       schedule: "0 3 * * *"
-      successfulJobsHistory: 3
-      failedJobsHistory: 3
     pod:
       restartPolicy: OnFailure
+    initContainers:
+      init:
+        image:
+          repository: restic/restic
+          tag: 0.18.1
+        securityContext:
+          allowPrivilegeEscalation: false
+        command:
+          - /bin/sh
+          - -c
+          - |
+            if ! restic snapshots > /dev/null 2>&1; then
+              echo "Initializing restic repository..."
+              restic init
+            fi
+        env:
+          RESTIC_REPOSITORY: rest:https://restic:$(RESTIC_PASSWORD)@restic.edgard.org:8000/restic
+          RESTIC_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+          RESTIC_CACERT: /certs/ca.crt
     containers:
       app:
         image:
           repository: restic/restic
           tag: 0.18.1
-          pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
-          runAsUser: 0
-          runAsGroup: 0
-        command:
-          - /bin/sh
-          - -c
-          - |
-            # Initialize repository if it doesn't exist
-            if ! restic snapshots > /dev/null 2>&1; then
-              echo "Initializing restic repository..."
-              restic init
-            fi
-            restic backup /data/appdata \
-              --host homelab \
-              --tag appdata \
-              --verbose
+        args:
+          - backup
+          - /data/appdata
+          - --host
+          - homelab
+          - --tag
+          - appdata
+          - --verbose
         env:
           RESTIC_REPOSITORY: rest:https://restic:$(RESTIC_PASSWORD)@restic.edgard.org:8000/restic
           RESTIC_PASSWORD:
@@ -132,14 +125,11 @@ controllers:
             enabled: false
           startup:
             enabled: false
-        resources: {}
 
   maintenance:
     type: cronjob
     cronjob:
       schedule: "0 5 * * 0"
-      successfulJobsHistory: 3
-      failedJobsHistory: 3
     pod:
       restartPolicy: OnFailure
     containers:
@@ -147,11 +137,8 @@ controllers:
         image:
           repository: restic/restic
           tag: 0.18.1
-          pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
-          runAsUser: 0
-          runAsGroup: 0
         command:
           - /bin/sh
           - -c
@@ -183,7 +170,6 @@ controllers:
             enabled: false
           startup:
             enabled: false
-        resources: {}
 
 service:
   main:
@@ -195,27 +181,6 @@ service:
       https:
         port: 8000
         protocol: TCP
-
-configMaps:
-  init:
-    data:
-      init.sh: |
-        #!/bin/sh
-        set -e
-
-        HTPASSWD_FILE="/repository/.htpasswd"
-
-        # Generate htpasswd file if it doesn't exist
-        if [ ! -f "$HTPASSWD_FILE" ]; then
-          echo "Creating htpasswd file..."
-          # Use htpasswd with bcrypt (-B), batch mode (-b), create new file (-c)
-          htpasswd -Bbc "$HTPASSWD_FILE" restic "$RESTIC_PASSWORD"
-          echo "htpasswd file created"
-        else
-          echo "htpasswd file already exists"
-        fi
-
-        echo "Init completed"
 
 persistence:
   repo:
@@ -234,27 +199,18 @@ persistence:
         app:
           - path: /data/appdata
             readOnly: true
-  init-script:
-    type: configMap
-    name: restic
-    defaultMode: 0755
-    advancedMounts:
-      main:
-        init:
-          - path: /scripts
-            readOnly: true
   tls-certs:
     type: secret
     name: gateway-wildcard-tls
     advancedMounts:
       main:
-        init:
-          - path: /certs
-            readOnly: true
         app:
           - path: /certs
             readOnly: true
       backup:
+        init:
+          - path: /certs
+            readOnly: true
         app:
           - path: /certs
             readOnly: true
