@@ -12,10 +12,11 @@ KUBECONFIG_PATH="$HOME/.kube/config"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Volume mounts for k3d server (path:path format)
+# Note: ZFS child datasets must be mounted explicitly
 VOLUME_MOUNTS=(
     "/mnt/spool/appdata:/mnt/spool/appdata"
     "/mnt/dpool/media:/mnt/dpool/media"
-    "/mnt/dpool/kopia-repo:/mnt/dpool/kopia-repo"
+    "/mnt/dpool/restic:/mnt/dpool/restic"
     "/dev/ttyUSB0:/dev/ttyUSB0"
 )
 

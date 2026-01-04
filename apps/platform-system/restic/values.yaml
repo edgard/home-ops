@@ -1,0 +1,198 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 0
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsUser: 0
+
+controllers:
+  main:
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: |
+          [{
+            "name": "multus-lan-macvlan",
+            "namespace": "kube-system",
+            "ips": ["192.168.1.244/24"],
+            "gateway": ["192.168.1.1"],
+            "mac": "02:42:c0:a8:01:f4"
+          }]
+    initContainers:
+      init:
+        image:
+          repository: restic/rest-server
+          tag: 0.14.0
+        command:
+          - /bin/sh
+          - -c
+          - |
+            if [ ! -f /repository/.htpasswd ]; then
+              echo "Creating htpasswd file..."
+              htpasswd -Bbc /repository/.htpasswd restic "$RESTIC_PASSWORD"
+            fi
+        env:
+          RESTIC_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+        securityContext:
+          allowPrivilegeEscalation: false
+    containers:
+      app:
+        image:
+          repository: restic/rest-server
+          tag: 0.14.0
+        securityContext:
+          allowPrivilegeEscalation: false
+        command:
+          - rest-server
+        args:
+          - --path=/repository
+          - --htpasswd-file=/repository/.htpasswd
+          - --prometheus
+          - --prometheus-no-auth
+        probes:
+          startup:
+            enabled: true
+            path: /metrics
+          liveness:
+            enabled: true
+            path: /metrics
+          readiness:
+            enabled: true
+            path: /metrics
+
+  backup:
+    type: cronjob
+    cronjob:
+      schedule: "0 3 * * *"
+    pod:
+      restartPolicy: OnFailure
+    initContainers:
+      init:
+        image:
+          repository: restic/restic
+          tag: 0.18.1
+        securityContext:
+          allowPrivilegeEscalation: false
+        command:
+          - /bin/sh
+          - -c
+          - |
+            if ! restic snapshots > /dev/null 2>&1; then
+              echo "Initializing restic repository..."
+              restic init
+            fi
+        env:
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/
+          RESTIC_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+    containers:
+      app:
+        image:
+          repository: restic/restic
+          tag: 0.18.1
+        securityContext:
+          allowPrivilegeEscalation: false
+        args:
+          - backup
+          - /data/appdata
+          - --host
+          - homelab
+          - --tag
+          - appdata
+          - --verbose
+        env:
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/
+          RESTIC_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+        probes:
+          liveness:
+            enabled: false
+          readiness:
+            enabled: false
+          startup:
+            enabled: false
+
+  maintenance:
+    type: cronjob
+    cronjob:
+      schedule: "0 4 * * 0"
+    pod:
+      restartPolicy: OnFailure
+    containers:
+      app:
+        image:
+          repository: restic/restic
+          tag: 0.18.1
+        securityContext:
+          allowPrivilegeEscalation: false
+        command:
+          - /bin/sh
+          - -c
+          - |
+            echo "Running forget with retention policy..."
+            restic forget \
+              --keep-last 6 \
+              --keep-hourly 24 \
+              --keep-daily 7 \
+              --keep-weekly 4 \
+              --keep-monthly 12 \
+              --keep-yearly 3 \
+              --prune \
+              --verbose
+            echo "Running check with full data verification..."
+            restic check --read-data --verbose
+        env:
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/
+          RESTIC_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+        probes:
+          liveness:
+            enabled: false
+          readiness:
+            enabled: false
+          startup:
+            enabled: false
+
+service:
+  main:
+    controller: main
+    annotations:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      http:
+        port: 8000
+        protocol: TCP
+
+persistence:
+  repo:
+    type: persistentVolumeClaim
+    storageClass: local-bulk
+    accessMode: ReadWriteOnce
+    size: 5Ti
+    globalMounts:
+      - path: /repository
+  appdata:
+    type: hostPath
+    hostPath: /mnt/spool/appdata
+    hostPathType: Directory
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata
+            readOnly: true
