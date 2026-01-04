@@ -61,10 +61,16 @@ controllers:
         probes:
           startup:
             enabled: true
+            type: HTTPS
+            path: /
           liveness:
             enabled: true
+            type: HTTPS
+            path: /
           readiness:
             enabled: true
+            type: HTTPS
+            path: /
 
   backup:
     type: cronjob
