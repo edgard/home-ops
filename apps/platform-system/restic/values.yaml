@@ -52,9 +52,6 @@ controllers:
         command:
           - rest-server
         args:
-          - --tls
-          - --tls-cert=/certs/tls.crt
-          - --tls-key=/certs/tls.key
           - --path=/repository
           - --htpasswd-file=/repository/.htpasswd
           - --private-repos
@@ -63,15 +60,12 @@ controllers:
         probes:
           startup:
             enabled: true
-            type: HTTPS
             path: /metrics
           liveness:
             enabled: true
-            type: HTTPS
             path: /metrics
           readiness:
             enabled: true
-            type: HTTPS
             path: /metrics
 
   backup:
@@ -96,7 +90,7 @@ controllers:
               restic init
             fi
         env:
-          RESTIC_REPOSITORY: rest:https://restic:$(RESTIC_PASSWORD)@restic.edgard.org:8000/restic
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/restic
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
@@ -118,7 +112,7 @@ controllers:
           - appdata
           - --verbose
         env:
-          RESTIC_REPOSITORY: rest:https://restic:$(RESTIC_PASSWORD)@restic.edgard.org:8000/restic
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/restic
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
@@ -162,7 +156,7 @@ controllers:
             echo "Running check with full data verification..."
             restic check --read-data --verbose
         env:
-          RESTIC_REPOSITORY: rest:https://restic:$(RESTIC_PASSWORD)@restic.edgard.org:8000/restic
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/restic
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
@@ -181,9 +175,8 @@ service:
     controller: main
     annotations:
       gatus.edgard.org/enabled: "true"
-      gatus.edgard.org/insecure: "true"
     ports:
-      https:
+      http:
         port: 8000
         protocol: TCP
 
@@ -203,12 +196,4 @@ persistence:
       backup:
         app:
           - path: /data/appdata
-            readOnly: true
-  tls-certs:
-    type: secret
-    name: gateway-wildcard-tls
-    advancedMounts:
-      main:
-        app:
-          - path: /certs
             readOnly: true
