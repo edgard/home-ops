@@ -128,7 +128,7 @@ controllers:
   maintenance:
     type: cronjob
     cronjob:
-      schedule: "0 4 * * 0"
+      schedule: "0 4 * * 1"
     pod:
       restartPolicy: OnFailure
     containers:
