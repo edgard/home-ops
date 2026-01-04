@@ -108,6 +108,11 @@ controllers:
           - /bin/sh
           - -c
           - |
+            # Initialize repository if it doesn't exist
+            if ! restic snapshots > /dev/null 2>&1; then
+              echo "Initializing restic repository..."
+              restic init
+            fi
             restic backup /data/appdata \
               --host homelab \
               --tag appdata \
@@ -199,27 +204,15 @@ configMaps:
         set -e
 
         HTPASSWD_FILE="/repository/.htpasswd"
-        REPO_DIR="/repository/restic"
 
         # Generate htpasswd file if it doesn't exist
         if [ ! -f "$HTPASSWD_FILE" ]; then
           echo "Creating htpasswd file..."
-          # rest-server uses htpasswd format: username:password_hash
-          # Using openssl to generate the hash
-          HASH=$(openssl passwd -apr1 "$RESTIC_PASSWORD")
-          echo "restic:$HASH" > "$HTPASSWD_FILE"
+          # Use htpasswd with bcrypt (-B), batch mode (-b), create new file (-c)
+          htpasswd -Bbc "$HTPASSWD_FILE" restic "$RESTIC_PASSWORD"
           echo "htpasswd file created"
         else
           echo "htpasswd file already exists"
-        fi
-
-        # Initialize restic repository if it doesn't exist
-        if [ ! -d "$REPO_DIR/data" ]; then
-          echo "Initializing restic repository..."
-          restic init --repo "$REPO_DIR" --password-file <(echo "$RESTIC_PASSWORD")
-          echo "Repository initialized"
-        else
-          echo "Repository already exists"
         fi
 
         echo "Init completed"
