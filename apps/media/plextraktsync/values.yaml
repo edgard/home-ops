@@ -45,7 +45,7 @@ controllers:
   sync:
     type: cronjob
     cronjob:
-      schedule: "0 */12 * * *"
+      schedule: "0 5 * * *"
       successfulJobsHistory: 1
       failedJobsHistory: 1
     containers:
