@@ -1,0 +1,271 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 0
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsUser: 0
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: |
+          [{
+            "name": "multus-lan-macvlan",
+            "namespace": "kube-system",
+            "ips": ["192.168.1.244/24"],
+            "gateway": ["192.168.1.1"],
+            "mac": "02:42:c0:a8:01:f4"
+          }]
+    initContainers:
+      init:
+        image:
+          repository: restic/rest-server
+          tag: 0.14.0
+          pullPolicy: IfNotPresent
+        command:
+          - /bin/sh
+          - /scripts/init.sh
+        env:
+          RESTIC_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+          runAsGroup: 0
+    containers:
+      app:
+        image:
+          repository: restic/rest-server
+          tag: 0.14.0
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+        args:
+          - --tls
+          - --tls-cert=/certs/tls.crt
+          - --tls-key=/certs/tls.key
+          - --path=/repository
+          - --htpasswd-file=/repository/.htpasswd
+          - --private-repos
+        probes:
+          startup:
+            enabled: true
+            spec:
+              httpGet:
+                path: /
+                port: 8000
+                scheme: HTTPS
+              initialDelaySeconds: 5
+              periodSeconds: 5
+              failureThreshold: 30
+          liveness:
+            enabled: true
+            spec:
+              httpGet:
+                path: /
+                port: 8000
+                scheme: HTTPS
+              periodSeconds: 30
+          readiness:
+            enabled: true
+            spec:
+              httpGet:
+                path: /
+                port: 8000
+                scheme: HTTPS
+              periodSeconds: 10
+        resources: {}
+
+  backup:
+    type: cronjob
+    cronjob:
+      schedule: "0 3 * * *"
+      successfulJobsHistory: 3
+      failedJobsHistory: 3
+    pod:
+      restartPolicy: OnFailure
+    containers:
+      app:
+        image:
+          repository: restic/restic
+          tag: 0.18.1
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+          runAsGroup: 0
+        command:
+          - /bin/sh
+          - -c
+          - |
+            restic backup /data/appdata \
+              --host homelab \
+              --tag appdata \
+              --verbose
+        env:
+          RESTIC_REPOSITORY: rest:https://restic:$(RESTIC_PASSWORD)@restic.edgard.org:8000/restic
+          RESTIC_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+          RESTIC_CACERT: /certs/ca.crt
+        probes:
+          liveness:
+            enabled: false
+          readiness:
+            enabled: false
+          startup:
+            enabled: false
+        resources: {}
+
+  maintenance:
+    type: cronjob
+    cronjob:
+      schedule: "0 5 * * 0"
+      successfulJobsHistory: 3
+      failedJobsHistory: 3
+    pod:
+      restartPolicy: OnFailure
+    containers:
+      app:
+        image:
+          repository: restic/restic
+          tag: 0.18.1
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+          runAsGroup: 0
+        command:
+          - /bin/sh
+          - -c
+          - |
+            echo "Running forget with retention policy..."
+            restic forget \
+              --keep-last 6 \
+              --keep-hourly 24 \
+              --keep-daily 7 \
+              --keep-weekly 4 \
+              --keep-monthly 12 \
+              --keep-yearly 3 \
+              --prune \
+              --verbose
+            echo "Running check with full data verification..."
+            restic check --read-data --verbose
+        env:
+          RESTIC_REPOSITORY: rest:https://restic:$(RESTIC_PASSWORD)@restic.edgard.org:8000/restic
+          RESTIC_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+          RESTIC_CACERT: /certs/ca.crt
+        probes:
+          liveness:
+            enabled: false
+          readiness:
+            enabled: false
+          startup:
+            enabled: false
+        resources: {}
+
+service:
+  main:
+    controller: main
+    annotations:
+      gatus.edgard.org/enabled: "true"
+      gatus.edgard.org/insecure: "true"
+    ports:
+      https:
+        port: 8000
+        protocol: TCP
+
+configMaps:
+  init:
+    data:
+      init.sh: |
+        #!/bin/sh
+        set -e
+
+        HTPASSWD_FILE="/repository/.htpasswd"
+        REPO_DIR="/repository/restic"
+
+        # Generate htpasswd file if it doesn't exist
+        if [ ! -f "$HTPASSWD_FILE" ]; then
+          echo "Creating htpasswd file..."
+          # rest-server uses htpasswd format: username:password_hash
+          # Using openssl to generate the hash
+          HASH=$(openssl passwd -apr1 "$RESTIC_PASSWORD")
+          echo "restic:$HASH" > "$HTPASSWD_FILE"
+          echo "htpasswd file created"
+        else
+          echo "htpasswd file already exists"
+        fi
+
+        # Initialize restic repository if it doesn't exist
+        if [ ! -d "$REPO_DIR/data" ]; then
+          echo "Initializing restic repository..."
+          restic init --repo "$REPO_DIR" --password-file <(echo "$RESTIC_PASSWORD")
+          echo "Repository initialized"
+        else
+          echo "Repository already exists"
+        fi
+
+        echo "Init completed"
+
+persistence:
+  repo:
+    type: persistentVolumeClaim
+    storageClass: local-bulk
+    accessMode: ReadWriteOnce
+    size: 5Ti
+    globalMounts:
+      - path: /repository
+  appdata:
+    type: hostPath
+    hostPath: /mnt/spool/appdata
+    hostPathType: Directory
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata
+            readOnly: true
+  init-script:
+    type: configMap
+    name: restic-init
+    defaultMode: 0755
+    advancedMounts:
+      main:
+        init:
+          - path: /scripts
+            readOnly: true
+  tls-certs:
+    type: secret
+    name: gateway-wildcard-tls
+    advancedMounts:
+      main:
+        init:
+          - path: /certs
+            readOnly: true
+        app:
+          - path: /certs
+            readOnly: true
+      backup:
+        app:
+          - path: /certs
+            readOnly: true
+      maintenance:
+        app:
+          - path: /certs
+            readOnly: true

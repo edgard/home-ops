@@ -2,11 +2,11 @@
 apiVersion: externaldns.k8s.io/v1alpha1
 kind: DNSEndpoint
 metadata:
-  name: kopia
+  name: restic
   namespace: platform-system
 spec:
   endpoints:
-    - dnsName: kopia.edgard.org
+    - dnsName: restic.edgard.org
       recordTTL: 60
       recordType: A
       targets:
