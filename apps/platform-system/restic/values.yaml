@@ -243,7 +243,7 @@ persistence:
             readOnly: true
   init-script:
     type: configMap
-    name: restic-init
+    name: restic
     defaultMode: 0755
     advancedMounts:
       main:
