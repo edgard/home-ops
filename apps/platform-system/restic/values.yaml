@@ -54,7 +54,6 @@ controllers:
         args:
           - --path=/repository
           - --htpasswd-file=/repository/.htpasswd
-          - --private-repos
           - --prometheus
           - --prometheus-no-auth
         probes:
@@ -90,7 +89,7 @@ controllers:
               restic init
             fi
         env:
-          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/restic
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
@@ -112,7 +111,7 @@ controllers:
           - appdata
           - --verbose
         env:
-          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/restic
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
@@ -156,7 +155,7 @@ controllers:
             echo "Running check with full data verification..."
             restic check --read-data --verbose
         env:
-          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/restic
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
