@@ -58,19 +58,21 @@ controllers:
           - --path=/repository
           - --htpasswd-file=/repository/.htpasswd
           - --private-repos
+          - --prometheus
+          - --prometheus-no-auth
         probes:
           startup:
             enabled: true
             type: HTTPS
-            path: /
+            path: /metrics
           liveness:
             enabled: true
             type: HTTPS
-            path: /
+            path: /metrics
           readiness:
             enabled: true
             type: HTTPS
-            path: /
+            path: /metrics
 
   backup:
     type: cronjob
