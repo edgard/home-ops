@@ -24,7 +24,6 @@ controllers:
           - "/app/config.yaml"
         env:
           PORT: "4000"
-          GITHUB_COPILOT_TOKEN_DIR: "/app/github-copilot-tokens"
         envFrom:
           - secretRef:
               name: litellm-credentials
@@ -76,16 +75,6 @@ persistence:
         app:
           - path: /app/config.yaml
             subPath: config.yaml
-  github-copilot-tokens:
-    type: persistentVolumeClaim
-    storageClass: local-fast
-    accessMode: ReadWriteOnce
-    size: 100Mi
-    retain: true
-    advancedMounts:
-      main:
-        app:
-          - path: /app/github-copilot-tokens
 
 configMaps:
   config:
@@ -97,30 +86,84 @@ configMaps:
         litellm_settings:
           drop_params: true
           num_retries: 3
-          request_timeout: 600
+          request_timeout: 120
           telemetry: false
+          routing_strategy: weighted-pick
+          allowed_fails: 2
+          cooldown_time: 120
+          fallbacks:
+            - primary:
+                - paid-tools
 
         model_list:
-          - model_name: github_copilot/gpt-4.1
+          # BEGIN GENERATED OPENROUTER POOL
+          # This section is auto-updated by .github/workflows/litellm-openrouter-pool.yaml
+          # Manual edits will be overwritten. To block a model, add it to scripts/litellm/openrouter_blocklist.txt
+          - model_name: primary
             litellm_params:
-              model: github_copilot/gpt-4.1
+              model: openrouter/mistralai/devstral-2512:free
+              api_key: os.environ/OPENROUTER_API_KEY
               drop_params: true
-              extra_headers:
-                Editor-Version: vscode/1.95.0
-                Copilot-Integration-Id: vscode-chat
+              weight: 6
+          - model_name: primary
+            litellm_params:
+              model: openrouter/qwen/qwen3-coder:free
+              api_key: os.environ/OPENROUTER_API_KEY
+              drop_params: true
+              weight: 6
+          - model_name: primary
+            litellm_params:
+              model: openrouter/google/gemini-2.0-flash-exp:free
+              api_key: os.environ/OPENROUTER_API_KEY
+              drop_params: true
+              weight: 3
+          - model_name: primary
+            litellm_params:
+              model: openrouter/meta-llama/llama-3.3-70b-instruct:free
+              api_key: os.environ/OPENROUTER_API_KEY
+              drop_params: true
+              weight: 3
+          - model_name: primary
+            litellm_params:
+              model: openrouter/google/gemma-3-27b-it:free
+              api_key: os.environ/OPENROUTER_API_KEY
+              drop_params: true
+              weight: 3
+          - model_name: primary
+            litellm_params:
+              model: openrouter/kwaipilot/kat-coder-pro:free
+              api_key: os.environ/OPENROUTER_API_KEY
+              drop_params: true
+              weight: 1
+          - model_name: primary
+            litellm_params:
+              model: openrouter/mistralai/mistral-small-3.1-24b-instruct:free
+              api_key: os.environ/OPENROUTER_API_KEY
+              drop_params: true
+              weight: 1
+          - model_name: primary
+            litellm_params:
+              model: openrouter/xiaomi/mimo-v2-flash:free
+              api_key: os.environ/OPENROUTER_API_KEY
+              drop_params: true
+              weight: 1
+          - model_name: primary
+            litellm_params:
+              model: openrouter/nvidia/nemotron-3-nano-30b-a3b:free
+              api_key: os.environ/OPENROUTER_API_KEY
+              drop_params: true
+              weight: 1
+          - model_name: primary
+            litellm_params:
+              model: openrouter/tngtech/tng-r1t-chimera:free
+              api_key: os.environ/OPENROUTER_API_KEY
+              drop_params: true
+              weight: 1
+          # END GENERATED OPENROUTER POOL
 
-          - model_name: github_copilot/gpt-4o
+          # Paid fallback model (used when free pool fails/429s)
+          - model_name: paid-tools
             litellm_params:
-              model: github_copilot/gpt-4o
+              model: openrouter/openai/gpt-5-mini
+              api_key: os.environ/OPENROUTER_API_KEY
               drop_params: true
-              extra_headers:
-                Editor-Version: vscode/1.95.0
-                Copilot-Integration-Id: vscode-chat
-
-          - model_name: github_copilot/gpt-5-mini
-            litellm_params:
-              model: github_copilot/gpt-5-mini
-              drop_params: true
-              extra_headers:
-                Editor-Version: vscode/1.95.0
-                Copilot-Integration-Id: vscode-chat

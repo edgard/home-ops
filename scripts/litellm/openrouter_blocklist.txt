@@ -1,0 +1,10 @@
+# OpenRouter Model Blocklist
+# Models listed here will be excluded from the free pool
+# One model ID per line (without :free suffix)
+# Lines starting with # are comments
+
+# GPT-OSS models have known issues with tool calling and structured output
+# See: https://github.com/lmstudio-ai/lmstudio-bug-tracker/issues/1105
+# See: https://github.com/musistudio/claude-code-router/issues/790
+openai/gpt-oss-120b
+openai/gpt-oss-20b
