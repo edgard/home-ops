@@ -12,9 +12,14 @@ watchedResources:
 # TTL for DNS responses (seconds)
 ttl: 60
 
-# Enable fallthrough to forward unmatched queries to upstream DNS
+# Enable fallthrough to pass unmatched queries to the next plugin
 fallthrough:
   enabled: true
+
+# Extra plugins - forward unknowns to Unifi for non-HTTPRoute edgard.org subdomains
+extraZonePlugins:
+  - name: forward
+    parameters: . 192.168.1.1
 
 # Service configuration - ClusterIP for internal DNS resolution
 # Use a static ClusterIP so CoreDNS can reference it (forward plugin requires IP, not hostname)
