@@ -12,12 +12,14 @@ configMaps:
       # Hairpin DNS: forward edgard.org queries to k8s-gateway which watches HTTPRoutes
       # and resolves them to the gateway's internal ClusterIP (from gateway.status.addresses)
       # Falls through to Unifi (192.168.1.1) for subdomains without HTTPRoutes
+      # Note: k8s-gateway has static ClusterIP 10.43.53.53 (forward plugin requires IP)
       edgard.server: |-
         edgard.org:53 {
             errors
-            forward . k8s-gateway.kube-system.svc.cluster.local 192.168.1.1 {
-                policy sequential
-            }
             cache 30
+            forward . 10.43.53.53 {
+                next NXDOMAIN SERVFAIL
+            }
+            forward . 192.168.1.1
             log
         }

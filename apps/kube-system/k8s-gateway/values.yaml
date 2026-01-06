@@ -17,9 +17,11 @@ fallthrough:
   enabled: true
 
 # Service configuration - ClusterIP for internal DNS resolution
+# Use a static ClusterIP so CoreDNS can reference it (forward plugin requires IP, not hostname)
 service:
   type: ClusterIP
   port: 53
+  clusterIP: 10.43.53.53
 
 # Resources - unlimited per cluster policy
 resources: {}
