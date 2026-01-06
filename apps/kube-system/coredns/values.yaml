@@ -21,5 +21,4 @@ configMaps:
                 next NXDOMAIN SERVFAIL
             }
             forward . 192.168.1.1
-            log
         }
