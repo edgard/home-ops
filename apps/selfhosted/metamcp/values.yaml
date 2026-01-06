@@ -18,7 +18,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/metatool-ai/metamcp
-          tag: v2.4.22
+          tag: 2.4.22
         env:
           NODE_ENV: production
           APP_URL: https://metamcp.edgard.org
