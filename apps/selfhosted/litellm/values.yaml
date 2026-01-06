@@ -106,21 +106,27 @@ configMaps:
               model: github_copilot/gpt-4.1
               drop_params: true
               extra_headers:
-                Editor-Version: vscode/1.95.0
-                Copilot-Integration-Id: vscode-chat
+                User-Agent: "GitHubCopilotChat/0.26.7"
+                Editor-Version: "vscode/1.99.3"
+                Editor-Plugin-Version: "copilot-chat/0.26.7"
+                Copilot-Integration-Id: "vscode-chat"
 
           - model_name: github_copilot/gpt-4o
             litellm_params:
               model: github_copilot/gpt-4o
               drop_params: true
               extra_headers:
-                Editor-Version: vscode/1.95.0
-                Copilot-Integration-Id: vscode-chat
+                User-Agent: "GitHubCopilotChat/0.26.7"
+                Editor-Version: "vscode/1.99.3"
+                Editor-Plugin-Version: "copilot-chat/0.26.7"
+                Copilot-Integration-Id: "vscode-chat"
 
           - model_name: github_copilot/gpt-5-mini
             litellm_params:
               model: github_copilot/gpt-5-mini
               drop_params: true
               extra_headers:
-                Editor-Version: vscode/1.95.0
-                Copilot-Integration-Id: vscode-chat
+                User-Agent: "GitHubCopilotChat/0.26.7"
+                Editor-Version: "vscode/1.99.3"
+                Editor-Plugin-Version: "copilot-chat/0.26.7"
+                Copilot-Integration-Id: "vscode-chat"
