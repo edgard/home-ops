@@ -7,17 +7,9 @@ configMaps:
     enabled: true
     forceRename: coredns-custom
     data:
-      # This file ends with .server so it will be imported by "import /etc/coredns/custom/*.server"
-      # at the top level of the Corefile (outside the main server block)
-      # Hairpin DNS: forward edgard.org queries to k8s-gateway which watches HTTPRoutes
-      # and resolves them to the gateway's internal ClusterIP (from gateway.status.addresses)
-      # Falls through to Unifi (192.168.1.1) for subdomains without HTTPRoutes
-      # Note: k8s-gateway has static ClusterIP 10.43.53.53 (forward plugin requires IP)
-      # Minimal config to stay within k3s 170Mi memory limit
-      edgard.server: |-
-        edgard.org:53 {
-            forward . 10.43.53.53 {
-                next NXDOMAIN SERVFAIL
-            }
-            forward . 192.168.1.1
-        }
+      # Files ending in .override are imported INSIDE the main .:53 server block
+      # This avoids memory overhead of a separate server block
+      # Hairpin DNS: forward edgard.org queries to k8s-gateway (10.43.53.53)
+      # which resolves HTTPRoute hostnames to gateway's internal ClusterIP
+      edgard.override: |-
+        forward edgard.org 10.43.53.53
