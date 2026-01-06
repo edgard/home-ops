@@ -1,0 +1,25 @@
+---
+fullnameOverride: k8s-gateway
+
+# Domain to be authoritative for
+domain: edgard.org
+
+# Watch HTTPRoute resources from Gateway API
+# This enables automatic DNS resolution for services exposed via Gateway API
+watchedResources:
+  - HTTPRoute
+
+# TTL for DNS responses (seconds)
+ttl: 60
+
+# Enable fallthrough to forward unmatched queries to upstream DNS
+fallthrough:
+  enabled: true
+
+# Service configuration - ClusterIP for internal DNS resolution
+service:
+  type: ClusterIP
+  port: 53
+
+# Resources - unlimited per cluster policy
+resources: {}

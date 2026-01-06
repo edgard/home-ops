@@ -9,10 +9,12 @@ configMaps:
     data:
       # This file ends with .server so it will be imported by "import /etc/coredns/custom/*.server"
       # at the top level of the Corefile (outside the main server block)
+      # Hairpin DNS: forward edgard.org queries to k8s-gateway which watches HTTPRoutes
+      # and resolves them to the gateway's internal ClusterIP (from gateway.status.addresses)
       edgard.server: |-
         edgard.org:53 {
             errors
-            forward . 192.168.1.1
+            forward . k8s-gateway.kube-system.svc.cluster.local
             cache 30
             log
         }
