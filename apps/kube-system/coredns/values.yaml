@@ -13,10 +13,9 @@ configMaps:
       # and resolves them to the gateway's internal ClusterIP (from gateway.status.addresses)
       # Falls through to Unifi (192.168.1.1) for subdomains without HTTPRoutes
       # Note: k8s-gateway has static ClusterIP 10.43.53.53 (forward plugin requires IP)
+      # Minimal config to stay within k3s 170Mi memory limit
       edgard.server: |-
         edgard.org:53 {
-            errors
-            cache 30
             forward . 10.43.53.53 {
                 next NXDOMAIN SERVFAIL
             }
