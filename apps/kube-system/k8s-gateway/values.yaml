@@ -16,8 +16,17 @@ ttl: 60
 fallthrough:
   enabled: true
 
-# Extra plugins - forward unknowns to Unifi for non-HTTPRoute edgard.org subdomains
+# Extra plugins - include health/ready for probes, forward unknowns to Unifi
 extraZonePlugins:
+  - name: log
+  - name: errors
+  # Health endpoint on :8080 for livenessProbe
+  - name: health
+    configBlock: |-
+      lameduck 5s
+  # Ready endpoint on :8181 for readinessProbe
+  - name: ready
+  # Forward unknowns to Unifi for non-HTTPRoute edgard.org subdomains
   - name: forward
     parameters: . 192.168.1.1
 
