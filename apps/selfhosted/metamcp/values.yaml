@@ -12,6 +12,8 @@ controllers:
     type: deployment
     replicas: 1
     strategy: Recreate
+    serviceAccount:
+      identifier: metamcp
     annotations:
       reloader.stakater.com/auto: "true"
     containers:
@@ -89,6 +91,24 @@ controllers:
           runAsUser: 999
           runAsGroup: 999
         resources: {}
+      mcp-kubernetes:
+        image:
+          repository: flux159/mcp-server-kubernetes
+          tag: latest
+        env:
+          ENABLE_UNSAFE_STREAMABLE_HTTP_TRANSPORT: "1"
+          PORT: "3002"
+          HOST: "127.0.0.1"
+          ALLOW_ONLY_READONLY_TOOLS: "true"
+          MASK_SECRETS: "true"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          runAsUser: 1001
+          runAsGroup: 1001
+        resources: {}
 
 service:
   metamcp:
@@ -128,3 +148,7 @@ persistence:
       metamcp:
         postgres:
           - path: /var/lib/postgresql/data
+
+serviceAccount:
+  metamcp:
+    enabled: true
