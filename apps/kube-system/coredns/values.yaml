@@ -11,10 +11,13 @@ configMaps:
       # at the top level of the Corefile (outside the main server block)
       # Hairpin DNS: forward edgard.org queries to k8s-gateway which watches HTTPRoutes
       # and resolves them to the gateway's internal ClusterIP (from gateway.status.addresses)
+      # Falls through to Unifi (192.168.1.1) for subdomains without HTTPRoutes
       edgard.server: |-
         edgard.org:53 {
             errors
-            forward . k8s-gateway.kube-system.svc.cluster.local
+            forward . k8s-gateway.kube-system.svc.cluster.local 192.168.1.1 {
+                policy sequential
+            }
             cache 30
             log
         }
