@@ -19,17 +19,6 @@ controllers:
         image:
           repository: ghcr.io/twin/gatus
           tag: v5.34.0
-        env:
-          - name: TELEGRAM_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: gatus-credentials
-                key: telegram-token
-          - name: TELEGRAM_CHAT_ID
-            valueFrom:
-              secretKeyRef:
-                name: gatus-credentials
-                key: telegram-chat-id
         ports:
           - name: http
             containerPort: 8080

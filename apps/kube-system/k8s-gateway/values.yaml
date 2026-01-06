@@ -1,0 +1,45 @@
+---
+fullnameOverride: k8s-gateway
+
+# Domain to be authoritative for
+domain: edgard.org
+
+# Watch HTTPRoute resources from Gateway API
+# This enables automatic DNS resolution for services exposed via Gateway API
+watchedResources:
+  - HTTPRoute
+
+# TTL for DNS responses (seconds)
+ttl: 60
+
+# Enable fallthrough to pass unmatched queries to the next plugin
+fallthrough:
+  enabled: true
+
+# Extra plugins - include health/ready for probes, forward unknowns to Unifi
+extraZonePlugins:
+  - name: log
+  - name: errors
+  # Health endpoint on :8080 for livenessProbe
+  - name: health
+    configBlock: |-
+      lameduck 5s
+  # Ready endpoint on :8181 for readinessProbe
+  - name: ready
+  # Forward unknowns to Unifi for non-HTTPRoute edgard.org subdomains
+  - name: forward
+    parameters: . 192.168.1.1
+  # Detect infinite forwarding loops
+  - name: loop
+  # Auto-reload Corefile on changes
+  - name: reload
+
+# Service configuration - ClusterIP for internal DNS resolution
+# Use a static ClusterIP so CoreDNS can reference it (forward plugin requires IP, not hostname)
+service:
+  type: ClusterIP
+  port: 53
+  clusterIP: 10.43.53.53
+
+# Resources - unlimited per cluster policy
+resources: {}

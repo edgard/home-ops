@@ -25,6 +25,8 @@ controllers:
           N8N_PORT: "5678"
           N8N_PROTOCOL: https
           N8N_PROXY_HOPS: "1"
+          WEBHOOK_URL: https://n8n.edgard.org
+          N8N_EDITOR_BASE_URL: https://n8n.edgard.org
           DB_TYPE: sqlite
           DB_SQLITE_VACUUM_ON_STARTUP: "true"
           WORKFLOWS_STORAGE_TYPE: filesystem

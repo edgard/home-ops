@@ -21,9 +21,9 @@ spec:
         target: 1.1.1.1:53
         interval: 30s
     alerting:
-      telegram:
-        token: ${TELEGRAM_TOKEN}
-        id: ${TELEGRAM_CHAT_ID}
+      n8n:
+        webhook-url: https://n8n.edgard.org/webhook/alert-enricher
+        title: Homelab Alert
         default-alert:
           enabled: true
           failure-threshold: 3
@@ -44,7 +44,7 @@ spec:
         conditions:
           - "[DNS_RCODE] == NOERROR"
         alerts:
-          - type: telegram
+          - type: n8n
       - name: dns-edgard-cloudflare
         group: 01-dns
         url: 1.1.1.1
@@ -58,7 +58,7 @@ spec:
         conditions:
           - "[DNS_RCODE] == NOERROR"
         alerts:
-          - type: telegram
+          - type: n8n
       - name: dns-edgard-quad9
         group: 01-dns
         url: 9.9.9.9
@@ -72,7 +72,7 @@ spec:
         conditions:
           - "[DNS_RCODE] == NOERROR"
         alerts:
-          - type: telegram
+          - type: n8n
       - name: ping-amazon
         group: 02-connectivity
         url: icmp://www.amazon.com
@@ -83,7 +83,7 @@ spec:
         conditions:
           - "[CONNECTED] == true"
         alerts:
-          - type: telegram
+          - type: n8n
       - name: ping-google
         group: 02-connectivity
         url: icmp://www.google.com
@@ -94,7 +94,7 @@ spec:
         conditions:
           - "[CONNECTED] == true"
         alerts:
-          - type: telegram
+          - type: n8n
       - name: ping-microsoft
         group: 02-connectivity
         url: icmp://www.microsoft.com
@@ -105,7 +105,7 @@ spec:
         conditions:
           - "[CONNECTED] == true"
         alerts:
-          - type: telegram
+          - type: n8n
       - name: ping-cloudflare
         group: 02-connectivity
         url: icmp://www.cloudflare.com
@@ -116,7 +116,7 @@ spec:
         conditions:
           - "[CONNECTED] == true"
         alerts:
-          - type: telegram
+          - type: n8n
       - name: ping-akamai
         group: 02-connectivity
         url: icmp://www.akamai.com
@@ -127,7 +127,7 @@ spec:
         conditions:
           - "[CONNECTED] == true"
         alerts:
-          - type: telegram
+          - type: n8n
       - name: ping-fastly
         group: 02-connectivity
         url: icmp://www.fastly.com
@@ -138,4 +138,4 @@ spec:
         conditions:
           - "[CONNECTED] == true"
         alerts:
-          - type: telegram
+          - type: n8n
