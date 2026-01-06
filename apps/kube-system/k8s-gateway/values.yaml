@@ -29,6 +29,10 @@ extraZonePlugins:
   # Forward unknowns to Unifi for non-HTTPRoute edgard.org subdomains
   - name: forward
     parameters: . 192.168.1.1
+  # Detect infinite forwarding loops
+  - name: loop
+  # Auto-reload Corefile on changes
+  - name: reload
 
 # Service configuration - ClusterIP for internal DNS resolution
 # Use a static ClusterIP so CoreDNS can reference it (forward plugin requires IP, not hostname)
