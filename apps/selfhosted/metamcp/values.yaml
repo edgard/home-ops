@@ -52,7 +52,7 @@ controllers:
       postgres:
         image:
           repository: postgres
-          tag: 16-alpine
+          tag: 18-alpine
         env:
           POSTGRES_USER: metamcp
           POSTGRES_DB: metamcp
