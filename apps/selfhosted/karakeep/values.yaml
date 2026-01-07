@@ -24,29 +24,22 @@ controllers:
           NEXTAUTH_URL: https://karakeep.edgard.org
           MEILI_ADDR: http://karakeep-meilisearch.selfhosted.svc.cluster.local:7700
           BROWSER_WEB_URL: http://karakeep-chrome.selfhosted.svc.cluster.local:9222
-          CRAWLER_DOWNLOAD_BANNER_IMAGE: "true"
-          CRAWLER_ENABLE_ADBLOCKER: "true"
-          CRAWLER_STORE_SCREENSHOT: "true"
+          CRAWLER_FULL_PAGE_ARCHIVE: "true"
+          CRAWLER_FULL_PAGE_SCREENSHOT: "true"
           DISABLE_NEW_RELEASE_CHECK: "true"
           DISABLE_SIGNUPS: true
           DB_WAL_MODE: "true"
-          OPENAI_BASE_URL: http://litellm.selfhosted.svc.cluster.local/v1
           OPENAI_API_KEY:
             valueFrom:
               secretKeyRef:
                 name: karakeep-credentials
                 key: OPENAI_API_KEY
+          INFERENCE_TEXT_MODEL: gpt-5-mini
+          INFERENCE_IMAGE_MODEL: gpt-5-mini
           INFERENCE_CONTEXT_LENGTH: "4096"
-          INFERENCE_TEXT_MODEL: github_copilot/gpt-5-mini
-          INFERENCE_IMAGE_MODEL: github_copilot/gpt-5-mini
           INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
           INFERENCE_ENABLE_AUTO_TAGGING: "true"
-          INFERENCE_MAX_OUTPUT_TOKENS: "4096"
-          INFERENCE_NUM_WORKERS: "2"
-          CRAWLER_NUM_WORKERS: "2"
-          CRAWLER_FULL_PAGE_SCREENSHOT: "true"
-          CRAWLER_FULL_PAGE_ARCHIVE: "true"
-          CRAWLER_NAVIGATE_TIMEOUT_SEC: "60"
+          INFERENCE_USE_MAX_COMPLETION_TOKENS: "true"
           LOG_LEVEL: info
           OCR_LANGS: eng,por,pol
           OCR_CACHE_DIR: /data/ocr
