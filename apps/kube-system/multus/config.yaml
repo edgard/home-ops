@@ -2,6 +2,6 @@
 chart:
   repo: https://rke2-charts.rancher.io
   name: rke2-multus
-  version: v4.2.305
+  version: v4.2.308
 sync:
   wave: "-4"
