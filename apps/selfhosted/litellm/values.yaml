@@ -1,0 +1,119 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      app:
+        image:
+          repository: ghcr.io/berriai/litellm
+          tag: v1.80.8-stable
+        args:
+          - "--config"
+          - "/app/config.yaml"
+        env:
+          PORT: "4000"
+          GITHUB_COPILOT_TOKEN_DIR: "/app/github-copilot-tokens"
+        envFrom:
+          - secretRef:
+              name: litellm-credentials
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        resources: {}
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    annotations:
+      gatus.edgard.org/enabled: "true"
+    ports:
+      http:
+        enabled: true
+        port: 80
+        targetPort: 4000
+
+route:
+  main:
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - litellm.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 80
+
+persistence:
+  config:
+    type: configMap
+    identifier: config
+    advancedMounts:
+      main:
+        app:
+          - path: /app/config.yaml
+            subPath: config.yaml
+  github-copilot-tokens:
+    type: persistentVolumeClaim
+    storageClass: local-fast
+    accessMode: ReadWriteOnce
+    size: 100Mi
+    retain: true
+    advancedMounts:
+      main:
+        app:
+          - path: /app/github-copilot-tokens
+
+configMaps:
+  config:
+    data:
+      config.yaml: |-
+        general_settings:
+          master_key: os.environ/LITELLM_MASTER_KEY
+
+        litellm_settings:
+          drop_params: true
+          num_retries: 3
+          telemetry: false
+
+        model_list:
+          - model_name: gpt-5-mini
+            litellm_params:
+              model: github_copilot/gpt-5-mini
+              extra_headers:
+                User-Agent: "GitHubCopilotChat/0.26.7"
+                Editor-Version: "vscode/1.99.3"
+                Editor-Plugin-Version: "copilot-chat/0.26.7"
+                Copilot-Integration-Id: "vscode-chat"
+
+          - model_name: gpt-5.2
+            litellm_params:
+              model: github_copilot/gpt-5.2
+              extra_headers:
+                User-Agent: "GitHubCopilotChat/0.26.7"
+                Editor-Version: "vscode/1.99.3"
+                Editor-Plugin-Version: "copilot-chat/0.26.7"
+                Copilot-Integration-Id: "vscode-chat"
