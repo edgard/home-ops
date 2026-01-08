@@ -29,6 +29,7 @@ controllers:
           DISABLE_NEW_RELEASE_CHECK: "true"
           DISABLE_SIGNUPS: true
           DB_WAL_MODE: "true"
+          OPENAI_BASE_URL: http://litellm.selfhosted.svc.cluster.local/v1
           OPENAI_API_KEY:
             valueFrom:
               secretKeyRef:
