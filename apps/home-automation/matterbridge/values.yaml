@@ -48,8 +48,10 @@ controllers:
           - |
             matterbridge --add matterbridge-zigbee2mqtt
             matterbridge --add matterbridge-hass
+            matterbridge --add matterbridge-shelly
             matterbridge --enable matterbridge-zigbee2mqtt
             matterbridge --enable matterbridge-hass
+            matterbridge --enable matterbridge-shelly
             matterbridge --list
     containers:
       app:
@@ -158,8 +160,6 @@ configMaps:
           "filterByLabel": "",
           "applyFiltersToDeviceEntities": false,
           "whiteList": [
-            "Bedroom TRV",
-            "Office TRV",
             "cover.bedroom_shades",
             "fan.bedroom_air_purifier_clean",
             "fan.office_air_purifier_clean",
@@ -169,16 +169,41 @@ configMaps:
             "sensor.office_air_quality"
           ],
           "blackList": [],
-          "deviceEntityBlackList": {
-            "Bedroom TRV": ["sensor.bedroom_trv_ema_temperature", "binary_sensor.bedroom_trv_window_state"],
-            "Office TRV": ["sensor.office_trv_ema_temperature", "binary_sensor.office_trv_window_state"]
-          },
+          "deviceEntityBlackList": [],
           "splitEntities": [],
           "enableServerRvc": true,
           "debug": false,
           "unregisterOnShutdown": false
         }
-
+      matterbridge-shelly.config.json: |
+        {
+          "name": "matterbridge-shelly",
+          "type": "DynamicPlatform",
+          "enabled": true,
+          "username": "",
+          "password": "",
+          "switchList": [],
+          "lightList": [],
+          "inputContactList": [],
+          "inputMomentaryList": [],
+          "inputLatchingList": [],
+          "whiteList": [],
+          "blackList": [],
+          "entityBlackList": [],
+          "deviceEntityBlackList": {},
+          "nocacheList": [],
+          "enableMdnsDiscover": true,
+          "enableStorageDiscover": true,
+          "resetStorageDiscover": false,
+          "enableBleDiscover": false,
+          "failsafeCount": 0,
+          "postfix": "",
+          "debug": false,
+          "debugMdns": false,
+          "debugCoap": false,
+          "debugWs": false,
+          "unregisterOnShutdown": false
+        }
 persistence:
   data:
     type: persistentVolumeClaim
