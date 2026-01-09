@@ -98,6 +98,10 @@ configMaps:
           drop_params: true
           num_retries: 3
           telemetry: false
+          cache: true
+          cache_params:
+            type: local
+            ttl: 3600
 
         model_list:
           - model_name: gpt-5-mini
