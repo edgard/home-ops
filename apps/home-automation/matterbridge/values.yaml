@@ -48,10 +48,8 @@ controllers:
           - |
             matterbridge --add matterbridge-zigbee2mqtt
             matterbridge --add matterbridge-hass
-            matterbridge --add matterbridge-shelly
             matterbridge --enable matterbridge-zigbee2mqtt
             matterbridge --enable matterbridge-hass
-            matterbridge --enable matterbridge-shelly
             matterbridge --list
     containers:
       app:
@@ -154,13 +152,12 @@ configMaps:
           "token": "${HASS_TOKEN}",
           "certificatePath": "",
           "rejectUnauthorized": true,
-          "reconnectTimeout": 60,
-          "reconnectRetries": 10,
+          "reconnectTimeout": 30,
+          "reconnectRetries": 20,
           "filterByArea": "",
           "filterByLabel": "",
           "applyFiltersToDeviceEntities": false,
           "whiteList": [
-            "cover.bedroom_shades",
             "fan.bedroom_air_purifier_clean",
             "fan.office_air_purifier_clean",
             "input_boolean.home_presence",
@@ -173,35 +170,6 @@ configMaps:
           "splitEntities": [],
           "enableServerRvc": true,
           "debug": false,
-          "unregisterOnShutdown": false
-        }
-      matterbridge-shelly.config.json: |
-        {
-          "name": "matterbridge-shelly",
-          "type": "DynamicPlatform",
-          "enabled": true,
-          "username": "",
-          "password": "",
-          "switchList": [],
-          "lightList": [],
-          "inputContactList": [],
-          "inputMomentaryList": [],
-          "inputLatchingList": [],
-          "whiteList": [],
-          "blackList": [],
-          "entityBlackList": [],
-          "deviceEntityBlackList": {},
-          "nocacheList": [],
-          "enableMdnsDiscover": true,
-          "enableStorageDiscover": true,
-          "resetStorageDiscover": false,
-          "enableBleDiscover": false,
-          "failsafeCount": 0,
-          "postfix": "",
-          "debug": false,
-          "debugMdns": false,
-          "debugCoap": false,
-          "debugWs": false,
           "unregisterOnShutdown": false
         }
 persistence:
