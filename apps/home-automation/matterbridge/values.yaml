@@ -166,8 +166,9 @@ configMaps:
             "sensor.office_air_quality"
           ],
           "blackList": [],
-          "deviceEntityBlackList": [],
+          "deviceEntityBlackList": {},
           "splitEntities": [],
+          "airQualityRegex": "^sensor\\..*_air_quality$",
           "enableServerRvc": true,
           "debug": false,
           "unregisterOnShutdown": false
