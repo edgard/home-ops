@@ -18,7 +18,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/berriai/litellm
-          tag: v1.80.8-stable
+          tag: v1.80.11-stable
         args:
           - "--config"
           - "/app/config.yaml"

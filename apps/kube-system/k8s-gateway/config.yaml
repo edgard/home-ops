@@ -2,6 +2,6 @@
 chart:
   repo: https://k8s-gateway.github.io/k8s_gateway/
   name: k8s-gateway
-  version: 3.4.0
+  version: 3.4.1
 sync:
   wave: "-4"
