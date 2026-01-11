@@ -57,6 +57,19 @@ configMaps:
       mosquitto.conf: |-
         listener 1883
         allow_anonymous true
+
+        # Low-latency optimization - disables Nagle's algorithm
+        set_tcp_nodelay true
+
+        # Message handling
+        max_queued_messages 1000
+        queue_qos0_messages true
+
+        # Persistence (keep for reliability)
         persistence true
         persistence_location /mosquitto/data/
+        autosave_interval 300
+
+        # Logging
         log_dest stdout
+        connection_messages true
