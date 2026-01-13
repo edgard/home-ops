@@ -54,10 +54,10 @@ GitOps-managed K3s homelab on TrueNAS (k3d). VPN-only access. Single-node cluste
 ## Bitwarden Secrets (must match exactly)
 - **Bootstrap**: `dockerhub_username`, `dockerhub_token`
 - **Argo**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
-- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `restic_server_password`, `tailscale_auth_key`
+- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `restic_server_password`, `tailscale_auth_key`, `telegram_bot_token`, `telegram_chat_id`
 
 - **Media**: `plex_claim`, `plextraktsync_plex_token`, `plextraktsync_plex_username`, `plextraktsync_trakt_username`, `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
-- **Selfhosted**: `changedetection_api_key`, `changedetection_notification_url`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `litellm_master_key`, `metamcp_auth_secret`, `n8n_encryption_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`
+- **Selfhosted**: `changedetection_api_key`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `litellm_master_key`, `metamcp_auth_secret`, `n8n_encryption_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`
 
 ## Bootstrap Flow
 1. `task bootstrap:create` creates k3d cluster on remote TrueNAS via SSH (`DOCKER_HOST=ssh://user@host`)

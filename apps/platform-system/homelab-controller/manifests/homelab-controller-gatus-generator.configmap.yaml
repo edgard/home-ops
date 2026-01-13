@@ -178,7 +178,7 @@ data:
                 },
                 "interval": "30s",
                 "conditions": conditions,
-                "alerts": [{"type": "n8n"}],
+                "alerts": [{"type": "telegram"}],
             }
 
             # Add client.insecure if annotation is set
