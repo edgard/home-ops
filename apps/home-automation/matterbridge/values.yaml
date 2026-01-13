@@ -46,9 +46,7 @@ controllers:
           - /bin/sh
           - -c
           - |
-            matterbridge --add matterbridge-zigbee2mqtt
             matterbridge --add matterbridge-hass
-            matterbridge --enable matterbridge-zigbee2mqtt
             matterbridge --enable matterbridge-hass
             matterbridge --list
     containers:
@@ -85,62 +83,6 @@ configMaps:
           "type": "bridge",
           "frontend": 8283,
           "debug": false,
-          "unregisterOnShutdown": false,
-        }
-      matterbridge-zigbee2mqtt.config.json: |
-        {
-          "name": "matterbridge-zigbee2mqtt",
-          "type": "DynamicPlatform",
-          "enabled": true,
-          "host": "mqtt://mosquitto.home-automation.svc.cluster.local",
-          "port": 1883,
-          "protocolVersion": 5,
-          "topic": "zigbee2mqtt",
-          "username": "",
-          "password": "",
-          "whiteList": [],
-          "blackList": [
-            "Coordinator",
-            "Living Room Zigbee Repeater",
-            "Living Room IR Blaster",
-            "Office Switch",
-            "Bedroom Front Switch",
-            "Bedroom Back Switch",
-            "Bedroom Ceiling 1 Light",
-            "Bedroom Ceiling 2 Light",
-            "Bedroom Ceiling 3 Light",
-            "Bedroom Ceiling 4 Light",
-            "Bedroom Ceiling 5 Light",
-            "Bedroom Ceiling 6 Light",
-            "Office Ceiling 1 Light",
-            "Office Ceiling 2 Light",
-            "Office Ceiling 3 Light",
-            "Office Ceiling 4 Light",
-            "Living Room Corridor 1 Light",
-            "Living Room Corridor 2 Light"
-          ],
-          "switchList": [],
-          "lightList": [],
-          "outletList": [
-            "Rouvida Bike Charger",
-            "Office 3D Printer",
-            "Zebra Bike Charger",
-            "Bike Trainer"
-          ],
-          "featureBlackList": [
-            "linkquality",
-            "last_seen",
-            "elapsed",
-            "update",
-            "update_available",
-            "device_temperature"
-          ],
-          "deviceFeatureBlackList": {
-            "Office Motion Sensor": ["illuminance"]
-          },
-          "scenesType": "outlet",
-          "scenesPrefix": true,
-          "debug": false,
           "unregisterOnShutdown": false
         }
       matterbridge-hass.config.json: |
@@ -152,12 +94,39 @@ configMaps:
           "token": "${HASS_TOKEN}",
           "certificatePath": "",
           "rejectUnauthorized": true,
-          "reconnectTimeout": 30,
+          "reconnectTimeout": 60,
           "reconnectRetries": 20,
           "filterByArea": "",
           "filterByLabel": "",
           "applyFiltersToDeviceEntities": false,
           "whiteList": [
+            "Bathroom Sink Water Sensor",
+            "Bathroom Washer Water Sensor",
+            "Bedroom Ceiling Lights",
+            "Bedroom Climate Sensor",
+            "Bedroom Heater",
+            "Bedroom Left Shades",
+            "Bedroom Mood Light",
+            "Bedroom Right Shades",
+            "Bedroom Window Sensor",
+            "Bike Trainer",
+            "Guest Bathroom Sink Water Sensor",
+            "Living Room Climate Sensor",
+            "Living Room Corridor Lights",
+            "Living Room Door Sensor",
+            "Living Room Mood Light",
+            "Living Room Motion Sensor",
+            "Living Room Sink Water Sensor",
+            "Living Room Window Sensor",
+            "Office 3D Printer",
+            "Office Ceiling Lights",
+            "Office Climate Sensor",
+            "Office Heater",
+            "Office Motion Sensor",
+            "Office Shelf Lights",
+            "Office Window Sensor",
+            "Rouvida Bike Charger",
+            "Zebra Bike Charger",
             "fan.bedroom_air_purifier_clean",
             "fan.office_air_purifier_clean",
             "input_boolean.home_presence",
@@ -166,7 +135,25 @@ configMaps:
             "sensor.office_air_quality"
           ],
           "blackList": [],
-          "deviceEntityBlackList": {},
+          "deviceEntityBlackList": {
+            "Bedroom Heater": ["switch.bedroom_heater_child_lock", "switch.bedroom_heater_display_flip", "switch.bedroom_heater_helper", "switch.bedroom_heater_state", "switch.bedroom_heater_temperature_setpoint_hold", "switch.bedroom_heater_valve_detection", "switch.bedroom_heater_window_detection"],
+            "Office Heater": ["switch.office_heater_child_lock", "switch.office_heater_display_flip", "switch.office_heater_helper", "switch.office_heater_state", "switch.office_heater_temperature_setpoint_hold", "switch.office_heater_valve_detection", "switch.office_heater_window_detection"],
+            "Bedroom Left Shades": ["sensor.bedroom_left_shades_device_temperature", "switch.bedroom_left_shades_reverse_direction"],
+            "Bedroom Right Shades": ["sensor.bedroom_right_shades_device_temperature", "switch.bedroom_right_shades_reverse_direction"],
+            "Bike Trainer": ["switch.bike_trainer_child_lock", "switch.bike_trainer_led_enable"],
+            "Office 3D Printer": ["switch.office_3d_printer_child_lock", "switch.office_3d_printer_led_enable"],
+            "Rouvida Bike Charger": ["switch.rouvida_bike_charger_child_lock", "switch.rouvida_bike_charger_led_enable"],
+            "Zebra Bike Charger": ["switch.zebra_bike_charger_child_lock", "switch.zebra_bike_charger_led_enable"],
+            "Office Motion Sensor": ["switch.office_motion_sensor_find_switch"],
+            "Bathroom Sink Water Sensor": ["sensor.bathroom_sink_water_sensor_device_temperature"],
+            "Bathroom Washer Water Sensor": ["sensor.bathroom_washer_water_sensor_device_temperature"],
+            "Guest Bathroom Sink Water Sensor": ["sensor.guest_bathroom_sink_water_sensor_device_temperature"],
+            "Living Room Sink Water Sensor": ["sensor.living_room_sink_water_sensor_device_temperature"],
+            "Bedroom Window Sensor": ["sensor.bedroom_window_sensor_device_temperature"],
+            "Living Room Door Sensor": ["sensor.living_room_door_sensor_device_temperature"],
+            "Living Room Window Sensor": ["sensor.living_room_window_sensor_device_temperature"],
+            "Office Window Sensor": ["sensor.office_window_sensor_device_temperature"]
+          },
           "splitEntities": [],
           "airQualityRegex": "^sensor\\..*_air_quality$",
           "enableServerRvc": true,
