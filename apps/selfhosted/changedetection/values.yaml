@@ -18,7 +18,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/dgtlmoon/changedetection.io
-          tag: 0.51.4
+          tag: 0.52.1
         env:
           BASE_URL: https://changedetection.edgard.org
           USE_X_SETTINGS: "1"
