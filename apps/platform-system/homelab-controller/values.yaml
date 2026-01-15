@@ -44,24 +44,13 @@ controllers:
         probes:
           startup:
             enabled: true
-            spec:
-              httpGet:
-                path: /healthz
-                port: 8080
-              failureThreshold: 30
-              periodSeconds: 10
+            port: 8080
           liveness:
             enabled: true
-            spec:
-              httpGet:
-                path: /livez
-                port: 8080
+            port: 8080
           readiness:
             enabled: true
-            spec:
-              httpGet:
-                path: /readyz
-                port: 8080
+            port: 8080
 
 serviceAccount:
   main:

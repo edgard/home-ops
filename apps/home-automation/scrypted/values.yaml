@@ -35,24 +35,13 @@ controllers:
         probes:
           startup:
             enabled: true
-            spec:
-              httpGet:
-                path: /
-                port: 11080
-              failureThreshold: 30
-              periodSeconds: 10
+            port: 11080
           liveness:
             enabled: true
-            spec:
-              httpGet:
-                path: /
-                port: 11080
+            port: 11080
           readiness:
             enabled: true
-            spec:
-              httpGet:
-                path: /
-                port: 11080
+            port: 11080
         resources:
           limits: null
           requests: null

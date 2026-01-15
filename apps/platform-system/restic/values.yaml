@@ -54,18 +54,13 @@ controllers:
         args:
           - --path=/repository
           - --htpasswd-file=/repository/.htpasswd
-          - --prometheus
-          - --prometheus-no-auth
         probes:
           startup:
             enabled: true
-            path: /metrics
           liveness:
             enabled: true
-            path: /metrics
           readiness:
             enabled: true
-            path: /metrics
 
   backup:
     type: cronjob

@@ -50,26 +50,20 @@ controllers:
         env:
           ENABLE_UNSAFE_STREAMABLE_HTTP_TRANSPORT: "1"
           PORT: "3002"
-          HOST: "127.0.0.1"
+          HOST: "0.0.0.0"
           ALLOW_ONLY_READONLY_TOOLS: "true"
           MASK_SECRETS: "true"
           SPAWN_MAX_BUFFER: "10485760"
         probes:
           startup:
             enabled: true
-            spec:
-              tcpSocket:
-                port: 3002
+            port: 3002
           liveness:
             enabled: true
-            spec:
-              tcpSocket:
-                port: 3002
+            port: 3002
           readiness:
             enabled: true
-            spec:
-              tcpSocket:
-                port: 3002
+            port: 3002
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -83,7 +77,7 @@ controllers:
         env:
           MCP_MODE: "http"
           PORT: "3003"
-          HOST: "127.0.0.1"
+          HOST: "0.0.0.0"
           LOG_LEVEL: "error"
           NODE_ENV: "production"
           AUTH_TOKEN: "internal-sidecar-token"
@@ -99,22 +93,13 @@ controllers:
         probes:
           startup:
             enabled: true
-            spec:
-              httpGet:
-                path: /health
-                port: 3003
+            port: 3003
           liveness:
             enabled: true
-            spec:
-              httpGet:
-                path: /health
-                port: 3003
+            port: 3003
           readiness:
             enabled: true
-            spec:
-              httpGet:
-                path: /health
-                port: 3003
+            port: 3003
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
