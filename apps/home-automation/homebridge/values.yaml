@@ -1,11 +1,11 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 1000
+    fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 1000
-    runAsNonRoot: true
-    runAsUser: 1000
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
 
 controllers:
   main:
@@ -27,8 +27,14 @@ controllers:
     containers:
       app:
         image:
-          repository: ghcr.io/home-assistant/home-assistant
-          tag: 2025.12.5
+          repository: homebridge/homebridge
+          tag: 2026-01-14
+        env:
+          HOMEBRIDGE_CONFIG_UI: "1"
+          HOMEBRIDGE_CONFIG_UI_PORT: "8581"
+        ports:
+          - name: http
+            containerPort: 8581
         probes:
           startup:
             enabled: true
@@ -36,9 +42,8 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-        resources:
-          limits: null
-          requests: null
+        securityContext:
+          allowPrivilegeEscalation: true
 
 service:
   main:
@@ -49,32 +54,33 @@ service:
     ports:
       http:
         enabled: true
-        port: 8123
+        port: 8581
         protocol: TCP
-        targetPort: 8123
+        targetPort: 8581
+
 route:
   main:
     annotations:
       gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Home Assistant
+      gethomepage.dev/name: Homebridge
       gethomepage.dev/group: Home Automation
-      gethomepage.dev/icon: home-assistant.svg
-      gethomepage.dev/app: home-assistant
+      gethomepage.dev/icon: homebridge.svg
+      gethomepage.dev/app: homebridge
     parentRefs:
       - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:
-      - home-assistant.edgard.org
+      - homebridge.edgard.org
     rules:
       - backendRefs:
           - identifier: main
-            port: 8123
+            port: 8581
 
 persistence:
   data:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
-    size: 10Gi
+    size: 5Gi
     globalMounts:
-      - path: /config
+      - path: /homebridge
