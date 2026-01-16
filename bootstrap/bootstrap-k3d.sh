@@ -18,6 +18,7 @@ VOLUME_MOUNTS=(
     "/mnt/dpool/media:/mnt/dpool/media"
     "/mnt/dpool/restic:/mnt/dpool/restic"
     "/dev/ttyUSB0:/dev/ttyUSB0"
+    "/dev/ttyUSB1:/dev/ttyUSB1"
 )
 
 confirm() {

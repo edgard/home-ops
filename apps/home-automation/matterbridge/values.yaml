@@ -93,9 +93,6 @@ configMaps:
           "blackList": [
             "Coordinator",
             "Living Room Zigbee Repeater",
-            "Office Switch",
-            "Bedroom Front Switch",
-            "Bedroom Back Switch",
             "Bedroom Ceiling 1 Light",
             "Bedroom Ceiling 2 Light",
             "Bedroom Ceiling 3 Light",
