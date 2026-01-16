@@ -46,7 +46,7 @@ controllers:
       mcp-kubernetes:
         image:
           repository: flux159/mcp-server-kubernetes
-          tag: v3.1.1
+          tag: v3.2.0
         env:
           ENABLE_UNSAFE_STREAMABLE_HTTP_TRANSPORT: "1"
           PORT: "3002"
