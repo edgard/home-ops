@@ -1,6 +1,6 @@
 # Home Ops
 
-GitOps-driven Kubernetes homelab running on k3d (K3s in Docker), managed by Argo CD with Terraform for external infrastructure.
+GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with Terraform for external infrastructure.
 
 ## Quick Start
 
@@ -8,32 +8,44 @@ GitOps-driven Kubernetes homelab running on k3d (K3s in Docker), managed by Argo
 
 ```bash
 # Install CLI tools (macOS)
-brew install kubectl helm helmfile k3d docker go-task opentofu
+brew install kubectl helm helmfile talosctl go-task opentofu
 
 # Set environment variables
 export BWS_ACCESS_TOKEN="your-bitwarden-secrets-token"
-export DOCKER_HOST="ssh://user@host.local"
+export TALOS_NODE="192.168.1.253"
+export TALOS_CLUSTER_NAME="homelab"
+export TALOS_INSTALL_DISK="/dev/vda"
 ```
 
 ### Bootstrap Cluster
 
 ```bash
-# Create cluster
-task bootstrap:create
+# Install and bootstrap Talos + platform
+task cluster:create
 
-# Destroy cluster
-task bootstrap:destroy
+# Destroy platform and reset Talos node
+task cluster:destroy
 
-# Recreate cluster
-task bootstrap:recreate
+# Install platform components
+task platform:create
+
+# Uninstall platform components
+task platform:destroy
 ```
 
 ## Common Commands
 
 ```bash
 # Cluster management
-task bootstrap:create              # Create cluster
-task bootstrap:destroy             # Destroy cluster
+task cluster:create                # Install and bootstrap Talos + platform
+task cluster:destroy               # Destroy platform and reset Talos node
+task talos:gen                     # Generate Talos config
+task talos:apply                   # Apply Talos config
+task talos:bootstrap               # Bootstrap Talos control plane
+
+# Platform management
+task platform:create               # Install platform components
+task platform:destroy              # Uninstall platform components
 
 # Argo CD
 task argo:sync                     # Sync all apps
@@ -58,18 +70,9 @@ task tf:apply                      # Apply infrastructure changes
 │   ├── platform-system/
 │   └── selfhosted/
 ├── argocd/                 # Argo CD bootstrap (root app, appsets, projects)
-├── bootstrap/              # Cluster initialization (k3d, helmfile)
-└── terraform/              # External infrastructure (Cloudflare, Tailscale)
+├── bootstrap/              # Talos + platform bootstrap
+└── terraform/              # External infrastructure (Cloudflare)
 ```
-
-## Architecture
-
-**Cluster**: k3d (K3s in Docker) on remote TrueNAS Scale host  
-**Access**: VPN-only via Tailscale (no public exposure)  
-**Ingress**: Istio Gateway API  
-**Storage**: local-path-provisioner (SSD: `local-fast`, HDD: `local-bulk`)  
-**Secrets**: Bitwarden Secrets Manager via External Secrets Operator  
-**DNS**: Split-horizon (Cloudflare public, Unifi internal)  
 
 ## Configuration
 

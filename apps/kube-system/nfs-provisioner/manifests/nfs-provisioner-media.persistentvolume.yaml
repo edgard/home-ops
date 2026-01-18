@@ -1,0 +1,25 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: media
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  capacity:
+    storage: 10Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.2
+    - hard
+    - noatime
+    - nconnect=16
+  csi:
+    driver: nfs.csi.k8s.io
+    volumeHandle: truenas-dpool-media
+    volumeAttributes:
+      server: 192.168.1.254
+      share: /mnt/dpool/media

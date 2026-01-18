@@ -37,6 +37,11 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         resources:
           limits: null
           requests: null

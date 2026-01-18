@@ -3,7 +3,7 @@ apiVersion: externaldns.k8s.io/v1alpha1
 kind: DNSEndpoint
 metadata:
   name: restic
-  namespace: platform-system
+  namespace: selfhosted
 spec:
   endpoints:
     - dnsName: restic.edgard.org

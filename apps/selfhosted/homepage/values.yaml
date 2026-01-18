@@ -21,6 +21,11 @@ controllers:
         image:
           repository: ghcr.io/gethomepage/homepage
           tag: v1.8.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         command:
           - sh
           - -c
@@ -45,6 +50,11 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 
 serviceAccount:
   homepage:

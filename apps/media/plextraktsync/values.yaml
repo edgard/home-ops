@@ -42,6 +42,11 @@ controllers:
             enabled: false
           startup:
             enabled: false
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
   sync:
     type: cronjob
     cronjob:
@@ -67,6 +72,11 @@ controllers:
             enabled: false
           startup:
             enabled: false
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 service:
   main:
     enabled: false

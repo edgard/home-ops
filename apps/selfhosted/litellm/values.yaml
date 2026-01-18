@@ -147,9 +147,9 @@ persistence:
             subPath: config.yaml
   github-copilot-tokens:
     type: persistentVolumeClaim
-    storageClass: local-fast
     accessMode: ReadWriteOnce
     size: 100Mi
+    storageClass: nfs-fast
     retain: true
     advancedMounts:
       main:

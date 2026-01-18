@@ -1,8 +1,11 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 1000
+    fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
 
 controllers:
   main:
@@ -14,7 +17,7 @@ controllers:
         k8s.v1.cni.cncf.io/networks: |-
           [
             {
-              "name": "multus-lan-macvlan",
+              "name": "multus-lan-bridge",
               "namespace": "kube-system",
               "ips": ["192.168.1.245/24"],
               "gateway": ["192.168.1.1"],
@@ -42,6 +45,14 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - SETUID
+              - SETGID
 service:
   main:
     controller: main

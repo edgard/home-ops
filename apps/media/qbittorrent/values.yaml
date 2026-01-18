@@ -1,8 +1,11 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 1000
+    fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
 
 controllers:
   main:
@@ -29,6 +32,14 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - SETUID
+              - SETGID
       gluetun:
         image:
           repository: qmcgaw/gluetun
@@ -54,8 +65,6 @@ controllers:
             enabled: true
             port: 9999
         securityContext:
-          runAsUser: 0
-          runAsNonRoot: false
           capabilities:
             add:
               - NET_ADMIN

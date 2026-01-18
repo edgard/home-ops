@@ -24,6 +24,11 @@ controllers:
         envFrom:
           - secretRef:
               name: recyclarr-credentials
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 service:
   main:
     controller: main

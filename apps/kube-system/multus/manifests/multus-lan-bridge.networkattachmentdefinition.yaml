@@ -1,0 +1,17 @@
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: multus-lan-bridge
+  namespace: kube-system
+spec:
+  config: |-
+    {
+      "cniVersion": "1.1.0",
+      "name": "multus-lan-bridge",
+      "type": "bridge",
+      "bridge": "br0",
+      "ipam": {
+        "type": "static"
+      }
+    }

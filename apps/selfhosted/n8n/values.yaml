@@ -87,7 +87,7 @@ persistence:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
     size: 10Gi
-    storageClass: local-fast
+    storageClass: nfs-fast
     advancedMounts:
       n8n:
         app:

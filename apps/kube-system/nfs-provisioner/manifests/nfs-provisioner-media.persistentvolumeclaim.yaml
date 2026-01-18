@@ -8,8 +8,9 @@ metadata:
     argocd.argoproj.io/sync-wave: "-2"
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
       storage: 10Ti
-  storageClassName: local-bulk
+  storageClassName: ""
+  volumeName: media

@@ -1,0 +1,20 @@
+---
+controller:
+  resources: {}
+node:
+  resources: {}
+storageClasses:
+  - name: nfs-fast
+    annotations:
+      storageclass.kubernetes.io/is-default-class: "true"
+    parameters:
+      server: 192.168.1.254
+      share: /mnt/spool/appdata
+      subDir: ${pvc.metadata.namespace}/${pvc.metadata.name}
+    reclaimPolicy: Retain
+    volumeBindingMode: Immediate
+    mountOptions:
+      - nfsvers=4.2
+      - hard
+      - noatime
+      - nconnect=16

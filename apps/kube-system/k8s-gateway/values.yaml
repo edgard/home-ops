@@ -39,7 +39,7 @@ extraZonePlugins:
 service:
   type: ClusterIP
   port: 53
-  clusterIP: 10.43.53.53
+  clusterIP: 10.96.53.53
 
 # Resources - unlimited per cluster policy
 resources: {}

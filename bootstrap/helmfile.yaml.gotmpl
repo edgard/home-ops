@@ -1,4 +1,4 @@
-{{- $lppCfg := readFile "../apps/kube-system/local-path-provisioner/config.yaml" | fromYaml -}}
+{{- $nfsCfg := readFile "../apps/kube-system/nfs-provisioner/config.yaml" | fromYaml -}}
 {{- $multusCfg := readFile "../apps/kube-system/multus/config.yaml" | fromYaml -}}
 {{- $certManagerCfg := readFile "../apps/platform-system/cert-manager/config.yaml" | fromYaml -}}
 {{- $externalSecretsCfg := readFile "../apps/platform-system/external-secrets/config.yaml" | fromYaml -}}
@@ -6,8 +6,8 @@
 {{- $k8tzCfg := readFile "../apps/kube-system/k8tz/config.yaml" | fromYaml -}}
 
 repositories:
-  - name: rke2-charts
-    url: "{{ $multusCfg.chart.repo }}"
+  - name: csi-nfs
+    url: "{{ $nfsCfg.chart.repo }}"
 
 helmDefaults:
   cleanupOnFail: true
@@ -28,35 +28,27 @@ hooks:
         for ns in media platform-system; do
           kubectl create namespace "${ns}" --dry-run=client -o yaml | kubectl apply -f -
         done
-        kubectl -n kube-system run -q bootstrap-image-warmup-busybox --rm --attach --restart=Never --image=docker.io/library/busybox:stable --command -- sh -c "true" >/dev/null
         kubectl -n kube-system run -q bootstrap-image-warmup-k8tz --rm --attach --restart=Never --image=quay.io/k8tz/k8tz:{{ (toString $k8tzCfg.chart.version) | trimPrefix "v" }} -- --help >/dev/null
 
 releases:
-  - name: local-path-provisioner
+  - name: nfs-provisioner
     namespace: kube-system
-    chart: "{{ $lppCfg.chart.repo }}"
-    version: "{{ $lppCfg.chart.version }}"
+    chart: "csi-nfs/{{ $nfsCfg.chart.name }}"
+    version: "{{ $nfsCfg.chart.version }}"
     values:
-      - ../apps/kube-system/local-path-provisioner/values.yaml
+      - ../apps/kube-system/nfs-provisioner/values.yaml
     hooks:
       - events:
           - "postsync"
-        command: bash
+        command: kubectl
         args:
-          - -c
-          - |
-            set -euo pipefail
-            kubectl apply -f ../apps/kube-system/local-path-provisioner/manifests
-            if kubectl get storageclass local-path >/dev/null 2>&1; then
-              kubectl patch storageclass local-path --type merge -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false","storageclass.beta.kubernetes.io/is-default-class":"false"}}}'
-            fi
-            # Restart K3s local-path-provisioner to pick up the custom local-path-config ConfigMap
-            kubectl rollout restart deploy/local-path-provisioner -n kube-system
-            kubectl rollout status deploy/local-path-provisioner -n kube-system --timeout=120s
+          - apply
+          - -f
+          - ../apps/kube-system/nfs-provisioner/manifests
 
   - name: multus
     namespace: kube-system
-    chart: "rke2-charts/{{ $multusCfg.chart.name }}"
+    chart: "{{ $multusCfg.chart.repo }}"
     version: "{{ $multusCfg.chart.version }}"
     values:
       - ../apps/kube-system/multus/values.yaml

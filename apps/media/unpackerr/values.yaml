@@ -27,6 +27,11 @@ controllers:
         envFrom:
           - secretRef:
               name: unpackerr-credentials
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 service:
   main:
     controller: main

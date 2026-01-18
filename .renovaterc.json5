@@ -10,6 +10,11 @@
     "docker:enableMajor",
   ],
 
+  // === Kubernetes Manager ===
+  kubernetes: {
+    managerFilePatterns: ["/^apps\\/.*\\/manifests\\/.*\\.yaml$/", "/^argocd\\/.*\\.yaml$/"],
+  },
+
   // === Custom Managers ===
   customManagers: [
     // Helm charts in app config.yaml files (OCI and HTTP repositories)
@@ -25,15 +30,6 @@
       datasourceTemplate: "{{#if packageName}}docker{{else}}helm{{/if}}",
     },
 
-    // Container images in Kubernetes manifests
-    {
-      customType: "regex",
-      description: "Container images in manifest files",
-      managerFilePatterns: ["/^apps\\/.*\\/manifests\\/.*\\.ya?ml$/"],
-      matchStrings: ["image:\\s*(?<depName>[^:]+):(?<currentValue>[^\\s]+)"],
-      datasourceTemplate: "docker",
-    },
-
     // Gateway API CRDs (uses renovate comment hint)
     {
       customType: "regex",
@@ -42,29 +38,10 @@
       matchStrings: ["# renovate: datasource=github-releases depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?"],
       datasourceTemplate: "github-releases",
     },
-
-    // K3s version in Taskfile
-    {
-      customType: "regex",
-      description: "K3s version in Taskfile",
-      managerFilePatterns: ["/^Taskfile\\.ya?ml$/"],
-      matchStrings: ["K3S_VERSION:.+default\\s+\"(?<currentValue>v[^\"]+)\""],
-      depNameTemplate: "rancher/k3s",
-      datasourceTemplate: "github-releases",
-    },
   ],
 
   // === Package Rules ===
   packageRules: [
-    // Manual review: K3s updates (cluster-critical)
-    {
-      description: "Require manual review for K3s updates",
-      matchPackageNames: ["rancher/k3s"],
-      automerge: false,
-      groupName: "k3s",
-      addLabels: ["renovate/manual-review"],
-    },
-
     // Manual review: Gateway API updates (CRD changes are risky)
     {
       description: "Require manual review for Gateway API updates",
@@ -85,7 +62,7 @@
     {
       description: "Require manual review for major updates",
       matchUpdateTypes: ["major"],
-      matchPackageNames: ["!rancher/k3s", "!kubernetes-sigs/gateway-api"],
+      matchPackageNames: ["!kubernetes-sigs/gateway-api"],
       automerge: false,
       groupName: "dependencies (major)",
       addLabels: ["renovate/manual-review"],
@@ -95,7 +72,7 @@
     {
       description: "Auto-merge non-major updates",
       matchUpdateTypes: ["minor", "patch", "digest", "pin", "rollback"],
-      matchPackageNames: ["!rancher/k3s", "!kubernetes-sigs/gateway-api"],
+      matchPackageNames: ["!kubernetes-sigs/gateway-api"],
       groupName: "dependencies (non-major)",
       automerge: true,
       automergeType: "branch",

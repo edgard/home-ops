@@ -39,6 +39,11 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         lifecycle:
           postStart:
             exec:
@@ -99,6 +104,11 @@ controllers:
           readiness:
             enabled: true
             port: websocket
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 service:
   main:
     controller: main

@@ -11,8 +11,9 @@ shell: bash -c
 
 vars:
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
-  CLUSTER_NAME: '{{.CLUSTER_NAME | default "homelab"}}'
-  K3S_VERSION: '{{.K3S_VERSION | default "v1.33.6-k3s1"}}'
+  TALOS_CLUSTER_NAME: '{{.TALOS_CLUSTER_NAME | default "homelab"}}'
+  TALOS_INSTALL_DISK: '{{.TALOS_INSTALL_DISK | default ""}}'
+  TALOS_NODE: '{{.TALOS_NODE | default ""}}'
 
 tasks:
   default:
@@ -20,49 +21,207 @@ tasks:
     cmds:
       - task --list
 
-  bootstrap:create:
-    desc: Bootstrap k3d cluster and deploy platform via helmfile
+  talos:gen:
+    desc: Generate Talos config into ~/.talos
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
-        - DOCKER_HOST
-        - BWS_ACCESS_TOKEN
-    env:
-      DOCKER_HOST: "{{.DOCKER_HOST}}"
-      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
-      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
-      K3S_VERSION: "{{.K3S_VERSION}}"
+        - TALOS_NODE
+        - TALOS_CLUSTER_NAME
+        - TALOS_INSTALL_DISK
     cmds:
-      - ./bootstrap-k3d.sh create
+      - |
+        echo "==> Generating Talos config..."
+        tmp_dir="$(mktemp -d)"
+        if talosctl gen config "{{.TALOS_CLUSTER_NAME}}" "https://{{.TALOS_NODE}}:6443" \
+          --install-disk "{{.TALOS_INSTALL_DISK}}" \
+          --config-patch-control-plane "@controlplane-patch.yaml" \
+          --with-secrets "secrets.yaml" \
+          --output-dir "$tmp_dir" \
+          --force; then
+          mkdir -p "$HOME/.talos"
+          mv -f "$tmp_dir/talosconfig" "$HOME/.talos/config"
+          mv -f "$tmp_dir/controlplane.yaml" "$HOME/.talos/controlplane.yaml"
+          rm -rf "$tmp_dir"
+          echo "[OK] Talos config generated at $HOME/.talos"
+        else
+          echo "[ERR] Failed to generate Talos config"
+          rm -rf "$tmp_dir"
+          exit 1
+        fi
 
-  bootstrap:destroy:
-    desc: Destroy k3d cluster
+  talos:apply:
+    desc: Apply Talos config to control plane
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - TALOS_NODE
+    vars:
+      INSECURE:
+        sh: |
+          if talosctl version --nodes "{{.TALOS_NODE}}" --short >/dev/null 2>&1; then
+            echo ""
+          else
+            echo "--insecure"
+          fi
+    cmds:
+      - |
+        echo "==> Applying Talos config..."
+        talosctl config endpoints "{{.TALOS_NODE}}" >/dev/null 2>&1
+        if talosctl apply-config {{.INSECURE}} --nodes "{{.TALOS_NODE}}" --file "$HOME/.talos/controlplane.yaml"; then
+           echo "[OK] Talos config applied"
+        else
+           echo "[ERR] Failed to apply Talos config"
+           exit 1
+        fi
+
+  talos:bootstrap:
+    desc: Bootstrap Talos control plane and kubeconfig
     interactive: true
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
-        - DOCKER_HOST
-    env:
-      DOCKER_HOST: "{{.DOCKER_HOST}}"
-      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
+        - TALOS_NODE
+        - TALOS_CLUSTER_NAME
     cmds:
-      - ./bootstrap-k3d.sh destroy
+      - |
+        echo "==> Waiting for Talos API..."
+        for attempt in {1..30}; do
+          if talosctl version --nodes "{{.TALOS_NODE}}" >/dev/null 2>&1; then
+            echo "[OK] Talos API ready"
+            break
+          fi
+          sleep 5
+        done
+      - |
+        echo "==> Bootstrapping Talos..."
+        if talosctl bootstrap --nodes "{{.TALOS_NODE}}"; then
+           echo "[OK] Bootstrap initiated"
+        else
+           echo "[WRN] Bootstrap failed (already bootstrapped?)"
+        fi
 
-  bootstrap:recreate:
-    desc: Destroy and recreate k3d cluster
+        echo "==> Waiting for cluster health..."
+        if talosctl health --nodes "{{.TALOS_NODE}}" --wait-timeout 5m; then
+           echo "[OK] Cluster is healthy"
+        else
+           echo "[ERR] Cluster health check failed"
+           exit 1
+        fi
+
+        echo "==> Fetching kubeconfig..."
+        if talosctl kubeconfig --nodes "{{.TALOS_NODE}}" --context "{{.TALOS_CLUSTER_NAME}}"; then
+           kubectl config use-context "admin@{{.TALOS_CLUSTER_NAME}}" >/dev/null 2>&1
+           echo "[OK] Kubeconfig configured"
+        else
+           echo "[ERR] Failed to fetch kubeconfig"
+           exit 1
+        fi
+
+  talos:upgrade:
+    desc: Upgrade Talos on a node using the image from machine config
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - TALOS_NODE
+    cmds:
+      - |
+        echo "==> Upgrading Talos on {{.TALOS_NODE}}..."
+        # Extract image from local generated config (source of truth)
+        IMAGE=$(yq '.machine.install.image | select(. != null)' "$HOME/.talos/controlplane.yaml")
+        if [ -z "$IMAGE" ] || [ "$IMAGE" = "null" ]; then
+          echo "[ERR] Could not find machine.install.image in $HOME/.talos/controlplane.yaml"
+          exit 1
+        fi
+        echo "       Using image: $IMAGE"
+        if talosctl -n "{{.TALOS_NODE}}" upgrade --image "$IMAGE" --preserve=true --reboot-mode=powercycle; then
+           echo "[OK] Upgrade initiated"
+        else
+           echo "[ERR] Upgrade failed"
+           exit 1
+        fi
+
+  talos:upgrade-k8s:
+    desc: Upgrade Kubernetes control plane
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - TALOS_NODE
+        - K8S_VERSION
+    cmds:
+      - |
+        echo "==> Upgrading Kubernetes to {{.K8S_VERSION}}..."
+        if talosctl -n "{{.TALOS_NODE}}" upgrade-k8s --to "{{.K8S_VERSION}}"; then
+           echo "[OK] Kubernetes upgrade initiated"
+        else
+           echo "[ERR] Kubernetes upgrade failed"
+           exit 1
+        fi
+
+  cluster:create:
+    desc: Install, configure, and bootstrap Talos + platform
+    requires:
+      vars:
+        - TALOS_NODE
+        - TALOS_CLUSTER_NAME
+        - TALOS_INSTALL_DISK
+        - BWS_ACCESS_TOKEN
+    cmds:
+      - task: talos:gen
+      - task: talos:apply
+      - task: talos:bootstrap
+      - task: platform:create
+
+  cluster:destroy:
+    desc: Destroy platform and reset Talos node
     interactive: true
     dir: "{{.TASKFILE_DIR}}/bootstrap"
     requires:
       vars:
-        - DOCKER_HOST
+        - TALOS_NODE
+    cmds:
+      - task: platform:destroy
+      - |
+        echo "==> Resetting Talos node..."
+        if talosctl reset --nodes "{{.TALOS_NODE}}" --graceful=false --reboot; then
+           echo "[OK] Node reset triggered"
+        else
+           echo "[ERR] Node reset failed"
+           exit 1
+        fi
+
+  platform:create:
+    desc: Create platform components via helmfile
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
         - BWS_ACCESS_TOKEN
     env:
-      DOCKER_HOST: "{{.DOCKER_HOST}}"
       BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
-      CLUSTER_NAME: "{{.CLUSTER_NAME}}"
-      K3S_VERSION: "{{.K3S_VERSION}}"
     cmds:
-      - ./bootstrap-k3d.sh recreate
+      - |
+        echo "==> Syncing Helmfile..."
+        helmfile -f helmfile.yaml.gotmpl sync
+
+  platform:destroy:
+    desc: Destroy platform components via helmfile
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    cmds:
+      - |
+        echo "==> Destroying Helmfile releases..."
+        helmfile -f helmfile.yaml.gotmpl destroy
+
+  argo:sync:
+    desc: Force Argo CD Applications to refresh
+    vars:
+      app: '{{.app | default ""}}'
+    cmds:
+      - |
+        echo "==> Syncing Argo CD applications..."
+        kubectl -n argocd get applications {{if .app}}-l "app={{.app}}"{{end}} -o name | \
+        xargs -r -n1 -I{} kubectl -n argocd patch {} --type merge -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' >/dev/null 2>&1 || true
+        echo "[OK] Sync triggered"
 
   lint:
     desc: Format + lint all code (YAML, Terraform, Helm)
@@ -82,9 +241,16 @@ tasks:
     desc: Format and lint YAML files
     dir: "{{.TASKFILE_DIR}}"
     cmds:
-      - 'prettier --write "**/*.{yaml,yml}"'
-      - 'yamlfmt "**/*.{yaml,yml}"'
-      - "yamllint ."
+      - |
+        echo "==> Linting YAML..."
+        prettier --write "**/*.{yaml,yml}" >/dev/null 2>&1
+        yamlfmt "**/*.{yaml,yml}" >/dev/null 2>&1
+        if yamllint .; then
+           echo "[OK] YAML clean"
+        else
+           echo "[ERR] YAML errors found"
+           exit 1
+        fi
 
   lint:terraform:
     desc: Format and validate Terraform configs
@@ -96,15 +262,23 @@ tasks:
         - CLOUDFLARE_API_TOKEN
         - TF_VAR_cloudflare_zone_id
     cmds:
-      - "tofu fmt -recursive"
-      - "tofu init -backend=false"
-      - "tofu validate"
+      - |
+        echo "==> Linting Terraform..."
+        tofu fmt -recursive >/dev/null 2>&1
+        tofu init -backend=false >/dev/null 2>&1
+        if tofu validate >/dev/null 2>&1; then
+           echo "[OK] Terraform clean"
+        else
+           echo "[ERR] Terraform errors found"
+           exit 1
+        fi
 
   lint:helm:
     desc: Validate all Helm charts (app-template and custom charts)
     dir: "{{.TASKFILE_DIR}}"
     cmds:
       - |
+        echo "==> Linting Helm charts..."
         failed=0
         for config in apps/*/*/config.yaml; do
           if [ -f "$config" ]; then
@@ -120,23 +294,20 @@ tasks:
             version=$(yq eval '.chart.version' "$config")
 
             if [ "$repo" = "null" ]; then
-              echo "⚠️  Skipped $app: No chart repo defined"
+              echo "[WRN] Skipped $app: No chart repo defined"
               continue
             fi
 
             # Handle OCI vs HTTP repos
             if [[ "$repo" == oci://* ]]; then
-              # For OCI repos, the full path is in repo
               chart="$repo"
             else
-              # For HTTP repos, we need the name field
               name=$(yq eval '.chart.name' "$config")
               if [ "$name" = "null" ]; then
-                echo "⚠️  Skipped $app: Missing chart name"
+                echo "[WRN] Skipped $app: Missing chart name"
                 continue
               fi
 
-              # Add HTTP repo with unique name based on URL hash
               repo_name=$(echo "$repo" | md5sum | cut -d' ' -f1)
               helm repo add "$repo_name" "$repo" >/dev/null 2>&1 || true
               helm repo update "$repo_name" >/dev/null 2>&1 || true
@@ -144,11 +315,11 @@ tasks:
             fi
 
             chart_display=$(basename "$repo")
-            if ! helm template test "$chart" --version "$version" --values "$values" >/dev/null 2>&1; then
-              echo "❌ Failed $app: $chart_display $version"
+            if ! helm template test "$chart" --version "$version" --values "$values" >/dev/null; then
+              echo "[ERR] Failed $app: $chart_display $version"
               failed=1
             else
-              echo "✓ Valid $app: $chart_display $version"
+              echo "    Checked $app"
             fi
           fi
         done
@@ -156,13 +327,7 @@ tasks:
         if [ $failed -eq 1 ]; then
           exit 1
         fi
-
-  argo:sync:
-    desc: Force Argo CD Applications to refresh
-    vars:
-      app: '{{.app | default ""}}'
-    cmds:
-      - 'kubectl -n argocd get applications {{if .app}}-l "app={{.app}}"{{end}} -o name | xargs -r -n1 -I{} kubectl -n argocd patch {} --type merge -p ''{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'' >/dev/null || true'
+        echo "[OK] Helm charts clean"
 
   tf:plan:
     desc: Terraform plan
@@ -174,8 +339,10 @@ tasks:
         - CLOUDFLARE_API_TOKEN
         - TF_VAR_cloudflare_zone_id
     cmds:
-      - "tofu init"
-      - "tofu plan"
+      - |
+        echo "==> Terraform Plan..."
+        tofu init >/dev/null 2>&1
+        tofu plan
 
   tf:apply:
     desc: Terraform apply
@@ -187,11 +354,16 @@ tasks:
         - CLOUDFLARE_API_TOKEN
         - TF_VAR_cloudflare_zone_id
     cmds:
-      - "tofu init"
-      - "tofu apply"
+      - |
+        echo "==> Terraform Apply..."
+        tofu init >/dev/null 2>&1
+        tofu apply
 
   tf:clean:
     desc: Clean terraform state/cache
     dir: "{{.TERRAFORM_DIR}}"
     cmds:
-      - rm -rf .terraform/ .terraform.lock.hcl terraform.tfstate* *.tfplan
+      - |-
+        echo "==> Cleaning Terraform..."
+        rm -rf .terraform/ .terraform.lock.hcl terraform.tfstate* *.tfplan
+        echo "[OK] Cleaned"

@@ -15,7 +15,7 @@ data:
             k8s.v1.cni.cncf.io/networks: |
               [
                 {
-                  "name": "multus-lan-macvlan",
+                  "name": "multus-lan-bridge",
                   "namespace": "kube-system",
                   "ips": ["192.168.1.241/24"],
                   "gateway": ["192.168.1.1"],

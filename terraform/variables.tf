@@ -4,10 +4,3 @@ variable "cloudflare_zone_id" {
   # Set via TF_VAR_cloudflare_zone_id environment variable
 }
 
-variable "tailscale_tailnet" {
-  description = "Tailscale tailnet name"
-  type        = string
-  sensitive   = true
-  # Set via TF_VAR_tailscale_tailnet environment variable
-}
-

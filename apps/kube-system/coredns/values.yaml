@@ -2,15 +2,36 @@
 controllers: {}
 
 configMaps:
-  # Create the custom ConfigMap that k3s CoreDNS automatically mounts
-  custom:
+  coredns:
     enabled: true
-    forceRename: coredns-custom
+    forceRename: coredns
     data:
-      # Files ending in .override are imported INSIDE the main .:53 server block
-      # This avoids memory overhead of a separate server block (prevents OOM)
-      # Hairpin DNS: forward edgard.org queries to k8s-gateway which:
-      # 1. Resolves HTTPRoute hostnames to gateway's internal ClusterIP
-      # 2. Falls through to Unifi (192.168.1.1) for subdomains without HTTPRoutes
-      edgard.override: |-
-        forward edgard.org 10.43.53.53
+      Corefile: |-
+        .:53 {
+            errors
+            health {
+                lameduck 5s
+            }
+            ready
+            log . {
+                class error
+            }
+            prometheus :9153
+
+            kubernetes cluster.local in-addr.arpa ip6.arpa {
+                pods insecure
+                fallthrough in-addr.arpa ip6.arpa
+                ttl 30
+            }
+            forward edgard.org 10.96.53.53
+            forward . /etc/resolv.conf {
+               max_concurrent 1000
+            }
+            cache 30 {
+               disable success cluster.local
+               disable denial cluster.local
+            }
+            loop
+            reload
+            loadbalance
+        }

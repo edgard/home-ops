@@ -15,7 +15,7 @@ controllers:
       annotations:
         k8s.v1.cni.cncf.io/networks: |
           [{
-            "name": "multus-lan-macvlan",
+            "name": "multus-lan-bridge",
             "namespace": "kube-system",
             "ips": ["192.168.1.244/24"],
             "gateway": ["192.168.1.1"],
@@ -84,7 +84,7 @@ controllers:
               restic init
             fi
         env:
-          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
@@ -106,7 +106,7 @@ controllers:
           - appdata
           - --verbose
         env:
-          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
@@ -150,7 +150,7 @@ controllers:
             echo "Running check with full data verification..."
             restic check --read-data --verbose
         env:
-          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.platform-system.svc.cluster.local:8000/
+          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
@@ -177,15 +177,12 @@ service:
 persistence:
   repo:
     type: persistentVolumeClaim
-    storageClass: local-bulk
-    accessMode: ReadWriteOnce
-    size: 5Ti
+    existingClaim: restic-repo
     globalMounts:
       - path: /repository
   appdata:
-    type: hostPath
-    hostPath: /mnt/spool/appdata
-    hostPathType: Directory
+    type: persistentVolumeClaim
+    existingClaim: restic-appdata
     advancedMounts:
       backup:
         app:

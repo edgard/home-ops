@@ -1,7 +1,0 @@
----
-chart:
-  repo: oci://ghcr.io/bjw-s-labs/helm/app-template
-  path: "."
-  version: 4.6.1
-sync:
-  wave: "-3"

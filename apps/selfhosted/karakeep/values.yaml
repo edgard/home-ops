@@ -1,11 +1,11 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 1000
+    fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 1000
-    runAsNonRoot: true
-    runAsUser: 1000
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
 
 controllers:
   karakeep:
@@ -62,6 +62,14 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - SETUID
+              - SETGID
         resources:
           limits: null
           requests: null
@@ -102,6 +110,11 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 
   meilisearch:
     type: deployment
@@ -138,6 +151,11 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 
 service:
   karakeep:

@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: restic-appdata
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.2
+    - hard
+    - noatime
+    - nconnect=16
+  csi:
+    driver: nfs.csi.k8s.io
+    volumeHandle: truenas-spool-appdata
+    volumeAttributes:
+      server: 192.168.1.254
+      share: /mnt/spool/appdata

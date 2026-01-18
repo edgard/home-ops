@@ -4,3 +4,4 @@
 /terraform/**/terraform.tfstate
 /terraform/**/terraform.tfstate.backup
 /terraform/**/*.tfplan
+/bootstrap/secrets.yaml

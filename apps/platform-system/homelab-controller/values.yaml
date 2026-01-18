@@ -51,6 +51,11 @@ controllers:
           readiness:
             enabled: true
             port: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 
 serviceAccount:
   main:
