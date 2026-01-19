@@ -11,6 +11,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "3.0.1"
     }
+    tailscale = {
+      source  = "tailscale/tailscale"
+      version = "0.16.1"
+    }
   }
 
   backend "s3" {
