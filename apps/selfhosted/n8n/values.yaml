@@ -32,13 +32,16 @@ controllers:
           WORKFLOWS_STORAGE_TYPE: filesystem
           N8N_DEFAULT_BINARY_DATA_MODE: filesystem
           N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
-          N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+          N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
           N8N_RUNNERS_ENABLED: "true"
           N8N_ENCRYPTION_KEY:
             valueFrom:
               secretKeyRef:
                 name: n8n-credentials
                 key: N8N_ENCRYPTION_KEY
+        envFrom:
+          - secretRef:
+              name: n8n-credentials
         probes:
           startup:
             enabled: true
