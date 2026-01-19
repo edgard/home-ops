@@ -55,7 +55,7 @@ Talos on TrueNAS, local network access (192.168.1.0/24), Istio Gateway API ingre
 - **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `restic_server_password`, `telegram_bot_token`, `telegram_chat_id`
 - **Home Automation**: `homebridge_username`, `homebridge_password`
 - **Media**: `plex_claim`, `plextraktsync_plex_token`, `plextraktsync_plex_username`, `plextraktsync_trakt_username`, `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
-- **Selfhosted**: `changedetection_api_key`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `litellm_master_key`, `mcp_github_token`, `mcp_n8n_api_key`, `mcp_context7_api_key`, `n8n_encryption_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`
+- **Selfhosted**: `changedetection_api_key`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `litellm_master_key`, `mcp_github_token`, `mcp_n8n_api_key`, `mcp_context7_api_key`, `n8n_encryption_key`, `openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`
 
 ## Bootstrap Flow
 `task cluster:create` → `task platform:create` → Argo CD syncs apps

@@ -26,7 +26,6 @@ controllers:
           - "/app/config.yaml"
         env:
           PORT: "4000"
-          GITHUB_COPILOT_TOKEN_DIR: "/app/github-copilot-tokens"
         envFrom:
           - secretRef:
               name: litellm-credentials
@@ -145,16 +144,6 @@ persistence:
         app:
           - path: /app/config.yaml
             subPath: config.yaml
-  github-copilot-tokens:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 100Mi
-    storageClass: nfs-fast
-    retain: true
-    advancedMounts:
-      main:
-        app:
-          - path: /app/github-copilot-tokens
 
 configMaps:
   config:
@@ -175,21 +164,13 @@ configMaps:
         model_list:
           - model_name: gpt-5-mini
             litellm_params:
-              model: github_copilot/gpt-5-mini
-              extra_headers:
-                User-Agent: "GitHubCopilotChat/0.26.7"
-                Editor-Version: "vscode/1.99.3"
-                Editor-Plugin-Version: "copilot-chat/0.26.7"
-                Copilot-Integration-Id: "vscode-chat"
+              model: openrouter/openai/gpt-4o-mini
+              api_key: os.environ/OPENROUTER_API_KEY
 
           - model_name: gpt-5.2
             litellm_params:
-              model: github_copilot/gpt-5.2
-              extra_headers:
-                User-Agent: "GitHubCopilotChat/0.26.7"
-                Editor-Version: "vscode/1.99.3"
-                Editor-Plugin-Version: "copilot-chat/0.26.7"
-                Copilot-Integration-Id: "vscode-chat"
+              model: openrouter/anthropic/claude-3.5-sonnet
+              api_key: os.environ/OPENROUTER_API_KEY
 
         mcp_servers:
           github:
