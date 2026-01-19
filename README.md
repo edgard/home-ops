@@ -71,9 +71,5 @@ task tf:apply                      # Apply infrastructure changes
 │   └── selfhosted/
 ├── argocd/                 # Argo CD bootstrap (root app, appsets, projects)
 ├── bootstrap/              # Talos + platform bootstrap
-└── terraform/              # External infrastructure (Cloudflare)
+└── terraform/              # External infrastructure (Cloudflare, Tailscale)
 ```
-
-## Configuration
-
-See `AGENTS.md` for detailed configuration, conventions, and troubleshooting.

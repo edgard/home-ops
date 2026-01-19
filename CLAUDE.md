@@ -95,4 +95,4 @@ Python 3.14.2 + Kopf. Wave `-3`. Reconciles **GatusConfig CRD**: discovers Servi
 | Certificate | `{app}-{descriptor}` | `gateway-wildcard` |
 
 ## App Categories
-Platform: cert-manager, external-dns, external-secrets, gateway-api, homelab-controller, istio, reloader, tailscale. Home Automation: homebridge, matterbridge, mosquitto, scrypted, zigbee2mqtt. Media: plex, radarr, sonarr, bazarr, prowlarr, qbittorrent, recyclarr, unpackerr. Selfhosted: atuin, changedetection, gatus, homepage, karakeep, n8n, paperless, restic.
+Platform: cert-manager, external-dns, external-secrets, gateway-api, homelab-controller, istio, istio-base, reloader, tailscale. Kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner. Home Automation: homebridge, matterbridge, mosquitto, scrypted, zigbee2mqtt. Media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr. Selfhosted: atuin, changedetection, echo, gatus, homepage, karakeep, n8n, paperless, restic.
