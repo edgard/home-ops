@@ -230,8 +230,7 @@ tasks:
       vars:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
-        - CLOUDFLARE_API_TOKEN
-        - TF_VAR_cloudflare_zone_id
+        - BWS_ACCESS_TOKEN
     cmds:
       - task: lint:yaml
       - task: lint:terraform
@@ -259,8 +258,7 @@ tasks:
       vars:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
-        - CLOUDFLARE_API_TOKEN
-        - TF_VAR_cloudflare_zone_id
+        - BWS_ACCESS_TOKEN
     cmds:
       - |
         echo "==> Linting Terraform..."
@@ -336,8 +334,9 @@ tasks:
       vars:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
-        - CLOUDFLARE_API_TOKEN
-        - TF_VAR_cloudflare_zone_id
+        - BWS_ACCESS_TOKEN
+    env:
+      BW_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
     cmds:
       - |
         echo "==> Terraform Plan..."
@@ -351,8 +350,9 @@ tasks:
       vars:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
-        - CLOUDFLARE_API_TOKEN
-        - TF_VAR_cloudflare_zone_id
+        - BWS_ACCESS_TOKEN
+    env:
+      BW_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
     cmds:
       - |
         echo "==> Terraform Apply..."

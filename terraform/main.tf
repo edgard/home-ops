@@ -11,6 +11,14 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "3.0.1"
     }
+    tailscale = {
+      source  = "tailscale/tailscale"
+      version = "0.16.1"
+    }
+    bitwarden-secrets = {
+      source  = "bitwarden/bitwarden-secrets"
+      version = "0.5.4-pre"
+    }
   }
 
   backend "s3" {
@@ -31,8 +39,34 @@ terraform {
   }
 }
 
+provider "bitwarden-secrets" {
+  api_url         = "https://api.bitwarden.com"
+  identity_url    = "https://identity.bitwarden.com"
+  organization_id = var.bitwarden_org_id
+}
+
+# --- Bitwarden Secrets Lookups ---
+
+data "bitwarden-secrets_secret" "cloudflare_token" {
+  id = var.bw_secret_ids["cloudflare_token"]
+}
+
+data "bitwarden-secrets_secret" "cloudflare_zone_id" {
+  id = var.bw_secret_ids["cloudflare_zone_id"]
+}
+
+data "bitwarden-secrets_secret" "tailscale_client_id" {
+  id = var.bw_secret_ids["tailscale_client_id"]
+}
+
+data "bitwarden-secrets_secret" "tailscale_client_secret" {
+  id = var.bw_secret_ids["tailscale_client_secret"]
+}
+
+# --- Provider Configurations ---
+
 provider "cloudflare" {
-  # Reads from CLOUDFLARE_API_TOKEN environment variable
+  api_token = data.bitwarden-secrets_secret.cloudflare_token.value
 }
 
 provider "kubernetes" {
@@ -40,9 +74,12 @@ provider "kubernetes" {
   config_path = "~/.kube/config"
 }
 
+# --- Modules ---
+
 # Cloudflare Module
 module "cloudflare" {
   source = "./cloudflare"
 
-  zone_id = var.cloudflare_zone_id
+  # Uses the secret retrieved from Bitwarden
+  zone_id = data.bitwarden-secrets_secret.cloudflare_zone_id.value
 }

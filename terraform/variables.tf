@@ -1,6 +1,9 @@
-variable "cloudflare_zone_id" {
-  description = "Cloudflare Zone ID for edgard.org"
-  type        = string
-  # Set via TF_VAR_cloudflare_zone_id environment variable
+variable "bw_secret_ids" {
+  description = "Map of Bitwarden Secret IDs (UUIDs)"
+  type        = map(string)
 }
 
+variable "bitwarden_org_id" {
+  description = "Bitwarden Organization ID (UUID)"
+  type        = string
+}

@@ -1,0 +1,99 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 0
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsUser: 0
+    runAsNonRoot: false
+
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    serviceAccount:
+      identifier: tailscale
+
+    containers:
+      main:
+        image:
+          repository: tailscale/tailscale
+          tag: v1.92.3
+        env:
+          TS_KUBE_SECRET: "tailscale"
+          TS_ROUTES: "192.168.1.0/24"
+          TS_EXTRA_ARGS: "--advertise-tags=tag:cluster-subnet-router"
+          TS_HOSTNAME: "cluster-subnet-router"
+          TS_USERSPACE: "false"
+          TS_DEBUG_FIREWALL_MODE: "nftables"
+          POD_NAME:
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          POD_UID:
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          TS_AUTHKEY:
+            valueFrom:
+              secretKeyRef:
+                name: tailscale-credentials
+                key: TS_AUTHKEY
+        securityContext:
+          privileged: true
+        resources: {}
+
+service:
+  main:
+    enabled: false
+
+serviceAccount:
+  tailscale:
+    enabled: true
+
+rbac:
+  roles:
+    tailscale:
+      type: Role
+      rules:
+        - apiGroups:
+            - ""
+          resources:
+            - "secrets"
+          verbs:
+            - "create"
+        - apiGroups:
+            - ""
+          resources:
+            - "secrets"
+          verbs:
+            - "get"
+            - "update"
+            - "patch"
+          resourceNames:
+            - "tailscale"
+        - apiGroups:
+            - ""
+          resources:
+            - "events"
+          verbs:
+            - "create"
+            - "patch"
+  bindings:
+    tailscale:
+      type: RoleBinding
+      roleRef:
+        identifier: tailscale
+      subjects:
+        - identifier: tailscale
+          kind: ServiceAccount
+
+persistence:
+  tun:
+    type: hostPath
+    hostPath: /dev/net/tun
+    globalMounts:
+      - path: /dev/net/tun
