@@ -341,7 +341,7 @@ tasks:
     cmds:
       - |
         echo "==> Terraform Plan..."
-        tofu init >/dev/null 2>&1
+        tofu init
         tofu plan
 
   tf:apply:
@@ -356,7 +356,7 @@ tasks:
     cmds:
       - |
         echo "==> Terraform Apply..."
-        tofu init >/dev/null 2>&1
+        tofu init
         tofu apply
 
   tf:clean:
