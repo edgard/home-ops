@@ -21,7 +21,7 @@ controllers:
       main:
         image:
           repository: tailscale/tailscale
-          tag: v1.92.3
+          tag: v1.92.5
         env:
           TS_KUBE_SECRET: "tailscale"
           TS_ROUTES: "192.168.1.0/24"

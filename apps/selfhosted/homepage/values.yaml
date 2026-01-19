@@ -20,7 +20,7 @@ controllers:
       init-config:
         image:
           repository: ghcr.io/gethomepage/homepage
-          tag: v1.8.0
+          tag: v1.9.0
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -35,7 +35,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/gethomepage/homepage
-          tag: v1.8.0
+          tag: v1.9.0
         env:
           LOG_TARGETS: stdout
           HOMEPAGE_DISABLE_HOST_VALIDATION: "true"

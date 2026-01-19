@@ -13,7 +13,7 @@ terraform {
     }
     tailscale = {
       source  = "tailscale/tailscale"
-      version = "0.16.1"
+      version = "0.25.0"
     }
     bitwarden-secrets = {
       source  = "bitwarden/bitwarden-secrets"

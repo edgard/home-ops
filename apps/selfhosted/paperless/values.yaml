@@ -18,7 +18,7 @@ controllers:
       tesseract-langs:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: 2.20.4
+          tag: 2.20.5
         securityContext:
           runAsUser: 0
           runAsGroup: 0
@@ -69,7 +69,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: 2.20.4
+          tag: 2.20.5
         env:
           PAPERLESS_URL: https://paperless.edgard.org
           PAPERLESS_PORT: "8000"
