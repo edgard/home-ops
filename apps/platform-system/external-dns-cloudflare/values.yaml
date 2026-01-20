@@ -1,0 +1,27 @@
+---
+fullnameOverride: external-dns-cloudflare
+image:
+  tag: v0.19.0
+triggerLoopOnEvent: true
+serviceAccount:
+  name: external-dns-cloudflare
+sources:
+  - gateway-httproute
+policy: sync
+txtOwnerId: homelab
+txtPrefix: k8s.
+domainFilters:
+  - edgard.org
+provider:
+  name: cloudflare
+env:
+  - name: CF_API_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: external-dns-cloudflare-credentials
+        key: api-token
+extraArgs:
+  - --default-targets=gateway.tail0e542e.ts.net
+  - --force-default-targets
+deploymentAnnotations:
+  reloader.stakater.com/auto: "true"

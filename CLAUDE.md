@@ -5,7 +5,7 @@ GitOps-managed Talos Kubernetes homelab on TrueNAS. Local network access only. S
 **Tech Stack**: Talos Linux • Kubernetes • Argo CD • Istio Gateway API • External Secrets (Bitwarden) • Helm • Terraform (Cloudflare)
 **Key Dirs**: `apps/<group>/<app>/` (config.yaml, values.yaml, manifests/) • `argocd/` (root.app.yaml, appsets/) • `bootstrap/` (platform bootstrap) • `terraform/`
 ## Architecture
-Talos on TrueNAS, local network access (192.168.1.0/24), Istio Gateway API ingress with bridge interface, split DNS (Cloudflare public/Unifi internal), Bitwarden secrets, NFS CSI for storage.
+Talos on TrueNAS, local network access (192.168.1.0/24), Istio Gateway API ingress with Multus bridge (192.168.1.241), Tailscale Operator for VPN access, dual external-dns (Unifi A records, Cloudflare CNAMEs), Bitwarden secrets, NFS CSI for storage.
 ## Critical Rules
 ### Code Standards
 - **YAML**: 2 spaces, no tabs. Run `task lint` before commits. Start files with `---`
@@ -39,20 +39,21 @@ Talos on TrueNAS, local network access (192.168.1.0/24), Istio Gateway API ingre
 - `nfs-restic`: `192.168.1.254:/mnt/dpool/restic`
 
 ### DNS & Networking
-- **Ingress**: Istio Gateway (`gateway` in platform-system) with `*.edgard.org` TLS cert
-- **Public DNS**: Terraform manages Cloudflare (`terraform/cloudflare/dns.tf`)
-- **Internal DNS**: external-dns syncs HTTPRoutes to Unifi (192.168.1.1), coredns forwards `edgard.org` to Unifi
-- **Split-DNS**: DNSEndpoints in `terraform/cloudflare/dnsendpoints.tf` keep Terraform and external-dns in sync
+- **Ingress**: Istio Gateway (`gateway` in platform-system) with `*.edgard.org` TLS cert, exposed on Multus IP 192.168.1.241 (LAN) and via Tailscale Operator (VPN)
+- **LAN DNS**: external-dns-unifi syncs HTTPRoutes to Unifi (192.168.1.1) as A records → 192.168.1.241
+- **Tailscale DNS**: external-dns-cloudflare syncs HTTPRoutes to Cloudflare as CNAMEs → gateway.tail0e542e.ts.net
+- **Result**: Same URL (`app.edgard.org`) works from both LAN and Tailscale
 ## External Dependencies
 - **Bitwarden**: Org `b4b5...`, Proj `1684...`. Requires `BWS_ACCESS_TOKEN` env var
-- **Cloudflare**: DNS and ACME TLS. Terraform-managed
-- **Unifi**: Internal DNS (192.168.1.1). Receives DNSEndpoint updates from external-dns
+- **Cloudflare**: DNS (external-dns-cloudflare) and ACME TLS (cert-manager)
+- **Unifi**: Internal DNS (192.168.1.1). Receives A records from external-dns-unifi
+- **Tailscale**: VPN access via Tailscale Operator. Gateway exposed at gateway.tail0e542e.ts.net
 - **TrueNAS**: Storage host. Paths: `/mnt/spool/appdata`, `/mnt/dpool/media`, `/mnt/dpool/restic`
 
 ## Bitwarden Secrets (must match exactly)
 - **Bootstrap**: `dockerhub_username`, `dockerhub_token`
 - **Argo**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
-- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `restic_server_password`, `tailscale_oauth_client_secret`, `telegram_bot_token`, `telegram_chat_id`
+- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `restic_server_password`, `tailscale_oauth_client_id`, `tailscale_oauth_client_secret`, `telegram_bot_token`, `telegram_chat_id`
 - **Home Automation**: `homebridge_username`, `homebridge_password`
 - **Media**: `plex_claim`, `plextraktsync_plex_token`, `plextraktsync_plex_username`, `plextraktsync_trakt_username`, `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
 - **Selfhosted**: `changedetection_api_key`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `n8n_encryption_key`, `openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`
@@ -80,7 +81,7 @@ task tf:apply                      # Terraform apply
 Python 3.14.2 + Kopf. Wave `-3`. Reconciles **GatusConfig CRD**: discovers Services with label `gatus.edgard.org/enabled=true`, generates Gatus config matching workload probes, outputs to `gatus-generated-config` ConfigMap.
 
 ## Key Constraints
-- **Local Network Only**: All services accessible only from 192.168.1.0/24. No public or VPN access
+- **Local + Tailscale Access**: Services accessible from LAN (192.168.1.0/24) via Multus IP and Tailscale VPN via operator proxy. No public internet access
 - **Single-Node**: No HA. Use `Recreate` strategy
 - **NFS Exports**: Requires `/mnt/spool/appdata`, `/mnt/dpool/media`, `/mnt/dpool/restic` on TrueNAS host
 - **PR Workflow**: All changes must go through pull requests. Never commit directly to master
@@ -95,4 +96,4 @@ Python 3.14.2 + Kopf. Wave `-3`. Reconciles **GatusConfig CRD**: discovers Servi
 | Certificate | `{app}-{descriptor}` | `gateway-wildcard` |
 
 ## App Categories
-Platform: cert-manager, external-dns, external-secrets, gateway-api, homelab-controller, istio, istio-base, reloader, tailscale. Kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner. Home Automation: homebridge, matterbridge, mosquitto, scrypted, zigbee2mqtt. Media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr. Selfhosted: atuin, changedetection, echo, gatus, homepage, karakeep, n8n, paperless, restic.
+Platform: cert-manager, external-dns-cloudflare, external-dns-unifi, external-secrets, gateway-api, homelab-controller, istio, istio-base, reloader, tailscale-operator. Kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner. Home Automation: homebridge, matterbridge, mosquitto, scrypted, zigbee2mqtt. Media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr. Selfhosted: atuin, changedetection, echo, gatus, homepage, karakeep, n8n, paperless, restic.

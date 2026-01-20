@@ -1,0 +1,10 @@
+---
+operatorConfig:
+  hostname: "tailscale-operator"
+  defaultTags:
+    - "tag:k8s-operator"
+oauthSecretVolume:
+  secret:
+    secretName: tailscale-operator-credentials
+replicaCount: 1
+resources: {}

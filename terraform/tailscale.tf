@@ -4,38 +4,28 @@ provider "tailscale" {
   tailnet             = "-" # Uses default tailnet
 }
 
-# 1. Split DNS Configuration (Minimal: Only specific domains)
+# 1. DNS Configuration (MagicDNS for operator hostnames)
 resource "tailscale_dns_preferences" "config" {
-  magic_dns = false
+  magic_dns = true
 }
 
-resource "tailscale_dns_split_nameservers" "lan_dns" {
-  domain      = "edgard.org"
-  nameservers = ["192.168.1.1"]
-}
-
-resource "tailscale_dns_split_nameservers" "home_arpa" {
-  domain      = "home.arpa"
-  nameservers = ["192.168.1.1"]
-}
-
-# 2. ACL & Auto-Approval (Minimal: Only allow access to the subnet)
+# 2. ACL & Auto-Approval (Gateway-only exposure)
 resource "tailscale_acl" "policy" {
   acl = jsonencode({
     # Define tags
     "tagOwners" : {
-      "tag:cluster-subnet-router" : ["autogroup:admin"],
+      "tag:k8s-operator" : ["autogroup:admin"],
+      "tag:k8s-gateway" : ["tag:k8s-operator"],
     },
-    # Minimal Access: Only allow access to the 192.168.1.0/24 subnet
+    # Allow access to gateway ports
     "acls" : [
-      # Allow all devices to reach the LAN subnet
-      { "action" : "accept", "src" : ["*"], "dst" : ["192.168.1.0/24:*"] },
-      # Implicit default deny for everything else
+      { "action" : "accept", "src" : ["*"], "dst" : ["tag:k8s-gateway:443"] },
+      { "action" : "accept", "src" : ["*"], "dst" : ["tag:k8s-gateway:80"] },
     ],
-    # Auto-Approve the LAN route for the router tag
+    # Auto-approve gateway service exposure
     "autoApprovers" : {
-      "routes" : {
-        "192.168.1.0/24" : ["tag:cluster-subnet-router"],
+      "services" : {
+        "tag:k8s-gateway" : ["tag:k8s-operator"],
       },
     },
   })
