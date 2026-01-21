@@ -1,5 +1,4 @@
 # Static DNS records for Cloudflare (public DNS)
-# Note: These same records are mirrored in Unifi DNS via external-dns DNSEndpoints for split-DNS
 
 # iCloud Mail - DKIM
 resource "cloudflare_dns_record" "dkim" {
