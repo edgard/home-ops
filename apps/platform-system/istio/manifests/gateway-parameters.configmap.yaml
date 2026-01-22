@@ -26,6 +26,3 @@ data:
     metadata:
       annotations:
         gatus.edgard.org/enabled: "true"
-        tailscale.com/expose: "true"
-        tailscale.com/hostname: "gateway"
-        tailscale.com/tags: "tag:k8s-gateway"

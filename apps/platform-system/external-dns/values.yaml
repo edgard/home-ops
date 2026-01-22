@@ -1,10 +1,10 @@
 ---
-fullnameOverride: external-dns-unifi
+fullnameOverride: external-dns
 image:
   tag: v0.19.0
 triggerLoopOnEvent: true
 serviceAccount:
-  name: external-dns-unifi
+  name: external-dns
 sources:
   - gateway-httproute
   - crd
@@ -27,7 +27,7 @@ provider:
       - name: UNIFI_API_KEY
         valueFrom:
           secretKeyRef:
-            name: external-dns-unifi-credentials
+            name: external-dns-credentials
             key: unifi_api_key
 deploymentAnnotations:
   reloader.stakater.com/auto: "true"

@@ -1,0 +1,82 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 0
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    serviceAccount:
+      identifier: main
+    containers:
+      tailscale:
+        image:
+          repository: ghcr.io/tailscale/tailscale
+          tag: v1.92.5
+        env:
+          TS_KUBE_SECRET: tailscale-router-state
+          TS_ROUTES: 192.168.1.241/32,192.168.1.1/32
+          TS_HOSTNAME: tailscale-router
+          TS_EXTRA_ARGS: --accept-dns=false --advertise-tags=tag:k8s-router
+          TS_AUTHKEY:
+            valueFrom:
+              secretKeyRef:
+                name: tailscale-router-credentials
+                key: client_secret
+        probes:
+          liveness:
+            enabled: false
+          readiness:
+            enabled: false
+          startup:
+            enabled: false
+        securityContext:
+          capabilities:
+            add:
+              - NET_ADMIN
+        resources: {}
+
+serviceAccount:
+  main:
+    enabled: true
+
+rbac:
+  roles:
+    main:
+      type: Role
+      rules:
+        - apiGroups:
+            - ""
+          resources:
+            - secrets
+          verbs:
+            - create
+            - get
+            - update
+            - patch
+  bindings:
+    main:
+      type: RoleBinding
+      roleRef:
+        identifier: main
+      subjects:
+        - identifier: main
+          kind: ServiceAccount
+
+service:
+  main:
+    enabled: false
+
+persistence:
+  dev-tun:
+    type: hostPath
+    hostPath: /dev/net/tun
+    hostPathType: CharDevice
+    globalMounts:
+      - path: /dev/net/tun

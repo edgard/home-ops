@@ -5,7 +5,7 @@ metadata:
   name: homeassistant-template
   namespace: home-automation
 data:
-  template.yaml: |
+  template.yaml: |-
     - fan:
         - name: "Bedroom Air Purifier Fan"
           unique_id: bedroom_air_purifier_fan_template
