@@ -10,7 +10,7 @@ Talos on TrueNAS, local network access (192.168.1.0/24), Istio Gateway API ingre
 ### Code Standards
 - **YAML**: 2 spaces, no tabs. Run `task lint` before commits. Start files with `---`
 - **File naming**: `{app}-{descriptor}.{kind}.yaml` (e.g., `gatus-credentials.externalsecret.yaml`)
-- **Helm**: Use `ghcr.io/bjw-s-labs/helm/app-template` v4.5.0. Structure: `defaultPodOptions` → `controllers` → `service` → `route` → `persistence`
+- **Helm**: Use `ghcr.io/bjw-s-labs/helm/app-template` v4.6.2. Structure: `defaultPodOptions` → `controllers` → `service` → `route` → `persistence`
 - **Resources**: All apps run unlimited (`resources: {}`). Local network only = no DDoS risk
 - **Security**: Non-root by default, `fsGroup: 1000`, drop all capabilities where possible
 - **Deployment**: `replicas: 1`, `strategy: Recreate` (single-node cluster)
@@ -53,10 +53,10 @@ Talos on TrueNAS, local network access (192.168.1.0/24), Istio Gateway API ingre
 ## Bitwarden Secrets (must match exactly)
 - **Bootstrap**: `dockerhub_username`, `dockerhub_token`
 - **Argo**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
-- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `restic_server_password`, `tailscale_oauth_client_id`, `tailscale_oauth_client_secret`, `telegram_bot_token`, `telegram_chat_id`
-- **Home Automation**: `homebridge_username`, `homebridge_password`
+- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `tailscale_oauth_client_id`, `tailscale_oauth_client_secret`, `telegram_bot_token`, `telegram_chat_id`
 - **Media**: `plex_claim`, `plextraktsync_plex_token`, `plextraktsync_plex_username`, `plextraktsync_trakt_username`, `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
-- **Selfhosted**: `changedetection_api_key`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `n8n_encryption_key`, `openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `paperless_api_token`
+- **Selfhosted**: `changedetection_api_key`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `n8n_encryption_key`, `openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `restic_server_password`
+- **Terraform**: `cloudflare_token`, `cloudflare_zone_id`
 
 ## Bootstrap Flow
 `task cluster:create` → `task platform:create` → Argo CD syncs apps
