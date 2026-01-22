@@ -14,6 +14,7 @@ controllers:
     strategy: Recreate
     pod:
       annotations:
+        reloader.stakater.com/auto: "true"
         k8s.v1.cni.cncf.io/networks: |-
           [
             {
@@ -27,14 +28,11 @@ controllers:
     containers:
       app:
         image:
-          repository: homebridge/homebridge
-          tag: 2026-01-14
-        env:
-          HOMEBRIDGE_CONFIG_UI: "1"
-          HOMEBRIDGE_CONFIG_UI_PORT: "8581"
+          repository: ghcr.io/home-assistant/home-assistant
+          tag: "2026.1.2"
         ports:
           - name: http
-            containerPort: 8581
+            containerPort: 8123
         probes:
           startup:
             enabled: true
@@ -42,6 +40,8 @@ controllers:
             enabled: true
           readiness:
             enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
 
 service:
   main:
@@ -52,33 +52,60 @@ service:
     ports:
       http:
         enabled: true
-        port: 8581
+        port: 8123
         protocol: TCP
-        targetPort: 8581
+        targetPort: 8123
 
 route:
   main:
     annotations:
       gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Homebridge
+      gethomepage.dev/name: Home Assistant
       gethomepage.dev/group: Home Automation
-      gethomepage.dev/icon: homebridge.svg
-      gethomepage.dev/app: homebridge
+      gethomepage.dev/icon: home-assistant.svg
+      gethomepage.dev/app: homeassistant
     parentRefs:
       - name: gateway
         namespace: platform-system
         sectionName: https
     hostnames:
-      - homebridge.edgard.org
+      - homeassistant.edgard.org
     rules:
       - backendRefs:
           - identifier: main
-            port: 8581
+            port: 8123
+
+configMaps:
+  config:
+    enabled: true
+    data:
+      configuration.yaml: |
+        default_config:
+        frontend:
+          themes: !include_dir_merge_named themes
+        automation: !include automations.yaml
+        script: !include scripts.yaml
+        scene: !include scenes.yaml
+        template: !include template.yaml
 
 persistence:
   data:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
-    size: 5Gi
+    size: 10Gi
     globalMounts:
-      - path: /homebridge
+      - path: /config
+  config-template:
+    type: configMap
+    name: homeassistant-template
+    globalMounts:
+      - path: /config/template.yaml
+        subPath: template.yaml
+        readOnly: true
+  config-main:
+    type: configMap
+    name: homeassistant
+    globalMounts:
+      - path: /config/configuration.yaml
+        subPath: configuration.yaml
+        readOnly: true

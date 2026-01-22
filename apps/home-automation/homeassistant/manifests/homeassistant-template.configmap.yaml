@@ -1,0 +1,108 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homeassistant-template
+  namespace: home-automation
+data:
+  template.yaml: |
+    - fan:
+        - name: "Bedroom Air Purifier Fan"
+          unique_id: bedroom_air_purifier_fan_template
+          availability: "{{ states('fan.zhimi_mb3_6b72_air_purifier') not in ['unavailable', 'unknown'] }}"
+          state: "{{ states('fan.zhimi_mb3_6b72_air_purifier') }}"
+          percentage: >
+            {% if is_state('fan.zhimi_mb3_6b72_air_purifier', 'off') %}0
+            {% else %}
+              {% set mode = state_attr('fan.zhimi_mb3_6b72_air_purifier', 'preset_mode') %}
+              {% if mode == 'Sleep' %}25
+              {% elif mode == 'Auto' %}75
+              {% elif mode == 'Favorite' %}100
+              {% else %}75{% endif %}
+            {% endif %}
+          speed_count: 100
+          turn_on:
+            - service: fan.turn_on
+              target:
+                entity_id: fan.zhimi_mb3_6b72_air_purifier
+          turn_off:
+            - service: fan.turn_off
+              target:
+                entity_id: fan.zhimi_mb3_6b72_air_purifier
+          set_percentage:
+            - choose:
+                - conditions: "{{ percentage == 0 }}"
+                  sequence:
+                    - service: fan.turn_off
+                      target:
+                        entity_id: fan.zhimi_mb3_6b72_air_purifier
+                - conditions: "{{ percentage <= 49 }}"
+                  sequence:
+                    - service: fan.set_preset_mode
+                      target:
+                        entity_id: fan.zhimi_mb3_6b72_air_purifier
+                      data:
+                        preset_mode: Sleep
+                - conditions: "{{ percentage < 100 }}"
+                  sequence:
+                    - service: fan.set_preset_mode
+                      target:
+                        entity_id: fan.zhimi_mb3_6b72_air_purifier
+                      data:
+                        preset_mode: Auto
+              default:
+                - service: fan.set_preset_mode
+                  target:
+                    entity_id: fan.zhimi_mb3_6b72_air_purifier
+                  data:
+                    preset_mode: Favorite
+
+        - name: "Office Air Purifier Fan"
+          unique_id: office_air_purifier_fan_template
+          availability: "{{ states('fan.zhimi_m1_e123_air_purifier') not in ['unavailable', 'unknown'] }}"
+          state: "{{ states('fan.zhimi_m1_e123_air_purifier') }}"
+          percentage: >
+            {% if is_state('fan.zhimi_m1_e123_air_purifier', 'off') %}0
+            {% else %}
+              {% set mode = state_attr('fan.zhimi_m1_e123_air_purifier', 'preset_mode') %}
+              {% if mode == 'Sleep' %}25
+              {% elif mode == 'Auto' %}75
+              {% elif mode == 'Favorite' %}100
+              {% else %}75{% endif %}
+            {% endif %}
+          speed_count: 100
+          turn_on:
+            - service: fan.turn_on
+              target:
+                entity_id: fan.zhimi_m1_e123_air_purifier
+          turn_off:
+            - service: fan.turn_off
+              target:
+                entity_id: fan.zhimi_m1_e123_air_purifier
+          set_percentage:
+            - choose:
+                - conditions: "{{ percentage == 0 }}"
+                  sequence:
+                    - service: fan.turn_off
+                      target:
+                        entity_id: fan.zhimi_m1_e123_air_purifier
+                - conditions: "{{ percentage <= 49 }}"
+                  sequence:
+                    - service: fan.set_preset_mode
+                      target:
+                        entity_id: fan.zhimi_m1_e123_air_purifier
+                      data:
+                        preset_mode: Sleep
+                - conditions: "{{ percentage < 100 }}"
+                  sequence:
+                    - service: fan.set_preset_mode
+                      target:
+                        entity_id: fan.zhimi_m1_e123_air_purifier
+                      data:
+                        preset_mode: Auto
+              default:
+                - service: fan.set_preset_mode
+                  target:
+                    entity_id: fan.zhimi_m1_e123_air_purifier
+                  data:
+                    preset_mode: Favorite

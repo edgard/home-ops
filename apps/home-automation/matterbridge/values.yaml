@@ -33,7 +33,14 @@ controllers:
           - /bin/sh
           - -c
           - |
-            cp /config-templates/*.config.json /root/.matterbridge/
+            cp /config-templates/matterbridge.config.json /root/.matterbridge/
+            cp /config-templates/matterbridge-zigbee2mqtt.config.json /root/.matterbridge/
+            sed "s|\${HASS_TOKEN}|${HASS_TOKEN}|g" /config-templates/matterbridge-hass.config.json > /root/.matterbridge/matterbridge-hass.config.json
+        env:
+          HASS_TOKEN:
+            secretKeyRef:
+              name: matterbridge-credentials
+              key: HASS_TOKEN
       register-plugins:
         image:
           repository: luligu/matterbridge
@@ -44,6 +51,8 @@ controllers:
           - |
             matterbridge --add matterbridge-zigbee2mqtt
             matterbridge --enable matterbridge-zigbee2mqtt
+            matterbridge --add matterbridge-hass
+            matterbridge --enable matterbridge-hass
             matterbridge --list
     containers:
       app:
@@ -58,6 +67,10 @@ controllers:
         env:
           MATTERBRIDGE_DEBUG: "false"
           MATTERBRIDGE_LOGGING: info
+          HASS_TOKEN:
+            secretKeyRef:
+              name: matterbridge-credentials
+              key: HASS_TOKEN
         probes:
           startup:
             enabled: true
@@ -127,6 +140,29 @@ configMaps:
           },
           "scenesType": "outlet",
           "scenesPrefix": true,
+          "debug": false,
+          "unregisterOnShutdown": false
+        }
+      matterbridge-hass.config.json: |
+        {
+          "name": "matterbridge-hass",
+          "type": "DynamicPlatform",
+          "enabled": true,
+          "host": "ws://homeassistant.home-automation.svc.cluster.local:8123",
+          "token": "${HASS_TOKEN}",
+          "whiteList": [
+            "Office Key Light Left ",
+            "Office Key Light Right",
+            "Bedroom Air Purifier Fan",
+            "Office Air Purifier Fan",
+            "fan.dmaker_1c_32fd_fan",
+            "fan.dmaker_1c_3cfa_fan"
+          ],
+          "blackList": [],
+          "splitEntities": [
+            "fan.dmaker_1c_32fd_fan",
+            "fan.dmaker_1c_3cfa_fan"
+          ],
           "debug": false,
           "unregisterOnShutdown": false
         }
