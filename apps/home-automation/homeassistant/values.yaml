@@ -75,19 +75,6 @@ route:
           - identifier: main
             port: 8123
 
-configMaps:
-  config:
-    enabled: true
-    data:
-      configuration.yaml: |
-        default_config:
-        frontend:
-          themes: !include_dir_merge_named themes
-        automation: !include automations.yaml
-        script: !include scripts.yaml
-        scene: !include scenes.yaml
-        template: !include template.yaml
-
 persistence:
   data:
     type: persistentVolumeClaim
@@ -104,7 +91,7 @@ persistence:
         readOnly: true
   config-main:
     type: configMap
-    name: homeassistant
+    name: homeassistant-config
     globalMounts:
       - path: /config/configuration.yaml
         subPath: configuration.yaml
