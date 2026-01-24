@@ -18,7 +18,7 @@ controllers:
       app:
         image:
           repository: docker.n8n.io/n8nio/n8n
-          tag: "2.5.1"
+          tag: "2.5.2"
         env:
           GENERIC_TIMEZONE: Europe/Warsaw
           N8N_HOST: https://n8n.edgard.org
