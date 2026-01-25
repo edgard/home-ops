@@ -44,7 +44,7 @@ controllers:
       register-plugins:
         image:
           repository: luligu/matterbridge
-          tag: 3.5.0
+          tag: 3.5.1
         command:
           - /bin/sh
           - -c
@@ -58,7 +58,7 @@ controllers:
       app:
         image:
           repository: luligu/matterbridge
-          tag: 3.5.0
+          tag: 3.5.1
         command:
           - matterbridge
         args:
