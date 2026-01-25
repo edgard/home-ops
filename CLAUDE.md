@@ -1,100 +1,79 @@
 # AI Agent Instructions
-<!-- When editing: Keep this file under 100 lines. Be concise. -->
+<!-- Keep under 100 lines. Be concise. -->
 ## Project Overview
-GitOps-managed Talos Kubernetes homelab on TrueNAS. Local network access only. Single-node cluster. All changes via PR.
-**Tech Stack**: Talos Linux • Kubernetes • Argo CD • Istio Gateway API • External Secrets (Bitwarden) • Helm • Terraform (Cloudflare)
-**Key Dirs**: `apps/<group>/<app>/` (config.yaml, values.yaml, manifests/) • `argocd/` (root.app.yaml, appsets/) • `bootstrap/` (platform bootstrap) • `terraform/`
-## Architecture
-Talos on TrueNAS, local network access (192.168.1.0/24), Istio Gateway API ingress with Multus bridge (192.168.1.241), Tailscale Operator for VPN access, dual external-dns (Unifi A records, Cloudflare CNAMEs), Bitwarden secrets, NFS CSI for storage.
-## Critical Rules
-### Code Standards
-- **YAML**: 2 spaces, no tabs. Run `task fmt` and `task lint` before commits. Start files with `---`
-- **File naming**: `{app}-{descriptor}.{kind}.yaml` (e.g., `gatus-credentials.externalsecret.yaml`)
-- **Helm**: Use `ghcr.io/bjw-s-labs/helm/app-template` v4.6.2. Structure: `defaultPodOptions` → `controllers` → `service` → `route` → `persistence`
-- **Resources**: All apps run unlimited (`resources: {}`). Local network only = no DDoS risk
-- **Security**: Non-root by default, `fsGroup: 1000`, drop all capabilities where possible
-- **Deployment**: `replicas: 1`, `strategy: Recreate` (single-node cluster)
-### Manifest Structure
-- **Start with**: `---` on line 1
-- **Field order**: `apiVersion` → `kind` → `metadata` → `spec`
-- **Metadata order**: `name` → `namespace` → `labels` → `annotations`
-- **ExternalSecret**: `refreshInterval` → `secretStoreRef` (name before kind) → `target` → `data`
-### Security Contexts (App-Template)
-- **Pod baseline**: `fsGroupChangePolicy: OnRootMismatch`
-- **Pod non-root**: Add `fsGroup: 1000`, `runAsGroup: 1000`, `runAsUser: 1000`, `runAsNonRoot: true`
-- **Container baseline**: `allowPrivilegeEscalation: false`
-- **Container strict**: Add `capabilities: { drop: ["ALL"] }`
-- **Exceptions**: Bind <1024 (`NET_BIND_SERVICE`), Hardware (`privileged: true`), s6-overlay images (must run as root)
-### Security + Permissions
-- **Defaults**: Non-root `1000:1000`, `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`
-- **s6-overlay**: Run pod as root and add `SETUID/SETGID` so it can drop to mapped users
-- **Mappings**: LSIO uses `PUID/PGID=1000`, Paperless `USERMAP_UID/GID=1000`, Karakeep has no user mapping (root)
-- **PVCs**: Ownership should match the app process UID/GID
-### Argo CD Sync Waves
-`-4` CRDs → `-3` Controllers/DNS → `-2` Mesh → `-1` k8tz → `0` Apps
+GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
+**Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) • Helm • Terraform
 
-### Storage
-- `nfs-fast` (default): `192.168.1.254:/mnt/spool/appdata`
-- `nfs-media`: `192.168.1.254:/mnt/dpool/media`
-- `nfs-restic`: `192.168.1.254:/mnt/dpool/restic`
+## Quick Reference
+`task fmt` | `task lint` (requires BWS_ACCESS_TOKEN, AWS creds) | `task cluster:create` | `task argo:sync [app=<name>]`
 
-### DNS & Networking
-- **Ingress**: Istio Gateway (`gateway` in platform-system) with `*.edgard.org` TLS cert, exposed on Multus IP 192.168.1.241 (LAN) and via Tailscale Operator (VPN)
-- **LAN DNS**: external-dns-unifi syncs HTTPRoutes to Unifi (192.168.1.1) as A records → 192.168.1.241
-- **Tailscale DNS**: external-dns-cloudflare syncs HTTPRoutes to Cloudflare as CNAMEs → gateway.tail0e542e.ts.net
-- **Result**: Same URL (`app.edgard.org`) works from both LAN and Tailscale
-## External Dependencies
-- **Bitwarden**: Org `b4b5...`, Proj `1684...`. Requires `BWS_ACCESS_TOKEN` env var
-- **Cloudflare**: DNS (external-dns-cloudflare) and ACME TLS (cert-manager)
-- **Unifi**: Internal DNS (192.168.1.1). Receives A records from external-dns-unifi
-- **Tailscale**: VPN access via Tailscale Operator. Gateway exposed at gateway.tail0e542e.ts.net
-- **TrueNAS**: Storage host. Paths: `/mnt/spool/appdata`, `/mnt/dpool/media`, `/mnt/dpool/restic`
-
-## Bitwarden Secrets (must match exactly)
-- **Bootstrap**: `dockerhub_username`, `dockerhub_token`
-- **Argo**: `argocd_admin_password_hash`, `argocd_admin_password_mtime`, `argocd_repo_username`, `argocd_repo_password`
-- **Platform**: `cert_manager_cloudflare_api_token`, `external_dns_unifi_api_key`, `tailscale_oauth_client_id`, `tailscale_oauth_client_secret`, `telegram_bot_token`, `telegram_chat_id`
-- **Media**: `plex_claim`, `plextraktsync_plex_token`, `plextraktsync_plex_username`, `plextraktsync_trakt_username`, `qbittorrent_server_cities`, `qbittorrent_wireguard_addresses`, `qbittorrent_wireguard_private_key`, `unpackerr_radarr_api_key`, `unpackerr_sonarr_api_key`
-- **Selfhosted**: `changedetection_api_key`, `karakeep_nextauth_secret`, `karakeep_meili_master_key`, `n8n_encryption_key`, `openrouter_api_key`, `paperless_secret_key`, `paperless_admin_user`, `paperless_admin_password`, `restic_server_password`
-- **Terraform**: `cloudflare_token`, `cloudflare_zone_id`
-
-## Bootstrap Flow
-`task cluster:create` → `task platform:create` → Argo CD syncs apps
-
-## Common Tasks
-```bash
-task fmt                           # Format all code (YAML, Terraform)
-task lint                          # Lint all code (YAML, Terraform, Helm, Shell)
-task cluster:create                # Install and bootstrap Talos + platform
-task cluster:destroy               # Destroy platform and reset Talos node
-task talos:gen                     # Generate Talos config
-task talos:apply                   # Apply Talos config
-task talos:bootstrap               # Bootstrap Talos control plane
-task platform:create               # Install platform components
-task platform:destroy              # Uninstall platform components
-task argo:sync                     # Sync all Argo apps
-task argo:sync app=<name>          # Sync specific app
-task tf:plan                       # Terraform plan
-task tf:apply                      # Terraform apply
+## Directory Structure
+```
+apps/<category>/<app>/{config.yaml,values.yaml,manifests/}
+argocd/appsets/          # Auto-discovers apps/*/config.yaml
+bootstrap/helmfile.yaml.gotmpl  # Platform bootstrap
+terraform/               # Cloudflare/Tailscale infra
 ```
 
-## Homelab Controller
-Python 3.14.2 + Kopf. Wave `-3`. Reconciles **GatusConfig CRD**: discovers Services with label `gatus.edgard.org/enabled=true`, generates Gatus config matching workload probes, outputs to `gatus-generated-config` ConfigMap.
+## App Categories
+platform-system: cert-manager, external-dns, external-secrets, gateway-api, homelab-controller, istio, tailscale-operator
+kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner
+home-automation: homebridge, matterbridge, mosquitto, scrypted, zigbee2mqtt
+media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
+selfhosted: atuin, changedetection, echo, gatus, homepage, karakeep, n8n, paperless, restic
 
-## Key Constraints
-- **Local + Tailscale Access**: Services accessible from LAN (192.168.1.0/24) via Multus IP and Tailscale VPN via operator proxy. No public internet access
-- **Single-Node**: No HA. Use `Recreate` strategy
-- **NFS Exports**: Requires `/mnt/spool/appdata`, `/mnt/dpool/media`, `/mnt/dpool/restic` on TrueNAS host
-- **PR Workflow**: All changes must go through pull requests. Never commit directly to master
+## App-Template v4.6.2 Structure
+Order: `defaultPodOptions → controllers → service → route → persistence → configMaps`
+```yaml
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    replicas: 1
+    strategy: Recreate
+    containers:
+      app:
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+# s6-overlay: run as root + SETUID/SETGID; <1024 ports: +NET_BIND_SERVICE
+```
+
+## Common Annotations
+Reloader: `reloader.stakater.com/auto: "true"` (controllers)
+Gatus: `gatus.edgard.org/enabled: "true"` (service)
+Homepage: `gethomepage.dev/{enabled,name,group,icon}` (route)
+
+## Networking
+HTTPRoute → `gateway.platform-system.https`, hostname: `<app>.edgard.org`
+Multus LAN IP (media apps): `k8s.v1.cni.cncf.io/networks: [{"name":"multus-lan-bridge","namespace":"kube-system","ips":["192.168.1.X/24"]}]`
+
+## Storage
+`nfs-fast`: `/mnt/spool/appdata` (default); `nfs-media`: `/mnt/dpool/media` (use `existingClaim: media`); `nfs-restic`: `/mnt/dpool/restic`
+
+## ArgoCD Sync Waves
+`-4` CRDs → `-3` Controllers/DNS → `-2` Mesh/PVCs → `-1` k8tz → `0` Apps
+
+## ExternalSecret Pattern
+`refreshInterval → secretStoreRef (name, kind) → target → data`; Store: `external-secrets-store`
 
 ## Resource Naming
-| Type | Pattern | Example |
-|------|---------|---------|
-| Manifest File | `{app}-{descriptor}.{kind}.yaml` | `gateway-credentials.externalsecret.yaml` |
-| ExternalSecret | `{app}-[{descriptor}-]credentials` | `gateway-credentials` |
-| ConfigMap | `{app}-{descriptor}` | `gatus-generated-config` |
-| HTTPRoute | `{app}` | `homepage` |
-| Certificate | `{app}-{descriptor}` | `gateway-wildcard` |
+Manifest: `{app}-{descriptor}.{kind}.yaml`; ExternalSecret: `{app}-[{descriptor}-]credentials`; HTTPRoute: `{app}`; PVC: `{app}-{suffix}` or `existingClaim: media`
 
-## App Categories
-Platform: cert-manager, external-dns-cloudflare, external-dns-unifi, external-secrets, gateway-api, homelab-controller, istio, istio-base, reloader, tailscale-operator. Kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner. Home Automation: homebridge, matterbridge, mosquitto, scrypted, zigbee2mqtt. Media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr. Selfhosted: atuin, changedetection, echo, gatus, homepage, karakeep, n8n, paperless, restic.
+## Code Standards
+YAML: 2 spaces, `---` on line 1; Fields: `apiVersion → kind → metadata → spec`; Metadata: `name → namespace → labels → annotations`
+Pre-commit: yamllint, shellcheck, tofu-validate, helm-lint
+
+## Environment Variables
+`BWS_ACCESS_TOKEN` (Bitwarden: bootstrap, lint, tf); `AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY` (TF S3 backend); `TALOS_NODE/CLUSTER_NAME/INSTALL_DISK` (Talos)
+
+## Constraints
+Local + Tailscale only (192.168.1.0/24); Single-node → `replicas: 1`, `strategy: Recreate`; Never commit directly to master
