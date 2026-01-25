@@ -8,13 +8,16 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install kubectl helm helmfile talosctl go-task opentofu
+brew install kubectl helm helmfile talosctl go-task opentofu pre-commit
 
 # Set environment variables
 export BWS_ACCESS_TOKEN="your-bitwarden-secrets-token"
 export TALOS_NODE="192.168.1.253"
 export TALOS_CLUSTER_NAME="homelab"
 export TALOS_INSTALL_DISK="/dev/vda"
+
+# Install pre-commit hooks (optional but recommended)
+pre-commit install
 ```
 
 ### Bootstrap Cluster
@@ -52,7 +55,8 @@ task argo:sync                     # Sync all apps
 task argo:sync app=plex            # Sync specific app
 
 # Development
-task lint                          # Format & lint YAML
+task fmt                           # Format all code (YAML, Terraform)
+task lint                          # Lint all code (YAML, Terraform, Helm, Shell)
 
 # Terraform
 task tf:plan                       # Plan infrastructure changes

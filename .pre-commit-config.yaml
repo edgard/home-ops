@@ -1,0 +1,63 @@
+---
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+default_stages:
+  - pre-commit
+fail_fast: false
+repos:
+  # Phase 1: Quick syntax/validation checks (fail fast)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+        args:
+          - "--unsafe"
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args:
+          - "--maxkb=1000"
+      - id: detect-private-key
+      - id: check-merge-conflict
+      - id: check-case-conflict
+
+  # Phase 2: Auto-fixes (prepare files)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args:
+          - "--fix=lf"
+
+  # Phase 3: Linters
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args:
+          - "--config-file"
+          - ".yamllint"
+  - repo: local
+    hooks:
+      - id: tofu-validate
+        name: Terraform validate with tofu
+        entry: bash -c 'cd terraform && tofu init -backend=false >/dev/null 2>&1 && tofu validate'
+        language: system
+        files: ^(terraform/.*\.tf|.*\.tf)$
+        pass_filenames: false
+      - id: helm-lint
+        name: Helm chart validation
+        entry: .scripts/helm-lint.sh
+        language: script
+        files: ^apps/[^/]+/[^/]+/config\.yaml$
+        pass_filenames: true
+
+  # Phase 4: Language-specific linters
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args:
+          - "--severity=warning"

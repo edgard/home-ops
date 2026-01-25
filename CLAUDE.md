@@ -8,7 +8,7 @@ GitOps-managed Talos Kubernetes homelab on TrueNAS. Local network access only. S
 Talos on TrueNAS, local network access (192.168.1.0/24), Istio Gateway API ingress with Multus bridge (192.168.1.241), Tailscale Operator for VPN access, dual external-dns (Unifi A records, Cloudflare CNAMEs), Bitwarden secrets, NFS CSI for storage.
 ## Critical Rules
 ### Code Standards
-- **YAML**: 2 spaces, no tabs. Run `task lint` before commits. Start files with `---`
+- **YAML**: 2 spaces, no tabs. Run `task fmt` and `task lint` before commits. Start files with `---`
 - **File naming**: `{app}-{descriptor}.{kind}.yaml` (e.g., `gatus-credentials.externalsecret.yaml`)
 - **Helm**: Use `ghcr.io/bjw-s-labs/helm/app-template` v4.6.2. Structure: `defaultPodOptions` → `controllers` → `service` → `route` → `persistence`
 - **Resources**: All apps run unlimited (`resources: {}`). Local network only = no DDoS risk
@@ -63,7 +63,8 @@ Talos on TrueNAS, local network access (192.168.1.0/24), Istio Gateway API ingre
 
 ## Common Tasks
 ```bash
-task lint                          # Format & lint YAML
+task fmt                           # Format all code (YAML, Terraform)
+task lint                          # Lint all code (YAML, Terraform, Helm, Shell)
 task cluster:create                # Install and bootstrap Talos + platform
 task cluster:destroy               # Destroy platform and reset Talos node
 task talos:gen                     # Generate Talos config
