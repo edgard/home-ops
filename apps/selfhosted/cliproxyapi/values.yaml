@@ -1,0 +1,162 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 0
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
+
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      app:
+        image:
+          repository: eceasy/cli-proxy-api
+          tag: v6.7.25
+        ports:
+          - name: http
+            containerPort: 8317
+            protocol: TCP
+        env:
+          MANAGEMENT_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: cliproxyapi-credentials
+                key: management-password
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          limits: null
+          requests: null
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        port: 8317
+        targetPort: http
+    annotations:
+      gatus.edgard.org/enabled: "true"
+
+route:
+  main:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: CLI Proxy API
+      gethomepage.dev/group: Selfhosted
+      gethomepage.dev/icon: code-server.png
+      gethomepage.dev/app: cliproxyapi
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - cliproxyapi.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8317
+
+persistence:
+  data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 3Gi
+    advancedMounts:
+      main:
+        app:
+          - path: /CLIProxyAPI/logs
+            subPath: logs
+          - path: /root/.cli-proxy-api
+            subPath: auth
+  config:
+    type: configMap
+    identifier: cliproxyapi-config
+    advancedMounts:
+      main:
+        app:
+          - path: /CLIProxyAPI/config.yaml
+            subPath: config.yaml
+            readOnly: true
+configMaps:
+  cliproxyapi-config:
+    data:
+      config.yaml: |-
+        host: ""
+        port: 8317
+
+        tls:
+          enable: false
+          cert: ""
+          key: ""
+
+        auth-dir: "/root/.cli-proxy-api"
+        api-keys: []
+
+        debug: false
+        commercial-mode: false
+        logging-to-file: false
+        logs-max-total-size-mb: 0
+        usage-statistics-enabled: true
+        proxy-url: ""
+        force-model-prefix: false
+        request-retry: 3
+        max-retry-interval: 30
+
+        codex-instructions-enabled: false
+        nonstream-keepalive-interval: 0
+
+        routing:
+          strategy: "round-robin"
+
+        ws-auth: false
+
+        streaming:
+          keepalive-seconds: 0
+          bootstrap-retries: 0
+
+        remote-management:
+          allow-remote: true
+          secret-key: ""
+          disable-control-panel: false
+          panel-github-repository: "https://github.com/router-for-me/Cli-Proxy-API-Management-Center"
+
+        quota-exceeded:
+          switch-project: false
+          switch-preview-model: false
+
+        oauth-model-alias:
+          antigravity:
+            - name: "gemini-3-pro-high"
+              alias: "gemini-3-pro"
+          gemini-cli:
+            - name: "gemini-3-pro-preview"
+              alias: "gemini-3-pro"
+            - name: "gemini-3-flash-preview"
+              alias: "gemini-3-flash"
+
+        oauth-excluded-models:
+          antigravity:
+            - "gemini-2.5-*"
+            - "gpt-oss-120b-medium"
+            - "tab_flash_lite_preview"
+          gemini-cli:
+            - "gemini-2.5-*"
