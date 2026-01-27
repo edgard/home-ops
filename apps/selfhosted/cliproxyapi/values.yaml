@@ -18,7 +18,7 @@ controllers:
       app:
         image:
           repository: eceasy/cli-proxy-api
-          tag: v6.7.25
+          tag: v6.7.26
         ports:
           - name: http
             containerPort: 8317
