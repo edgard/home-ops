@@ -148,6 +148,11 @@ controllers:
           OCR_PROVIDER: "llm"
           PDF_SKIP_EXISTING_OCR: "false"
           PDF_OCR_TAGGING: "false"
+          CORRESPONDENT_BLACK_LIST:
+            valueFrom:
+              secretKeyRef:
+                name: paperless-credentials
+                key: CORRESPONDENT_BLACK_LIST
           PAPERLESS_API_TOKEN:
             valueFrom:
               secretKeyRef:
