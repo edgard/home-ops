@@ -105,19 +105,7 @@ configMaps:
           "whiteList": [],
           "blackList": [
             "Coordinator",
-            "Living Room Zigbee Repeater",
-            "Bedroom Ceiling 1 Light",
-            "Bedroom Ceiling 2 Light",
-            "Bedroom Ceiling 3 Light",
-            "Bedroom Ceiling 4 Light",
-            "Bedroom Ceiling 5 Light",
-            "Bedroom Ceiling 6 Light",
-            "Office Ceiling 1 Light",
-            "Office Ceiling 2 Light",
-            "Office Ceiling 3 Light",
-            "Office Ceiling 4 Light",
-            "Living Room Corridor 1 Light",
-            "Living Room Corridor 2 Light"
+            "Living Room Zigbee Repeater"
           ],
           "switchList": [],
           "lightList": [],
