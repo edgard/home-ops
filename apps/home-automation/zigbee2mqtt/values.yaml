@@ -16,7 +16,7 @@ controllers:
       app:
         image:
           repository: koenkk/zigbee2mqtt
-          tag: 2.7.2
+          tag: 2.8.0
         env:
           # Watchdog (auto-restart on adapter failure)
           Z2M_WATCHDOG: default
