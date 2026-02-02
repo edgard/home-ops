@@ -105,7 +105,7 @@ configMaps:
           "whiteList": [],
           "blackList": [
             "Coordinator",
-            "Living Room Zigbee Repeater"
+            "Kitchen Zigbee Repeater"
           ],
           "switchList": [],
           "lightList": [],
@@ -123,9 +123,7 @@ configMaps:
             "update_available",
             "device_temperature"
           ],
-          "deviceFeatureBlackList": {
-            "Office Motion Sensor": ["illuminance"]
-          },
+          "deviceFeatureBlackList": {},
           "scenesType": "outlet",
           "scenesPrefix": true,
           "debug": false,
