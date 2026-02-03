@@ -139,10 +139,8 @@ controllers:
           - |
             echo "Running forget with retention policy..."
             restic forget \
-              --keep-last 6 \
-              --keep-hourly 24 \
-              --keep-daily 7 \
-              --keep-weekly 4 \
+              --keep-daily 14 \
+              --keep-weekly 8 \
               --keep-monthly 12 \
               --keep-yearly 3 \
               --prune \
