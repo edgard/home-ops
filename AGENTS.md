@@ -23,7 +23,7 @@ terraform/               # Cloudflare/Tailscale infra
 - kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner
 - home-automation: homeassistant, matterbridge, mosquitto, scrypted, zigbee2mqtt
 - media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
-- selfhosted: atuin, changedetection, cliproxyapi, echo, gatus, homepage, karakeep, paperless, restic
+- selfhosted: atuin, changedetection, echo, gatus, homepage, karakeep, paperless, restic
 
 ## Conventions
 
