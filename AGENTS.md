@@ -21,7 +21,7 @@ terraform/               # Cloudflare/Tailscale infra
 **App Categories**:
 - platform-system: cert-manager, external-dns, external-secrets, gateway-api, homelab-controller, istio, istio-base, reloader, tailscale-router
 - kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner
-- home-automation: homeassistant, matterbridge, mosquitto, scrypted, zigbee2mqtt
+- home-automation: homeassistant, scrypted
 - media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
 - selfhosted: atuin, changedetection, echo, gatus, homepage, karakeep, paperless, restic
 
