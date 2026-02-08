@@ -71,3 +71,43 @@ spec:
             duration: 5s
             maxDuration: 3m
             factor: 2
+
+  templatePatch: |
+    {{- $ignoreDifferences := dig "ignoreDifferences" (list) . }}
+    {{- if $ignoreDifferences }}
+    spec:
+      ignoreDifferences:
+      {{- range $rule := $ignoreDifferences }}
+        - group: {{ dig "group" "" $rule | quote }}
+          kind: {{ dig "kind" "" $rule | quote }}
+          {{- $name := dig "name" "" $rule }}
+          {{- if $name }}
+          name: {{ $name | quote }}
+          {{- end }}
+          {{- $namespace := dig "namespace" "" $rule }}
+          {{- if $namespace }}
+          namespace: {{ $namespace | quote }}
+          {{- end }}
+          {{- $jsonPointers := dig "jsonPointers" (list) $rule }}
+          {{- if $jsonPointers }}
+          jsonPointers:
+          {{- range $pointer := $jsonPointers }}
+            - {{ $pointer | quote }}
+          {{- end }}
+          {{- end }}
+          {{- $jqPathExpressions := dig "jqPathExpressions" (list) $rule }}
+          {{- if $jqPathExpressions }}
+          jqPathExpressions:
+          {{- range $expression := $jqPathExpressions }}
+            - {{ $expression | quote }}
+          {{- end }}
+          {{- end }}
+          {{- $managedFieldsManagers := dig "managedFieldsManagers" (list) $rule }}
+          {{- if $managedFieldsManagers }}
+          managedFieldsManagers:
+          {{- range $manager := $managedFieldsManagers }}
+            - {{ $manager | quote }}
+          {{- end }}
+          {{- end }}
+      {{- end }}
+    {{- end }}

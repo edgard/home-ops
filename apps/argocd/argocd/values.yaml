@@ -2,6 +2,8 @@
 fullnameOverride: argocd
 
 configs:
+  secret:
+    createSecret: true
   params:
     controller.diff.server.side: "true"
   cm:
