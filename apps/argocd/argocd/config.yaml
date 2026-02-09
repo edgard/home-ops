@@ -5,3 +5,13 @@ chart:
   version: 9.4.1
 sync:
   wave: "-4"
+ignoreDifferences:
+  - group: ""
+    kind: Secret
+    name: argocd-secret
+    namespace: argocd
+    jsonPointers:
+      - /data/admin.password
+      - /data/admin.passwordMtime
+      - /metadata/annotations/argocd.argoproj.io~1tracking-id
+      - /metadata/annotations/reconcile.external-secrets.io~1data-hash
