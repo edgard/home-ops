@@ -41,7 +41,7 @@ controllers:
           readiness:
             enabled: true
         securityContext:
-          allowPrivilegeEscalation: false
+          privileged: true
 
 service:
   main:
@@ -96,3 +96,9 @@ persistence:
       - path: /config/configuration.yaml
         subPath: configuration.yaml
         readOnly: true
+  dev-ttyusb0:
+    type: hostPath
+    hostPath: /dev/ttyUSB0
+    hostPathType: CharDevice
+    globalMounts:
+      - path: /dev/ttyUSB0
