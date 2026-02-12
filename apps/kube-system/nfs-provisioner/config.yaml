@@ -2,6 +2,6 @@
 chart:
   repo: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
   name: csi-driver-nfs
-  version: 4.13.0
+  version: 4.13.1
 sync:
   wave: "-3"

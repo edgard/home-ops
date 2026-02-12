@@ -43,7 +43,7 @@ controllers:
       gluetun:
         image:
           repository: qmcgaw/gluetun
-          tag: v3.41.0
+          tag: v3.41.1
         env:
           VPN_SERVICE_PROVIDER: mullvad
           VPN_TYPE: wireguard
