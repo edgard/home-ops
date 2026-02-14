@@ -1,0 +1,31 @@
+---
+apiVersion: renovate-operator.mogenius.com/v1alpha1
+kind: RenovateJob
+metadata:
+  name: renovate-home-ops
+  namespace: selfhosted
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  discoveryFilter: edgard/home-ops
+  extraEnv:
+    - name: LOG_LEVEL
+      value: info
+    - name: RENOVATE_ALLOWED_COMMANDS
+      value: '["^curl "]'
+    - name: RENOVATE_ENDPOINT
+      value: https://api.github.com/
+    - name: RENOVATE_INTERNAL_CHECKS_FILTER
+      value: strict
+    - name: RENOVATE_ONBOARDING
+      value: "false"
+    - name: RENOVATE_PLATFORM
+      value: github
+    - name: RENOVATE_PLATFORM_COMMIT
+      value: "true"
+    - name: RENOVATE_REPOSITORY_CACHE
+      value: enabled
+  image: ghcr.io/renovatebot/renovate:43.14.0
+  parallelism: 1
+  schedule: "17 3 * * *"
+  secretRef: renovate-operator-credentials

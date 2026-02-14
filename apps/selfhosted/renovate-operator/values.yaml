@@ -1,0 +1,7 @@
+---
+fullnameOverride: renovate-operator
+replicaCount: 1
+
+logging:
+  level: info
+  format: json

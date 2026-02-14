@@ -1,0 +1,7 @@
+---
+chart:
+  repo: oci://ghcr.io/mogenius/helm-charts/renovate-operator
+  path: "."
+  version: 2.6.2
+sync:
+  wave: "-3"
