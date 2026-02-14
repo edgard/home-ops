@@ -72,7 +72,7 @@ spec:
             maxDuration: 3m
             factor: 2
 
-  templatePatch: |
+  templatePatch: |-
     {{- $ignoreDifferences := dig "ignoreDifferences" (list) . }}
     {{- if $ignoreDifferences }}
     spec:

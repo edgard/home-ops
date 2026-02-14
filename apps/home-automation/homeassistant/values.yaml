@@ -12,9 +12,10 @@ controllers:
     type: deployment
     replicas: 1
     strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
     pod:
       annotations:
-        reloader.stakater.com/auto: "true"
         k8s.v1.cni.cncf.io/networks: |-
           [
             {

@@ -14,5 +14,5 @@ certController:
 
 bitwarden-sdk-server:
   enabled: true
-  podAnnotations:
+  deploymentAnnotations:
     reloader.stakater.com/auto: "true"

@@ -22,15 +22,15 @@ notifications:
 
 applicationSet:
   enabled: true
-  podAnnotations:
+  deploymentAnnotations:
     reloader.stakater.com/auto: "true"
 
 controller:
-  podAnnotations:
+  statefulsetAnnotations:
     reloader.stakater.com/auto: "true"
 
 server:
-  podAnnotations:
+  deploymentAnnotations:
     reloader.stakater.com/auto: "true"
   service:
     annotations:
@@ -39,5 +39,5 @@ server:
     - --insecure
 
 repoServer:
-  podAnnotations:
+  deploymentAnnotations:
     reloader.stakater.com/auto: "true"

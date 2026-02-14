@@ -11,9 +11,8 @@ controllers:
   main:
     type: deployment
     replicas: 1
-    pod:
-      annotations:
-        reloader.stakater.com/auto: "true"
+    annotations:
+      reloader.stakater.com/auto: "true"
     containers:
       app:
         image:
