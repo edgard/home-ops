@@ -20,7 +20,7 @@ controllers:
       tailscale:
         image:
           repository: ghcr.io/tailscale/tailscale
-          tag: v1.94.1
+          tag: v1.94.2
         env:
           TS_KUBE_SECRET: tailscale-router-state
           TS_ROUTES: 192.168.1.241/32,192.168.1.1/32
