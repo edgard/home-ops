@@ -1,0 +1,4 @@
+---
+replicaCount: 1
+controller:
+  logLevel: info
