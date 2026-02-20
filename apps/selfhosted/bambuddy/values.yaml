@@ -56,6 +56,7 @@ route:
       gethomepage.dev/enabled: "true"
       gethomepage.dev/name: Bambuddy
       gethomepage.dev/group: Selfhosted
+      gethomepage.dev/icon: mdi-printer-3d-nozzle
       gethomepage.dev/app: bambuddy
     parentRefs:
       - name: gateway
