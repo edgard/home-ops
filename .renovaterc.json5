@@ -12,7 +12,10 @@
 
   // === Kubernetes Manager ===
   kubernetes: {
-    managerFilePatterns: ["/^apps\\/.*\\/manifests\\/.*\\.yaml$/", "/^argocd\\/.*\\.yaml$/"],
+    managerFilePatterns: [
+      "/^apps\\/.*\\/manifests\\/.*\\.yaml$/",
+      "/^argocd\\/.*\\.yaml$/",
+    ],
   },
 
   // === Custom Managers ===
@@ -34,14 +37,38 @@
     {
       customType: "regex",
       description: "Gateway API CRDs version",
-      managerFilePatterns: ["/^apps\\/platform-system\\/gateway-api\\/manifests\\/gateway-api-version\\.configmap\\.ya?ml$/"],
-      matchStrings: ["# renovate: datasource=github-releases depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?"],
+      managerFilePatterns: [
+        "/^apps\\/platform-system\\/gateway-api\\/manifests\\/gateway-api-version\\.configmap\\.ya?ml$/",
+      ],
+      matchStrings: [
+        "# renovate: datasource=github-releases depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
+      ],
       datasourceTemplate: "github-releases",
+    },
+
+    // Talos installer in bootstrap machine config (preserve factory schematic path)
+    {
+      customType: "regex",
+      description: "Talos installer image tag in bootstrap patch",
+      managerFilePatterns: ["/^bootstrap\\/controlplane-patch\\.ya?ml$/"],
+      matchStrings: [
+        "image:\\s*(?<depName>factory\\.talos\\.dev\\/metal-installer\\/[a-z0-9]+):(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[^\\s\"']+)?)",
+      ],
+      datasourceTemplate: "docker",
     },
   ],
 
   // === Package Rules ===
   packageRules: [
+    // Resolve Talos updates from upstream installer tags while keeping factory path in file
+    {
+      description: "Override Talos installer package name",
+      matchDatasources: ["docker"],
+      matchDepNames: ["/factory\\.talos\\.dev\\/metal-installer\\//"],
+      matchPackageNames: ["/factory\\.talos\\.dev\\/metal-installer\\//"],
+      overridePackageName: "ghcr.io/siderolabs/installer",
+    },
+
     // Manual review: Gateway API updates (CRD changes are risky)
     {
       description: "Require manual review for Gateway API updates",
