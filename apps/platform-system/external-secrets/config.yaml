@@ -2,6 +2,6 @@
 chart:
   repo: oci://ghcr.io/external-secrets/charts/external-secrets
   path: "."
-  version: 2.0.0
+  version: 2.0.1
 sync:
   wave: "-4"
