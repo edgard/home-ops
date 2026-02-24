@@ -247,7 +247,7 @@ controllers:
       app:
         image:
           repository: docker.io/library/redis
-          tag: "8.6.0"
+          tag: "8.6.1"
         args:
           - redis-server
           - --save
