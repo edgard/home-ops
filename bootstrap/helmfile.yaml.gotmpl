@@ -22,13 +22,8 @@ hooks:
       - "prepare"
     command: bash
     args:
-      - -c
-      - |
-        set -euo pipefail
-        for ns in media platform-system; do
-          kubectl create namespace "${ns}" --dry-run=client -o yaml | kubectl apply -f -
-        done
-        kubectl -n kube-system run -q bootstrap-image-warmup-k8tz --rm --attach --restart=Never --image=quay.io/k8tz/k8tz:{{ (toString $k8tzCfg.chart.version) | trimPrefix "v" }} -- --help >/dev/null
+      - ../scripts/prepare-bootstrap.sh
+      - '{{ (toString $k8tzCfg.chart.version) | trimPrefix "v" }}'
 
 releases:
   - name: nfs-provisioner
@@ -81,26 +76,12 @@ releases:
           - "presync"
         command: bash
         args:
-          - -c
-          - |
-            set -euo pipefail
-            kubectl wait --for=condition=Established crd/issuers.cert-manager.io crd/certificates.cert-manager.io --timeout=60s
-            kubectl wait --for=condition=Available deployment/cert-manager-webhook -n platform-system --timeout=60s
-            kubectl create secret generic bitwarden-credentials -n platform-system --from-literal=token="${BWS_ACCESS_TOKEN}" --dry-run=client -o yaml | kubectl apply -f -
-            kubectl apply -f ../apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-issuer.issuer.yaml
-            kubectl apply -f ../apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-tls.certificate.yaml
-            kubectl wait --for=condition=Ready certificate/external-secrets-sdk-server-tls -n platform-system --timeout=120s
+          - ../scripts/external-secrets-presync.sh
       - events:
           - "postsync"
         command: bash
         args:
-          - -c
-          - |
-            set -euo pipefail
-            kubectl apply -f ../apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml
-            kubectl wait --for=condition=Available deployment/bitwarden-sdk-server -n platform-system --timeout=120s
-            kubectl rollout restart deployment/external-secrets -n platform-system
-            kubectl rollout status deployment/external-secrets -n platform-system --timeout=120s
+          - ../scripts/external-secrets-postsync.sh
 
   - name: argocd
     namespace: argocd
@@ -115,10 +96,4 @@ releases:
           - "postsync"
         command: bash
         args:
-          - -c
-          - |-
-            set -euo pipefail
-            kubectl apply -f ../apps/argocd/argocd/manifests/argocd-repo-credentials.externalsecret.yaml
-            kubectl wait --for=condition=Ready --timeout=120s externalsecret/argocd-repo-credentials -n argocd
-            kubectl wait --for=condition=Established --timeout=180s crd/applications.argoproj.io crd/appprojects.argoproj.io crd/applicationsets.argoproj.io
-            kubectl apply -f ../argocd/root.app.yaml
+          - ../scripts/argocd-postsync.sh
