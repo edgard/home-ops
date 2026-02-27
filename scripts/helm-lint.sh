@@ -2,23 +2,23 @@
 # Helm chart validation script for pre-commit
 set -euo pipefail
 
-# Validate a single config
-validate_config() {
-  local config="$1"
-  local values="${config%config.yaml}values.yaml"
+# Validate a single app metadata file
+validate_app() {
+  local app="$1"
+  local values="${app%app.yaml}values.yaml"
 
   # Skip if values.yaml doesn't exist
   [ -f "$values" ] || return 0
 
   # Extract chart info
   local repo
-  repo=$(yq eval '.chart.repo' "$config")
+  repo=$(yq eval '.chart.repo' "$app")
   [ "$repo" = "null" ] && return 0
 
   local version
-  version=$(yq eval '.chart.version' "$config")
+  version=$(yq eval '.chart.version' "$app")
   local name
-  name=$(yq eval '.chart.name' "$config")
+  name=$(yq eval '.chart.name' "$app")
 
   # Handle OCI vs HTTP repos
   local chart
@@ -33,9 +33,9 @@ validate_config() {
     chart="$repo_name/$name"
   fi
 
-# Validate chart
+  # Validate chart
   if ! helm template test "$chart" --version "$version" --values "$values" >/dev/null 2>&1; then
-    echo "Failed: $(dirname "$config")"
+    echo "Failed: $(dirname "$app")"
     return 1
   fi
 }
@@ -47,7 +47,7 @@ fi
 
 failed=0
 for config in "$@"; do
-  if ! validate_config "$config"; then
+  if ! validate_app "$config"; then
     failed=1
   fi
 done

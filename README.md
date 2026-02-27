@@ -77,3 +77,11 @@ task tf:apply                      # Apply infrastructure changes
 ├── bootstrap/              # Talos + platform bootstrap
 └── terraform/              # External infrastructure (Cloudflare, Tailscale)
 ```
+
+## App Metadata Convention
+
+- `apps/<category>/<app>/app.yaml`: Argo CD ApplicationSet metadata (chart source, sync wave, optional ignore rules)
+- `apps/<category>/<app>/values.yaml`: Helm values overrides for the app chart
+- `apps/<category>/<app>/manifests/`: Optional raw manifests applied alongside the chart
+
+`Chart.yaml` is only used when authoring a local Helm chart, not for ApplicationSet metadata.

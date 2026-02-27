@@ -1,13 +1,13 @@
-{{- $nfsCfg := readFile "../apps/kube-system/nfs-provisioner/config.yaml" | fromYaml -}}
-{{- $multusCfg := readFile "../apps/kube-system/multus/config.yaml" | fromYaml -}}
-{{- $certManagerCfg := readFile "../apps/platform-system/cert-manager/config.yaml" | fromYaml -}}
-{{- $externalSecretsCfg := readFile "../apps/platform-system/external-secrets/config.yaml" | fromYaml -}}
-{{- $argocdCfg := readFile "../apps/argocd/argocd/config.yaml" | fromYaml -}}
-{{- $k8tzCfg := readFile "../apps/kube-system/k8tz/config.yaml" | fromYaml -}}
+{{- $nfsApp := readFile "../apps/kube-system/nfs-provisioner/app.yaml" | fromYaml -}}
+{{- $multusApp := readFile "../apps/kube-system/multus/app.yaml" | fromYaml -}}
+{{- $certManagerApp := readFile "../apps/platform-system/cert-manager/app.yaml" | fromYaml -}}
+{{- $externalSecretsApp := readFile "../apps/platform-system/external-secrets/app.yaml" | fromYaml -}}
+{{- $argocdApp := readFile "../apps/argocd/argocd/app.yaml" | fromYaml -}}
+{{- $k8tzApp := readFile "../apps/kube-system/k8tz/app.yaml" | fromYaml -}}
 
 repositories:
   - name: csi-nfs
-    url: "{{ $nfsCfg.chart.repo }}"
+    url: "{{ $nfsApp.chart.repo }}"
 
 helmDefaults:
   cleanupOnFail: true
@@ -23,13 +23,13 @@ hooks:
     command: bash
     args:
       - ../scripts/prepare-bootstrap.sh
-      - '{{ (toString $k8tzCfg.chart.version) | trimPrefix "v" }}'
+      - '{{ (toString $k8tzApp.chart.version) | trimPrefix "v" }}'
 
 releases:
   - name: nfs-provisioner
     namespace: kube-system
-    chart: "csi-nfs/{{ $nfsCfg.chart.name }}"
-    version: "{{ $nfsCfg.chart.version }}"
+    chart: "csi-nfs/{{ $nfsApp.chart.name }}"
+    version: "{{ $nfsApp.chart.version }}"
     values:
       - ../apps/kube-system/nfs-provisioner/values.yaml
     hooks:
@@ -43,8 +43,8 @@ releases:
 
   - name: multus
     namespace: kube-system
-    chart: "{{ $multusCfg.chart.repo }}"
-    version: "{{ $multusCfg.chart.version }}"
+    chart: "{{ $multusApp.chart.repo }}"
+    version: "{{ $multusApp.chart.version }}"
     values:
       - ../apps/kube-system/multus/values.yaml
     hooks:
@@ -58,15 +58,15 @@ releases:
 
   - name: cert-manager
     namespace: platform-system
-    chart: "{{ $certManagerCfg.chart.repo }}"
-    version: "{{ $certManagerCfg.chart.version }}"
+    chart: "{{ $certManagerApp.chart.repo }}"
+    version: "{{ $certManagerApp.chart.version }}"
     values:
       - ../apps/platform-system/cert-manager/values.yaml
 
   - name: external-secrets
     namespace: platform-system
-    chart: "{{ $externalSecretsCfg.chart.repo }}"
-    version: "{{ $externalSecretsCfg.chart.version }}"
+    chart: "{{ $externalSecretsApp.chart.repo }}"
+    version: "{{ $externalSecretsApp.chart.version }}"
     needs:
       - platform-system/cert-manager
     values:
@@ -85,8 +85,8 @@ releases:
 
   - name: argocd
     namespace: argocd
-    chart: "{{ $argocdCfg.chart.repo }}"
-    version: "{{ $argocdCfg.chart.version }}"
+    chart: "{{ $argocdApp.chart.repo }}"
+    version: "{{ $argocdApp.chart.version }}"
     needs:
       - platform-system/external-secrets
     values:

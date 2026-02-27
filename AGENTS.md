@@ -12,8 +12,8 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 ## Project Layout
 
 ```
-apps/<category>/<app>/{config.yaml,values.yaml,manifests/}
-argocd/appsets/          # Auto-discovers apps/*/config.yaml
+apps/<category>/<app>/{app.yaml,values.yaml,manifests/}
+argocd/appsets/          # Auto-discovers apps/*/*/app.yaml
 bootstrap/helmfile.yaml.gotmpl  # Platform bootstrap
 terraform/               # Cloudflare/Tailscale infra
 ```
@@ -87,7 +87,7 @@ Store: `external-secrets-store`
 
 ## Architecture Overview
 
-GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discovered from `apps/*/config.yaml` directories. Platform services bootstrap via Helmfile, infrastructure managed through Terraform (Cloudflare DNS, Tailscale networking). Single-node cluster with local-only access via Tailscale VPN.
+GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discovered from `apps/*/*/app.yaml` metadata files. Platform services bootstrap via Helmfile, infrastructure managed through Terraform (Cloudflare DNS, Tailscale networking). Single-node cluster with local-only access via Tailscale VPN.
 
 ## External Services
 

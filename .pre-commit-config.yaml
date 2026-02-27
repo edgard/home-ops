@@ -49,10 +49,16 @@ repos:
         pass_filenames: false
       - id: helm-lint
         name: Helm chart validation
-        entry: .scripts/helm-lint.sh
+        entry: scripts/helm-lint.sh
         language: script
-        files: ^apps/[^/]+/[^/]+/config\.yaml$
+        files: ^apps/[^/]+/[^/]+/app\.yaml$
         pass_filenames: true
+      - id: appset-input-lint
+        name: ApplicationSet input validation
+        entry: scripts/validate-appset-inputs.sh
+        language: script
+        files: ^apps/[^/]+/[^/]+/(app|values)\.yaml$
+        pass_filenames: false
 
   # Phase 4: Language-specific linters
   - repo: https://github.com/shellcheck-py/shellcheck-py
