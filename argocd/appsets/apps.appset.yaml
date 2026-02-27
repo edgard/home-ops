@@ -14,7 +14,7 @@ spec:
         repoURL: https://github.com/edgard/home-ops.git
         revision: master
         files:
-          - path: "apps/*/*/config.yaml"
+          - path: "apps/*/*/app.yaml"
         values:
           repoURL: https://github.com/edgard/home-ops.git
           revision: master

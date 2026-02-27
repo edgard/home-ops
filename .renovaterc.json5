@@ -20,11 +20,11 @@
 
   // === Custom Managers ===
   customManagers: [
-    // Helm charts in app config.yaml files (OCI and HTTP repositories)
+    // Helm charts in app metadata files (OCI and HTTP repositories)
     {
       customType: "regex",
       description: "Helm charts in app config files",
-      managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/config\\.ya?ml$/"],
+      managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/app\\.ya?ml$/"],
       matchStringsStrategy: "any",
       matchStrings: [
         "repo:\\s*oci://(?<packageName>[^\\s]+)\\s+path:\\s*[\"']?\\.[\"']?\\s+version:\\s*(?<currentValue>\\S+)",
