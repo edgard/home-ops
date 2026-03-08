@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "${script_dir}/.." && pwd)"
+apps_root="${APPS_ROOT:-${repo_root}/apps}"
+
 failed=0
 
 tmp_seen_names=$(mktemp)
 trap 'rm -f "$tmp_seen_names"' EXIT
 
-for app in apps/*/*; do
+for app in "${apps_root}"/*/*; do
   [ -d "$app" ] || continue
 
   app_file="$app/app.yaml"
@@ -23,7 +27,7 @@ for app in apps/*/*; do
     failed=1
   fi
 
-  category=${app#apps/}
+  category=${app#"${apps_root}/"}
   category=${category%%/*}
   app_name=${app##*/}
   generated_name="${category}-${app_name}"

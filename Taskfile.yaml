@@ -28,6 +28,10 @@ tasks:
         - TALOS_NODE
         - TALOS_CLUSTER_NAME
         - TALOS_INSTALL_DISK
+    env:
+      TALOS_NODE: "{{.TALOS_NODE}}"
+      TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME}}"
+      TALOS_INSTALL_DISK: "{{.TALOS_INSTALL_DISK}}"
     cmds:
       - "{{.TASKFILE_DIR}}/scripts/talos-gen.sh"
 
@@ -56,6 +60,9 @@ tasks:
       vars:
         - TALOS_NODE
         - TALOS_CLUSTER_NAME
+    env:
+      TALOS_NODE: "{{.TALOS_NODE}}"
+      TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME}}"
     cmds:
       - "{{.TASKFILE_DIR}}/scripts/talos-bootstrap.sh"
 
@@ -64,6 +71,8 @@ tasks:
     requires:
       vars:
         - TALOS_NODE
+    env:
+      TALOS_NODE: "{{.TALOS_NODE}}"
     cmds:
       - "{{.TASKFILE_DIR}}/scripts/talos-upgrade.sh"
 
@@ -127,6 +136,12 @@ tasks:
     cmds:
       - APP="{{.app}}" "{{.TASKFILE_DIR}}/scripts/argo-sync.sh"
 
+  test:
+    desc: Run behavior tests
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - bats tests
+
   fmt:
     desc: Format all code
     dir: "{{.TASKFILE_DIR}}"
@@ -136,15 +151,20 @@ tasks:
       - tofu fmt -recursive
 
   lint:
-    desc: Lint all code
+    desc: Run static and contract checks
     dir: "{{.TASKFILE_DIR}}"
-    requires:
-      vars:
-        - AWS_ACCESS_KEY_ID
-        - AWS_SECRET_ACCESS_KEY
-        - BWS_ACCESS_TOKEN
     cmds:
-      - pre-commit run --all-files
+      - yamllint -c .yamllint .
+      - shellcheck --severity=warning scripts/*.sh
+      - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
+      - "{{.TASKFILE_DIR}}/scripts/validate-appset-inputs.sh"
+      - files=(apps/*/*/app.yaml); [ ${#files[@]} -eq 0 ] || "{{.TASKFILE_DIR}}/scripts/validate-helm-apps.sh" "${files[@]}"
+
+  check:
+    desc: Run the full local quality gate
+    cmds:
+      - task: test
+      - task: lint
 
   tf:plan:
     desc: Terraform plan
@@ -155,6 +175,9 @@ tasks:
         - AWS_SECRET_ACCESS_KEY
         - BWS_ACCESS_TOKEN
     env:
+      AWS_ACCESS_KEY_ID: "{{.AWS_ACCESS_KEY_ID}}"
+      AWS_SECRET_ACCESS_KEY: "{{.AWS_SECRET_ACCESS_KEY}}"
+      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
       BW_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
     cmds:
       - tofu init
@@ -169,6 +192,9 @@ tasks:
         - AWS_SECRET_ACCESS_KEY
         - BWS_ACCESS_TOKEN
     env:
+      AWS_ACCESS_KEY_ID: "{{.AWS_ACCESS_KEY_ID}}"
+      AWS_SECRET_ACCESS_KEY: "{{.AWS_SECRET_ACCESS_KEY}}"
+      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
       BW_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
     cmds:
       - tofu init
