@@ -4,6 +4,8 @@ load 'helpers/test_helper.bash'
 
 setup() {
   setup_test_env
+  export REPO_ROOT
+  REPO_ROOT="$(cd -- "$(dirname -- "$BATS_TEST_FILENAME")/.." && pwd)"
   write_stub kubectl '
 printf "kubectl %s\n" "$*" >> "$STUB_LOG"
 if [[ "$1" == "apply" && "$2" == "-f" && "$3" == "-" ]]; then
@@ -30,7 +32,7 @@ teardown() {
   assert_log_contains 'kubectl wait --for=condition=Established crd/issuers.cert-manager.io crd/certificates.cert-manager.io --timeout=60s'
   assert_log_contains 'name: bitwarden-credentials'
   assert_log_contains 'token: token-123'
-  assert_log_contains 'kubectl apply -f /Users/edgard/Documents/Projects/Personal/home-ops/apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-issuer.issuer.yaml'
-  assert_log_contains 'kubectl apply -f /Users/edgard/Documents/Projects/Personal/home-ops/apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-tls.certificate.yaml'
+  assert_log_contains "kubectl apply -f ${REPO_ROOT}/apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-issuer.issuer.yaml"
+  assert_log_contains "kubectl apply -f ${REPO_ROOT}/apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-tls.certificate.yaml"
   assert_log_contains 'kubectl wait --for=condition=Ready certificate/external-secrets-sdk-server-tls -n platform-system --timeout=120s'
 }
