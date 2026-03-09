@@ -6,7 +6,7 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 ## Build & Test
 
 - Check: `task check`
-- Test: `task test`
+- Test: `task test` (behavior and integration checks, including Helm render validation)
 - Format: `task fmt`
 - Lint: `task lint`
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
@@ -15,7 +15,7 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 
 1. Make a small change
 2. If behavior changes, write or update the failing test or contract check first
-3. Use `task test` while iterating when changing script behavior
+3. Use `task test` while iterating when changing script behavior or Helm/app compatibility
 4. Run `task fmt`
 5. Run `task check` before commit or PR update
 

@@ -137,10 +137,11 @@ tasks:
       - APP="{{.app}}" "{{.TASKFILE_DIR}}/scripts/argo-sync.sh"
 
   test:
-    desc: Run behavior tests
+    desc: Run behavior and integration tests
     dir: "{{.TASKFILE_DIR}}"
     cmds:
       - bats tests
+      - files=(apps/*/*/app.yaml); [ ${#files[@]} -eq 0 ] || "{{.TASKFILE_DIR}}/scripts/validate-helm-apps.sh" "${files[@]}"
 
   fmt:
     desc: Format all code
@@ -158,7 +159,6 @@ tasks:
       - shellcheck --severity=warning scripts/*.sh
       - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
       - "{{.TASKFILE_DIR}}/scripts/validate-appset-inputs.sh"
-      - files=(apps/*/*/app.yaml); [ ${#files[@]} -eq 0 ] || "{{.TASKFILE_DIR}}/scripts/validate-helm-apps.sh" "${files[@]}"
 
   check:
     desc: Run the full local quality gate

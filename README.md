@@ -52,7 +52,7 @@ task argo:sync                     # Sync all apps
 task argo:sync app=plex            # Sync specific app
 
 # Development
-task test                          # Run behavior tests
+task test                          # Run behavior and integration tests
 task fmt                           # Format all code (YAML, Terraform)
 task lint                          # Run static and contract checks
 task check                         # Run the full local quality gate
@@ -88,11 +88,13 @@ task tf:apply                      # Apply infrastructure changes
 ## TDD Workflow
 
 - Script changes start with a failing Bats test under `tests/`.
-- Repo behavior changes start with a failing contract check, usually `tests/*.bats`, `scripts/validate-appset-inputs.sh`, or `scripts/validate-helm-apps.sh`.
+- Repo behavior changes start with a failing test or compatibility check, usually `tests/*.bats` or `scripts/validate-helm-apps.sh`.
+- Repo metadata and structural rules belong in lint checks such as `scripts/validate-appset-inputs.sh`.
 - Run `task test` while iterating and `task check` before opening or updating a PR.
 - Pure formatting and mechanical version bumps can skip new tests when behavior does not change.
 
 ## Local And CI Flow
 
-- `task lint` is the full-repo static and contract pass.
-- `task check` is the canonical gate for humans and CI: behavior tests first, then full lint/contract checks.
+- `task test` runs behavior and integration checks, including Helm render compatibility.
+- `task lint` runs static and structural checks.
+- `task check` is the canonical gate for humans and CI: tests first, then lint.
