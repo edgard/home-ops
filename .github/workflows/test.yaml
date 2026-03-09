@@ -3,10 +3,6 @@ name: Check
 
 on:
   pull_request:
-  push:
-    branches:
-      - master
-      - "codex/**"
 
 concurrency:
   group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
