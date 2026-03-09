@@ -21,6 +21,64 @@ tasks:
     cmds:
       - task --list
 
+  # Quality gate and local development
+  fmt:
+    desc: Format all code
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - prettier --write "**/*.{yaml,yml}"
+      - yamlfmt "**/*.{yaml,yml}"
+      - tofu fmt -recursive
+
+  test:
+    desc: Run behavior and integration tests
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - bats tests
+      - files=(apps/*/*/app.yaml); [ ${#files[@]} -eq 0 ] || "{{.TASKFILE_DIR}}/scripts/validate-helm-apps.sh" "${files[@]}"
+
+  lint:
+    desc: Run static and contract checks
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - yamllint -c .yamllint .
+      - shellcheck --severity=warning scripts/*.sh
+      - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
+      - "{{.TASKFILE_DIR}}/scripts/validate-appset-inputs.sh"
+
+  check:
+    desc: Run the full local quality gate
+    cmds:
+      - task: test
+      - task: lint
+
+  # High-level cluster lifecycle
+  cluster:create:
+    desc: Install, configure, and bootstrap Talos + platform
+    requires:
+      vars:
+        - TALOS_NODE
+        - TALOS_CLUSTER_NAME
+        - TALOS_INSTALL_DISK
+        - BWS_ACCESS_TOKEN
+    cmds:
+      - task: talos:gen
+      - task: talos:apply
+      - task: talos:bootstrap
+      - task: platform:create
+
+  cluster:destroy:
+    desc: Destroy platform and reset Talos node
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    requires:
+      vars:
+        - TALOS_NODE
+    cmds:
+      - task: platform:destroy
+      - talosctl reset --nodes "{{.TALOS_NODE}}" --graceful=false --reboot
+
+  # Talos operations
   talos:gen:
     desc: Generate Talos config into ~/.talos
     requires:
@@ -86,31 +144,7 @@ tasks:
     cmds:
       - talosctl -n "{{.TALOS_NODE}}" upgrade-k8s --to "{{.K8S_VERSION}}"
 
-  cluster:create:
-    desc: Install, configure, and bootstrap Talos + platform
-    requires:
-      vars:
-        - TALOS_NODE
-        - TALOS_CLUSTER_NAME
-        - TALOS_INSTALL_DISK
-        - BWS_ACCESS_TOKEN
-    cmds:
-      - task: talos:gen
-      - task: talos:apply
-      - task: talos:bootstrap
-      - task: platform:create
-
-  cluster:destroy:
-    desc: Destroy platform and reset Talos node
-    interactive: true
-    dir: "{{.TASKFILE_DIR}}/bootstrap"
-    requires:
-      vars:
-        - TALOS_NODE
-    cmds:
-      - task: platform:destroy
-      - talosctl reset --nodes "{{.TALOS_NODE}}" --graceful=false --reboot
-
+  # Platform and Argo operations
   platform:create:
     desc: Create platform components via helmfile
     dir: "{{.TASKFILE_DIR}}/bootstrap"
@@ -136,36 +170,7 @@ tasks:
     cmds:
       - APP="{{.app}}" "{{.TASKFILE_DIR}}/scripts/argo-sync.sh"
 
-  test:
-    desc: Run behavior and integration tests
-    dir: "{{.TASKFILE_DIR}}"
-    cmds:
-      - bats tests
-      - files=(apps/*/*/app.yaml); [ ${#files[@]} -eq 0 ] || "{{.TASKFILE_DIR}}/scripts/validate-helm-apps.sh" "${files[@]}"
-
-  fmt:
-    desc: Format all code
-    dir: "{{.TASKFILE_DIR}}"
-    cmds:
-      - prettier --write "**/*.{yaml,yml}"
-      - yamlfmt "**/*.{yaml,yml}"
-      - tofu fmt -recursive
-
-  lint:
-    desc: Run static and contract checks
-    dir: "{{.TASKFILE_DIR}}"
-    cmds:
-      - yamllint -c .yamllint .
-      - shellcheck --severity=warning scripts/*.sh
-      - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
-      - "{{.TASKFILE_DIR}}/scripts/validate-appset-inputs.sh"
-
-  check:
-    desc: Run the full local quality gate
-    cmds:
-      - task: test
-      - task: lint
-
+  # Terraform operations
   tf:plan:
     desc: Terraform plan
     dir: "{{.TERRAFORM_DIR}}"
