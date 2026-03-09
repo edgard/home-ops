@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Helm chart validation script for pre-commit
+# Validate Helm app renders
 set -euo pipefail
 
 # Validate a single app metadata file

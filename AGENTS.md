@@ -5,9 +5,19 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 
 ## Build & Test
 
+- Check: `task check`
+- Test: `task test` (behavior and integration checks, including Helm render validation)
 - Format: `task fmt`
-- Lint (requires `BWS_ACCESS_TOKEN` and AWS creds): `task lint`
+- Lint: `task lint`
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
+
+## Developer Loop
+
+1. Make a small change
+2. If behavior changes, write or update the failing test or contract check first
+3. Use `task test` while iterating when changing script behavior or Helm/app compatibility
+4. Run `task fmt`
+5. Run `task check` before commit or PR update
 
 ## Project Layout
 
@@ -83,7 +93,7 @@ Store: `external-secrets-store`
 - YAML: 2 spaces, `---` on line 1
 - Field order: `apiVersion → kind → metadata → spec`
 - Metadata order: `name → namespace → labels → annotations`
-- Pre-commit: yamllint, shellcheck, tofu-validate, helm-lint
+- Lint checks: yamllint, shellcheck, tofu validate, helm render validation, appset input validation
 
 ## Architecture Overview
 
@@ -91,7 +101,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 ## External Services
 
-- Bitwarden: Secret management (`BWS_ACCESS_TOKEN` required for bootstrap/lint/terraform)
+- Bitwarden: Secret management (`BWS_ACCESS_TOKEN` required for bootstrap and Terraform apply/plan)
 - AWS S3: Terraform backend storage (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
 - Cloudflare: DNS management
 - Tailscale: VPN networking (192.168.1.0/24)
@@ -106,6 +116,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 ## Git Workflow
 
 1. Branch from `master` with descriptive name
-2. Run `task fmt` then `task lint` locally before committing
-3. All changes via PR only
-4. Force pushes allowed only on feature branches using `--force-with-lease`
+2. For behavior changes, write the failing test first (`tests/*.bats` or a failing repo contract check)
+3. Run `task test` while iterating, then `task check` before committing
+4. All changes via PR only
+5. Force pushes allowed only on feature branches using `--force-with-lease`

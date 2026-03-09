@@ -8,16 +8,13 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install kubectl helm helmfile talosctl go-task opentofu pre-commit
+brew install kubectl helm helmfile talosctl go-task opentofu yq bats-core yamllint shellcheck prettier yamlfmt
 
 # Set environment variables
 export BWS_ACCESS_TOKEN="your-bitwarden-secrets-token"
 export TALOS_NODE="192.168.1.253"
 export TALOS_CLUSTER_NAME="homelab"
 export TALOS_INSTALL_DISK="/dev/vda"
-
-# Install pre-commit hooks (optional but recommended)
-pre-commit install
 ```
 
 ### Bootstrap Cluster
@@ -55,8 +52,10 @@ task argo:sync                     # Sync all apps
 task argo:sync app=plex            # Sync specific app
 
 # Development
+task test                          # Run behavior and integration tests
 task fmt                           # Format all code (YAML, Terraform)
-task lint                          # Lint all code (YAML, Terraform, Helm, Shell)
+task lint                          # Run static and contract checks
+task check                         # Run the full local quality gate
 
 # Terraform
 task tf:plan                       # Plan infrastructure changes
@@ -85,3 +84,17 @@ task tf:apply                      # Apply infrastructure changes
 - `apps/<category>/<app>/manifests/`: Optional raw manifests applied alongside the chart
 
 `Chart.yaml` is only used when authoring a local Helm chart, not for ApplicationSet metadata.
+
+## TDD Workflow
+
+- Script changes start with a failing Bats test under `tests/`.
+- Repo behavior changes start with a failing test or compatibility check, usually `tests/*.bats` or `scripts/validate-helm-apps.sh`.
+- Repo metadata and structural rules belong in lint checks such as `scripts/validate-appset-inputs.sh`.
+- Run `task test` while iterating and `task check` before opening or updating a PR.
+- Pure formatting and mechanical version bumps can skip new tests when behavior does not change.
+
+## Local And CI Flow
+
+- `task test` runs behavior and integration checks, including Helm render compatibility.
+- `task lint` runs static and structural checks.
+- `task check` is the canonical gate for humans and CI: tests first, then lint.
