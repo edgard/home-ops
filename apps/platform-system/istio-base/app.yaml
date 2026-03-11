@@ -2,6 +2,6 @@
 chart:
   repo: oci://gcr.io/istio-release/charts/base
   path: "."
-  version: 1.29.0
+  version: 1.29.1
 sync:
   wave: "-4"
