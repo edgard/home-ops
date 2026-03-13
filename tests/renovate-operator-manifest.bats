@@ -1,0 +1,20 @@
+#!/usr/bin/env bats
+
+@test "renovate operator job uses provider config instead of legacy platform env vars" {
+  manifest="${BATS_TEST_DIRNAME}/../apps/selfhosted/renovate-operator/manifests/renovate-operator-home-ops.renovatejob.yaml"
+
+  run grep -F "provider:" "$manifest"
+  [ "$status" -eq 0 ]
+
+  run grep -F "name: github" "$manifest"
+  [ "$status" -eq 0 ]
+
+  run grep -F "endpoint: https://api.github.com/" "$manifest"
+  [ "$status" -eq 0 ]
+
+  run grep -F "name: RENOVATE_PLATFORM" "$manifest"
+  [ "$status" -eq 1 ]
+
+  run grep -F "name: RENOVATE_ENDPOINT" "$manifest"
+  [ "$status" -eq 1 ]
+}
