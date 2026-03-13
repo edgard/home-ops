@@ -12,9 +12,9 @@
   run grep -F "endpoint: https://api.github.com/" "$manifest"
   [ "$status" -eq 0 ]
 
-  run grep -F "name: RENOVATE_PLATFORM" "$manifest"
+  run grep -E '^[[:space:]]*- name: RENOVATE_PLATFORM$' "$manifest"
   [ "$status" -eq 1 ]
 
-  run grep -F "name: RENOVATE_ENDPOINT" "$manifest"
+  run grep -E '^[[:space:]]*- name: RENOVATE_ENDPOINT$' "$manifest"
   [ "$status" -eq 1 ]
 }
