@@ -19,6 +19,10 @@ fi
   write_stub helm '
 printf "helm %s\n" "$*" >> "$STUB_LOG"
 '
+  write_stub pluto '
+printf "pluto %s\n" "$*" >> "$STUB_LOG"
+cat >/dev/null
+'
   write_stub md5sum '
 printf "abcd1234  -\n"
 '
@@ -61,6 +65,7 @@ teardown() {
 
   [ "$status" -eq 0 ]
   assert_log_contains "helm template test oci://ghcr.io/example/app-template --version 1.2.3 --values ${TEST_TMPDIR}/apps/selfhosted/demo/values.yaml"
+  assert_log_contains "pluto detect - --target-versions k8s=v1.35.1 -o wide"
 }
 
 @test "validate-helm-apps adds and templates HTTP repos with chart names" {
@@ -70,4 +75,5 @@ teardown() {
   assert_log_contains 'helm repo add abcd1234 https://charts.example.com'
   assert_log_contains 'helm repo update abcd1234'
   assert_log_contains "helm template test abcd1234/demo --version 2.0.0 --values ${TEST_TMPDIR}/apps/selfhosted/http-demo/values.yaml"
+  assert_log_contains "pluto detect - --target-versions k8s=v1.35.1 -o wide"
 }

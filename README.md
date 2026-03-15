@@ -8,7 +8,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install kubectl helm helmfile talosctl go-task opentofu yq bats-core yamllint shellcheck prettier yamlfmt
+brew install kubectl helm helmfile talosctl go-task opentofu yq bats-core yamllint shellcheck prettier yamlfmt pluto
 
 # Set environment variables
 export BWS_ACCESS_TOKEN="your-bitwarden-secrets-token"
@@ -52,10 +52,8 @@ task argo:sync                     # Sync all apps
 task argo:sync app=plex            # Sync specific app
 
 # Development
-task test                          # Run behavior and integration tests
 task fmt                           # Format all code (YAML, Terraform)
-task lint                          # Run static and contract checks
-task check                         # Run the full local quality gate
+task lint                          # Run the full quality gate
 
 # Terraform
 task tf:plan                       # Plan infrastructure changes
@@ -90,11 +88,9 @@ task tf:apply                      # Apply infrastructure changes
 - Script changes start with a failing Bats test under `tests/`.
 - Repo behavior changes start with a failing test or compatibility check, usually `tests/*.bats` or `scripts/validate-helm-apps.sh`.
 - Repo metadata and structural rules belong in lint checks such as `scripts/validate-appset-inputs.sh`.
-- Run `task test` while iterating and `task check` before opening or updating a PR.
+- Run `task lint` while iterating and before opening or updating a PR.
 - Pure formatting and mechanical version bumps can skip new tests when behavior does not change.
 
 ## Local And CI Flow
 
-- `task test` runs behavior and integration checks, including Helm render compatibility.
-- `task lint` runs static and structural checks.
-- `task check` is the canonical gate for humans and CI: tests first, then lint.
+- `task lint` runs the canonical quality gate: behavior checks, static checks, Helm render compatibility, and Kubernetes API deprecation checks (Pluto).
