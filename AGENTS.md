@@ -5,19 +5,17 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 
 ## Build & Test
 
-- Check: `task check`
-- Test: `task test` (behavior and integration checks, including Helm render validation)
 - Format: `task fmt`
-- Lint: `task lint`
+- Lint: `task lint` (full quality gate: behavior/integration checks, static checks, Helm render validation, and Pluto checks)
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
 
 ## Developer Loop
 
 1. Make a small change
 2. If behavior changes, write or update the failing test or contract check first
-3. Use `task test` while iterating when changing script behavior or Helm/app compatibility
+3. Use `task lint` while iterating when changing script behavior or Helm/app compatibility
 4. Run `task fmt`
-5. Run `task check` before commit or PR update
+5. Run `task lint` before commit or PR update
 
 ## Project Layout
 
@@ -117,6 +115,6 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 1. Branch from `master` with descriptive name
 2. For behavior changes, write the failing test first (`tests/*.bats` or a failing repo contract check)
-3. Run `task test` while iterating, then `task check` before committing
+3. Run `task lint` while iterating and before committing
 4. All changes via PR only
 5. Force pushes allowed only on feature branches using `--force-with-lease`

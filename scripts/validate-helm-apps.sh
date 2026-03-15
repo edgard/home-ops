@@ -33,8 +33,9 @@ validate_app() {
     chart="$repo_name/$name"
   fi
 
-  # Validate chart
-  if ! helm template test "$chart" --version "$version" --values "$values" >/dev/null 2>&1; then
+  # Validate chart render and check rendered resources for deprecated APIs
+  if ! helm template test "$chart" --version "$version" --values "$values" \
+    | pluto detect - --target-versions k8s=v1.35.1 -o wide; then
     echo "Failed: $(dirname "$app")"
     return 1
   fi
