@@ -38,6 +38,11 @@ jobs:
       - name: Set up pluto
         uses: FairwindsOps/pluto/github-action@v5.23.5
 
+      - name: Set up kubeconform
+        uses: bmuschko/setup-kubeconform@v1
+        with:
+          kubeconform-version: "0.7.0"
+
       - name: Install additional dependencies
         run: |
           sudo apt-get update
