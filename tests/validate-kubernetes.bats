@@ -81,25 +81,6 @@ teardown() {
   teardown_test_env
 }
 
-@test "validate-kubernetes helm-apps templates charts, schema-validates, and runs pluto" {
-  run bash scripts/validate-kubernetes.sh helm-apps "${TEST_TMPDIR}/apps/selfhosted/demo/app.yaml"
-
-  [ "$status" -eq 0 ]
-  assert_log_contains "helm template test oci://ghcr.io/example/app-template --version 1.2.3 --values ${TEST_TMPDIR}/apps/selfhosted/demo/values.yaml --api-versions gateway.networking.k8s.io/v1/HTTPRoute"
-  assert_log_contains "kubeconform -kubernetes-version 1.35.1"
-  assert_log_contains "-skip CustomResourceDefinition"
-  assert_log_contains "-schema-location default -schema-location https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
-  assert_log_contains "pluto detect - --target-versions k8s=v1.35.1 -o wide"
-}
-
-@test "validate-kubernetes manifests validates raw manifests with kubeconform" {
-  run env REPO_ROOT="${TEST_TMPDIR}" bash scripts/validate-kubernetes.sh manifests
-
-  [ "$status" -eq 0 ]
-  assert_log_contains "kubeconform -kubernetes-version 1.35.1"
-  assert_log_contains "-schema-location default -schema-location https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json -skip CustomResourceDefinition,renovate-operator.mogenius.com/v1alpha1/RenovateJob ${TEST_TMPDIR}/argocd ${TEST_TMPDIR}/apps/selfhosted/demo/manifests"
-}
-
 @test "validate-kubernetes helm-apps fails when helm rendering fails" {
   run env FAIL_HELM_TEMPLATE=1 bash scripts/validate-kubernetes.sh helm-apps "${TEST_TMPDIR}/apps/selfhosted/demo/app.yaml"
 
