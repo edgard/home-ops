@@ -24,3 +24,12 @@ teardown() {
   assert_log_contains 'kubectl -n argocd patch --type merge -p {"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}} application.argoproj.io/app-a'
   assert_log_contains 'kubectl -n argocd patch --type merge -p {"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}} application.argoproj.io/app-b'
 }
+
+@test "argo-sync refreshes all applications when APP is not set" {
+  run bash scripts/argocd-app-sync.sh
+
+  [ "$status" -eq 0 ]
+  assert_log_contains 'kubectl -n argocd get applications -o name'
+  assert_log_contains 'kubectl -n argocd patch --type merge -p {"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}} application.argoproj.io/app-a'
+  assert_log_contains 'kubectl -n argocd patch --type merge -p {"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}} application.argoproj.io/app-b'
+}

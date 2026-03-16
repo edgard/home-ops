@@ -19,14 +19,23 @@ fi
 '
   write_stub helm '
 printf "helm %s\n" "$*" >> "$STUB_LOG"
+if [[ "${FAIL_HELM_TEMPLATE:-}" == "1" ]]; then
+  exit 1
+fi
 '
   write_stub pluto '
 printf "pluto %s\n" "$*" >> "$STUB_LOG"
 cat >/dev/null
+if [[ "${FAIL_PLUTO_DETECT:-}" == "1" ]]; then
+  exit 1
+fi
 '
   write_stub kubeconform '
 printf "kubeconform %s\n" "$*" >> "$STUB_LOG"
 cat >/dev/null
+if [[ "${FAIL_KUBECONFORM:-}" == "1" ]]; then
+  exit 1
+fi
 '
   write_stub md5sum '
 printf "abcd1234  -\n"
@@ -89,4 +98,25 @@ teardown() {
   [ "$status" -eq 0 ]
   assert_log_contains "kubeconform -kubernetes-version 1.35.1"
   assert_log_contains "-schema-location default -schema-location https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json -skip CustomResourceDefinition,renovate-operator.mogenius.com/v1alpha1/RenovateJob ${TEST_TMPDIR}/argocd ${TEST_TMPDIR}/apps/selfhosted/demo/manifests"
+}
+
+@test "validate-kubernetes helm-apps fails when helm rendering fails" {
+  run env FAIL_HELM_TEMPLATE=1 bash scripts/validate-kubernetes.sh helm-apps "${TEST_TMPDIR}/apps/selfhosted/demo/app.yaml"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Failed: ${TEST_TMPDIR}/apps/selfhosted/demo"* ]]
+}
+
+@test "validate-kubernetes helm-apps fails when kubeconform fails" {
+  run env FAIL_KUBECONFORM=1 bash scripts/validate-kubernetes.sh helm-apps "${TEST_TMPDIR}/apps/selfhosted/demo/app.yaml"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Failed: ${TEST_TMPDIR}/apps/selfhosted/demo"* ]]
+}
+
+@test "validate-kubernetes helm-apps fails when pluto fails" {
+  run env FAIL_PLUTO_DETECT=1 bash scripts/validate-kubernetes.sh helm-apps "${TEST_TMPDIR}/apps/selfhosted/demo/app.yaml"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Failed: ${TEST_TMPDIR}/apps/selfhosted/demo"* ]]
 }

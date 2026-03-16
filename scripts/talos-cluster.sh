@@ -30,13 +30,21 @@ talos_bootstrap() {
   : "${TALOS_NODE:?}"
   : "${TALOS_CLUSTER_NAME:?}"
 
+  local api_ready=0
+
   echo "==> Waiting for Talos API..."
   for _ in {1..30}; do
     if talosctl version --nodes "$TALOS_NODE" >/dev/null 2>&1; then
+      api_ready=1
       break
     fi
     sleep 5
   done
+
+  if [ "$api_ready" -ne 1 ]; then
+    echo "Talos API did not become ready for ${TALOS_NODE}" >&2
+    return 1
+  fi
 
   talosctl bootstrap --nodes "$TALOS_NODE" || true
   talosctl health --nodes "$TALOS_NODE" --wait-timeout 5m
