@@ -18,3 +18,16 @@
   run grep -E '^[[:space:]]*- name: RENOVATE_ENDPOINT$' "$manifest"
   [ "$status" -eq 1 ]
 }
+
+@test "renovate non-major updates use pr automerge and do not skip checks" {
+  config="${BATS_TEST_DIRNAME}/../.renovaterc.json5"
+
+  run grep -F 'description: "Auto-merge non-major updates"' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'automergeType: "pr"' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'ignoreTests: true' "$config"
+  [ "$status" -eq 1 ]
+}

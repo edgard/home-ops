@@ -102,8 +102,7 @@
       matchPackageNames: ["!kubernetes-sigs/gateway-api"],
       groupName: "dependencies (non-major)",
       automerge: true,
-      automergeType: "branch",
-      ignoreTests: true,
+      automergeType: "pr",
     },
 
     // Disabled: Terraform version manager (using OpenTofu)
