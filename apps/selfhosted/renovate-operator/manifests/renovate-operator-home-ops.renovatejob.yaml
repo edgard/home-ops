@@ -24,7 +24,7 @@ spec:
       value: "true"
     - name: RENOVATE_REPOSITORY_CACHE
       value: enabled
-  image: ghcr.io/renovatebot/renovate:43.74.0
+  image: ghcr.io/renovatebot/renovate:43.76.2
   parallelism: 1
   schedule: "17 3 * * *"
   secretRef: renovate-operator-credentials
