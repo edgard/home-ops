@@ -22,7 +22,7 @@ hooks:
       - "prepare"
     command: bash
     args:
-      - ../scripts/prepare-bootstrap.sh
+      - ../scripts/bootstrap-prepare.sh
       - '{{ (toString $k8tzApp.chart.version) | trimPrefix "v" }}'
 
 releases:
@@ -96,4 +96,4 @@ releases:
           - "postsync"
         command: bash
         args:
-          - ../scripts/argocd-postsync.sh
+          - ../scripts/argocd-bootstrap-postsync.sh

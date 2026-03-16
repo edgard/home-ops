@@ -30,7 +30,7 @@ service:
     enabled: true
 EOF
 
-  run env APPS_ROOT="${TEST_TMPDIR}/fixtures/apps" bash scripts/validate-appset-inputs.sh
+  run env APPS_ROOT="${TEST_TMPDIR}/fixtures/apps" bash scripts/validate-kubernetes.sh appset-inputs
 
   [ "$status" -eq 0 ]
 }
@@ -48,7 +48,7 @@ ignoreDifferences:
   group: apps
 EOF
 
-  run env APPS_ROOT="${TEST_TMPDIR}/fixtures/apps" bash scripts/validate-appset-inputs.sh
+  run env APPS_ROOT="${TEST_TMPDIR}/fixtures/apps" bash scripts/validate-kubernetes.sh appset-inputs
 
   [ "$status" -ne 0 ]
   [[ "$output" == *"Missing values file:"* ]]

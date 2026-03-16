@@ -8,7 +8,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install kubectl helm helmfile talosctl go-task opentofu yq bats-core yamllint shellcheck prettier yamlfmt pluto
+brew install kubectl helm helmfile talosctl go-task opentofu yq bats-core yamllint shellcheck prettier yamlfmt pluto kubeconform
 
 # Set environment variables
 export BWS_ACCESS_TOKEN="your-bitwarden-secrets-token"
@@ -86,11 +86,11 @@ task tf:apply                      # Apply infrastructure changes
 ## TDD Workflow
 
 - Script changes start with a failing Bats test under `tests/`.
-- Repo behavior changes start with a failing test or compatibility check, usually `tests/*.bats` or `scripts/validate-helm-apps.sh`.
-- Repo metadata and structural rules belong in lint checks such as `scripts/validate-appset-inputs.sh`.
+- Repo behavior changes start with a failing test or compatibility check, usually `tests/*.bats` or `scripts/validate-kubernetes.sh helm-apps`.
+- Repo metadata and structural rules belong in lint checks such as `scripts/validate-kubernetes.sh appset-inputs`.
 - Run `task lint` while iterating and before opening or updating a PR.
 - Pure formatting and mechanical version bumps can skip new tests when behavior does not change.
 
 ## Local And CI Flow
 
-- `task lint` runs the canonical quality gate: behavior checks, static checks, Helm render compatibility, and Kubernetes API deprecation checks (Pluto).
+- `task lint` runs the canonical quality gate: behavior checks, static checks, Kubernetes schema validation (`kubeconform`), Helm render compatibility, and Kubernetes API deprecation checks (Pluto).

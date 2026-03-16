@@ -14,7 +14,7 @@ teardown() {
 }
 
 @test "prepare-bootstrap creates namespaces and warms up k8tz image" {
-  run bash scripts/prepare-bootstrap.sh 0.17.0
+  run bash scripts/bootstrap-prepare.sh 0.17.0
 
   [ "$status" -eq 0 ]
   assert_log_contains 'kubectl create namespace media --dry-run=client -o yaml'

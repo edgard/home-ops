@@ -17,7 +17,7 @@ teardown() {
 }
 
 @test "argo-sync filters applications when APP is set" {
-  run env APP=plex bash scripts/argo-sync.sh
+  run env APP=plex bash scripts/argocd-app-sync.sh
 
   [ "$status" -eq 0 ]
   assert_log_contains 'kubectl -n argocd get applications -l app=plex -o name'

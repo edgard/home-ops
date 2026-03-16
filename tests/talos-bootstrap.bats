@@ -30,7 +30,7 @@ teardown() {
 }
 
 @test "talos-bootstrap retries version checks and configures kubectl" {
-  run env TALOS_NODE=192.168.1.10 TALOS_CLUSTER_NAME=homelab bash scripts/talos-bootstrap.sh
+  run env TALOS_NODE=192.168.1.10 TALOS_CLUSTER_NAME=homelab bash scripts/talos-cluster.sh bootstrap
 
   [ "$status" -eq 0 ]
   assert_log_contains 'talosctl version --nodes 192.168.1.10'
