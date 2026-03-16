@@ -24,7 +24,7 @@ teardown() {
 }
 
 @test "talos-gen generates Talos config into HOME" {
-  run env TALOS_CLUSTER_NAME=homelab TALOS_NODE=192.168.1.10 TALOS_INSTALL_DISK=/dev/vda bash scripts/talos-gen.sh
+  run env TALOS_CLUSTER_NAME=homelab TALOS_NODE=192.168.1.10 TALOS_INSTALL_DISK=/dev/vda bash scripts/talos-cluster.sh gen
 
   [ "$status" -eq 0 ]
   assert_log_contains 'talosctl gen config homelab https://192.168.1.10:6443 --install-disk /dev/vda --config-patch-control-plane @controlplane-patch.yaml --with-secrets secrets.yaml'

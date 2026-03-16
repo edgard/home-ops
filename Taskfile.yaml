@@ -39,9 +39,10 @@ tasks:
       - shellcheck --severity=warning scripts/*.sh
       # Kubernetes manifests
       - yamllint -c .yamllint .
-      - "{{.TASKFILE_DIR}}/scripts/validate-appset-inputs.sh"
+      - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" appset-inputs'
+      - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" manifests'
       - pluto detect-files -d . --target-versions k8s=v1.35.1 -o wide
-      - files=(apps/*/*/app.yaml); [ ${#files[@]} -eq 0 ] || "{{.TASKFILE_DIR}}/scripts/validate-helm-apps.sh" "${files[@]}"
+      - 'files=(apps/*/*/app.yaml); [ ${#files[@]} -eq 0 ] || "{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" helm-apps "${files[@]}"'
       # Terraform configuration
       - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
 
@@ -84,7 +85,7 @@ tasks:
       TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME}}"
       TALOS_INSTALL_DISK: "{{.TALOS_INSTALL_DISK}}"
     cmds:
-      - "{{.TASKFILE_DIR}}/scripts/talos-gen.sh"
+      - '"{{.TASKFILE_DIR}}/scripts/talos-cluster.sh" gen'
 
   talos:apply:
     desc: Apply Talos config to control plane
@@ -115,7 +116,7 @@ tasks:
       TALOS_NODE: "{{.TALOS_NODE}}"
       TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME}}"
     cmds:
-      - "{{.TASKFILE_DIR}}/scripts/talos-bootstrap.sh"
+      - '"{{.TASKFILE_DIR}}/scripts/talos-cluster.sh" bootstrap'
 
   talos:upgrade:
     desc: Upgrade Talos on a node using the image from machine config
@@ -125,7 +126,7 @@ tasks:
     env:
       TALOS_NODE: "{{.TALOS_NODE}}"
     cmds:
-      - "{{.TASKFILE_DIR}}/scripts/talos-upgrade.sh"
+      - '"{{.TASKFILE_DIR}}/scripts/talos-cluster.sh" upgrade'
 
   talos:upgrade-k8s:
     desc: Upgrade Kubernetes control plane
@@ -161,7 +162,7 @@ tasks:
     vars:
       app: '{{.app | default ""}}'
     cmds:
-      - APP="{{.app}}" "{{.TASKFILE_DIR}}/scripts/argo-sync.sh"
+      - APP="{{.app}}" "{{.TASKFILE_DIR}}/scripts/argocd-app-sync.sh"
 
   # Terraform operations
   tf:plan:

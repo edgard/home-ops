@@ -16,7 +16,7 @@ teardown() {
 }
 
 @test "argocd-postsync applies repo credentials, waits, and applies root app" {
-  run bash scripts/argocd-postsync.sh
+  run bash scripts/argocd-bootstrap-postsync.sh
 
   [ "$status" -eq 0 ]
   assert_log_contains "kubectl apply -f ${REPO_ROOT}/apps/argocd/argocd/manifests/argocd-repo-credentials.externalsecret.yaml"

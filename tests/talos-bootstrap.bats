@@ -30,7 +30,7 @@ teardown() {
 }
 
 @test "talos-bootstrap retries version checks and configures kubectl" {
-  run env TALOS_NODE=192.168.1.10 TALOS_CLUSTER_NAME=homelab bash scripts/talos-bootstrap.sh
+  run env TALOS_NODE=192.168.1.10 TALOS_CLUSTER_NAME=homelab bash scripts/talos-cluster.sh bootstrap
 
   [ "$status" -eq 0 ]
   assert_log_contains 'talosctl version --nodes 192.168.1.10'
@@ -39,4 +39,19 @@ teardown() {
   assert_log_contains 'talosctl health --nodes 192.168.1.10 --wait-timeout 5m'
   assert_log_contains 'talosctl kubeconfig --nodes 192.168.1.10 --context homelab'
   assert_log_contains 'kubectl config use-context admin@homelab'
+}
+
+@test "talos-bootstrap fails after exhausting Talos API retries" {
+  write_stub talosctl '
+printf "talosctl %s\n" "$*" >> "$STUB_LOG"
+if [[ "$1" == "version" ]]; then
+  exit 1
+fi
+'
+
+  run env TALOS_NODE=192.168.1.10 TALOS_CLUSTER_NAME=homelab bash scripts/talos-cluster.sh bootstrap
+
+  [ "$status" -ne 0 ]
+  run grep -c '^sleep 5$' "$STUB_LOG"
+  [ "$output" -eq 30 ]
 }
