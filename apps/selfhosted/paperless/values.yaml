@@ -222,7 +222,7 @@ controllers:
       app:
         image:
           repository: docker.io/apache/tika
-          tag: 3.2.3.0
+          tag: 3.3.0.0
         probes:
           startup:
             enabled: true
@@ -247,7 +247,7 @@ controllers:
       app:
         image:
           repository: docker.io/library/redis
-          tag: "8.6.1"
+          tag: "8.6.2"
         args:
           - redis-server
           - --save
