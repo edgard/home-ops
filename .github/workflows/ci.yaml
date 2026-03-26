@@ -23,7 +23,7 @@ jobs:
         uses: go-task/setup-task@v2
 
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Set up OpenTofu
         uses: opentofu/setup-opentofu@v2
