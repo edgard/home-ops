@@ -31,3 +31,16 @@
   run grep -F 'ignoreTests: true' "$config"
   [ "$status" -eq 1 ]
 }
+
+@test "renovate operator job sets an explicit git author and does not use platform commits" {
+  manifest="${BATS_TEST_DIRNAME}/../apps/selfhosted/renovate-operator/manifests/renovate-operator-home-ops.renovatejob.yaml"
+
+  run grep -E '^[[:space:]]*- name: RENOVATE_GIT_AUTHOR$' "$manifest"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'value: "Renovate Bot <renovate@edgard.org>"' "$manifest"
+  [ "$status" -eq 0 ]
+
+  run grep -E '^[[:space:]]*- name: RENOVATE_PLATFORM_COMMIT$' "$manifest"
+  [ "$status" -eq 1 ]
+}
