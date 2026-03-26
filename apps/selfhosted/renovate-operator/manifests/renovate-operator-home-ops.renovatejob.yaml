@@ -18,13 +18,13 @@ spec:
       value: '["^curl "]'
     - name: RENOVATE_INTERNAL_CHECKS_FILTER
       value: strict
+    - name: RENOVATE_GIT_AUTHOR
+      value: "Renovate Bot <renovate@edgard.org>"
     - name: RENOVATE_ONBOARDING
       value: "false"
-    - name: RENOVATE_PLATFORM_COMMIT
-      value: "true"
     - name: RENOVATE_REPOSITORY_CACHE
       value: enabled
-  image: ghcr.io/renovatebot/renovate:43.78.0
+  image: ghcr.io/renovatebot/renovate:43.86.0
   parallelism: 1
   schedule: "17 3 * * *"
   secretRef: renovate-operator-credentials

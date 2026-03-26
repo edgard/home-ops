@@ -17,7 +17,7 @@ cluster:
             warn-version: latest
 machine:
   install:
-    image: factory.talos.dev/metal-installer/135cb2840c3e39194d5d5d20ead2d6bdcade91a6c06eb5b8ad6939e1e1e55ddf:v1.12.5
+    image: factory.talos.dev/metal-installer/135cb2840c3e39194d5d5d20ead2d6bdcade91a6c06eb5b8ad6939e1e1e55ddf:v1.12.6
   network:
     interfaces:
       - interface: br0
