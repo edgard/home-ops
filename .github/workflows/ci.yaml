@@ -36,7 +36,7 @@ jobs:
           version: v4.44.6
 
       - name: Set up pluto
-        uses: FairwindsOps/pluto/github-action@v5.23.5
+        uses: FairwindsOps/pluto/github-action@v5.23.6
 
       - name: Set up kubeconform
         uses: bmuschko/setup-kubeconform@v1
