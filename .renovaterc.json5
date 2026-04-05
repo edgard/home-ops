@@ -4,10 +4,12 @@
   // === Presets ===
   extends: [
     "config:recommended",
+    ":configMigration",
     ":semanticCommits",
     ":timezone(Europe/Warsaw)",
     ":prHourlyLimitNone",
     "docker:enableMajor",
+    "helpers:pinGitHubActionDigests",
   ],
 
   // === Kubernetes Manager ===
@@ -31,6 +33,41 @@
         "repo:\\s*(?<registryUrl>https://[^\\s]+)\\s+name:\\s*(?<depName>\\S+)\\s+version:\\s*(?<currentValue>\\S+)",
       ],
       datasourceTemplate: "{{#if packageName}}docker{{else}}helm{{/if}}",
+    },
+
+    // Container image repository/tag pairs in app values files
+    {
+      customType: "regex",
+      description: "Container images in app values files",
+      managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/values\\.ya?ml$/"],
+      matchStrings: [
+        "repository:\\s*(?<depName>[^\\s\"']+)\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?",
+      ],
+      datasourceTemplate: "docker",
+    },
+
+    // Tuppr upgrade manifests (uses renovate comment hints)
+    {
+      customType: "regex",
+      description: "Tuppr upgrade versions",
+      managerFilePatterns: [
+        "/^apps\\/platform-system\\/tuppr\\/manifests\\/.*\\.(talosupgrade|kubernetesupgrade)\\.ya?ml$/",
+      ],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
+      ],
+    },
+
+    // Tool versions passed as action inputs in CI workflow
+    {
+      customType: "regex",
+      description: "CI tool versions in GitHub Actions workflow",
+      managerFilePatterns: ["/^\\.github\\/workflows\\/ci\\.ya?ml$/"],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?kubeconform-version:\\s*[\"']?(?<currentValue>[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>[0-9.]+)[\"']?",
+      ],
     },
 
     // Gateway API CRDs (uses renovate comment hint)

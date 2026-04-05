@@ -6,7 +6,14 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 ## Build & Test
 
 - Format: `task fmt`
-- Lint: `task lint` (full quality gate: behavior/integration checks, static checks, Helm render validation, and Pluto checks)
+- Test: `task test` (Bats orchestration regression tests only; no validator semantics)
+- Lint: `task lint` (offline validation: shellcheck, yamllint, metadata policy, raw manifest policy/schema/deprecation checks, batched rendered policy/schema/deprecation checks, `tofu validate`)
+- Policy layers:
+  - `policy/metadata/` validates app metadata structure and required sync waves
+  - `policy/kubernetes/` validates manifest and rendered-workload guardrails
+- Policy semantics are regression-tested in `policy/metadata/*_test.rego` and `policy/kubernetes/*_test.rego`
+- CI gate: `task ci` (`task test` + `task lint`)
+- Pre-commit gate: `task precommit` (`task fmt` + `task ci`)
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
 
 ## Developer Loop
@@ -15,7 +22,7 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 2. If behavior changes, write or update the failing test or contract check first
 3. Use `task lint` while iterating when changing script behavior or Helm/app compatibility
 4. Run `task fmt`
-5. Run `task lint` before commit or PR update
+5. Run `task ci` before commit or PR update
 
 ## Project Layout
 
@@ -91,7 +98,18 @@ Store: `external-secrets-store`
 - YAML: 2 spaces, `---` on line 1
 - Field order: `apiVersion → kind → metadata → spec`
 - Metadata order: `name → namespace → labels → annotations`
-- Lint checks: yamllint, shellcheck, tofu validate, helm render validation, appset input validation
+- Validation split:
+  - `task test` covers task/script dispatch and orchestration with Bats, not validator semantics
+  - `task lint` covers direct repo validation
+- Metadata policy lives under `policy/metadata/` and is enforced via Conftest
+- Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
+- `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`
+- Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
+- Validation entrypoint scripts:
+  - `scripts/validate-kubernetes.sh` coordinates compatibility subcommands
+  - `scripts/render-helm-app.sh` renders one app and caches chart pulls for the current validation run
+  - `scripts/validate-kubernetes.sh` batches rendered output into a temp tree so policy, schema, and deprecation checks each run once across the rendered set
+  - `scripts/validate-app-metadata.sh` builds Conftest input and runs duplicate-name checks
 
 ## Architecture Overview
 
@@ -115,6 +133,6 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 1. Branch from `master` with descriptive name
 2. For behavior changes, write the failing test first (`tests/*.bats` or a failing repo contract check)
-3. Run `task lint` while iterating and before committing
+3. Run `task lint` while iterating and `task ci` before committing
 4. All changes via PR only
 5. Force pushes allowed only on feature branches using `--force-with-lease`

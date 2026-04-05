@@ -57,3 +57,69 @@
   run grep -E '^[[:space:]]*discoveryFilter:' "$manifest"
   [ "$status" -eq 1 ]
 }
+
+@test "renovate config tracks tuppr upgrade manifests and CI tool inputs" {
+  config="${BATS_TEST_DIRNAME}/../.renovaterc.json5"
+  workflow="${BATS_TEST_DIRNAME}/../.github/workflows/ci.yaml"
+
+  run grep -F 'description: "Tuppr upgrade versions"' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F '/^apps\\/platform-system\\/tuppr\\/manifests\\/.*\\.(talosupgrade|kubernetesupgrade)\\.ya?ml$/' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'description: "CI tool versions in GitHub Actions workflow"' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F '/^\\.github\\/workflows\\/ci\\.ya?ml$/' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'uses: princespaghetti/setup-conftest@v1' "$workflow"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'version: 0.68.0' "$workflow"
+  [ "$status" -eq 0 ]
+
+  run grep -F '(?<currentValue>[0-9.]+)' "$config"
+  [ "$status" -eq 0 ]
+}
+
+@test "external-dns values declare the main image repository explicitly" {
+  values="${BATS_TEST_DIRNAME}/../apps/platform-system/external-dns/values.yaml"
+
+  run grep -F 'repository: registry.k8s.io/external-dns/external-dns' "$values"
+  [ "$status" -eq 0 ]
+}
+
+@test "renovate config tracks image repository and tag pairs in app values files" {
+  config="${BATS_TEST_DIRNAME}/../.renovaterc.json5"
+  values="${BATS_TEST_DIRNAME}/../apps/platform-system/external-dns/values.yaml"
+
+  run grep -F 'description: "Container images in app values files"' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F '/^apps\\/[^\\/]+\\/[^\\/]+\\/values\\.ya?ml$/' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'repository:\\s*(?<depName>' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'tag:\\s*[' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'repository: registry.k8s.io/external-dns/external-dns' "$values"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'repository: ghcr.io/kashalls/external-dns-unifi-webhook' "$values"
+  [ "$status" -eq 0 ]
+}
+
+@test "renovate config includes migration and GitHub Action digest pinning helpers" {
+  config="${BATS_TEST_DIRNAME}/../.renovaterc.json5"
+
+  run grep -F '":configMigration"' "$config"
+  [ "$status" -eq 0 ]
+
+  run grep -F '"helpers:pinGitHubActionDigests"' "$config"
+  [ "$status" -eq 0 ]
+}
