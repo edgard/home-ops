@@ -30,21 +30,38 @@ tasks:
       - yamlfmt "**/*.{yaml,yml}"
       - tofu fmt -recursive
 
-  lint:
-    desc: Run the full quality gate
+  test:
+    desc: Run Bats behavior tests
     dir: "{{.TASKFILE_DIR}}"
     cmds:
-      # Scripts and automation behavior
       - bats tests
+
+  lint:
+    desc: Run the offline validation checks
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
       - shellcheck --severity=warning scripts/*.sh
-      # Kubernetes manifests
       - yamllint -c .yamllint .
-      - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" appset-inputs'
+      - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" metadata'
+      - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" policies'
       - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" manifests'
-      - pluto detect-files -d . --target-versions k8s=v1.35.1 -o wide
-      - 'files=(apps/*/*/app.yaml); [ ${#files[@]} -eq 0 ] || "{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" helm-apps "${files[@]}"'
-      # Terraform configuration
+      - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" deprecations'
+      - 'shopt -s nullglob; files=(apps/*/*/app.yaml); [ ${#files[@]} -eq 0 ] || "{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" helm-apps "${files[@]}"'
       - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
+
+  ci:
+    desc: Run the full CI quality gate
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - task: test
+      - task: lint
+
+  precommit:
+    desc: Format code and run the full CI quality gate
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - task: fmt
+      - task: ci
 
   # High-level cluster lifecycle
   cluster:create:
