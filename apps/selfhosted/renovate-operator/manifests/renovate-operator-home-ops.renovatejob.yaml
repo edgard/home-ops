@@ -7,7 +7,8 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "1"
 spec:
-  discoveryFilter: edgard/home-ops
+  discoveryFilters:
+    - edgard/home-ops
   provider:
     name: github
     endpoint: https://api.github.com/

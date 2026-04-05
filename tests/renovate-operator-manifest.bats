@@ -44,3 +44,16 @@
   run grep -E '^[[:space:]]*- name: RENOVATE_PLATFORM_COMMIT$' "$manifest"
   [ "$status" -eq 1 ]
 }
+
+@test "renovate operator job uses v4 discoveryFilters and not legacy discoveryFilter" {
+  manifest="${BATS_TEST_DIRNAME}/../apps/selfhosted/renovate-operator/manifests/renovate-operator-home-ops.renovatejob.yaml"
+
+  run grep -E '^[[:space:]]*discoveryFilters:$' "$manifest"
+  [ "$status" -eq 0 ]
+
+  run grep -E '^[[:space:]]*-[[:space:]]+edgard/home-ops$' "$manifest"
+  [ "$status" -eq 0 ]
+
+  run grep -E '^[[:space:]]*discoveryFilter:' "$manifest"
+  [ "$status" -eq 1 ]
+}
