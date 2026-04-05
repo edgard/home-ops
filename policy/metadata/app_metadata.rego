@@ -88,3 +88,12 @@ deny contains msg if {
   not item.has_kind
   msg := sprintf("ignoreDifferences[%d] must define both group and kind in %s", [item.index, app.app_file])
 }
+
+deny contains msg if {
+  some i, j
+  i < j
+  first := input.apps[i]
+  second := input.apps[j]
+  first.generated_name == second.generated_name
+  msg := sprintf("Duplicate generated application name '%s': %s and %s", [first.generated_name, first.path, second.path])
+}

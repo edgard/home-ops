@@ -24,6 +24,13 @@ ensure_render_cache_root() {
   [ -n "$render_cache_root" ] || render_cache_root="$(mktemp -d)"
 }
 
+yaml_quote() {
+  local value="$1"
+
+  value="${value//\'/\'\'}"
+  printf "'%s'" "$value"
+}
+
 build_local_schemas() {
   local manifest="$1"
 
@@ -60,7 +67,23 @@ build_schema_catalog() {
 }
 
 get_kubernetes_target_version() {
-  "${script_dir}/kubernetes-target-version.sh"
+  local manifest="${repo_root}/apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
+  local version
+
+  [ -f "$manifest" ] || {
+    echo "Missing Kubernetes upgrade manifest: $manifest" >&2
+    exit 1
+  }
+
+  version="$(yq eval '.spec.kubernetes.version // ""' "$manifest")"
+  version="${version//\"/}"
+
+  if [ -z "$version" ] || [ "$version" = "null" ]; then
+    echo "Missing spec.kubernetes.version in $manifest" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "$version"
 }
 
 raw_manifest_paths() {
@@ -117,8 +140,146 @@ run_kubeconform() {
     "$@"
 }
 
+write_metadata_inventory() {
+  local apps_root="${repo_root}/apps"
+
+  printf -- "---\napps:\n"
+
+  for app in "${apps_root}"/*/*; do
+    [ -d "$app" ] || continue
+
+    local app_file="$app/app.yaml"
+    local values_file="$app/values.yaml"
+    local category="${app#"${apps_root}/"}"
+    local app_name chart_repo chart_version chart_name sync_wave
+    local has_app_file has_values_file has_nonempty_values_file has_ignore_differences ignore_differences_type
+
+    category="${category%%/*}"
+    app_name="${app##*/}"
+    has_app_file=false
+    has_values_file=false
+    has_nonempty_values_file=false
+    chart_repo=""
+    chart_version=""
+    chart_name=""
+    sync_wave=""
+    has_ignore_differences=false
+    ignore_differences_type=""
+
+    if [ -f "$app_file" ]; then
+      has_app_file=true
+      chart_repo="$(yq eval '.chart.repo // ""' "$app_file")"
+      chart_version="$(yq eval '.chart.version // ""' "$app_file")"
+      chart_name="$(yq eval '.chart.name // ""' "$app_file")"
+      sync_wave="$(yq eval '.sync.wave // ""' "$app_file")"
+      has_ignore_differences="$(yq eval 'has("ignoreDifferences")' "$app_file")"
+      if [ "$has_ignore_differences" = "true" ]; then
+        ignore_differences_type="$(yq eval '.ignoreDifferences | type' "$app_file")"
+      fi
+    fi
+
+    if [ -f "$values_file" ]; then
+      has_values_file=true
+      if [ -s "$values_file" ]; then
+        has_nonempty_values_file=true
+      fi
+    fi
+
+    printf '  - path: %s\n' "$(yaml_quote "$app")"
+    printf '    category: %s\n' "$(yaml_quote "$category")"
+    printf '    app_name: %s\n' "$(yaml_quote "$app_name")"
+    printf '    generated_name: %s\n' "$(yaml_quote "${category}-${app_name}")"
+    printf '    app_file: %s\n' "$(yaml_quote "$app_file")"
+    printf '    values_file: %s\n' "$(yaml_quote "$values_file")"
+    printf '    has_app_file: %s\n' "$has_app_file"
+    printf '    has_values_file: %s\n' "$has_values_file"
+    printf '    has_nonempty_values_file: %s\n' "$has_nonempty_values_file"
+    printf '    chart_repo: %s\n' "$(yaml_quote "$chart_repo")"
+    printf '    chart_version: %s\n' "$(yaml_quote "$chart_version")"
+    printf '    chart_name: %s\n' "$(yaml_quote "$chart_name")"
+    printf '    sync_wave: %s\n' "$(yaml_quote "$sync_wave")"
+    printf '    has_ignore_differences: %s\n' "$has_ignore_differences"
+    printf '    ignore_differences_type: %s\n' "$(yaml_quote "$ignore_differences_type")"
+    printf '    ignore_differences:\n'
+
+    if [ "$has_app_file" = "true" ] && [ "$ignore_differences_type" = "!!seq" ]; then
+      local ignore_differences_count has_group has_kind
+      ignore_differences_count="$(yq eval '.ignoreDifferences | length' "$app_file")"
+      for ((i = 0; i < ignore_differences_count; i++)); do
+        has_group="$(yq eval ".ignoreDifferences[$i] | has(\"group\")" "$app_file")"
+        has_kind="$(yq eval ".ignoreDifferences[$i] | has(\"kind\")" "$app_file")"
+        printf '      - index: %d\n' "$i"
+        printf '        has_group: %s\n' "$has_group"
+        printf '        has_kind: %s\n' "$has_kind"
+      done
+    fi
+  done
+}
+
 validate_metadata() {
-  "${script_dir}/validate-app-metadata.sh"
+  local workdir inventory status
+
+  workdir="$(mktemp -d)"
+  inventory="${workdir}/app-metadata.yaml"
+  write_metadata_inventory >"$inventory"
+
+  if conftest test --no-color --policy "${repo_root}/policy/metadata" "$inventory"; then
+    status=0
+  else
+    status=$?
+  fi
+
+  rm -rf "$workdir"
+  return "$status"
+}
+
+render_helm_app() {
+  local app="$1"
+  local values="${app%app.yaml}values.yaml"
+  local repo version name chart chart_name chart_key chart_dir
+
+  [ -f "$values" ] || return 0
+
+  ensure_render_cache_root
+  mkdir -p "${render_cache_root}/charts" "${render_cache_root}/repos"
+
+  repo="$(yq eval '.chart.repo' "$app")"
+  [ "$repo" = "null" ] && return 0
+
+  version="$(yq eval '.chart.version' "$app")"
+  name="$(yq eval '.chart.name' "$app")"
+
+  if [[ "$repo" == oci://* ]]; then
+    chart="$repo"
+    chart_name="${repo##*/}"
+  else
+    local repo_name repo_ready_file
+
+    [ "$name" = "null" ] && return 0
+    repo_name="$(echo "$repo" | md5sum | cut -d" " -f1)"
+    repo_ready_file="${render_cache_root}/repos/${repo_name}.ready"
+    if [ ! -f "$repo_ready_file" ]; then
+      helm repo add "$repo_name" "$repo" >/dev/null 2>&1 || true
+      helm repo update "$repo_name" >/dev/null 2>&1 || true
+      : >"$repo_ready_file"
+    fi
+    chart="$repo_name/$name"
+    chart_name="$name"
+  fi
+
+  chart_key="$(printf '%s|%s|%s\n' "$repo" "$chart_name" "$version" | md5sum | cut -d" " -f1)"
+  chart_dir="${render_cache_root}/charts/${chart_key}"
+
+  if [ ! -d "$chart_dir" ]; then
+    local pull_dir
+    pull_dir="$(mktemp -d "${render_cache_root}/pull.XXXXXX")"
+    helm pull "$chart" --version "$version" --untar --untardir "$pull_dir" >/dev/null 2>&1
+    mv "${pull_dir}/${chart_name}" "$chart_dir"
+    rm -rf "$pull_dir"
+  fi
+
+  helm template test "$chart_dir" --values "$values" \
+    --api-versions gateway.networking.k8s.io/v1/HTTPRoute
 }
 
 validate_policies() {
@@ -200,7 +361,7 @@ validate_rendered_apps() {
     rendered="${rendered_root}/${relative_path}"
     mkdir -p "$(dirname "$rendered")"
 
-    if ! HELM_RENDER_CACHE_DIR="$render_cache_root" "${script_dir}/render-helm-app.sh" "$app" >"$rendered"; then
+    if ! render_helm_app "$app" >"$rendered"; then
       rm -f "$rendered"
       echo "Failed: $(dirname "$app")"
       failed=1
