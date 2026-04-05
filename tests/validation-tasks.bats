@@ -179,6 +179,12 @@ teardown() {
   [ "$status" -eq 1 ]
 }
 
+@test "validation helpers are folded into the main validation entrypoint" {
+  [ ! -f "${BATS_TEST_DIRNAME}/../scripts/kubernetes-target-version.sh" ]
+  [ ! -f "${BATS_TEST_DIRNAME}/../scripts/render-helm-app.sh" ]
+  [ ! -f "${BATS_TEST_DIRNAME}/../scripts/validate-app-metadata.sh" ]
+}
+
 @test "task ci combines test and lint and precommit adds fmt" {
   run grep -F 'task: test' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
   [ "$status" -eq 0 ]

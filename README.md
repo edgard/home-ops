@@ -97,9 +97,9 @@ task tf:apply                      # Apply infrastructure changes
 
 - `task test` owns orchestration coverage only. Bats verifies dispatch, chart caching, rendered-output batching, path handling, and target-version wiring. Validator semantics live in Rego tests and the live lint gate.
 - `task lint` owns direct offline validation: shellcheck, yamllint, metadata policy, raw manifest policy/schema/deprecation checks, batched rendered policy/schema/deprecation checks, and `tofu validate`.
-- Metadata policy lives in `policy/metadata/`. `scripts/validate-app-metadata.sh` builds Conftest input, and `scripts/validate-generated-app-names.sh` keeps duplicate generated app names out of the repo.
+- Metadata policy lives in `policy/metadata/`. `scripts/validate-kubernetes.sh metadata` builds the Conftest input inventory, including the cross-app fields needed for duplicate generated-name checks.
 - Kubernetes policy lives in `policy/kubernetes/` and enforces repo guardrails such as required sync waves, approved route/store conventions, no `latest` image tags, and hardened defaults for app-template workloads with explicit exemptions where the repo intentionally runs as root.
-- `scripts/render-helm-app.sh` caches pulled charts for the current validation run. `scripts/validate-kubernetes.sh` batches rendered output into a temp tree so Conftest, kubeconform, and Pluto each run once across the rendered set.
+- `scripts/validate-kubernetes.sh` owns the validation orchestration: Tuppr version resolution, metadata inventory generation, per-run chart caching, and batched rendered output so Conftest, kubeconform, and Pluto each run once across the rendered set.
 - Policy semantics are regression-tested in `policy/metadata/*_test.rego` and `policy/kubernetes/*_test.rego`.
 - `scripts/validate-kubernetes.sh` remains the compatibility entrypoint, but the supported developer surface is `task fmt`, `task test`, `task lint`, `task ci`, and `task precommit`.
 - `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml` is the single source of truth for the Kubernetes target version used by `kubeconform` and Pluto.

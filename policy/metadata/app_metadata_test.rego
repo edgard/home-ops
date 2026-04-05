@@ -94,3 +94,15 @@ test_ignore_differences_item_requires_kind if {
   })
   "ignoreDifferences[0] must define both group and kind in /repo/apps/selfhosted/demo/app.yaml" in deny with input as {"apps": [app]}
 }
+
+test_duplicate_generated_name_denied if {
+  other_app := object.union(valid_app, {
+    "path": "/repo/apps/media/demo",
+    "category": "media",
+    "generated_name": "selfhosted-demo",
+    "app_file": "/repo/apps/media/demo/app.yaml",
+    "values_file": "/repo/apps/media/demo/values.yaml",
+  })
+
+  "Duplicate generated application name 'selfhosted-demo': /repo/apps/selfhosted/demo and /repo/apps/media/demo" in deny with input as {"apps": [valid_app, other_app]}
+}

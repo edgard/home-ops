@@ -107,9 +107,7 @@ Store: `external-secrets-store`
 - Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
 - Validation entrypoint scripts:
   - `scripts/validate-kubernetes.sh` coordinates compatibility subcommands
-  - `scripts/render-helm-app.sh` renders one app and caches chart pulls for the current validation run
-  - `scripts/validate-kubernetes.sh` batches rendered output into a temp tree so policy, schema, and deprecation checks each run once across the rendered set
-  - `scripts/validate-app-metadata.sh` builds Conftest input and runs duplicate-name checks
+  - `scripts/validate-kubernetes.sh` resolves the Kubernetes target version from Tuppr, builds the Conftest metadata inventory, caches chart pulls for the current validation run, and batches rendered output into a temp tree so policy, schema, and deprecation checks each run once across the rendered set
 
 ## Architecture Overview
 
