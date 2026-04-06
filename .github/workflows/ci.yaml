@@ -34,7 +34,7 @@ jobs:
         uses: dcarbone/install-yq-action@v1
         with:
           # renovate: datasource=github-tags depName=mikefarah/yq
-          version: v4.44.6
+          version: v4.52.5
 
       - name: Set up pluto
         uses: FairwindsOps/pluto/github-action@v5.23.6
