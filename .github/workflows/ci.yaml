@@ -17,21 +17,21 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Task
-        uses: go-task/setup-task@v2
+        uses: go-task/setup-task@v2.0.0
 
       - name: Set up Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@v5.0.0
 
       - name: Set up OpenTofu
-        uses: opentofu/setup-opentofu@v2
+        uses: opentofu/setup-opentofu@v2.0.0
         with:
           tofu_wrapper: false
 
       - name: Set up yq
-        uses: dcarbone/install-yq-action@v1
+        uses: dcarbone/install-yq-action@v1.3.1
         with:
           # renovate: datasource=github-tags depName=mikefarah/yq
           version: v4.52.5
@@ -40,13 +40,13 @@ jobs:
         uses: FairwindsOps/pluto/github-action@v5.23.6
 
       - name: Set up kubeconform
-        uses: bmuschko/setup-kubeconform@v1
+        uses: bmuschko/setup-kubeconform@v1.0.0
         with:
           # renovate: datasource=github-releases depName=yannh/kubeconform
           kubeconform-version: "0.7.0"
 
       - name: Set up Conftest
-        uses: princespaghetti/setup-conftest@v1
+        uses: princespaghetti/setup-conftest@v1.2.0
         with:
           # renovate: datasource=github-releases depName=open-policy-agent/conftest
           version: 0.68.0

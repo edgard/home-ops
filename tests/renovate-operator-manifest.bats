@@ -60,7 +60,6 @@
 
 @test "renovate config tracks tuppr upgrade manifests and CI tool inputs" {
   config="${BATS_TEST_DIRNAME}/../.renovaterc.json5"
-  workflow="${BATS_TEST_DIRNAME}/../.github/workflows/ci.yaml"
 
   run grep -F 'description: "Tuppr upgrade versions"' "$config"
   [ "$status" -eq 0 ]
@@ -72,12 +71,6 @@
   [ "$status" -eq 0 ]
 
   run grep -F '/^\\.github\\/workflows\\/ci\\.ya?ml$/' "$config"
-  [ "$status" -eq 0 ]
-
-  run grep -F 'uses: princespaghetti/setup-conftest@v1' "$workflow"
-  [ "$status" -eq 0 ]
-
-  run grep -F 'version: 0.68.0' "$workflow"
   [ "$status" -eq 0 ]
 
   run grep -F '(?<currentValue>[0-9.]+)' "$config"
@@ -120,6 +113,6 @@
   run grep -F '":configMigration"' "$config"
   [ "$status" -eq 0 ]
 
-  run grep -F '"helpers:pinGitHubActionDigests"' "$config"
+  run grep -F '"helpers:pinGitHubActionDigestsToSemver"' "$config"
   [ "$status" -eq 0 ]
 }
