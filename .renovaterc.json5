@@ -9,7 +9,7 @@
     ":timezone(Europe/Warsaw)",
     ":prHourlyLimitNone",
     "docker:enableMajor",
-    "helpers:pinGitHubActionDigests",
+    "helpers:pinGitHubActionDigestsToSemver",
   ],
 
   // === Kubernetes Manager ===
