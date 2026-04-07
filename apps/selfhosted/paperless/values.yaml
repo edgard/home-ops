@@ -192,7 +192,7 @@ controllers:
       app:
         image:
           repository: docker.io/gotenberg/gotenberg
-          tag: "8.29.1"
+          tag: "8.30.1"
         args:
           - gotenberg
           - --chromium-disable-javascript=true
