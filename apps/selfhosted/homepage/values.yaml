@@ -130,6 +130,12 @@ service:
 
 route:
   main:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Homepage
+      gethomepage.dev/group: Selfhosted
+      gethomepage.dev/icon: homepage.png
+      gethomepage.dev/app: homepage
     parentRefs:
       - name: gateway
         namespace: platform-system

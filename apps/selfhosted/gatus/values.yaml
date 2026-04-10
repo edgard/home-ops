@@ -41,6 +41,8 @@ service:
   main:
     controller: main
     type: ClusterIP
+    annotations:
+      gatus.edgard.org/enabled: "true"
     ports:
       http:
         port: 8080

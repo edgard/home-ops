@@ -8,7 +8,7 @@ defaultPodOptions:
     runAsUser: 0
 
 controllers:
-  paperless:
+  main:
     type: deployment
     replicas: 1
     strategy: Recreate
@@ -261,8 +261,8 @@ controllers:
             enabled: true
 
 service:
-  paperless:
-    controller: paperless
+  main:
+    controller: main
     primary: true
     annotations:
       gatus.edgard.org/enabled: "true"
@@ -310,7 +310,7 @@ route:
       - paperless.edgard.org
     rules:
       - backendRefs:
-          - identifier: paperless
+          - identifier: main
             port: 8000
 
 persistence:
@@ -319,7 +319,7 @@ persistence:
     accessMode: ReadWriteOnce
     size: 30Gi
     advancedMounts:
-      paperless:
+      main:
         app:
           - path: /usr/src/paperless/data
             subPath: data
@@ -333,7 +333,7 @@ persistence:
   tessdata:
     type: emptyDir
     advancedMounts:
-      paperless:
+      main:
         tesseract-langs:
           - path: /shared-tessdata
         app:

@@ -5,6 +5,7 @@ configs:
   secret:
     createSecret: true
   params:
+    server.insecure: "true"
     controller.diff.server.side: "true"
   cm:
     resource.ignoreResourceUpdatesEnabled: "true"
@@ -35,8 +36,27 @@ server:
   service:
     annotations:
       gatus.edgard.org/enabled: "true"
-  extraArgs:
-    - --insecure
+  httproute:
+    enabled: true
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: ArgoCD
+      gethomepage.dev/group: Platform
+      gethomepage.dev/icon: argo-cd.svg
+      gethomepage.dev/app: argocd-server
+      gethomepage.dev/namespace: argocd
+      gethomepage.dev/pod-selector: app.kubernetes.io/name=argocd-server
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - argocd.edgard.org
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
 
 repoServer:
   deploymentAnnotations:

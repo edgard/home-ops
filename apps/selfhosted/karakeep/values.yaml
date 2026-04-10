@@ -8,7 +8,7 @@ defaultPodOptions:
     runAsUser: 0
 
 controllers:
-  karakeep:
+  main:
     type: deployment
     replicas: 1
     strategy: Recreate
@@ -157,8 +157,8 @@ controllers:
               - ALL
 
 service:
-  karakeep:
-    controller: karakeep
+  main:
+    controller: main
     primary: true
     forceRename: karakeep
     annotations:
@@ -193,7 +193,7 @@ route:
       - karakeep.edgard.org
     rules:
       - backendRefs:
-          - identifier: karakeep
+          - identifier: main
             port: 3000
 
 persistence:
@@ -202,7 +202,7 @@ persistence:
     accessMode: ReadWriteOnce
     size: 5Gi
     advancedMounts:
-      karakeep:
+      main:
         app:
           - path: /data
             subPath: data
