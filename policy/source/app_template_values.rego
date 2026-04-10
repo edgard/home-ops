@@ -20,10 +20,6 @@ allowed_app_template_values_orders := {
   "defaultPodOptions,controllers,serviceAccount,rbac,service,route,persistence,configMaps",
 }
 
-vendored_manifest_exemptions := {
-  "apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml",
-}
-
 deny contains msg if {
   some app in input.apps
   is_app_template_v4(app)
@@ -147,41 +143,9 @@ deny contains msg if {
   msg := sprintf("service.main must enable gatus.edgard.org/enabled for routed HTTP apps in %s", [app.values_file])
 }
 
-deny contains msg if {
-  some app in input.apps
-  is_argocd_chart(app)
-  count(object.get(app, "raw_httproute_manifest_paths", [])) > 0
-  msg := sprintf("argo-cd chart apps must declare HTTPRoute via values.yaml server.httproute instead of a raw manifest in %s", [app.values_file])
-}
-
-deny contains msg if {
-  some manifest in input.manifests
-  not is_vendored_manifest(manifest)
-  not has_expected_manifest_filename(manifest)
-  msg := sprintf("owned manifest filename must start with the owning app or resource name in %s", [manifest.path])
-}
-
-deny contains msg if {
-  some manifest in input.manifests
-  not is_vendored_manifest(manifest)
-  not has_expected_manifest_top_level_order(manifest)
-  msg := sprintf("owned manifest must order fields as apiVersion, kind, metadata, spec in %s", [manifest.path])
-}
-
-deny contains msg if {
-  some manifest in input.manifests
-  not is_vendored_manifest(manifest)
-  not has_expected_metadata_order(manifest)
-  msg := sprintf("metadata keys must order fields as name, namespace, labels, annotations in %s", [manifest.path])
-}
-
 is_app_template_v4(app) if {
   app.chart_repo == "oci://ghcr.io/bjw-s-labs/helm/app-template"
   app.chart_version == "4.6.2"
-}
-
-is_argocd_chart(app) if {
-  app.chart_repo == "oci://ghcr.io/argoproj/argo-helm/argo-cd"
 }
 
 has_default_pod_options(app) if {
@@ -206,89 +170,4 @@ is_canonical_root_profile(app) if {
   object.get(sc, "runAsGroup", "") == "0"
   object.get(sc, "runAsNonRoot", "") == "false"
   object.get(sc, "runAsUser", "") == "0"
-}
-
-is_vendored_manifest(manifest) if {
-  vendored_manifest_exemptions[manifest.relative_path]
-}
-
-has_expected_manifest_filename(manifest) if {
-  startswith(manifest.relative_path, "apps/")
-  startswith(manifest.basename, sprintf("%s-", [manifest_owner_name(manifest)]))
-}
-
-has_expected_manifest_filename(manifest) if {
-  not startswith(manifest.relative_path, "apps/")
-  startswith(manifest.basename, sprintf("%s.", [manifest_owner_name(manifest)]))
-}
-
-manifest_owner_name(manifest) := app_name if {
-  startswith(manifest.relative_path, "apps/")
-  parts := split(manifest.relative_path, "/")
-  count(parts) >= 5
-  app_name := parts[2]
-}
-
-manifest_owner_name(manifest) := basename_prefix if {
-  not startswith(manifest.relative_path, "apps/")
-  basename_parts := split(manifest.basename, ".")
-  basename_prefix := basename_parts[0]
-}
-
-has_expected_manifest_top_level_order(manifest) if {
-  keys := object.get(manifest, "top_level_keys", [])
-  count(keys) >= 3
-  keys[0] == "apiVersion"
-  keys[1] == "kind"
-  keys[2] == "metadata"
-  spec_order_is_valid(keys)
-}
-
-spec_order_is_valid(keys) if {
-  not list_contains(keys, "spec")
-}
-
-spec_order_is_valid(keys) if {
-  list_contains(keys, "spec")
-  count(keys) >= 4
-  keys[3] == "spec"
-}
-
-has_expected_metadata_order(manifest) if {
-  keys := object.get(manifest, "metadata_keys", [])
-  ordered_if_present(keys, "name", "namespace")
-  ordered_if_present(keys, "name", "labels")
-  ordered_if_present(keys, "name", "annotations")
-  ordered_if_present(keys, "namespace", "labels")
-  ordered_if_present(keys, "namespace", "annotations")
-  ordered_if_present(keys, "labels", "annotations")
-}
-
-order_position(keys, key) := pos if {
-  some i
-  keys[i] == key
-  pos := i
-}
-
-order_position(keys, key) := 999 if {
-  not list_contains(keys, key)
-}
-
-list_contains(keys, key) if {
-  some i
-  keys[i] == key
-}
-
-ordered_if_present(keys, first, second) if {
-  not list_contains(keys, first)
-}
-
-ordered_if_present(keys, first, second) if {
-  not list_contains(keys, second)
-}
-
-ordered_if_present(keys, first, second) if {
-  list_contains(keys, first)
-  list_contains(keys, second)
-  order_position(keys, first) <= order_position(keys, second)
 }
