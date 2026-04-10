@@ -135,6 +135,15 @@ printf "shellcheck %s\n" "$*" >> "$STUB_LOG"
   write_stub yamllint '
 printf "yamllint %s\n" "$*" >> "$STUB_LOG"
 '
+  write_stub bats '
+printf "bats %s\n" "$*" >> "$STUB_LOG"
+'
+  write_stub prettier '
+printf "prettier %s\n" "$*" >> "$STUB_LOG"
+'
+  write_stub yamlfmt '
+printf "yamlfmt %s\n" "$*" >> "$STUB_LOG"
+'
   write_stub tofu '
 printf "tofu %s\n" "$*" >> "$STUB_LOG"
 '
@@ -158,77 +167,38 @@ teardown() {
   [ "$output" -eq 2 ]
 }
 
-@test "task surface excludes one-off validation tasks and exposes ci/precommit" {
-  run grep -F 'validate:metadata:' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 1 ]
+@test "task ci runs test before lint" {
+  run task --taskfile "${TEST_TMPDIR}/Taskfile.yaml" ci
 
-  run grep -F 'validate:server:' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 1 ]
-
-  run grep -F 'ci:' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
   [ "$status" -eq 0 ]
 
-  run grep -F 'precommit:' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
+  run awk '/^bats tests$/ { print NR; exit }' "${STUB_LOG}"
   [ "$status" -eq 0 ]
+  bats_line="$output"
 
-  run grep -F -- '--target-versions k8s=v1.35.1' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 1 ]
+  run awk '/^shellcheck --severity=warning / { print NR; exit }' "${STUB_LOG}"
+  [ "$status" -eq 0 ]
+  shellcheck_line="$output"
+
+  [ "$bats_line" -lt "$shellcheck_line" ]
+
+  assert_log_contains 'yamllint -c .yamllint .'
+  assert_log_contains 'conftest test --no-color --policy '
+  assert_log_contains 'pluto detect-files -d '
 }
 
-@test "validate-kubernetes compatibility entrypoint no longer exposes server validation" {
-  run grep -F 'server)' "${BATS_TEST_DIRNAME}/../scripts/validate-kubernetes.sh"
-  [ "$status" -eq 1 ]
-
-  run grep -F '|server>' "${BATS_TEST_DIRNAME}/../scripts/validate-kubernetes.sh"
-  [ "$status" -eq 1 ]
-}
-
-@test "validation helpers are folded into the main validation entrypoint" {
-  [ ! -f "${BATS_TEST_DIRNAME}/../scripts/kubernetes-target-version.sh" ]
-  [ ! -f "${BATS_TEST_DIRNAME}/../scripts/render-helm-app.sh" ]
-  [ ! -f "${BATS_TEST_DIRNAME}/../scripts/validate-app-metadata.sh" ]
-  [ ! -f "${BATS_TEST_DIRNAME}/../scripts/validate-source-conventions.sh" ]
-}
-
-@test "task ci combines test and lint and precommit adds fmt" {
-  run grep -F 'task: test' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 0 ]
-
-  run grep -F 'task: lint' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 0 ]
-
-  run grep -F 'task: fmt' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 0 ]
-
-  run grep -F 'task: ci' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 0 ]
-}
-
-@test "task lint still includes metadata validation in the offline gate" {
-  run grep -F '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" metadata' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
+@test "task precommit runs fmt before ci" {
+  run task --taskfile "${TEST_TMPDIR}/Taskfile.yaml" precommit
 
   [ "$status" -eq 0 ]
-}
 
-@test "task lint includes source convention validation in the offline gate" {
-  run grep -F '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" source' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-
+  run awk '/^prettier --write / { print NR; exit }' "${STUB_LOG}"
   [ "$status" -eq 0 ]
-}
+  prettier_line="$output"
 
-@test "task lint includes raw and rendered policy validation" {
-  run grep -F '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" policies' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
+  run awk '/^bats tests$/ { print NR; exit }' "${STUB_LOG}"
   [ "$status" -eq 0 ]
+  bats_line="$output"
 
-  run grep -F '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" helm-apps "${files[@]}"' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 0 ]
-
-  run grep -F '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" rendered-policies' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 1 ]
-
-  run grep -F '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" rendered-manifests' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 1 ]
-
-  run grep -F '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" rendered-deprecations' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
-  [ "$status" -eq 1 ]
+  [ "$prettier_line" -lt "$bats_line" ]
 }

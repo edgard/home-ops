@@ -8,6 +8,10 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 - Format: `task fmt`
 - Test: `task test` (Bats orchestration regression tests only; no validator semantics)
 - Lint: `task lint` (offline validation: shellcheck, yamllint, metadata policy, raw manifest policy/schema/deprecation checks, batched rendered policy/schema/deprecation checks, `tofu validate`)
+- Bats scope:
+  - Keep Bats focused on executable task/script behavior: dispatch, retries, env handling, path resolution, caching, batching, and failure handling
+  - Do not add Bats tests that only `grep` static YAML/JSON/Taskfile content or assert file presence/absence without executing behavior
+  - Repo invariants and manifest structure belong in Conftest/Rego policy or the lint gate, not shell regression tests
 - Policy layers:
   - `policy/metadata/` validates app metadata structure and required sync waves
   - `policy/kubernetes/` validates manifest and rendered-workload guardrails
@@ -101,6 +105,7 @@ Store: `external-secrets-store`
 - Validation split:
   - `task test` covers task/script dispatch and orchestration with Bats, not validator semantics
   - `task lint` covers direct repo validation
+  - Prefer policy or lint checks over Bats when the assertion is about repository content rather than script behavior
 - Metadata policy lives under `policy/metadata/` and is enforced via Conftest
 - Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
 - `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`
