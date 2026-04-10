@@ -31,6 +31,94 @@ yaml_quote() {
   printf "'%s'" "$value"
 }
 
+string_value() {
+  local path="$1"
+  local expr="$2"
+  local result
+
+  result="$(yq -r "$expr" "$path" 2>/dev/null || true)"
+  if [ "$result" = "null" ]; then
+    printf '\n'
+    return 0
+  fi
+
+  printf '%s\n' "$result"
+}
+
+json_value() {
+  local path="$1"
+  local expr="$2"
+  local default_value="${3:-null}"
+  local result
+
+  result="$(yq -o=json "$expr" "$path" 2>/dev/null || true)"
+  if [ -z "$result" ] || [ "$result" = "null" ]; then
+    printf '%s\n' "$default_value"
+    return 0
+  fi
+
+  printf '%s\n' "$result"
+}
+
+map_keys() {
+  local path="$1"
+  local expr="$2"
+
+  yq -r "${expr} | keys | .[]" "$path" 2>/dev/null || true
+}
+
+top_level_keys() {
+  local path="$1"
+
+  [ -f "$path" ] || return 0
+
+  awk '
+    /^---$/ { next }
+    /^[[:alnum:]_-]+:/ {
+      key = $1
+      sub(/:$/, "", key)
+      print key
+    }
+  ' "$path"
+}
+
+metadata_keys() {
+  local path="$1"
+
+  [ -f "$path" ] || return 0
+
+  awk '
+    /^metadata:/ {
+      in_metadata = 1
+      next
+    }
+    in_metadata && /^[^[:space:]]/ {
+      exit
+    }
+    in_metadata && /^  [[:alnum:]_-]+:/ {
+      key = $1
+      sub(/:$/, "", key)
+      print key
+    }
+  ' "$path"
+}
+
+write_yaml_list() {
+  local key="$1"
+  shift
+
+  if [ "$#" -eq 0 ]; then
+    printf '%s: []\n' "$key"
+    return 0
+  fi
+
+  printf '%s:\n' "$key"
+  local value
+  for value in "$@"; do
+    printf '      - %s\n' "$(yaml_quote "$value")"
+  done
+}
+
 build_local_schemas() {
   local manifest="$1"
 
@@ -62,7 +150,7 @@ build_schema_catalog() {
 
   ensure_schema_root
   build_local_schemas "${repo_root}/apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml"
-  build_local_schemas "${repo_root}/apps/platform-system/homelab-controller/manifests/gatusconfigs.homelab.edgard.org.customresourcedefinition.yaml"
+  build_local_schemas "${repo_root}/apps/platform-system/homelab-controller/manifests/homelab-controller-gatusconfigs.customresourcedefinition.yaml"
   schema_catalog_built=1
 }
 
@@ -216,6 +304,98 @@ write_metadata_inventory() {
   done
 }
 
+write_source_app_inventory() {
+  local app_file="$1"
+  local app_dir values_file manifests_dir repo version
+  local route_main_hostnames route_main_backend_identifiers
+  local controller_keys=()
+  local service_keys=()
+  local route_keys=()
+  local values_top_level_keys=()
+  local service_main_ports=()
+  local raw_httproute_manifest_paths=()
+
+  app_dir="$(dirname "$app_file")"
+  values_file="${app_dir}/values.yaml"
+  manifests_dir="${app_dir}/manifests"
+  repo="$(string_value "$app_file" '.chart.repo')"
+  version="$(string_value "$app_file" '.chart.version')"
+  mapfile -t values_top_level_keys < <(top_level_keys "$values_file")
+  mapfile -t controller_keys < <(map_keys "$values_file" '.controllers')
+  mapfile -t service_keys < <(map_keys "$values_file" '.service')
+  mapfile -t route_keys < <(map_keys "$values_file" '.route')
+  mapfile -t service_main_ports < <(map_keys "$values_file" '.service.main.ports')
+  mapfile -t route_main_hostnames < <(yq -r '.route.main.hostnames[]' "$values_file" 2>/dev/null || true)
+  mapfile -t route_main_backend_identifiers < <(yq -r '.route.main.rules[].backendRefs[].identifier' "$values_file" 2>/dev/null || true)
+
+  if [ -d "$manifests_dir" ]; then
+    mapfile -t raw_httproute_manifest_paths < <(find "$manifests_dir" -maxdepth 1 -type f -name '*.httproute.yaml' | sort)
+  fi
+
+  printf '  - app_file: %s\n' "$(yaml_quote "$app_file")"
+  printf '    values_file: %s\n' "$(yaml_quote "$values_file")"
+  printf '    chart_repo: %s\n' "$(yaml_quote "$repo")"
+  printf '    chart_version: %s\n' "$(yaml_quote "$version")"
+  write_yaml_list '    values_top_level_keys' "${values_top_level_keys[@]}"
+  write_yaml_list '    controller_keys' "${controller_keys[@]}"
+  write_yaml_list '    service_keys' "${service_keys[@]}"
+  write_yaml_list '    route_keys' "${route_keys[@]}"
+  printf '    default_pod_security_context:\n'
+  printf '      fsGroup: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.fsGroup')")"
+  printf '      fsGroupChangePolicy: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.fsGroupChangePolicy')")"
+  printf '      runAsGroup: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsGroup')")"
+  printf '      runAsNonRoot: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsNonRoot')")"
+  printf '      runAsUser: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsUser')")"
+  printf '    service_main_controller: %s\n' "$(yaml_quote "$(string_value "$values_file" '.service.main.controller')")"
+  write_yaml_list '    service_main_ports' "${service_main_ports[@]}"
+  printf '    service_main_annotations: %s\n' "$(json_value "$values_file" '.service.main.annotations // {}' '{}')"
+  write_yaml_list '    route_main_hostnames' "${route_main_hostnames[@]}"
+  write_yaml_list '    route_main_backend_identifiers' "${route_main_backend_identifiers[@]}"
+  printf '    route_main_annotations: %s\n' "$(json_value "$values_file" '.route.main.annotations // {}' '{}')"
+  write_yaml_list '    raw_httproute_manifest_paths' "${raw_httproute_manifest_paths[@]}"
+}
+
+write_source_manifest_inventory() {
+  local path="$1"
+  local basename
+  local relative_path="${path#"${repo_root}/"}"
+  local top_level_keys_list=()
+  local metadata_keys_list=()
+
+  basename="$(basename "$path")"
+  mapfile -t top_level_keys_list < <(top_level_keys "$path")
+  mapfile -t metadata_keys_list < <(metadata_keys "$path")
+
+  printf '  - path: %s\n' "$(yaml_quote "$path")"
+  printf '    relative_path: %s\n' "$(yaml_quote "$relative_path")"
+  printf '    basename: %s\n' "$(yaml_quote "$basename")"
+  write_yaml_list '    top_level_keys' "${top_level_keys_list[@]}"
+  write_yaml_list '    metadata_keys' "${metadata_keys_list[@]}"
+}
+
+write_source_inventory() {
+  local app_file path
+
+  printf -- "---\napps:\n"
+  while IFS= read -r app_file; do
+    write_source_app_inventory "$app_file"
+  done < <(find "${repo_root}/apps" -mindepth 3 -maxdepth 3 -type f -name app.yaml | sort)
+
+  printf 'manifests:\n'
+  while IFS= read -r path; do
+    write_source_manifest_inventory "$path"
+  done < <(
+    {
+      if [ -d "${repo_root}/apps" ]; then
+        find "${repo_root}/apps" -path '*/manifests/*.yaml' -type f
+      fi
+      if [ -d "${repo_root}/argocd" ]; then
+        find "${repo_root}/argocd" -type f -name '*.yaml'
+      fi
+    } | sort
+  )
+}
+
 validate_metadata() {
   local workdir inventory status
 
@@ -224,6 +404,23 @@ validate_metadata() {
   write_metadata_inventory >"$inventory"
 
   if conftest test --no-color --policy "${repo_root}/policy/metadata" "$inventory"; then
+    status=0
+  else
+    status=$?
+  fi
+
+  rm -rf "$workdir"
+  return "$status"
+}
+
+validate_source() {
+  local workdir inventory status
+
+  workdir="$(mktemp -d)"
+  inventory="${workdir}/source-conventions.yaml"
+  write_source_inventory >"$inventory"
+
+  if conftest test --no-color --policy "${repo_root}/policy/source" "$inventory"; then
     status=0
   else
     status=$?
@@ -419,6 +616,10 @@ main() {
   local command="${1:-}"
 
   case "$command" in
+    source)
+      shift
+      validate_source "$@"
+      ;;
     metadata|appset-inputs)
       shift
       validate_metadata "$@"
@@ -452,7 +653,7 @@ main() {
       validate_helm_apps "$@"
       ;;
     *)
-      echo "Usage: $0 <metadata|appset-inputs|policies|manifests|rendered-policies|rendered-manifests|deprecations|rendered-deprecations|helm-apps> [args...]" >&2
+      echo "Usage: $0 <source|metadata|appset-inputs|policies|manifests|rendered-policies|rendered-manifests|deprecations|rendered-deprecations|helm-apps> [args...]" >&2
       exit 1
       ;;
   esac

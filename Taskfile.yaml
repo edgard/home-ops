@@ -42,6 +42,7 @@ tasks:
     cmds:
       - shellcheck --severity=warning scripts/*.sh
       - yamllint -c .yamllint .
+      - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" source'
       - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" metadata'
       - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" policies'
       - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" manifests'

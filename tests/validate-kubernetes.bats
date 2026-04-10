@@ -66,14 +66,17 @@ fi
 '
   write_stub pluto '
 printf "pluto %s\n" "$*" >> "$STUB_LOG"
-cat >/dev/null
+: 
 '
   write_stub kubeconform '
 printf "kubeconform %s\n" "$*" >> "$STUB_LOG"
-cat >/dev/null
+: 
 '
   write_stub conftest '
 printf "conftest %s\n" "$*" >> "$STUB_LOG"
+if [[ -n "${CAPTURE_CONTFEST_INPUT:-}" ]]; then
+  cp "${@: -1}" "$CAPTURE_CONTFEST_INPUT"
+fi
 '
   write_stub md5sum '
 printf "abcd1234  -\n"
@@ -187,7 +190,7 @@ EOF
   : > "${TEST_TMPDIR}/apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml"
 
   mkdir -p "${TEST_TMPDIR}/apps/platform-system/homelab-controller/manifests"
-  : > "${TEST_TMPDIR}/apps/platform-system/homelab-controller/manifests/gatusconfigs.homelab.edgard.org.customresourcedefinition.yaml"
+  : > "${TEST_TMPDIR}/apps/platform-system/homelab-controller/manifests/homelab-controller-gatusconfigs.customresourcedefinition.yaml"
 }
 
 teardown() {
@@ -286,6 +289,62 @@ teardown() {
   [ "$status" -eq 0 ]
   run grep -c '^yq -r ' "${STUB_LOG}"
   [ "$status" -eq 1 ]
+}
+
+@test "validate-kubernetes source runs source policy without kubernetes compatibility checks" {
+  run env REPO_ROOT="${TEST_TMPDIR}" bash scripts/validate-kubernetes.sh source
+
+  [ "$status" -eq 0 ]
+  assert_log_contains 'conftest test --no-color --policy '
+
+  run grep -F 'policy/source' "${STUB_LOG}"
+  [ "$status" -eq 0 ]
+
+  run grep -c '^kubeconform ' "${STUB_LOG}"
+  [ "$status" -eq 1 ]
+
+  run grep -c '^pluto ' "${STUB_LOG}"
+  [ "$status" -eq 1 ]
+
+  run grep -c '.spec.kubernetes.version // ""' "${STUB_LOG}"
+  [ "$status" -eq 1 ]
+}
+
+@test "validate-kubernetes source tolerates missing values files and still builds the inventory" {
+  mkdir -p "${TEST_TMPDIR}/apps/selfhosted/no-values"
+  cat > "${TEST_TMPDIR}/apps/selfhosted/no-values/app.yaml" <<EOF
+---
+chart:
+  repo: oci://ghcr.io/bjw-s-labs/helm/app-template
+  version: 4.6.2
+sync:
+  wave: "0"
+EOF
+
+  inventory="${TEST_TMPDIR}/captured-source.yaml"
+  run env REPO_ROOT="${TEST_TMPDIR}" CAPTURE_CONTFEST_INPUT="${inventory}" bash scripts/validate-kubernetes.sh source
+
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"awk:"* ]]
+
+  run grep -F "${TEST_TMPDIR}/apps/selfhosted/no-values/app.yaml" "${inventory}"
+  [ "$status" -eq 0 ]
+}
+
+@test "validate-kubernetes source inventories root argocd manifests" {
+  inventory="${TEST_TMPDIR}/captured-source.yaml"
+  run env REPO_ROOT="${TEST_TMPDIR}" CAPTURE_CONTFEST_INPUT="${inventory}" bash scripts/validate-kubernetes.sh source
+
+  [ "$status" -eq 0 ]
+
+  run grep -F "${TEST_TMPDIR}/argocd/projects/demo.appproject.yaml" "${inventory}"
+  [ "$status" -eq 0 ]
+
+  run grep -F "relative_path: 'argocd/projects/demo.appproject.yaml'" "${inventory}"
+  [ "$status" -eq 0 ]
+
+  run grep -F "basename: 'demo.appproject.yaml'" "${inventory}"
+  [ "$status" -eq 0 ]
 }
 
 @test "validate-kubernetes helm-apps skips target version lookup when no apps are provided" {

@@ -4,6 +4,7 @@ defaultPodOptions:
     fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
     runAsGroup: 0
+    runAsNonRoot: false
     runAsUser: 0
 
 controllers:

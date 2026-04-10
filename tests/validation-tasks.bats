@@ -17,6 +17,8 @@ setup() {
 chart:
   repo: oci://ghcr.io/example/app-template
   version: 1.2.3
+sync:
+  wave: "0"
 EOF
   cat > "${TEST_TMPDIR}/apps/selfhosted/demo/values.yaml" <<EOF
 ---
@@ -43,6 +45,8 @@ EOF
 chart:
   repo: oci://ghcr.io/home-operations/charts/tuppr
   version: 0.1.3
+sync:
+  wave: "-3"
 EOF
   cat > "${TEST_TMPDIR}/apps/platform-system/tuppr/values.yaml" <<EOF
 ---
@@ -113,11 +117,11 @@ fi
 '
   write_stub kubeconform '
 printf "kubeconform %s\n" "$*" >> "$STUB_LOG"
-cat >/dev/null
+: 
 '
   write_stub pluto '
 printf "pluto %s\n" "$*" >> "$STUB_LOG"
-cat >/dev/null
+: 
 '
   write_stub md5sum '
 printf "abcd1234  -\n"
@@ -183,6 +187,7 @@ teardown() {
   [ ! -f "${BATS_TEST_DIRNAME}/../scripts/kubernetes-target-version.sh" ]
   [ ! -f "${BATS_TEST_DIRNAME}/../scripts/render-helm-app.sh" ]
   [ ! -f "${BATS_TEST_DIRNAME}/../scripts/validate-app-metadata.sh" ]
+  [ ! -f "${BATS_TEST_DIRNAME}/../scripts/validate-source-conventions.sh" ]
 }
 
 @test "task ci combines test and lint and precommit adds fmt" {
@@ -201,6 +206,12 @@ teardown() {
 
 @test "task lint still includes metadata validation in the offline gate" {
   run grep -F '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" metadata' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
+
+  [ "$status" -eq 0 ]
+}
+
+@test "task lint includes source convention validation in the offline gate" {
+  run grep -F '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh" source' "${BATS_TEST_DIRNAME}/../Taskfile.yaml"
 
   [ "$status" -eq 0 ]
 }

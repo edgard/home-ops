@@ -82,6 +82,34 @@ deny contains msg if {
 }
 
 deny contains msg if {
+  input.kind == "HTTPRoute"
+  object.get(object.get(input.metadata, "annotations", {}), "gethomepage.dev/enabled", "") == "true"
+  object.get(object.get(input.metadata, "annotations", {}), "gethomepage.dev/group", "") == ""
+  msg := sprintf("HTTPRoute/%s must define gethomepage.dev/group when homepage annotations are enabled", [input.metadata.name])
+}
+
+deny contains msg if {
+  input.kind == "HTTPRoute"
+  object.get(object.get(input.metadata, "annotations", {}), "gethomepage.dev/enabled", "") == "true"
+  object.get(object.get(input.metadata, "annotations", {}), "gethomepage.dev/icon", "") == ""
+  msg := sprintf("HTTPRoute/%s must define gethomepage.dev/icon when homepage annotations are enabled", [input.metadata.name])
+}
+
+deny contains msg if {
+  input.kind == "HTTPRoute"
+  object.get(object.get(input.metadata, "annotations", {}), "gethomepage.dev/enabled", "") == "true"
+  object.get(object.get(input.metadata, "annotations", {}), "gethomepage.dev/app", "") == ""
+  msg := sprintf("HTTPRoute/%s must define gethomepage.dev/app when homepage annotations are enabled", [input.metadata.name])
+}
+
+deny contains msg if {
+  input.kind == "HTTPRoute"
+  object.get(object.get(input.metadata, "annotations", {}), "gethomepage.dev/enabled", "") == "true"
+  object.get(object.get(input.metadata, "annotations", {}), "gethomepage.dev/name", "") == ""
+  msg := sprintf("HTTPRoute/%s must define gethomepage.dev/name when homepage annotations are enabled", [input.metadata.name])
+}
+
+deny contains msg if {
   input.kind == "ExternalSecret"
   object.get(object.get(input.spec, "secretStoreRef", {}), "name", "") != "external-secrets-store"
   msg := sprintf("ExternalSecret/%s must use secretStoreRef.name external-secrets-store", [input.metadata.name])

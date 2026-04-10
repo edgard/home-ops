@@ -8,7 +8,7 @@ defaultPodOptions:
     runAsUser: 1000
 
 controllers:
-  atuin:
+  main:
     type: deployment
     replicas: 1
     strategy: Recreate
@@ -44,8 +44,8 @@ controllers:
           requests: null
 
 service:
-  atuin:
-    controller: atuin
+  main:
+    controller: main
     primary: true
     forceRename: atuin
     annotations:
@@ -56,6 +56,12 @@ service:
 
 route:
   main:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Atuin
+      gethomepage.dev/group: Selfhosted
+      gethomepage.dev/icon: atuin.svg
+      gethomepage.dev/app: atuin
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -64,7 +70,7 @@ route:
       - atuin.edgard.org
     rules:
       - backendRefs:
-          - identifier: atuin
+          - identifier: main
             port: 8888
 
 persistence:
@@ -73,6 +79,6 @@ persistence:
     accessMode: ReadWriteOnce
     size: 2Gi
     advancedMounts:
-      atuin:
+      main:
         app:
           - path: /config
