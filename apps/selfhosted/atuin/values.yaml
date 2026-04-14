@@ -16,7 +16,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/atuinsh/atuin
-          tag: 18.13.6
+          tag: 18.14.1
         args:
           - start
         env:
