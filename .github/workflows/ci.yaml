@@ -21,13 +21,21 @@ jobs:
 
       - name: Set up Task
         uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
+        with:
+          # renovate: datasource=github-releases depName=go-task/task
+          version: 3.49.1
 
       - name: Set up Helm
         uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          # renovate: datasource=github-releases depName=helm/helm
+          version: v4.1.4
 
       - name: Set up OpenTofu
         uses: opentofu/setup-opentofu@fc711fa910b93cba0f3fbecaafc9f42fd0c411cb # v2.0.0
         with:
+          # renovate: datasource=github-releases depName=opentofu/opentofu
+          tofu_version: 1.11.6
           tofu_wrapper: false
 
       - name: Set up yq
@@ -38,6 +46,9 @@ jobs:
 
       - name: Set up pluto
         uses: FairwindsOps/pluto/github-action@63548477d6f0c889bde9de2d73e49378e7faeb57 # v5.23.6
+        with:
+          # renovate: datasource=docker depName=us-docker.pkg.dev/fairwinds-ops/oss/pluto
+          IMAGE_TAG: v5.23
 
       - name: Set up kubeconform
         uses: bmuschko/setup-kubeconform@5ccaecbbf012bcb1eeeab66e649db64a477ade8f # v1.0.0
