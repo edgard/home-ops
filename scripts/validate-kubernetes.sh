@@ -24,6 +24,28 @@ ensure_render_cache_root() {
   [ -n "$render_cache_root" ] || render_cache_root="$(mktemp -d)"
 }
 
+run_helm() {
+  ensure_render_cache_root
+
+  local helm_state_root="${render_cache_root}/helm"
+
+  mkdir -p \
+    "${helm_state_root}/cache/content" \
+    "${helm_state_root}/cache/repository" \
+    "${helm_state_root}/config/registry" \
+    "${helm_state_root}/data"
+
+  env \
+    HELM_CONFIG_HOME="${helm_state_root}/config" \
+    HELM_CACHE_HOME="${helm_state_root}/cache" \
+    HELM_DATA_HOME="${helm_state_root}/data" \
+    HELM_REPOSITORY_CONFIG="${helm_state_root}/config/repositories.yaml" \
+    HELM_REPOSITORY_CACHE="${helm_state_root}/cache/repository" \
+    HELM_REGISTRY_CONFIG="${helm_state_root}/config/registry/config.json" \
+    HELM_CONTENT_CACHE="${helm_state_root}/cache/content" \
+    helm "$@"
+}
+
 yaml_quote() {
   local value="$1"
 
@@ -432,6 +454,7 @@ validate_source() {
 
 render_helm_app() {
   local app="$1"
+  local kubernetes_version="$2"
   local values="${app%app.yaml}values.yaml"
   local repo version name chart chart_name chart_key chart_dir
 
@@ -456,8 +479,8 @@ render_helm_app() {
     repo_name="$(echo "$repo" | md5sum | cut -d" " -f1)"
     repo_ready_file="${render_cache_root}/repos/${repo_name}.ready"
     if [ ! -f "$repo_ready_file" ]; then
-      helm repo add "$repo_name" "$repo" >/dev/null 2>&1 || true
-      helm repo update "$repo_name" >/dev/null 2>&1 || true
+      run_helm repo add "$repo_name" "$repo" >/dev/null 2>&1 || true
+      run_helm repo update "$repo_name" >/dev/null 2>&1 || true
       : >"$repo_ready_file"
     fi
     chart="$repo_name/$name"
@@ -470,12 +493,13 @@ render_helm_app() {
   if [ ! -d "$chart_dir" ]; then
     local pull_dir
     pull_dir="$(mktemp -d "${render_cache_root}/pull.XXXXXX")"
-    helm pull "$chart" --version "$version" --untar --untardir "$pull_dir" >/dev/null 2>&1
+    run_helm pull "$chart" --version "$version" --untar --untardir "$pull_dir" >/dev/null 2>&1
     mv "${pull_dir}/${chart_name}" "$chart_dir"
     rm -rf "$pull_dir"
   fi
 
-  helm template test "$chart_dir" --values "$values" \
+  run_helm template test "$chart_dir" --values "$values" \
+    --kube-version "${kubernetes_version#v}" \
     --api-versions gateway.networking.k8s.io/v1/HTTPRoute
 }
 
@@ -558,7 +582,7 @@ validate_rendered_apps() {
     rendered="${rendered_root}/${relative_path}"
     mkdir -p "$(dirname "$rendered")"
 
-    if ! render_helm_app "$app" >"$rendered"; then
+    if ! render_helm_app "$app" "$kubernetes_version" >"$rendered"; then
       rm -f "$rendered"
       echo "Failed: $(dirname "$app")"
       failed=1

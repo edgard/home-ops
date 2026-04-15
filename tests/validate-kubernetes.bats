@@ -24,6 +24,15 @@ fi
 '
   write_stub helm '
 printf "helm %s\n" "$*" >> "$STUB_LOG"
+if [[ "${REQUIRE_HELM_STATE_ISOLATION:-}" == "1" ]]; then
+  for var in HELM_CONFIG_HOME HELM_CACHE_HOME HELM_DATA_HOME HELM_REPOSITORY_CONFIG HELM_REPOSITORY_CACHE HELM_REGISTRY_CONFIG HELM_CONTENT_CACHE; do
+    value="${!var:-}"
+    if [[ -z "$value" || "$value" == "${HOME}"* ]]; then
+      echo "unisolated ${var}=${value}" >&2
+      exit 1
+    fi
+  done
+fi
 if [[ "$1" == "pull" ]]; then
   untardir=""
   source=""
@@ -212,6 +221,7 @@ teardown() {
   assert_log_contains 'kubeconform -kubernetes-version 9.9.9'
   assert_log_contains 'pluto detect-files -d '
   assert_log_contains '--target-versions k8s=v9.9.9 -o wide'
+  assert_log_contains '--kube-version 9.9.9'
 }
 
 @test "validate-kubernetes helm-apps renders each app once and reuses the output" {
@@ -357,6 +367,16 @@ EOF
 
 @test "validate-kubernetes helm-apps adds and updates non-OCI Helm repos before rendering" {
   run env REPO_ROOT="${TEST_TMPDIR}" bash scripts/validate-kubernetes.sh helm-apps "${TEST_TMPDIR}/apps/selfhosted/http-demo/app.yaml"
+
+  [ "$status" -eq 0 ]
+  assert_log_contains 'helm repo add abcd1234 https://charts.example.com'
+  assert_log_contains 'helm repo update abcd1234'
+  assert_log_contains 'helm pull abcd1234/demo --version 4.5.6 --untar --untardir'
+  assert_log_contains 'helm template test '
+}
+
+@test "validate-kubernetes helm-apps isolates helm state during rendering" {
+  run env REQUIRE_HELM_STATE_ISOLATION=1 REPO_ROOT="${TEST_TMPDIR}" bash scripts/validate-kubernetes.sh helm-apps "${TEST_TMPDIR}/apps/selfhosted/http-demo/app.yaml"
 
   [ "$status" -eq 0 ]
   assert_log_contains 'helm repo add abcd1234 https://charts.example.com'
