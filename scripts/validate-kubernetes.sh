@@ -16,6 +16,10 @@ cleanup() {
 
 trap cleanup EXIT
 
+log_step() {
+  printf '\n==> %s\n' "$1"
+}
+
 ensure_schema_root() {
   [ -n "$schema_root" ] || schema_root="$(mktemp -d)"
 }
@@ -203,6 +207,12 @@ raw_manifest_paths() {
 
   if [ -d "${repo_root}/apps" ]; then
     find "${repo_root}/apps" -mindepth 3 -maxdepth 3 -type d -name manifests -print0 | sort -z
+  fi
+}
+
+app_manifest_paths() {
+  if [ -d "${repo_root}/apps" ]; then
+    find "${repo_root}/apps" -mindepth 3 -maxdepth 3 -type f -name app.yaml | sort
   fi
 }
 
@@ -538,31 +548,14 @@ validate_manifests() {
 }
 
 validate_rendered_apps() {
-  local modes=()
   local failed=0
   local kubernetes_version
   local rendered_root
+  local app_paths=()
   local rendered_paths=()
 
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --)
-        shift
-        break
-        ;;
-      *)
-        modes+=("$1")
-        shift
-        ;;
-    esac
-  done
-
-  if [ ${#modes[@]} -eq 0 ]; then
-    echo "At least one rendered validation mode is required" >&2
-    return 1
-  fi
-
-  if [ $# -eq 0 ]; then
+  mapfile -t app_paths < <(app_manifest_paths)
+  if [ ${#app_paths[@]} -eq 0 ]; then
     return 0
   fi
 
@@ -570,7 +563,7 @@ validate_rendered_apps() {
   ensure_render_cache_root
   rendered_root="$(mktemp -d "${render_cache_root}/rendered.XXXXXX")"
 
-  for app in "$@"; do
+  for app in "${app_paths[@]}"; do
     local values="${app%app.yaml}values.yaml"
     local rendered
     local relative_path
@@ -595,32 +588,23 @@ validate_rendered_apps() {
     return "$failed"
   fi
 
-  for mode in "${modes[@]}"; do
-    case "$mode" in
-      schema)
-        if ! run_kubeconform "$kubernetes_version" -skip CustomResourceDefinition "${rendered_paths[@]}"; then
-          echo "Rendered schema validation failed in ${rendered_root}"
-          failed=1
-        fi
-        ;;
-      deprecations)
-        if ! pluto detect-files -d "$rendered_root" --target-versions "k8s=${kubernetes_version}" -o wide; then
-          echo "Rendered deprecation validation failed in ${rendered_root}"
-          failed=1
-        fi
-        ;;
-      policy)
-        if ! conftest test --no-color --parser yaml --policy "${repo_root}/policy/kubernetes" "${rendered_paths[@]}"; then
-          echo "Rendered policy validation failed in ${rendered_root}"
-          failed=1
-        fi
-        ;;
-      *)
-        echo "Unknown rendered validation mode: $mode" >&2
-        return 1
-        ;;
-    esac
-  done
+  log_step "Rendered manifest policy"
+  if ! conftest test --no-color --parser yaml --policy "${repo_root}/policy/kubernetes" "${rendered_paths[@]}"; then
+    echo "Rendered policy validation failed in ${rendered_root}"
+    failed=1
+  fi
+
+  log_step "Rendered manifest schema"
+  if ! run_kubeconform "$kubernetes_version" -skip CustomResourceDefinition "${rendered_paths[@]}"; then
+    echo "Rendered schema validation failed in ${rendered_root}"
+    failed=1
+  fi
+
+  log_step "Rendered manifest deprecations"
+  if ! pluto detect-files -d "$rendered_root" --target-versions "k8s=${kubernetes_version}" -o wide; then
+    echo "Rendered deprecation validation failed in ${rendered_root}"
+    failed=1
+  fi
 
   return "$failed"
 }
@@ -632,55 +616,28 @@ validate_deprecations() {
   pluto detect-files -d "${repo_root}" --target-versions "k8s=${kubernetes_version}" -o wide
 }
 
-validate_helm_apps() {
-  validate_rendered_apps policy schema deprecations -- "$@"
-}
-
 main() {
-  local command="${1:-}"
+  if [ "$#" -ne 0 ]; then
+    echo "Usage: $0" >&2
+    exit 1
+  fi
 
-  case "$command" in
-    source)
-      shift
-      validate_source "$@"
-      ;;
-    metadata|appset-inputs)
-      shift
-      validate_metadata "$@"
-      ;;
-    manifests)
-      shift
-      validate_manifests "$@"
-      ;;
-    policies)
-      shift
-      validate_policies "$@"
-      ;;
-    rendered-manifests)
-      shift
-      validate_rendered_apps schema -- "$@"
-      ;;
-    rendered-policies)
-      shift
-      validate_rendered_apps policy -- "$@"
-      ;;
-    deprecations)
-      shift
-      validate_deprecations "$@"
-      ;;
-    rendered-deprecations)
-      shift
-      validate_rendered_apps deprecations -- "$@"
-      ;;
-    helm-apps)
-      shift
-      validate_helm_apps "$@"
-      ;;
-    *)
-      echo "Usage: $0 <source|metadata|appset-inputs|policies|manifests|rendered-policies|rendered-manifests|deprecations|rendered-deprecations|helm-apps> [args...]" >&2
-      exit 1
-      ;;
-  esac
+  log_step "Source policy"
+  validate_source
+
+  log_step "Metadata policy"
+  validate_metadata
+
+  log_step "Raw manifest policy"
+  validate_policies
+
+  log_step "Raw manifest schema"
+  validate_manifests
+
+  log_step "Raw manifest deprecations"
+  validate_deprecations
+
+  validate_rendered_apps
 }
 
 main "$@"

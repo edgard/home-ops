@@ -6,27 +6,22 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 ## Build & Test
 
 - Format: `task fmt`
-- Test: `task test` (Bats orchestration regression tests only; no validator semantics)
 - Lint: `task lint` (offline validation: shellcheck, yamllint, metadata policy, raw manifest policy/schema/deprecation checks, batched rendered policy/schema/deprecation checks, `tofu validate`)
-- Bats scope:
-  - Keep Bats focused on executable task/script behavior: dispatch, retries, env handling, path resolution, caching, batching, and failure handling
-  - Do not add Bats tests that only `grep` static YAML/JSON/Taskfile content or assert file presence/absence without executing behavior
-  - Repo invariants and manifest structure belong in Conftest/Rego policy or the lint gate, not shell regression tests
 - Policy layers:
   - `policy/metadata/` validates app metadata structure and required sync waves
   - `policy/kubernetes/` validates manifest and rendered-workload guardrails
 - Policy semantics are regression-tested in `policy/metadata/*_test.rego` and `policy/kubernetes/*_test.rego`
-- CI gate: `task ci` (`task test` + `task lint`)
-- Pre-commit gate: `task precommit` (`task fmt` + `task ci`)
+- CI gate: `task lint`
+- Pre-commit gate: `task precommit` (`task fmt` + `task lint`)
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
 
 ## Developer Loop
 
 1. Make a small change
-2. If behavior changes, write or update the failing test or contract check first
+2. If behavior changes, write or update the failing policy or contract check first
 3. Use `task lint` while iterating when changing script behavior or Helm/app compatibility
 4. Run `task fmt`
-5. Run `task ci` before commit or PR update
+5. Run `task lint` before commit or PR update
 
 ## Project Layout
 
@@ -103,15 +98,14 @@ Store: `external-secrets-store`
 - Field order: `apiVersion → kind → metadata → spec`
 - Metadata order: `name → namespace → labels → annotations`
 - Validation split:
-  - `task test` covers task/script dispatch and orchestration with Bats, not validator semantics
   - `task lint` covers direct repo validation
-  - Prefer policy or lint checks over Bats when the assertion is about repository content rather than script behavior
+  - Prefer policy or lint checks when the assertion is about repository content
 - Metadata policy lives under `policy/metadata/` and is enforced via Conftest
 - Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
 - `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`
 - Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
-- Validation entrypoint scripts:
-  - `scripts/validate-kubernetes.sh` coordinates compatibility subcommands
+- Validation script:
+  - `scripts/validate-kubernetes.sh` runs source, metadata, raw manifest, rendered manifest, schema, and deprecation checks
   - `scripts/validate-kubernetes.sh` resolves the Kubernetes target version from Tuppr, builds the Conftest metadata inventory, caches chart pulls for the current validation run, and batches rendered output into a temp tree so policy, schema, and deprecation checks each run once across the rendered set
 
 ## Architecture Overview
@@ -135,7 +129,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 ## Git Workflow
 
 1. Branch from `master` with descriptive name
-2. For behavior changes, write the failing test first (`tests/*.bats` or a failing repo contract check)
-3. Run `task lint` while iterating and `task ci` before committing
+2. For behavior changes, write the failing policy or repo contract check first
+3. Run `task lint` before committing
 4. All changes via PR only
 5. Force pushes allowed only on feature branches using `--force-with-lease`
