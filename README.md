@@ -18,7 +18,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install kubectl helm helmfile talosctl go-task opentofu yq bats-core yamllint shellcheck prettier yamlfmt pluto kubeconform conftest
+brew install kubectl helm helmfile talosctl go-task opentofu yq yamllint shellcheck prettier yamlfmt pluto kubeconform conftest
 
 # Set environment variables
 export BWS_ACCESS_TOKEN="your-bitwarden-secrets-token"
@@ -65,10 +65,8 @@ task argo:sync app=plex            # Sync specific app
 
 # Development
 task fmt                           # Format all code (YAML, Terraform)
-task test                          # Run behavior tests
 task lint                          # Run the offline validation checks
-task ci                            # Run the full CI quality gate
-task precommit                     # Format code, then run the CI quality gate
+task precommit                     # Format code, then run lint
 
 # Terraform
 task tf:plan                       # Plan infrastructure changes
