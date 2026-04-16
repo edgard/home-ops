@@ -23,7 +23,7 @@ jobs:
         uses: go-task/setup-task@3be4020d41929789a01026e0e427a4321ce0ad44 # v2.0.0
         with:
           # renovate: datasource=github-releases depName=go-task/task
-          version: 3.49.1
+          version: 3.50.0
 
       - name: Set up Helm
         uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
@@ -60,7 +60,7 @@ jobs:
         uses: princespaghetti/setup-conftest@417586a9b2e806fc5a95c72dfe98e296ef092b6f # v1.2.0
         with:
           # renovate: datasource=github-releases depName=open-policy-agent/conftest
-          version: 0.68.0
+          version: 0.68.2
 
       - name: Install additional dependencies
         run: |
