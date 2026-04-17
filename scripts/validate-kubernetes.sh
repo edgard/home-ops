@@ -176,7 +176,6 @@ build_schema_catalog() {
 
   ensure_schema_root
   build_local_schemas "${repo_root}/apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml"
-  build_local_schemas "${repo_root}/apps/platform-system/homelab-controller/manifests/homelab-controller-gatusconfigs.customresourcedefinition.yaml"
   schema_catalog_built=1
 }
 

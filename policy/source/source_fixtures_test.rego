@@ -20,9 +20,7 @@ valid_app_template := {
   },
   "service_main_controller": "main",
   "service_main_ports": ["http"],
-  "service_main_annotations": {
-    "gatus.edgard.org/enabled": "true",
-  },
+  "service_main_annotations": {},
   "route_main_hostnames": ["demo.edgard.org"],
   "route_main_backend_identifiers": ["main"],
   "route_main_annotations": {
@@ -31,6 +29,7 @@ valid_app_template := {
     "gethomepage.dev/group": "Selfhosted",
     "gethomepage.dev/icon": "demo.svg",
     "gethomepage.dev/app": "demo",
+    "gatus.home-operations.com/endpoint": "group: selfhosted\n",
   },
   "raw_httproute_manifest_paths": [],
 }

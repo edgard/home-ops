@@ -138,9 +138,8 @@ deny contains msg if {
   some app in input.apps
   is_app_template_v4(app)
   count(object.get(app, "route_main_hostnames", [])) > 0
-  list_contains(object.get(app, "service_main_ports", []), "http")
-  object.get(object.get(app, "service_main_annotations", {}), "gatus.edgard.org/enabled", "") != "true"
-  msg := sprintf("service.main must enable gatus.edgard.org/enabled for routed HTTP apps in %s", [app.values_file])
+  object.get(object.get(app, "route_main_annotations", {}), "gatus.home-operations.com/endpoint", "") == ""
+  msg := sprintf("route.main must define gatus.home-operations.com/endpoint for routed apps in %s", [app.values_file])
 }
 
 is_app_template_v4(app) if {

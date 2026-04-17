@@ -37,17 +37,17 @@ controllers:
             add:
               - SETUID
               - SETGID
+
 service:
   main:
     controller: main
     type: ClusterIP
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         enabled: true
         port: 8989
         targetPort: 8989
+
 route:
   main:
     annotations:
@@ -56,6 +56,8 @@ route:
       gethomepage.dev/group: Media
       gethomepage.dev/icon: sonarr.svg
       gethomepage.dev/app: sonarr
+      gatus.home-operations.com/endpoint: |
+        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system

@@ -36,17 +36,17 @@ controllers:
             add:
               - SETUID
               - SETGID
+
 service:
   main:
     controller: main
     type: ClusterIP
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         enabled: true
         port: 6767
         targetPort: 6767
+
 route:
   main:
     annotations:
@@ -55,6 +55,8 @@ route:
       gethomepage.dev/group: Media
       gethomepage.dev/icon: bazarr.svg
       gethomepage.dev/app: bazarr
+      gatus.home-operations.com/endpoint: |
+        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system

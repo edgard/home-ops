@@ -62,7 +62,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-
   backup:
     type: cronjob
     cronjob:
@@ -120,7 +119,6 @@ controllers:
             enabled: false
           startup:
             enabled: false
-
   maintenance:
     type: cronjob
     cronjob:
@@ -166,8 +164,6 @@ controllers:
 service:
   main:
     controller: main
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         port: 8000

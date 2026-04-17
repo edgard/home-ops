@@ -33,9 +33,6 @@ controller:
 server:
   deploymentAnnotations:
     reloader.stakater.com/auto: "true"
-  service:
-    annotations:
-      gatus.edgard.org/enabled: "true"
   httproute:
     enabled: true
     annotations:
@@ -46,6 +43,8 @@ server:
       gethomepage.dev/app: argocd-server
       gethomepage.dev/namespace: argocd
       gethomepage.dev/pod-selector: app.kubernetes.io/name=argocd-server
+      gatus.home-operations.com/endpoint: |
+        group: argocd
     parentRefs:
       - name: gateway
         namespace: platform-system

@@ -125,7 +125,6 @@ controllers:
         resources:
           limits: null
           requests: null
-
   gpt:
     type: deployment
     replicas: 1
@@ -174,7 +173,6 @@ controllers:
           capabilities:
             drop:
               - ALL
-
   gotenberg:
     type: deployment
     replicas: 1
@@ -204,7 +202,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-
   tika:
     type: deployment
     replicas: 1
@@ -264,30 +261,24 @@ service:
   main:
     controller: main
     primary: true
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         port: 8000
-
   gpt:
     controller: gpt
     ports:
       http:
         port: 8080
-
   gotenberg:
     controller: gotenberg
     ports:
       http:
         port: 3000
-
   tika:
     controller: tika
     ports:
       http:
         port: 9998
-
   redis:
     controller: redis
     ports:
@@ -302,6 +293,8 @@ route:
       gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: paperless-ngx.svg
       gethomepage.dev/app: paperless
+      gatus.home-operations.com/endpoint: |
+        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -329,7 +322,6 @@ persistence:
             subPath: export
           - path: /usr/src/paperless/inbox
             subPath: inbox
-
   tessdata:
     type: emptyDir
     advancedMounts:
