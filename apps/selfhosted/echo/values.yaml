@@ -32,17 +32,17 @@ controllers:
           capabilities:
             drop:
               - ALL
+
 service:
   main:
     controller: main
     type: ClusterIP
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         enabled: true
         port: 8080
         targetPort: 8080
+
 route:
   main:
     annotations:
@@ -51,6 +51,8 @@ route:
       gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: webhook.svg
       gethomepage.dev/app: echo
+      gatus.home-operations.com/endpoint: |
+        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system

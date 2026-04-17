@@ -48,8 +48,6 @@ service:
   main:
     controller: main
     type: ClusterIP
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         enabled: true
@@ -65,6 +63,8 @@ route:
       gethomepage.dev/group: Home Automation
       gethomepage.dev/icon: home-assistant.svg
       gethomepage.dev/app: homeassistant
+      gatus.home-operations.com/endpoint: |
+        group: home-automation
     parentRefs:
       - name: gateway
         namespace: platform-system

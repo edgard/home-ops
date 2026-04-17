@@ -33,7 +33,7 @@ terraform/               # Cloudflare/Tailscale infra
 ```
 
 **App Categories**:
-- platform-system: cert-manager, external-dns, external-secrets, gateway-api, homelab-controller, istio, istio-base, reloader, tailscale-router
+- platform-system: cert-manager, external-dns, external-secrets, gateway-api, istio, istio-base, reloader, tailscale-router
 - kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner
 - home-automation: homeassistant, scrypted
 - media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
@@ -68,7 +68,7 @@ controllers:
 
 ### Common Annotations
 - Reloader (controllers): `reloader.stakater.com/auto: "true"`
-- Gatus (service): `gatus.edgard.org/enabled: "true"`
+- Gatus (route): `gatus.home-operations.com/endpoint`
 - Homepage (route): `gethomepage.dev/{enabled,name,group,icon}`
 
 ### Networking

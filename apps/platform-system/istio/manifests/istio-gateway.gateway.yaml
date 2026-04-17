@@ -6,6 +6,9 @@ metadata:
   namespace: platform-system
   annotations:
     external-dns.alpha.kubernetes.io/target: 192.168.1.241
+    gatus.home-operations.com/endpoint: |-
+      alerts:
+        - type: telegram
     networking.istio.io/service-type: ClusterIP
 spec:
   gatewayClassName: istio

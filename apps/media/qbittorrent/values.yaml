@@ -68,12 +68,11 @@ controllers:
           capabilities:
             add:
               - NET_ADMIN
+
 service:
   main:
     controller: main
     type: ClusterIP
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         enabled: true
@@ -91,6 +90,7 @@ service:
         port: 6881
         protocol: UDP
         targetPort: 6881
+
 route:
   main:
     annotations:
@@ -99,6 +99,8 @@ route:
       gethomepage.dev/group: Media
       gethomepage.dev/icon: qbittorrent.svg
       gethomepage.dev/app: qbittorrent
+      gatus.home-operations.com/endpoint: |
+        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system

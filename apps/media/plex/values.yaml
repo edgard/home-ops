@@ -55,17 +55,17 @@ controllers:
             add:
               - SETUID
               - SETGID
+
 service:
   main:
     controller: main
     type: ClusterIP
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         enabled: true
         port: 32400
         targetPort: 32400
+
 route:
   main:
     annotations:
@@ -74,6 +74,8 @@ route:
       gethomepage.dev/group: Media
       gethomepage.dev/icon: plex.svg
       gethomepage.dev/app: plex
+      gatus.home-operations.com/endpoint: |
+        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system

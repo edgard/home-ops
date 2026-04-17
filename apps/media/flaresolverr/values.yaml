@@ -29,12 +29,11 @@ controllers:
           capabilities:
             drop:
               - ALL
+
 service:
   main:
     controller: main
     type: ClusterIP
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         enabled: true

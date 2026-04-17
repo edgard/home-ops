@@ -14,11 +14,15 @@ controllers:
     type: deployment
     replicas: 1
     strategy: Recreate
+    serviceAccount:
+      identifier: main
     containers:
       app:
         image:
           repository: ghcr.io/twin/gatus
           tag: v5.35.0
+        env:
+          GATUS_CONFIG_PATH: /config
         envFrom:
           - secretRef:
               name: gatus-credentials
@@ -37,16 +41,59 @@ controllers:
           capabilities:
             drop:
               - ALL
+      gatus-sidecar:
+        image:
+          repository: ghcr.io/home-operations/gatus-sidecar
+          tag: 0.0.13
+        args:
+          - --auto-httproute
+          - --gateway-name=gateway
+          - --output=/config/gatus-sidecar.yaml
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          limits: null
+          requests: null
+
+serviceAccount:
+  main:
+    enabled: true
+
+rbac:
+  roles:
+    main:
+      type: ClusterRole
+      rules:
+        - apiGroups:
+            - gateway.networking.k8s.io
+          resources:
+            - httproutes
+            - gateways
+          verbs:
+            - get
+            - list
+            - watch
+  bindings:
+    main:
+      type: ClusterRoleBinding
+      roleRef:
+        identifier: main
+      subjects:
+        - identifier: main
+          kind: ServiceAccount
+
 service:
   main:
     controller: main
     type: ClusterIP
-    annotations:
-      gatus.edgard.org/enabled: "true"
     ports:
       http:
         port: 8080
         targetPort: http
+
 route:
   main:
     annotations:
@@ -55,6 +102,8 @@ route:
       gethomepage.dev/group: Selfhosted
       gethomepage.dev/icon: gatus.svg
       gethomepage.dev/app: gatus
+      gatus.home-operations.com/endpoint: |
+        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -68,15 +117,123 @@ route:
 
 persistence:
   config:
-    type: configMap
-    name: gatus-generated-config
+    type: emptyDir
     globalMounts:
-      - path: /config/config.yaml
-        subPath: config.yaml
-        readOnly: true
+      - path: /config
+  base-config:
+    type: configMap
+    identifier: base-config
+    defaultMode: 0444
+    advancedMounts:
+      main:
+        app:
+          - path: /config/base.yaml
+            subPath: base.yaml
+            readOnly: true
   data:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
     size: 2Gi
     globalMounts:
       - path: /data
+
+configMaps:
+  base-config:
+    data:
+      base.yaml: |-
+        metrics: false
+        ui:
+          title: Homelab Status
+          description: Real-time health for homelab services.
+          header: Homelab
+          dark-mode: true
+          default-sort-by: group
+        storage:
+          type: sqlite
+          path: /data/gatus.db
+        connectivity:
+          checker:
+            target: 1.1.1.1:53
+        alerting:
+          telegram:
+            token: ${GATUS_ALERTING_TELEGRAM_TOKEN}
+            id: ${GATUS_ALERTING_TELEGRAM_ID}
+            default-alert:
+              enabled: true
+              failure-threshold: 3
+              success-threshold: 2
+              send-on-resolved: true
+              description: "Service health check failed"
+        endpoints:
+          - name: dns-edgard-google
+            group: 01-dns
+            url: 8.8.8.8
+            dns:
+              query-name: edgard.org
+              query-type: A
+            conditions:
+              - "[DNS_RCODE] == NOERROR"
+            alerts:
+              - type: telegram
+          - name: dns-edgard-cloudflare
+            group: 01-dns
+            url: 1.1.1.1
+            dns:
+              query-name: edgard.org
+              query-type: A
+            conditions:
+              - "[DNS_RCODE] == NOERROR"
+            alerts:
+              - type: telegram
+          - name: dns-edgard-quad9
+            group: 01-dns
+            url: 9.9.9.9
+            dns:
+              query-name: edgard.org
+              query-type: A
+            conditions:
+              - "[DNS_RCODE] == NOERROR"
+            alerts:
+              - type: telegram
+          - name: ping-amazon
+            group: 02-connectivity
+            url: icmp://www.amazon.com
+            conditions:
+              - "[CONNECTED] == true"
+            alerts:
+              - type: telegram
+          - name: ping-google
+            group: 02-connectivity
+            url: icmp://www.google.com
+            conditions:
+              - "[CONNECTED] == true"
+            alerts:
+              - type: telegram
+          - name: ping-microsoft
+            group: 02-connectivity
+            url: icmp://www.microsoft.com
+            conditions:
+              - "[CONNECTED] == true"
+            alerts:
+              - type: telegram
+          - name: ping-cloudflare
+            group: 02-connectivity
+            url: icmp://www.cloudflare.com
+            conditions:
+              - "[CONNECTED] == true"
+            alerts:
+              - type: telegram
+          - name: ping-akamai
+            group: 02-connectivity
+            url: icmp://www.akamai.com
+            conditions:
+              - "[CONNECTED] == true"
+            alerts:
+              - type: telegram
+          - name: ping-fastly
+            group: 02-connectivity
+            url: icmp://www.fastly.com
+            conditions:
+              - "[CONNECTED] == true"
+            alerts:
+              - type: telegram
