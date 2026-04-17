@@ -132,6 +132,15 @@
       addLabels: ["renovate/manual-review"],
     },
 
+    // Delay Kubernetes upgrades so validation schemas have time to publish
+    {
+      description: "Defer Kubernetes upgrades",
+      matchDatasources: ["github-tags"],
+      matchPackageNames: ["siderolabs/kubelet"],
+      minimumReleaseAge: "7 days",
+      internalChecksFilter: "strict",
+    },
+
     // Automerge: non-major updates (excluding manual review packages)
     {
       description: "Auto-merge non-major updates",
