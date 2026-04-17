@@ -5,7 +5,7 @@ metadata:
   name: kubernetes
 spec:
   kubernetes:
-    # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
+    # renovate: datasource=github-tags depName=siderolabs/kubelet
     version: v1.35.3
   healthChecks:
     - apiVersion: v1
