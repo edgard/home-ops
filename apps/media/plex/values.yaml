@@ -76,6 +76,7 @@ route:
       gethomepage.dev/app: plex
       gatus.home-operations.com/endpoint: |
         group: media
+        url: https://plex.edgard.org/identity
     parentRefs:
       - name: gateway
         namespace: platform-system
