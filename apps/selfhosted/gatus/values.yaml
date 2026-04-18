@@ -46,7 +46,7 @@ controllers:
           repository: ghcr.io/home-operations/gatus-sidecar
           tag: 0.0.13
         args:
-          - --auto-httproute
+          - --enable-httproute
           - --gateway-name=gateway
           - --output=/config/gatus-sidecar.yaml
         securityContext:
