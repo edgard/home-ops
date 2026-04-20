@@ -4,6 +4,19 @@ strategy:
 fullnameOverride: external-secrets
 serviceAccount:
   name: external-secrets
+crds:
+  createClusterExternalSecret: false
+  createClusterGenerator: false
+  createClusterPushSecret: false
+  createPushSecret: false
+processClusterExternalSecret: false
+processClusterGenerator: false
+processClusterPushSecret: false
+processPushSecret: false
+processSecretStore: false
+rbac:
+  servicebindings:
+    create: false
 
 livenessProbe:
   enabled: true
