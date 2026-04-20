@@ -1,5 +1,6 @@
 ---
 controller:
+  enableSnapshotter: false
   resources: {}
 node:
   resources: {}
