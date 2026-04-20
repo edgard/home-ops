@@ -4,6 +4,7 @@ image:
   repository: registry.k8s.io/external-dns/external-dns
   tag: v0.21.0
 triggerLoopOnEvent: true
+interval: 5m
 serviceAccount:
   name: external-dns
 sources:
@@ -22,7 +23,7 @@ provider:
       tag: v0.8.2
     env:
       - name: LOG_LEVEL
-        value: debug
+        value: info
       - name: UNIFI_HOST
         value: https://192.168.1.1
       - name: UNIFI_API_KEY

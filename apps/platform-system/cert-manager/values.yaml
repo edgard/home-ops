@@ -1,7 +1,11 @@
 ---
 strategy:
   type: Recreate
-installCRDs: true
+crds:
+  enabled: true
+  keep: true
+dns01RecursiveNameservers: 1.1.1.1:53,8.8.8.8:53
+dns01RecursiveNameserversOnly: true
 global:
   leaderElection:
     namespace: platform-system
