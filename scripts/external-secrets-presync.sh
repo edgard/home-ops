@@ -10,17 +10,7 @@ wait_medium="${BOOTSTRAP_WAIT_MEDIUM:-120s}"
 
 kubectl wait --for=condition=Established crd/issuers.cert-manager.io crd/certificates.cert-manager.io --timeout="${wait_short}"
 kubectl wait --for=condition=Available deployment/cert-manager-webhook -n platform-system --timeout="${wait_short}"
-cat <<EOF | kubectl apply -f -
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: bitwarden-credentials
-  namespace: platform-system
-type: Opaque
-stringData:
-  token: ${BWS_ACCESS_TOKEN}
-EOF
+kubectl create secret generic bitwarden-credentials --namespace platform-system --from-literal=token="${BWS_ACCESS_TOKEN}" --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f "${repo_root}/apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-issuer.issuer.yaml"
 kubectl apply -f "${repo_root}/apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-tls.certificate.yaml"
 kubectl wait --for=condition=Ready certificate/external-secrets-sdk-server-tls -n platform-system --timeout="${wait_medium}"
