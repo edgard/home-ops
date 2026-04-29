@@ -37,7 +37,7 @@ tasks:
       - shellcheck --severity=warning scripts/*.sh
       - yamllint -c .yamllint .
       - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh"'
-      - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
+      - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -upgrade -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
 
   precommit:
     desc: Format code and run the offline validation checks

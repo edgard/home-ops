@@ -64,9 +64,10 @@
       description: "CI tool versions in GitHub Actions workflow",
       managerFilePatterns: ["/^\\.github\\/workflows\\/ci\\.ya?ml$/"],
       matchStrings: [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?kubeconform-version:\\s*[\"']?(?<currentValue>[0-9.]+)[\"']?",
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*tofu_version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*IMAGE_TAG:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*kubeconform-version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
       ],
     },
 
