@@ -2,6 +2,6 @@
 chart:
   repo: oci://ghcr.io/home-operations/charts/tuppr
   path: "."
-  version: 0.1.10
+  version: 0.1.11
 sync:
   wave: "-3"
