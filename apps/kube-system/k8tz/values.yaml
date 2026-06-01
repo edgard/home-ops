@@ -5,6 +5,7 @@ timezone: Europe/Warsaw
 cronJobTimeZone: true
 
 webhook:
+  failurePolicy: Ignore
   ignoredNamespaces:
     - kube-system
     - kube-public
