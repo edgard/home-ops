@@ -46,12 +46,13 @@
       datasourceTemplate: "docker",
     },
 
-    // Tuppr upgrade manifests (uses renovate comment hints)
+    // Upgrade target versions (uses renovate comment hints)
     {
       customType: "regex",
-      description: "Tuppr upgrade versions",
+      description: "Upgrade target versions",
       managerFilePatterns: [
-        "/^apps\\/platform-system\\/tuppr\\/manifests\\/.*\\.(talosupgrade|kubernetesupgrade)\\.ya?ml$/",
+        "/^apps\\/platform-system\\/tuppr\\/manifests\\/.*\\.kubernetesupgrade\\.ya?ml$/",
+        "/^bootstrap\\/talos-upgrade\\.ya?ml$/",
       ],
       matchStrings: [
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
