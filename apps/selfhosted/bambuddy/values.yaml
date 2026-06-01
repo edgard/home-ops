@@ -72,6 +72,10 @@ route:
             port: 8000
 
 persistence:
+  logs:
+    type: emptyDir
+    globalMounts:
+      - path: /app/logs
   data:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
