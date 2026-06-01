@@ -1,0 +1,9 @@
+---
+talos:
+  installer:
+    repository: ghcr.io/siderolabs/installer
+    # renovate: datasource=docker depName=ghcr.io/siderolabs/installer
+    version: v1.13.3
+  upgrade:
+    rebootMode: default
+    timeout: 30m

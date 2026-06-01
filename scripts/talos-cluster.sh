@@ -53,17 +53,56 @@ talos_bootstrap() {
 }
 
 talos_upgrade() {
-  cd "$bootstrap_dir"
-
   : "${TALOS_NODE:?}"
 
-  local controlplane_config="${HOME}/.talos/controlplane.yaml"
-  local image
+  local upgrade_file="${TALOS_UPGRADE_FILE:-${bootstrap_dir}/talos-upgrade.yaml}"
+  local repository version image reboot_mode timeout k8s_node server_version
 
-  image=$(yq '.machine.install.image | select(. != null)' "$controlplane_config")
-  [[ -z "$image" ]] && echo "No machine.install.image found" && return 1
+  [ -f "$upgrade_file" ] || {
+    echo "Missing Talos upgrade file: ${upgrade_file}" >&2
+    return 1
+  }
 
-  talosctl -n "$TALOS_NODE" upgrade --image "$image" --preserve=true --reboot-mode=powercycle
+  repository="$(yq -r '.talos.installer.repository // ""' "$upgrade_file")"
+  version="$(yq -r '.talos.installer.version // ""' "$upgrade_file")"
+  reboot_mode="$(yq -r '.talos.upgrade.rebootMode // "default"' "$upgrade_file")"
+  timeout="$(yq -r '.talos.upgrade.timeout // "30m"' "$upgrade_file")"
+
+  if [ -z "$repository" ] || [ -z "$version" ]; then
+    echo "Missing talos.installer.repository or talos.installer.version in ${upgrade_file}" >&2
+    return 1
+  fi
+
+  image="${repository}:${version}"
+
+  talosctl --nodes "$TALOS_NODE" upgrade \
+    --image "$image" \
+    --reboot-mode "$reboot_mode" \
+    --timeout "$timeout" \
+    --wait
+
+  k8s_node="$(kubectl get nodes -o json | jq -r --arg node "$TALOS_NODE" '
+    .items[]
+    | select(
+        .metadata.name == $node
+        or any(.status.addresses[]?; .type == "InternalIP" and .address == $node)
+      )
+    | .metadata.name
+  ' | head -n1)"
+
+  if [ -n "$k8s_node" ]; then
+    kubectl uncordon "$k8s_node" || true
+  fi
+
+  server_version="$(talosctl --nodes "$TALOS_NODE" version | awk '
+    /^Server:/ { in_server = 1; next }
+    in_server && /^[[:space:]]*Tag:/ { print $2; exit }
+  ')"
+
+  if [ "$server_version" != "$version" ]; then
+    echo "Talos server version mismatch: current=${server_version:-unknown}, target=${version}" >&2
+    return 1
+  fi
 }
 
 main() {

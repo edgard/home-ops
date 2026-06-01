@@ -35,6 +35,7 @@ tasks:
     dir: "{{.TASKFILE_DIR}}"
     cmds:
       - shellcheck --severity=warning scripts/*.sh
+      - for test in scripts/test-*.sh; do "$test"; done
       - yamllint -c .yamllint .
       - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh"'
       - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -upgrade -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
@@ -119,12 +120,13 @@ tasks:
       - '"{{.TASKFILE_DIR}}/scripts/talos-cluster.sh" bootstrap'
 
   talos:upgrade:
-    desc: Upgrade Talos on a node using the image from machine config
+    desc: Upgrade Talos on a node from the repo target version
     requires:
       vars:
         - TALOS_NODE
     env:
       TALOS_NODE: "{{.TALOS_NODE}}"
+      TALOS_UPGRADE_FILE: "{{.TASKFILE_DIR}}/bootstrap/talos-upgrade.yaml"
     cmds:
       - '"{{.TASKFILE_DIR}}/scripts/talos-cluster.sh" upgrade'
 
