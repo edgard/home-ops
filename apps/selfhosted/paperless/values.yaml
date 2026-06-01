@@ -190,7 +190,7 @@ controllers:
       app:
         image:
           repository: docker.io/gotenberg/gotenberg
-          tag: "8.32.0"
+          tag: "8.33.0"
         args:
           - gotenberg
           - --chromium-disable-javascript=true
@@ -219,7 +219,7 @@ controllers:
       app:
         image:
           repository: docker.io/apache/tika
-          tag: 3.3.0.0
+          tag: 3.3.1.0
         probes:
           startup:
             enabled: true
@@ -244,7 +244,7 @@ controllers:
       app:
         image:
           repository: docker.io/library/redis
-          tag: "8.6.2"
+          tag: "8.8.0"
         args:
           - redis-server
           - --save
