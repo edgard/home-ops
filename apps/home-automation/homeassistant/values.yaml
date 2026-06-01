@@ -97,9 +97,3 @@ persistence:
       - path: /config/configuration.yaml
         subPath: configuration.yaml
         readOnly: true
-  dev-ttyusb0:
-    type: hostPath
-    hostPath: /dev/ttyUSB0
-    hostPathType: CharDevice
-    globalMounts:
-      - path: /dev/ttyUSB0
