@@ -1,5 +1,6 @@
 ---
 defaultPodOptions:
+  automountServiceAccountToken: true
   securityContext:
     fsGroup: 1000
     fsGroupChangePolicy: OnRootMismatch
