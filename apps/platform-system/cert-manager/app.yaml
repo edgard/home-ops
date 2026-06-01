@@ -1,7 +1,7 @@
 ---
 chart:
-  repo: oci://quay.io/jetstack/charts/cert-manager
-  path: "."
+  repo: https://charts.jetstack.io
+  name: cert-manager
   version: v1.20.2
 sync:
   wave: "-4"
