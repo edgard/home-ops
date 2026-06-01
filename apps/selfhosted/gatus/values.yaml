@@ -20,7 +20,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/twin/gatus
-          tag: v5.35.0
+          tag: v5.36.0
         env:
           GATUS_CONFIG_PATH: /config
         envFrom:
@@ -44,7 +44,7 @@ controllers:
       gatus-sidecar:
         image:
           repository: ghcr.io/home-operations/gatus-sidecar
-          tag: 0.0.14
+          tag: 0.0.18
         args:
           - --enable-httproute
           - --gateway-name=gateway

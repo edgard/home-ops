@@ -3,6 +3,8 @@ cni-plugins:
   resources: {}
 multus:
   resources: {}
+serviceAccount:
+  multus: {}
 cni:
   netPath: /etc/cni/net.d
   binPath: /opt/cni/bin
