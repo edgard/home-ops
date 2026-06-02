@@ -45,7 +45,7 @@ controllers:
       gatus-sidecar:
         image:
           repository: ghcr.io/home-operations/gatus-sidecar
-          tag: 0.0.18
+          tag: 0.0.19
         args:
           - --enable-httproute
           - --gateway-name=gateway
