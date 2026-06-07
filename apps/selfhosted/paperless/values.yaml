@@ -78,7 +78,7 @@ controllers:
           PAPERLESS_TASK_WORKERS: "2"
           PAPERLESS_BIND_ADDR: 0.0.0.0
           PAPERLESS_OCR_LANGUAGE: eng+por+pol
-          PAPERLESS_ALLOWED_HOSTS: paperless.edgard.org,paperless.selfhosted.svc.cluster.local,paperless,localhost,127.0.0.1
+          PAPERLESS_ALLOWED_HOSTS: paperless.edgard.org,paperless.selfhosted.svc.cluster.local,paperless,paperless-main.selfhosted.svc.cluster.local,paperless-main,localhost,127.0.0.1
           PAPERLESS_CSRF_TRUSTED_ORIGINS: https://paperless.edgard.org
           PAPERLESS_PROXY_SSL_HEADER: '["HTTP_X_FORWARDED_PROTO", "https"]'
           PAPERLESS_REDIS: redis://paperless-redis:6379
@@ -137,7 +137,7 @@ controllers:
           repository: icereed/paperless-gpt
           tag: v0.25.1
         env:
-          PAPERLESS_BASE_URL: http://paperless.selfhosted.svc.cluster.local:8000
+          PAPERLESS_BASE_URL: http://paperless-main.selfhosted.svc.cluster.local:8000
           PAPERLESS_PUBLIC_URL: https://paperless.edgard.org
           LLM_PROVIDER: openai
           LLM_MODEL: gpt-5-mini
