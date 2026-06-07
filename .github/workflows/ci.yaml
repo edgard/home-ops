@@ -42,7 +42,7 @@ jobs:
         uses: dcarbone/install-yq-action@4075b4dca348d74bd83f2bf82d30f25d7c54539b # v1.3.1
         with:
           # renovate: datasource=github-tags depName=mikefarah/yq
-          version: v4.53.2
+          version: v4.53.3
 
       - name: Set up pluto
         uses: FairwindsOps/pluto/github-action@dd5ec8cccce5e42dfe8054b8250baa35546056a0 # v5.24.0
@@ -54,7 +54,7 @@ jobs:
         uses: bmuschko/setup-kubeconform@5ccaecbbf012bcb1eeeab66e649db64a477ade8f # v1.0.0
         with:
           # renovate: datasource=github-releases depName=yannh/kubeconform
-          kubeconform-version: "0.7.0"
+          kubeconform-version: "0.8.0"
 
       - name: Set up Conftest
         uses: princespaghetti/setup-conftest@417586a9b2e806fc5a95c72dfe98e296ef092b6f # v1.2.0
