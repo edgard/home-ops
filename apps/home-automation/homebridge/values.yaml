@@ -39,6 +39,7 @@ controllers:
             set -eu
             mkdir -p /homebridge
             cp /config/config.json /homebridge/config.json
+            rm -f /homebridge/accessories/cachedAccessories
             npm uninstall --prefix /homebridge homebridge-keylights bonjour-service --no-fund --no-audit || true
             npm install --prefix /homebridge homebridge-http-lightbulb@1.2.4 --omit=dev --no-fund --no-audit
         securityContext:
