@@ -118,7 +118,7 @@ persistence:
       - path: /homebridge
   config:
     type: configMap
-    name: homebridge-config
+    name: homebridge
     globalMounts:
       - path: /config/config.json
         subPath: config.json
