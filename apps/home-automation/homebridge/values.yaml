@@ -16,6 +16,7 @@ controllers:
       reloader.stakater.com/auto: "true"
     pod:
       annotations:
+        k8tz.io/inject: "false"
         k8s.v1.cni.cncf.io/networks: |-
           [
             {
