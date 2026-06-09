@@ -41,7 +41,7 @@ controllers:
             if [ ! -f /homebridge/config.json ]; then
               cp /config/config.json /homebridge/config.json
             fi
-            npm install --prefix /homebridge homebridge-keylights@1.3.3 --omit=dev --no-fund --no-audit
+            npm install --prefix /homebridge homebridge-keylights@1.3.3 bonjour-service@1.3.0 --omit=dev --no-fund --no-audit
         securityContext:
           privileged: true
     containers:
