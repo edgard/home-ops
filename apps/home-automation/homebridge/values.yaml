@@ -1,0 +1,150 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 0
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: |-
+          [
+            {
+              "name": "multus-lan-bridge",
+              "namespace": "kube-system",
+              "ips": ["192.168.1.246/24"],
+              "gateway": ["192.168.1.1"],
+              "mac": "02:42:c0:a8:01:f6"
+            }
+          ]
+    initContainers:
+      init-config:
+        image:
+          repository: homebridge/homebridge
+          tag: 2026-06-05
+        command:
+          - /bin/sh
+          - -c
+        args:
+          - |
+            set -eu
+            mkdir -p /homebridge
+            if [ ! -f /homebridge/config.json ]; then
+              cp /config/config.json /homebridge/config.json
+            fi
+            npm install --prefix /homebridge homebridge-keylights@1.3.3 --omit=dev --no-fund --no-audit
+        securityContext:
+          privileged: true
+    containers:
+      app:
+        image:
+          repository: homebridge/homebridge
+          tag: 2026-06-05
+        env:
+          ENABLE_AVAHI: "1"
+          HOMEBRIDGE_CONFIG_UI: "1"
+          HOMEBRIDGE_CONFIG_UI_PORT: "8581"
+          TZ: Europe/Warsaw
+        ports:
+          - name: http
+            containerPort: 8581
+          - name: homekit
+            containerPort: 51826
+        probes:
+          startup:
+            enabled: true
+            port: 8581
+          liveness:
+            enabled: true
+            port: 8581
+          readiness:
+            enabled: true
+            port: 8581
+        securityContext:
+          privileged: true
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8581
+        protocol: TCP
+        targetPort: 8581
+      homekit:
+        enabled: true
+        port: 51826
+        protocol: TCP
+        targetPort: 51826
+
+route:
+  main:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Homebridge
+      gethomepage.dev/group: Home Automation
+      gethomepage.dev/icon: homebridge.svg
+      gethomepage.dev/app: homebridge
+      gatus.home-operations.com/endpoint: |
+        group: home-automation
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - homebridge.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8581
+
+persistence:
+  data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    globalMounts:
+      - path: /homebridge
+  config:
+    type: configMap
+    name: homebridge-config
+    globalMounts:
+      - path: /config/config.json
+        subPath: config.json
+        readOnly: true
+
+configMaps:
+  homebridge-config:
+    data:
+      config.json: |-
+        {
+          "bridge": {
+            "name": "Homebridge",
+            "username": "02:42:C0:A8:01:F6",
+            "port": 51826,
+            "pin": "518-62-349"
+          },
+          "accessories": [],
+          "platforms": [
+            {
+              "name": "Elgato Key Lights",
+              "pollingRate": 1000,
+              "powerOnBehavior": 1,
+              "powerOnBrightness": 20,
+              "powerOnTemperature": 4695,
+              "useIP": true,
+              "platform": "ElgatoKeyLights"
+            }
+          ]
+        }
