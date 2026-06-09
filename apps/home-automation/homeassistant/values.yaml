@@ -83,13 +83,6 @@ persistence:
     size: 10Gi
     globalMounts:
       - path: /config
-  config-template:
-    type: configMap
-    name: homeassistant-template
-    globalMounts:
-      - path: /config/template.yaml
-        subPath: template.yaml
-        readOnly: true
   config-main:
     type: configMap
     name: homeassistant-config
