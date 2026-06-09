@@ -39,7 +39,6 @@ controllers:
           - |
             set -eu
             mkdir -p /homebridge
-            cp /usr/share/zoneinfo/Europe/Warsaw /localtime/localtime
             cp /config/config.json /homebridge/config.json
             rm -f /homebridge/accessories/cachedAccessories
             npm uninstall --prefix /homebridge homebridge-keylights bonjour-service --no-fund --no-audit || true
@@ -125,15 +124,6 @@ persistence:
       - path: /config/config.json
         subPath: config.json
         readOnly: true
-  localtime:
-    type: emptyDir
-    advancedMounts:
-      main:
-        init-config:
-          - path: /localtime
-        app:
-          - path: /etc/localtime
-            subPath: localtime
 
 configMaps:
   homebridge-config:
