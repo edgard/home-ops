@@ -20,7 +20,7 @@ done
 printf '\n' >>"$COMMAND_LOG"
 
 if [ "$*" = "-n argocd get applications -o name" ]; then
-  printf '%s\n' application/homeassistant application/tuppr
+  printf '%s\n' application/homebridge application/tuppr
 fi
 SH
 
@@ -35,5 +35,5 @@ grep -F $'kubectl\t-n\targocd\tpatch\tapplication/tuppr\t--type\tmerge\t-p\t{"me
 : >"$COMMAND_LOG"
 "${repo_root}/scripts/argocd-app-sync.sh"
 grep -F $'kubectl\t-n\targocd\tget\tapplications\t-o\tname' "$COMMAND_LOG" >/dev/null
-grep -F $'kubectl\t-n\targocd\tpatch\tapplication/homeassistant\t--type\tmerge\t-p\t{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' "$COMMAND_LOG" >/dev/null
+grep -F $'kubectl\t-n\targocd\tpatch\tapplication/homebridge\t--type\tmerge\t-p\t{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' "$COMMAND_LOG" >/dev/null
 grep -F $'kubectl\t-n\targocd\tpatch\tapplication/tuppr\t--type\tmerge\t-p\t{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}' "$COMMAND_LOG" >/dev/null

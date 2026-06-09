@@ -3,7 +3,7 @@ package main
 import rego.v1
 
 root_run_image_prefixes := [
-  "ghcr.io/home-assistant/home-assistant:",
+  "homebridge/homebridge:",
   "ghcr.io/koush/scrypted:",
   "ghcr.io/karakeep-app/karakeep:",
   "ghcr.io/paperless-ngx/paperless-ngx:",
@@ -20,7 +20,7 @@ security_context_exempt_image_prefixes := [
   "docker.io/apache/tika:",
   "docker.io/gotenberg/gotenberg:",
   "docker.io/library/redis:",
-  "ghcr.io/home-assistant/home-assistant:",
+  "homebridge/homebridge:",
   "ghcr.io/koush/scrypted:",
   "ghcr.io/paperless-ngx/paperless-ngx:",
   "icereed/paperless-gpt:",
