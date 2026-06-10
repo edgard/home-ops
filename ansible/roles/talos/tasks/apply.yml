@@ -6,6 +6,7 @@
     fail_msg: TALOS_NODE is required.
 
 - name: Configure Talos endpoint
+  when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl
@@ -15,6 +16,7 @@
   changed_when: false
 
 - name: Check whether Talos API already trusts local config
+  when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl
@@ -27,6 +29,7 @@
   changed_when: false
 
 - name: Apply Talos control plane config
+  when: not ansible_check_mode
   ansible.builtin.command:
     argv: >-
       {{

@@ -6,6 +6,7 @@
     fail_msg: TALOS_NODE is required.
 
 - name: Reset Talos node
+  when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl

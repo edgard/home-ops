@@ -7,15 +7,16 @@
       - talos_install_disk | length > 0
     fail_msg: TALOS_NODE, TALOS_CLUSTER_NAME, and TALOS_INSTALL_DISK are required.
 
-- name: Create temporary Talos output directory
-  ansible.builtin.tempfile:
-    state: directory
-    suffix: talos
-  register: talos_generate_output
-
 - name: Generate Talos config from vaulted secrets
+  when: not ansible_check_mode
   no_log: true
   block:
+    - name: Create temporary Talos output directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: talos
+      register: talos_generate_output
+
     - name: Create temporary Talos secrets file
       ansible.builtin.tempfile:
         state: file
@@ -46,6 +47,26 @@
           - "{{ talos_generate_output.path }}"
           - --force
       changed_when: true
+
+    - name: Ensure local Talos config directory exists
+      ansible.builtin.file:
+        path: "{{ talos_config_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Install generated talosconfig
+      ansible.builtin.copy:
+        src: "{{ talos_generate_output.path }}/talosconfig"
+        dest: "{{ talos_config_path }}"
+        mode: "0600"
+        remote_src: true
+
+    - name: Install generated control plane config
+      ansible.builtin.copy:
+        src: "{{ talos_generate_output.path }}/controlplane.yaml"
+        dest: "{{ talos_controlplane_config_path }}"
+        mode: "0600"
+        remote_src: true
   always:
     - name: Remove temporary Talos secrets file
       ansible.builtin.file:
@@ -53,27 +74,8 @@
         state: absent
       when: talos_generate_secrets_temp is defined
 
-- name: Ensure local Talos config directory exists
-  ansible.builtin.file:
-    path: "{{ talos_config_dir }}"
-    state: directory
-    mode: "0700"
-
-- name: Install generated talosconfig
-  ansible.builtin.copy:
-    src: "{{ talos_generate_output.path }}/talosconfig"
-    dest: "{{ talos_config_path }}"
-    mode: "0600"
-    remote_src: true
-
-- name: Install generated control plane config
-  ansible.builtin.copy:
-    src: "{{ talos_generate_output.path }}/controlplane.yaml"
-    dest: "{{ talos_controlplane_config_path }}"
-    mode: "0600"
-    remote_src: true
-
-- name: Remove temporary Talos output directory
-  ansible.builtin.file:
-    path: "{{ talos_generate_output.path }}"
-    state: absent
+    - name: Remove temporary Talos output directory
+      ansible.builtin.file:
+        path: "{{ talos_generate_output.path | default('') }}"
+        state: absent
+      when: talos_generate_output is defined

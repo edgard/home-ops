@@ -8,6 +8,7 @@
     fail_msg: TALOS_NODE and k8s_version are required.
 
 - name: Upgrade Kubernetes control plane
+  when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl
