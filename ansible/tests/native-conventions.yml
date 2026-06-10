@@ -165,9 +165,26 @@
         src: "{{ conventions_repo_root }}/ansible/roles/tofu/defaults/main.yml"
       register: conventions_tofu_defaults
 
+    - name: Load tofu role defaults
+      ansible.builtin.include_vars:
+        file: "{{ conventions_repo_root }}/ansible/roles/tofu/defaults/main.yml"
+        name: conventions_tofu_defaults_vars
+
     - name: Assert tofu clean preserves wildcard cleanup
       ansible.builtin.assert:
         that:
           - "'tofu_clean_file_patterns' in (conventions_tofu_defaults.content | b64decode)"
           - "'*.tfplan' in (conventions_tofu_defaults.content | b64decode)"
           - "'terraform.tfstate*' in (conventions_tofu_defaults.content | b64decode)"
+
+    - name: Check tofu binary path
+      ansible.builtin.stat:
+        path: "{{ conventions_tofu_defaults_vars.tofu_binary_path }}"
+      register: conventions_tofu_binary
+
+    - name: Assert tofu binary path resolves for Terraform module
+      ansible.builtin.assert:
+        that:
+          - conventions_tofu_defaults_vars.tofu_binary_path is match('^/')
+          - conventions_tofu_binary.stat.exists
+          - conventions_tofu_binary.stat.executable

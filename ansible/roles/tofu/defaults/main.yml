@@ -1,5 +1,5 @@
 ---
-tofu_binary_path: tofu
+tofu_binary_path: "{{ lookup('env', 'TOFU_BINARY_PATH') | default(lookup('ansible.builtin.pipe', 'command -v tofu'), true) }}"
 tofu_project_path: "{{ lookup('env', 'TERRAFORM_DIR') | default(repo_root + '/terraform', true) }}"
 tofu_aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
 tofu_aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
