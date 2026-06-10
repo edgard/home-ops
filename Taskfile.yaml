@@ -10,6 +10,8 @@ set:
 shell: bash -c
 
 vars:
+  ANSIBLE_VAULT_PASSWORD: '{{.ANSIBLE_VAULT_PASSWORD | default ""}}'
+  ANSIBLE_VAULT_ARGS: '{{if .ANSIBLE_VAULT_PASSWORD}}--vault-password-file <(printf "%s\n" "$ANSIBLE_VAULT_PASSWORD"){{end}}'
   AWS_ACCESS_KEY_ID: '{{.AWS_ACCESS_KEY_ID | default ""}}'
   AWS_SECRET_ACCESS_KEY: '{{.AWS_SECRET_ACCESS_KEY | default ""}}'
   BWS_ACCESS_TOKEN: '{{.BWS_ACCESS_TOKEN | default ""}}'
@@ -26,6 +28,7 @@ vars:
   ANSIBLE_COLLECTIONS_PATH: "{{.TASKFILE_DIR}}/.ansible/collections"
 
 env:
+  ANSIBLE_VAULT_PASSWORD: "{{.ANSIBLE_VAULT_PASSWORD}}"
   AWS_ACCESS_KEY_ID: "{{.AWS_ACCESS_KEY_ID}}"
   AWS_SECRET_ACCESS_KEY: "{{.AWS_SECRET_ACCESS_KEY}}"
   BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
@@ -62,6 +65,18 @@ tasks:
         msg: Run `task deps` to create .venv and install Ansible dependencies.
     cmds:
       - true
+
+  # Vault maintenance
+  vault:edit-talos:
+    desc: Edit encrypted Talos bootstrap secrets
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    requires:
+      vars:
+        - ANSIBLE_VAULT_PASSWORD
+    cmds:
+      - '"{{.VENV_DIR}}/bin/ansible-vault" edit {{.ANSIBLE_VAULT_ARGS}} ansible/roles/talos/files/secrets.vault.yml'
 
   # Quality gate and local development
   fmt:
@@ -104,9 +119,10 @@ tasks:
         - TALOS_NODE
         - TALOS_CLUSTER_NAME
         - TALOS_INSTALL_DISK
+        - ANSIBLE_VAULT_PASSWORD
         - BWS_ACCESS_TOKEN
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/cluster-create.yml'
+      - '"{{.ANSIBLE_PLAYBOOK}}" {{.ANSIBLE_VAULT_ARGS}} ansible/playbooks/cluster-create.yml'
 
   cluster:destroy:
     desc: Destroy platform and reset Talos node
@@ -131,8 +147,9 @@ tasks:
         - TALOS_NODE
         - TALOS_CLUSTER_NAME
         - TALOS_INSTALL_DISK
+        - ANSIBLE_VAULT_PASSWORD
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-generate.yml'
+      - '"{{.ANSIBLE_PLAYBOOK}}" {{.ANSIBLE_VAULT_ARGS}} ansible/playbooks/talos-generate.yml'
 
   talos:apply:
     desc: Apply Talos config to control plane

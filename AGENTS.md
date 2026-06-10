@@ -111,7 +111,9 @@ Store: `external-secrets-store`
 - Ansible roles:
   - Role-owned defaults live in `ansible/roles/*/defaults/main.yml`; inventory vars stay limited to local/site inputs.
   - Kubernetes operations use `kubernetes.core` modules with `kube_context`; avoid adding `kubectl` tasks.
-  - The local Talos secrets file is `ansible/roles/talos/files/secrets.yaml` and remains git-ignored plaintext.
+  - Local runtime credentials (`BWS_ACCESS_TOKEN`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) come from git-ignored `.envrc` or the operator environment.
+  - Talos bootstrap secrets live in committed Ansible Vault file `ansible/roles/talos/files/secrets.vault.yml`.
+  - Legacy plaintext Talos secrets at `ansible/roles/talos/files/secrets.yaml` remain git-ignored and must not be reintroduced.
 
 ## Architecture Overview
 
@@ -119,7 +121,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 ## External Services
 
-- Bitwarden: Secret management (`BWS_ACCESS_TOKEN` required for bootstrap and Terraform apply/plan)
+- Bitwarden: Secret management (`BWS_ACCESS_TOKEN` required for bootstrap and Terraform plan/apply)
 - AWS S3: Terraform backend storage (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
 - Cloudflare: DNS management
 - Tailscale: VPN networking (192.168.1.0/24)

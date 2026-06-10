@@ -13,24 +13,45 @@
     suffix: talos
   register: talos_generate_output
 
-- name: Generate Talos config
-  ansible.builtin.command:
-    argv:
-      - talosctl
-      - gen
-      - config
-      - "{{ talos_cluster_name }}"
-      - "https://{{ talos_node }}:6443"
-      - --install-disk
-      - "{{ talos_install_disk }}"
-      - --config-patch-control-plane
-      - "@{{ talos_controlplane_patch_file }}"
-      - --with-secrets
-      - "{{ talos_secrets_file }}"
-      - --output-dir
-      - "{{ talos_generate_output.path }}"
-      - --force
-  changed_when: true
+- name: Generate Talos config from vaulted secrets
+  no_log: true
+  block:
+    - name: Create temporary Talos secrets file
+      ansible.builtin.tempfile:
+        state: file
+        suffix: talos-secrets
+      register: talos_generate_secrets_temp
+
+    - name: Decrypt Talos secrets into temporary file
+      ansible.builtin.copy:
+        content: "{{ lookup('ansible.builtin.file', talos_secrets_file) }}"
+        dest: "{{ talos_generate_secrets_temp.path }}"
+        mode: "0600"
+
+    - name: Generate Talos config
+      ansible.builtin.command:
+        argv:
+          - talosctl
+          - gen
+          - config
+          - "{{ talos_cluster_name }}"
+          - "https://{{ talos_node }}:6443"
+          - --install-disk
+          - "{{ talos_install_disk }}"
+          - --config-patch-control-plane
+          - "@{{ talos_controlplane_patch_file }}"
+          - --with-secrets
+          - "{{ talos_generate_secrets_temp.path }}"
+          - --output-dir
+          - "{{ talos_generate_output.path }}"
+          - --force
+      changed_when: true
+  always:
+    - name: Remove temporary Talos secrets file
+      ansible.builtin.file:
+        path: "{{ talos_generate_secrets_temp.path | default('') }}"
+        state: absent
+      when: talos_generate_secrets_temp is defined
 
 - name: Ensure local Talos config directory exists
   ansible.builtin.file:

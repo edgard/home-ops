@@ -1,6 +1,7 @@
 /.ansible/
 /.envrc
 /.venv/
+/.vault-password
 /terraform/**/.terraform/
 /terraform/**/.terraform.lock.hcl
 /terraform/**/terraform.tfstate

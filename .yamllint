@@ -2,6 +2,7 @@
 ignore: |
   .ansible/
   .venv/
+  ansible/roles/talos/files/secrets.vault.yml
   apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml
 
 extends: default

@@ -22,18 +22,20 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 brew install python helm talosctl go-task opentofu yq yamllint shellcheck prettier yamlfmt pluto kubeconform conftest
 task deps                         # Create .venv and install Ansible dependencies
 
-# Set environment variables
-export BWS_ACCESS_TOKEN="your-bitwarden-secrets-token"
-export AWS_ACCESS_KEY_ID="your-terraform-state-access-key"
-export AWS_SECRET_ACCESS_KEY="your-terraform-state-secret-key"
+# Set local operator inputs
 export TALOS_NODE="192.168.1.253"
 export TALOS_CLUSTER_NAME="homelab"
 export TALOS_INSTALL_DISK="/dev/vda"
 export KUBE_CONTEXT="admin@homelab"
+export ANSIBLE_VAULT_PASSWORD="your-local-vault-password"
+export BWS_ACCESS_TOKEN="your-bitwarden-secrets-manager-token"
+export AWS_ACCESS_KEY_ID="your-terraform-backend-access-key"
+export AWS_SECRET_ACCESS_KEY="your-terraform-backend-secret-key"
 ```
 
-Bitwarden bootstrap and Terraform operations require `BWS_ACCESS_TOKEN`. Terraform also needs the AWS credentials for the remote state backend.
-The local Talos secrets file lives at `ansible/roles/talos/files/secrets.yaml` and is intentionally git-ignored.
+Keep `.envrc` for local-only operator inputs and runtime credentials; it is intentionally git-ignored.
+Talos bootstrap secrets live in `ansible/roles/talos/files/secrets.vault.yml`, encrypted with Ansible Vault.
+`ANSIBLE_VAULT_PASSWORD` is only needed for Talos secret generation and Vault maintenance tasks.
 
 ### Bootstrap Cluster
 
@@ -63,6 +65,9 @@ task platform:destroy                # Uninstall platform bootstrap components
 # Argo CD
 task argo:sync                       # Refresh every Argo CD application
 task argo:sync app=plex              # Refresh one Argo CD application
+
+# Vault
+task vault:edit-talos                # Edit encrypted Talos bootstrap secrets
 
 # Development
 task deps                          # Create .venv and install Ansible dependencies

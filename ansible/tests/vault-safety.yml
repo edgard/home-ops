@@ -1,0 +1,158 @@
+---
+- name: Validate Ansible Vault safety contracts
+  hosts: localhost
+  gather_facts: false
+  vars:
+    vault_safety_repo_root: "{{ playbook_dir }}/../.."
+    vault_safety_talos_file: ansible/roles/talos/files/secrets.vault.yml
+    vault_safety_legacy_talos_file: ansible/roles/talos/files/secrets.yaml
+    vault_safety_operator_file: ansible/vault/operator.yml
+
+  tasks:
+    - name: Check Talos Vault file
+      ansible.builtin.stat:
+        path: "{{ vault_safety_repo_root }}/{{ vault_safety_talos_file }}"
+      register: vault_safety_talos_file_stat
+
+    - name: Assert Talos Vault file exists
+      ansible.builtin.assert:
+        that:
+          - vault_safety_talos_file_stat.stat.exists
+        fail_msg: "Missing encrypted Vault file: {{ vault_safety_talos_file }}"
+
+    - name: Read Talos Vault file
+      ansible.builtin.slurp:
+        src: "{{ vault_safety_repo_root }}/{{ vault_safety_talos_file }}"
+      register: vault_safety_talos_file_contents
+      no_log: true
+
+    - name: Assert Talos Vault file is encrypted
+      ansible.builtin.assert:
+        that:
+          - (vault_safety_talos_file_contents.content | b64decode).startswith('$ANSIBLE_VAULT;')
+        fail_msg: "Vault file is not encrypted: {{ vault_safety_talos_file }}"
+      no_log: true
+
+    - name: Check operator Vault file is absent
+      ansible.builtin.stat:
+        path: "{{ vault_safety_repo_root }}/{{ vault_safety_operator_file }}"
+      register: vault_safety_operator_file_stat
+
+    - name: Assert provider credentials are not stored in operator Vault
+      ansible.builtin.assert:
+        that:
+          - not vault_safety_operator_file_stat.stat.exists
+        fail_msg: "Provider credentials should come from .envrc/env, not {{ vault_safety_operator_file }}."
+
+    - name: Check legacy plaintext Talos secrets are ignored
+      ansible.builtin.command:
+        argv:
+          - git
+          - check-ignore
+          - -q
+          - "{{ vault_safety_legacy_talos_file }}"
+      args:
+        chdir: "{{ vault_safety_repo_root }}"
+      changed_when: false
+
+    - name: Check legacy plaintext Talos secrets are untracked
+      ansible.builtin.command:
+        argv:
+          - git
+          - ls-files
+          - --error-unmatch
+          - "{{ vault_safety_legacy_talos_file }}"
+      args:
+        chdir: "{{ vault_safety_repo_root }}"
+      changed_when: false
+      failed_when: false
+      register: vault_safety_legacy_tracked
+
+    - name: Assert legacy plaintext Talos secrets are untracked
+      ansible.builtin.assert:
+        that:
+          - vault_safety_legacy_tracked.rc != 0
+        fail_msg: "Legacy plaintext Talos secrets must not be tracked."
+
+    - name: Read inventory variables
+      ansible.builtin.slurp:
+        src: "{{ vault_safety_repo_root }}/ansible/inventory/group_vars/all.yml"
+      register: vault_safety_inventory_vars
+
+    - name: Assert operator Vault is not auto-loaded through inventory
+      ansible.builtin.assert:
+        that:
+          - "'ansible/vault/operator.yml' not in (vault_safety_inventory_vars.content | b64decode)"
+        fail_msg: "Provider credentials must not be loaded from operator Vault inventory."
+
+    - name: Read agent guidance
+      ansible.builtin.slurp:
+        src: "{{ vault_safety_repo_root }}/AGENTS.md"
+      register: vault_safety_agent_guidance
+
+    - name: Assert agent guidance documents hybrid local secrets
+      ansible.builtin.assert:
+        that:
+          - "'ansible/roles/talos/files/secrets.vault.yml' in (vault_safety_agent_guidance.content | b64decode)"
+          - "'.envrc' in (vault_safety_agent_guidance.content | b64decode)"
+          - "'BWS_ACCESS_TOKEN' in (vault_safety_agent_guidance.content | b64decode)"
+          - "'AWS_ACCESS_KEY_ID' in (vault_safety_agent_guidance.content | b64decode)"
+          - "'ansible/vault/operator.yml' not in (vault_safety_agent_guidance.content | b64decode)"
+        fail_msg: "AGENTS.md must describe env-backed provider credentials and Vault-backed Talos secrets."
+
+    - name: Read Taskfile
+      ansible.builtin.slurp:
+        src: "{{ vault_safety_repo_root }}/Taskfile.yaml"
+      register: vault_safety_taskfile
+
+    - name: Assert Taskfile uses env credentials and Talos-only Vault
+      ansible.builtin.assert:
+        that:
+          - "'ANSIBLE_VAULT_PASSWORD' in (vault_safety_taskfile.content | b64decode)"
+          - "'BWS_ACCESS_TOKEN' in (vault_safety_taskfile.content | b64decode)"
+          - "'AWS_ACCESS_KEY_ID' in (vault_safety_taskfile.content | b64decode)"
+          - "'AWS_SECRET_ACCESS_KEY' in (vault_safety_taskfile.content | b64decode)"
+          - "'vault:edit:' not in (vault_safety_taskfile.content | b64decode)"
+          - "'vault:edit-talos' in (vault_safety_taskfile.content | b64decode)"
+          - "'ansible/vault/operator.yml' not in (vault_safety_taskfile.content | b64decode)"
+        fail_msg: "Taskfile must use env-backed provider credentials and Vault only for Talos secrets."
+
+    - name: Check operator Vault file is untracked
+      ansible.builtin.command:
+        argv:
+          - git
+          - ls-files
+          - --error-unmatch
+          - "{{ vault_safety_operator_file }}"
+      args:
+        chdir: "{{ vault_safety_repo_root }}"
+      changed_when: false
+      failed_when: false
+      register: vault_safety_operator_tracked
+
+    - name: Assert operator Vault file is untracked
+      ansible.builtin.assert:
+        that:
+          - vault_safety_operator_tracked.rc != 0
+        fail_msg: "Operator Vault file must not be tracked."
+
+    - name: Read secret-bearing role task files
+      ansible.builtin.slurp:
+        src: "{{ vault_safety_repo_root }}/{{ item }}"
+      loop:
+        - ansible/roles/talos/tasks/generate.yml
+        - ansible/roles/platform/tasks/external_secrets.yml
+        - ansible/roles/tofu/tasks/plan.yml
+        - ansible/roles/tofu/tasks/apply.yml
+      register: vault_safety_secret_task_files
+      no_log: true
+
+    - name: Assert secret-bearing tasks use no_log
+      ansible.builtin.assert:
+        that:
+          - "'no_log: true' in (item.content | b64decode)"
+        fail_msg: "Secret-bearing task file must use no_log: {{ item.item }}"
+      loop: "{{ vault_safety_secret_task_files.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      no_log: true
