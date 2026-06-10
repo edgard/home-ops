@@ -1,6 +1,7 @@
 ---
 platform_helm_timeout: 600s
 platform_helm_history_max: 5
+platform_bitwarden_access_token: "{{ lookup('env', 'BWS_ACCESS_TOKEN') }}"
 
 platform_wait_default_delay: 5
 platform_wait_default_retries: 24
