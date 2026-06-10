@@ -1,0 +1,6 @@
+---
+- name: Require Bitwarden access token
+  ansible.builtin.assert:
+    that:
+      - bws_access_token | length > 0
+    fail_msg: BWS_ACCESS_TOKEN is required for platform bootstrap.

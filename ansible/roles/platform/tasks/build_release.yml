@@ -1,0 +1,24 @@
+---
+- name: Load app metadata for {{ platform_release.name }}
+  ansible.builtin.include_vars:
+    file: "{{ repo_root }}/{{ platform_release.app_metadata }}"
+    name: platform_release_metadata
+
+- name: Record bootstrap release specification for {{ platform_release.name }}
+  ansible.builtin.set_fact:
+    platform_bootstrap_release_specs: >-
+      {{
+        platform_bootstrap_release_specs | default([])
+        + [
+          {
+            'name': platform_release.name,
+            'namespace': platform_release.namespace,
+            'phase': platform_release.phase,
+            'chart_ref': platform_release_metadata.chart.name | default(platform_release_metadata.chart.repo),
+            'chart_repo_url': platform_release_metadata.chart.repo if platform_release_metadata.chart.name is defined else none,
+            'chart_version': platform_release_metadata.chart.version | string,
+            'values_file': repo_root + '/' + platform_release.values_file,
+            'manifests_dir': repo_root + '/' + platform_release.manifests_dir if platform_release.manifests_dir is defined else none
+          }
+        ]
+      }}

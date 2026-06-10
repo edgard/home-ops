@@ -1,2 +1,3 @@
-# Ignore downloaded CRDs (not managed by us)
+.ansible/
+.venv/
 apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml

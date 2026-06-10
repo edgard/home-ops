@@ -1,0 +1,20 @@
+---
+- name: Find manifests in {{ platform_manifest_dir }}
+  ansible.builtin.find:
+    paths: "{{ platform_manifest_dir }}"
+    patterns:
+      - "*.yaml"
+      - "*.yml"
+    file_type: file
+  register: platform_manifest_files
+
+- name: Apply manifests in {{ platform_manifest_dir }}
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    src: "{{ item.path }}"
+  loop: "{{ platform_manifest_files.files | sort(attribute='path') }}"
+  loop_control:
+    label: "{{ item.path | basename }}"

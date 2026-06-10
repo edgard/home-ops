@@ -1,0 +1,42 @@
+---
+- name: Require Talos node
+  ansible.builtin.assert:
+    that:
+      - talos_node | length > 0
+    fail_msg: TALOS_NODE is required.
+
+- name: Configure Talos endpoint
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - config
+      - endpoints
+      - "{{ talos_node }}"
+  changed_when: false
+
+- name: Check whether Talos API already trusts local config
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - version
+      - --nodes
+      - "{{ talos_node }}"
+      - --short
+  register: talos_apply_version_check
+  failed_when: false
+  changed_when: false
+
+- name: Apply Talos control plane config
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['talosctl', 'apply-config']
+        + (['--insecure'] if talos_apply_version_check.rc != 0 else [])
+        + [
+          '--nodes',
+          talos_node,
+          '--file',
+          talos_controlplane_config_path
+        ]
+      }}
+  changed_when: true

@@ -1,0 +1,9 @@
+---
+- name: Upgrade Talos node
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Upgrade Talos
+      ansible.builtin.include_role:
+        name: talos
+        tasks_from: upgrade

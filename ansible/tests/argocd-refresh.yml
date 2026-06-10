@@ -1,0 +1,37 @@
+---
+- name: Validate Argo CD refresh target construction
+  hosts: localhost
+  gather_facts: false
+  vars:
+    argocd_refresh_test_mode: true
+
+  tasks:
+    - name: Include refresh tasks for one app
+      ansible.builtin.include_role:
+        name: argocd
+        tasks_from: refresh
+      vars:
+        argocd_refresh_app: tuppr
+
+    - name: Assert one app refresh target
+      ansible.builtin.assert:
+        that:
+          - argocd_refresh_targets | length == 1
+          - argocd_refresh_targets[0].metadata.name == "tuppr"
+          - argocd_refresh_targets[0].metadata.annotations["argocd.argoproj.io/refresh"] == "hard"
+
+    - name: Include refresh tasks for discovered apps
+      ansible.builtin.include_role:
+        name: argocd
+        tasks_from: refresh
+      vars:
+        argocd_refresh_app: ""
+        argocd_refresh_application_names:
+          - homeassistant
+          - tuppr
+
+    - name: Assert discovered app refresh targets
+      ansible.builtin.assert:
+        that:
+          - argocd_refresh_targets | length == 2
+          - argocd_refresh_targets | map(attribute="metadata.name") | list == ["homeassistant", "tuppr"]

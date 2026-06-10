@@ -1,0 +1,9 @@
+---
+- name: Install bootstrap release {{ platform_release_spec.name }}
+  ansible.builtin.include_tasks: install_release.yml
+
+- name: Apply bootstrap manifests for {{ platform_release_spec.name }}
+  when: platform_release_spec.manifests_dir is defined
+  ansible.builtin.include_tasks: apply_manifest_dir.yml
+  vars:
+    platform_manifest_dir: "{{ platform_release_spec.manifests_dir }}"

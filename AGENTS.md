@@ -1,12 +1,13 @@
 # Home Ops
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
-**Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) • Helm • Terraform
+**Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) • Helm • Ansible • Terraform
 
 ## Build & Test
 
 - Format: `task fmt`
-- Lint: `task lint` (offline validation: shellcheck, yamllint, metadata policy, raw manifest policy/schema/deprecation checks, batched rendered policy/schema/deprecation checks, `tofu validate`)
+- Dependencies: `task deps` creates `.venv` and installs Ansible Python dependencies
+- Lint: `task lint` (offline validation: shellcheck, Ansible syntax/lint, yamllint, metadata policy, raw manifest policy/schema/deprecation checks, batched rendered policy/schema/deprecation checks, `tofu validate`)
 - Policy layers:
   - `policy/metadata/` validates app metadata structure and required sync waves
   - `policy/kubernetes/` validates manifest and rendered-workload guardrails
@@ -28,7 +29,7 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 ```
 apps/<category>/<app>/{app.yaml,values.yaml,manifests/}
 argocd/appsets/          # Auto-discovers apps/*/*/app.yaml
-bootstrap/helmfile.yaml.gotmpl  # Platform bootstrap
+ansible/                 # Local orchestration, inventory, roles, role defaults, and Talos bootstrap inputs
 terraform/               # Cloudflare/Tailscale infra
 ```
 
@@ -107,10 +108,14 @@ Store: `external-secrets-store`
 - Validation script:
   - `scripts/validate-kubernetes.sh` runs source, metadata, raw manifest, rendered manifest, schema, and deprecation checks
   - `scripts/validate-kubernetes.sh` resolves the Kubernetes target version from Tuppr, builds the Conftest metadata inventory, caches chart pulls for the current validation run, and batches rendered output into a temp tree so policy, schema, and deprecation checks each run once across the rendered set
+- Ansible roles:
+  - Role-owned defaults live in `ansible/roles/*/defaults/main.yml`; inventory vars stay limited to local/site inputs.
+  - Kubernetes operations use `kubernetes.core` modules with `kube_context`; avoid adding `kubectl` tasks.
+  - The local Talos secrets file is `ansible/roles/talos/files/secrets.yaml` and remains git-ignored plaintext.
 
 ## Architecture Overview
 
-GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discovered from `apps/*/*/app.yaml` metadata files. Platform services bootstrap via Helmfile, infrastructure managed through Terraform (Cloudflare DNS, Tailscale networking). Single-node cluster with local-only access via Tailscale VPN.
+GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discovered from `apps/*/*/app.yaml` metadata files. Platform services bootstrap via Ansible-managed Helm installs that read the same app metadata, infrastructure is managed through Terraform (Cloudflare DNS, Tailscale networking). Single-node cluster with local-only access via Tailscale VPN.
 
 ## External Services
 

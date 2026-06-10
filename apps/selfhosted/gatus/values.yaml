@@ -124,7 +124,7 @@ persistence:
   base-config:
     type: configMap
     identifier: base-config
-    defaultMode: 0444
+    defaultMode: 292
     advancedMounts:
       main:
         app:

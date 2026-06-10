@@ -1,0 +1,64 @@
+---
+- name: Load k8tz app metadata
+  ansible.builtin.include_vars:
+    file: "{{ repo_root }}/{{ platform_k8tz_app_metadata }}"
+    name: platform_k8tz_app
+
+- name: Remove previous k8tz warmup pod
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Pod
+    namespace: kube-system
+    name: "{{ platform_k8tz_warmup_pod_name }}"
+    state: absent
+    wait: true
+
+- name: Warm k8tz image with a temporary pod
+  block:
+    - name: Create k8tz warmup pod
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: "{{ platform_k8tz_warmup_pod_name }}"
+            namespace: kube-system
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: k8tz
+                image: "quay.io/k8tz/k8tz:{{ (platform_k8tz_app.chart.version | string) | regex_replace('^v', '') }}"
+                args:
+                  - --help
+
+    - name: Wait for k8tz warmup pod
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: Pod
+        namespace: kube-system
+        name: "{{ platform_k8tz_warmup_pod_name }}"
+      register: platform_k8tz_warmup_pod
+      until:
+        - platform_k8tz_warmup_pod.resources | length > 0
+        - platform_k8tz_warmup_pod.resources[0].status.phase == "Succeeded"
+      retries: 24
+      delay: "{{ platform_wait_default_delay }}"
+
+  always:
+    - name: Remove k8tz warmup pod
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: Pod
+        namespace: kube-system
+        name: "{{ platform_k8tz_warmup_pod_name }}"
+        state: absent
+        wait: true

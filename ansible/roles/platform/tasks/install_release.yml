@@ -1,0 +1,17 @@
+---
+- name: Install Helm release {{ platform_release_spec.name }}
+  kubernetes.core.helm:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    release_name: "{{ platform_release_spec.name }}"
+    release_namespace: "{{ platform_release_spec.namespace }}"
+    chart_ref: "{{ platform_release_spec.chart_ref }}"
+    chart_repo_url: "{{ platform_release_spec.chart_repo_url | default(None) or omit }}"
+    chart_version: "{{ platform_release_spec.chart_version }}"
+    values_files:
+      - "{{ platform_release_spec.values_file }}"
+    create_namespace: true
+    atomic: true
+    wait: true
+    timeout: "{{ platform_helm_timeout }}"
+    history_max: "{{ platform_helm_history_max }}"

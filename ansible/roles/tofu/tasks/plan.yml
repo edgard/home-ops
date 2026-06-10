@@ -1,0 +1,21 @@
+---
+- name: Require Terraform credentials
+  ansible.builtin.assert:
+    that:
+      - aws_access_key_id | length > 0
+      - aws_secret_access_key | length > 0
+      - bws_access_token | length > 0
+    fail_msg: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and BWS_ACCESS_TOKEN are required.
+
+- name: Plan Terraform infrastructure
+  community.general.terraform:
+    project_path: "{{ tofu_project_path }}"
+    binary_path: "{{ tofu_binary_path }}"
+    state: present
+    force_init: true
+  check_mode: true
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+    BWS_ACCESS_TOKEN: "{{ bws_access_token }}"
+    BW_ACCESS_TOKEN: "{{ bws_access_token }}"

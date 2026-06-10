@@ -1,5 +1,7 @@
 ---
 ignore: |
+  .ansible/
+  .venv/
   apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml
 
 extends: default
@@ -8,9 +10,13 @@ rules:
   brackets:
     max-spaces-inside: 1
     min-spaces-inside: 0
+  braces:
+    max-spaces-inside: 1
+    min-spaces-inside: 0
   comments:
     require-starting-space: true
     min-spaces-from-content: 1
+  comments-indentation: disable
   indentation:
     spaces: consistent
     indent-sequences: consistent
@@ -25,3 +31,6 @@ rules:
       - "true"
       - "false"
       - "on"
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true

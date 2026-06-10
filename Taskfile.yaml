@@ -10,16 +10,58 @@ set:
 shell: bash -c
 
 vars:
+  AWS_ACCESS_KEY_ID: '{{.AWS_ACCESS_KEY_ID | default ""}}'
+  AWS_SECRET_ACCESS_KEY: '{{.AWS_SECRET_ACCESS_KEY | default ""}}'
+  BWS_ACCESS_TOKEN: '{{.BWS_ACCESS_TOKEN | default ""}}'
+  K8S_VERSION: '{{.K8S_VERSION | default ""}}'
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
   TALOS_CLUSTER_NAME: '{{.TALOS_CLUSTER_NAME | default "homelab"}}'
   TALOS_INSTALL_DISK: '{{.TALOS_INSTALL_DISK | default ""}}'
   TALOS_NODE: '{{.TALOS_NODE | default ""}}'
+  VENV_DIR: "{{.TASKFILE_DIR}}/.venv"
+  VENV_PYTHON: "{{.VENV_DIR}}/bin/python"
+  ANSIBLE_GALAXY: "{{.VENV_DIR}}/bin/ansible-galaxy"
+  ANSIBLE_LINT: "{{.VENV_DIR}}/bin/ansible-lint"
+  ANSIBLE_PLAYBOOK: "{{.VENV_DIR}}/bin/ansible-playbook"
+  ANSIBLE_COLLECTIONS_PATH: "{{.TASKFILE_DIR}}/.ansible/collections"
+
+env:
+  AWS_ACCESS_KEY_ID: "{{.AWS_ACCESS_KEY_ID}}"
+  AWS_SECRET_ACCESS_KEY: "{{.AWS_SECRET_ACCESS_KEY}}"
+  BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
+  TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME}}"
+  TALOS_INSTALL_DISK: "{{.TALOS_INSTALL_DISK}}"
+  TALOS_NODE: "{{.TALOS_NODE}}"
+  TERRAFORM_DIR: "{{.TERRAFORM_DIR}}"
+  K8S_VERSION: "{{.K8S_VERSION}}"
 
 tasks:
   default:
     desc: List available tasks
     cmds:
       - task --list
+
+  deps:
+    desc: Create .venv and install Ansible Python dependencies
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - python3 -m venv "{{.VENV_DIR}}"
+      - '"{{.VENV_PYTHON}}" -m pip install --upgrade pip'
+      - '"{{.VENV_PYTHON}}" -m pip uninstall -y ansible || true'
+      - '"{{.VENV_PYTHON}}" -m pip install ansible-core ansible-lint'
+      - '"{{.ANSIBLE_GALAXY}}" collection install -r ansible/requirements.yml -p "{{.ANSIBLE_COLLECTIONS_PATH}}"'
+      - '"{{.VENV_PYTHON}}" -m pip install -r ansible/requirements.txt'
+
+  ansible:check:
+    internal: true
+    desc: Verify local Ansible virtualenv exists
+    preconditions:
+      - sh: test -x "{{.ANSIBLE_PLAYBOOK}}"
+        msg: Run `task deps` to create .venv and install Ansible dependencies.
+      - sh: test -x "{{.ANSIBLE_LINT}}"
+        msg: Run `task deps` to create .venv and install Ansible dependencies.
+    cmds:
+      - true
 
   # Quality gate and local development
   fmt:
@@ -33,10 +75,14 @@ tasks:
   lint:
     desc: Run the offline validation checks
     dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     cmds:
       - shellcheck --severity=warning scripts/*.sh
-      - for test in scripts/test-*.sh; do "$test"; done
       - yamllint -c .yamllint .
+      - for playbook in ansible/playbooks/*.yml ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" --syntax-check "$playbook"; done
+      - '"{{.ANSIBLE_LINT}}" ansible'
+      - for test in ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" "$test"; done
       - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh"'
       - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -upgrade -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
 
@@ -50,6 +96,9 @@ tasks:
   # High-level cluster lifecycle
   cluster:create:
     desc: Install, configure, and bootstrap Talos + platform
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - TALOS_NODE
@@ -57,152 +106,142 @@ tasks:
         - TALOS_INSTALL_DISK
         - BWS_ACCESS_TOKEN
     cmds:
-      - task: talos:gen
-      - task: talos:apply
-      - task: talos:bootstrap
-      - task: platform:create
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/cluster-create.yml'
 
   cluster:destroy:
     desc: Destroy platform and reset Talos node
     interactive: true
-    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - TALOS_NODE
     cmds:
-      - task: platform:destroy
-      - talosctl reset --nodes "{{.TALOS_NODE}}" --graceful=false --reboot
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/cluster-destroy.yml'
 
   # Talos operations
   talos:gen:
     desc: Generate Talos config into ~/.talos
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - TALOS_NODE
         - TALOS_CLUSTER_NAME
         - TALOS_INSTALL_DISK
-    env:
-      TALOS_NODE: "{{.TALOS_NODE}}"
-      TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME}}"
-      TALOS_INSTALL_DISK: "{{.TALOS_INSTALL_DISK}}"
     cmds:
-      - '"{{.TASKFILE_DIR}}/scripts/talos-cluster.sh" gen'
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-generate.yml'
 
   talos:apply:
     desc: Apply Talos config to control plane
-    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - TALOS_NODE
-    vars:
-      INSECURE:
-        sh: |
-          if talosctl version --nodes "{{.TALOS_NODE}}" --short >/dev/null 2>&1; then
-            echo ""
-          else
-            echo "--insecure"
-          fi
     cmds:
-      - talosctl config endpoints "{{.TALOS_NODE}}" >/dev/null 2>&1
-      - talosctl apply-config {{.INSECURE}} --nodes "{{.TALOS_NODE}}" --file "$HOME/.talos/controlplane.yaml"
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-apply.yml'
 
   talos:bootstrap:
     desc: Bootstrap Talos control plane and kubeconfig
     interactive: true
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - TALOS_NODE
         - TALOS_CLUSTER_NAME
-    env:
-      TALOS_NODE: "{{.TALOS_NODE}}"
-      TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME}}"
     cmds:
-      - '"{{.TASKFILE_DIR}}/scripts/talos-cluster.sh" bootstrap'
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-bootstrap.yml'
 
   talos:upgrade:
     desc: Upgrade Talos on a node from the repo target version
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - TALOS_NODE
-    env:
-      TALOS_NODE: "{{.TALOS_NODE}}"
-      TALOS_UPGRADE_FILE: "{{.TASKFILE_DIR}}/bootstrap/talos-upgrade.yaml"
     cmds:
-      - '"{{.TASKFILE_DIR}}/scripts/talos-cluster.sh" upgrade'
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-upgrade.yml'
 
   talos:upgrade-k8s:
     desc: Upgrade Kubernetes control plane
-    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - TALOS_NODE
         - K8S_VERSION
     cmds:
-      - talosctl -n "{{.TALOS_NODE}}" upgrade-k8s --to "{{.K8S_VERSION}}"
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-upgrade-k8s.yml -e "k8s_version={{.K8S_VERSION}}"'
 
   # Platform and Argo operations
   platform:create:
-    desc: Create platform components via helmfile
-    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    desc: Create platform components via Ansible
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - BWS_ACCESS_TOKEN
-    env:
-      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
     cmds:
-      - helmfile -f helmfile.yaml.gotmpl sync
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/platform-bootstrap.yml'
 
   platform:destroy:
-    desc: Destroy platform components via helmfile
+    desc: Destroy platform components via Ansible
     interactive: true
-    dir: "{{.TASKFILE_DIR}}/bootstrap"
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     cmds:
-      - helmfile -f helmfile.yaml.gotmpl destroy
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/platform-destroy.yml'
 
   argo:sync:
     desc: Force Argo CD Applications to refresh
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     vars:
       app: '{{.app | default ""}}'
     cmds:
-      - APP="{{.app}}" "{{.TASKFILE_DIR}}/scripts/argocd-app-sync.sh"
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/argo-refresh.yml {{if .app}}-e "app={{.app}}"{{end}}'
 
   # Terraform operations
   tf:plan:
     desc: Terraform plan
-    dir: "{{.TERRAFORM_DIR}}"
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
         - BWS_ACCESS_TOKEN
-    env:
-      AWS_ACCESS_KEY_ID: "{{.AWS_ACCESS_KEY_ID}}"
-      AWS_SECRET_ACCESS_KEY: "{{.AWS_SECRET_ACCESS_KEY}}"
-      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
-      BW_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
     cmds:
-      - tofu init
-      - tofu plan
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-plan.yml'
 
   tf:apply:
     desc: Terraform apply
-    dir: "{{.TERRAFORM_DIR}}"
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     requires:
       vars:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
         - BWS_ACCESS_TOKEN
-    env:
-      AWS_ACCESS_KEY_ID: "{{.AWS_ACCESS_KEY_ID}}"
-      AWS_SECRET_ACCESS_KEY: "{{.AWS_SECRET_ACCESS_KEY}}"
-      BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
-      BW_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
     cmds:
-      - tofu init
-      - tofu apply
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-apply.yml'
 
   tf:clean:
     desc: Clean terraform state/cache
-    dir: "{{.TERRAFORM_DIR}}"
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     cmds:
-      - rm -rf .terraform/ .terraform.lock.hcl terraform.tfstate* *.tfplan
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-clean.yml'

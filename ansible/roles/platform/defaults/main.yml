@@ -1,0 +1,115 @@
+---
+platform_helm_timeout: 600s
+platform_helm_history_max: 5
+
+platform_wait_default_delay: 5
+platform_wait_default_retries: 24
+
+platform_k8tz_app_metadata: apps/kube-system/k8tz/app.yaml
+platform_k8tz_warmup_pod_name: bootstrap-image-warmup-k8tz
+
+platform_bootstrap_namespaces:
+  - media
+
+platform_bootstrap_releases:
+  - name: nfs-provisioner
+    namespace: kube-system
+    app_metadata: apps/kube-system/nfs-provisioner/app.yaml
+    values_file: apps/kube-system/nfs-provisioner/values.yaml
+    manifests_dir: apps/kube-system/nfs-provisioner/manifests
+    phase: storage
+
+  - name: multus
+    namespace: kube-system
+    app_metadata: apps/kube-system/multus/app.yaml
+    values_file: apps/kube-system/multus/values.yaml
+    manifests_dir: apps/kube-system/multus/manifests
+    phase: networking
+
+  - name: cert-manager
+    namespace: platform-system
+    app_metadata: apps/platform-system/cert-manager/app.yaml
+    values_file: apps/platform-system/cert-manager/values.yaml
+    phase: certificates
+
+  - name: external-secrets
+    namespace: platform-system
+    app_metadata: apps/platform-system/external-secrets/app.yaml
+    values_file: apps/platform-system/external-secrets/values.yaml
+    phase: external-secrets
+
+  - name: argocd
+    namespace: argocd
+    app_metadata: apps/argocd/argocd/app.yaml
+    values_file: apps/argocd/argocd/values.yaml
+    phase: argocd
+
+platform_cert_manager_waits:
+  - api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: issuers.cert-manager.io
+    condition_type: Established
+    retries: 12
+  - api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: certificates.cert-manager.io
+    condition_type: Established
+    retries: 12
+  - api_version: apps/v1
+    kind: Deployment
+    name: cert-manager-webhook
+    namespace: platform-system
+    condition_type: Available
+    retries: 12
+
+platform_external_secrets_bootstrap_manifests:
+  - apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-issuer.issuer.yaml
+  - apps/platform-system/external-secrets/manifests/external-secrets-sdk-server-tls.certificate.yaml
+
+platform_external_secrets_waits:
+  - api_version: cert-manager.io/v1
+    kind: Certificate
+    name: external-secrets-sdk-server-tls
+    namespace: platform-system
+    condition_type: Ready
+    retries: 24
+  - api_version: apps/v1
+    kind: Deployment
+    name: bitwarden-sdk-server
+    namespace: platform-system
+    condition_type: Available
+    retries: 24
+  - api_version: apps/v1
+    kind: Deployment
+    name: external-secrets
+    namespace: platform-system
+    condition_type: Available
+    retries: 24
+
+platform_external_secrets_store_manifest: apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml
+
+platform_argocd_repo_credentials_manifest: apps/argocd/argocd/manifests/argocd-repo-credentials.externalsecret.yaml
+platform_argocd_root_application_manifest: argocd/root.app.yaml
+
+platform_argocd_waits:
+  - api_version: external-secrets.io/v1
+    kind: ExternalSecret
+    name: argocd-repo-credentials
+    namespace: argocd
+    condition_type: Ready
+    retries: 24
+  - api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: applications.argoproj.io
+    condition_type: Established
+    retries: 36
+  - api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: appprojects.argoproj.io
+    condition_type: Established
+    retries: 36
+  - api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: applicationsets.argoproj.io
+    condition_type: Established
+    retries: 36

@@ -1,0 +1,9 @@
+---
+- name: Clean Terraform infrastructure artifacts
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Clean Terraform infrastructure artifacts
+      ansible.builtin.include_role:
+        name: tofu
+        tasks_from: clean

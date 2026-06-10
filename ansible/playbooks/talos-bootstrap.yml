@@ -1,0 +1,9 @@
+---
+- name: Bootstrap Talos control plane
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Bootstrap Talos control plane
+      ansible.builtin.include_role:
+        name: talos
+        tasks_from: bootstrap

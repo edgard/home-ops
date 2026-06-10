@@ -1,0 +1,4 @@
+---
+argocd_namespace: argocd
+argocd_refresh_annotation: hard
+argocd_refresh_test_mode: false

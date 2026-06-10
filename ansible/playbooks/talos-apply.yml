@@ -1,0 +1,9 @@
+---
+- name: Apply Talos control plane config
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Apply Talos configuration
+      ansible.builtin.include_role:
+        name: talos
+        tasks_from: apply

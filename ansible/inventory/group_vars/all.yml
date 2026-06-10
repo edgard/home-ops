@@ -1,0 +1,14 @@
+---
+repo_root: "{{ lookup('env', 'REPO_ROOT') | default(playbook_dir + '/../..', true) }}"
+home_dir: "{{ lookup('env', 'HOME') }}"
+ansible_python_interpreter: "{{ lookup('env', 'ANSIBLE_PYTHON_INTERPRETER') | default(repo_root + '/.venv/bin/python', true) }}"
+kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default(home_dir + '/.kube/config', true) }}"
+kube_context: "{{ lookup('env', 'KUBE_CONTEXT') | default('admin@' + talos_cluster_name, true) }}"
+
+talos_cluster_name: "{{ lookup('env', 'TALOS_CLUSTER_NAME') | default('homelab', true) }}"
+talos_install_disk: "{{ lookup('env', 'TALOS_INSTALL_DISK') }}"
+talos_node: "{{ lookup('env', 'TALOS_NODE') }}"
+
+bws_access_token: "{{ lookup('env', 'BWS_ACCESS_TOKEN') }}"
+aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"

@@ -1,0 +1,9 @@
+---
+- name: Refresh Argo CD applications
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Refresh Argo CD applications
+      ansible.builtin.include_role:
+        name: argocd
+        tasks_from: refresh

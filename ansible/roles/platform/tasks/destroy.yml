@@ -1,0 +1,22 @@
+---
+- name: Delete Argo CD root application
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: absent
+    src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
+    wait: true
+  failed_when: false
+
+- name: Remove bootstrap Helm releases
+  kubernetes.core.helm:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    release_name: "{{ item.name }}"
+    release_namespace: "{{ item.namespace }}"
+    release_state: absent
+    wait: true
+    timeout: "{{ platform_helm_timeout }}"
+  loop: "{{ platform_bootstrap_releases | reverse | list }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.name }}"

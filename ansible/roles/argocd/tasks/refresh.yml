@@ -1,0 +1,75 @@
+---
+- name: Reset Argo CD refresh targets
+  ansible.builtin.set_fact:
+    argocd_refresh_targets: []
+    argocd_refresh_requested_app: "{{ app | default(argocd_refresh_app | default('')) }}"
+
+- name: Read Argo CD applications
+  when:
+    - argocd_refresh_requested_app | length == 0
+    - argocd_refresh_application_names is not defined
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: "{{ argocd_namespace }}"
+  register: argocd_refresh_applications
+
+- name: Build Argo CD application name list
+  ansible.builtin.set_fact:
+    argocd_refresh_target_names: >-
+      {{
+        [argocd_refresh_requested_app] if argocd_refresh_requested_app | length > 0
+        else (
+          argocd_refresh_application_names
+          | default(argocd_refresh_applications.resources | default([]) | map(attribute='metadata.name') | list)
+        )
+      }}
+
+- name: Read requested Argo CD application
+  when:
+    - argocd_refresh_requested_app | length > 0
+    - not (argocd_refresh_test_mode | default(false))
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: "{{ argocd_namespace }}"
+    name: "{{ argocd_refresh_requested_app }}"
+  register: argocd_refresh_requested_application
+
+- name: Assert requested Argo CD application exists
+  when:
+    - argocd_refresh_requested_app | length > 0
+    - not (argocd_refresh_test_mode | default(false))
+  ansible.builtin.assert:
+    that:
+      - argocd_refresh_requested_application.resources | length == 1
+    fail_msg: "Argo CD Application not found: {{ argocd_namespace }}/{{ argocd_refresh_requested_app }}"
+
+- name: Build Argo CD refresh patches
+  ansible.builtin.set_fact:
+    argocd_refresh_targets: "{{ argocd_refresh_targets | default([]) + [argocd_refresh_patch] }}"
+  vars:
+    argocd_refresh_patch:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: "{{ item }}"
+        namespace: "{{ argocd_namespace }}"
+        annotations:
+          argocd.argoproj.io/refresh: "{{ argocd_refresh_annotation }}"
+  loop: "{{ argocd_refresh_target_names }}"
+
+- name: Apply Argo CD refresh patches
+  when: not (argocd_refresh_test_mode | default(false))
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: patched
+    definition: "{{ item }}"
+  loop: "{{ argocd_refresh_targets }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"

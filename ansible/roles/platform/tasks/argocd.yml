@@ -1,0 +1,26 @@
+---
+- name: Install argocd bootstrap release
+  ansible.builtin.include_tasks: install_release.yml
+  vars:
+    platform_release_spec: "{{ platform_bootstrap_release_specs | selectattr('phase', 'equalto', 'argocd') | first }}"
+
+- name: Apply Argo CD repo credentials ExternalSecret
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    src: "{{ repo_root }}/{{ platform_argocd_repo_credentials_manifest }}"
+
+- name: Wait for Argo CD resources
+  ansible.builtin.include_tasks: wait_items.yml
+  vars:
+    platform_wait_items: "{{ platform_argocd_waits }}"
+
+- name: Apply Argo CD root application
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
