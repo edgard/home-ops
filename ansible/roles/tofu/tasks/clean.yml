@@ -1,0 +1,21 @@
+---
+- name: Remove OpenTofu cache and state artifacts
+  ansible.builtin.file:
+    path: "{{ tofu_project_path }}/{{ item }}"
+    state: absent
+  loop: "{{ tofu_clean_paths }}"
+
+- name: Find OpenTofu generated files
+  ansible.builtin.find:
+    paths: "{{ tofu_project_path }}"
+    patterns: "{{ tofu_clean_file_patterns }}"
+    file_type: file
+  register: tofu_generated_files
+
+- name: Remove OpenTofu generated files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ tofu_generated_files.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"

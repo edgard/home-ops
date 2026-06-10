@@ -1,0 +1,24 @@
+---
+- name: Create Talos cluster and bootstrap platform
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Generate Talos configuration
+      ansible.builtin.include_role:
+        name: talos
+        tasks_from: generate
+
+    - name: Apply Talos configuration
+      ansible.builtin.include_role:
+        name: talos
+        tasks_from: apply
+
+    - name: Bootstrap Talos control plane
+      ansible.builtin.include_role:
+        name: talos
+        tasks_from: bootstrap
+
+    - name: Bootstrap platform
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: bootstrap

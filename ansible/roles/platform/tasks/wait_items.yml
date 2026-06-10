@@ -1,0 +1,16 @@
+---
+- name: Wait for Kubernetes resources
+  ansible.builtin.include_tasks: wait_condition.yml
+  loop: "{{ platform_wait_items }}"
+  loop_control:
+    loop_var: platform_wait_item
+    label: "{{ platform_wait_item.kind }}/{{ platform_wait_item.name }}"
+  vars:
+    platform_wait_api_version: "{{ platform_wait_item.api_version }}"
+    platform_wait_kind: "{{ platform_wait_item.kind }}"
+    platform_wait_name: "{{ platform_wait_item.name }}"
+    platform_wait_namespace: "{{ platform_wait_item.namespace | default('') }}"
+    platform_wait_condition_type: "{{ platform_wait_item.condition_type }}"
+    platform_wait_condition_status: "{{ platform_wait_item.condition_status | default('True') }}"
+    platform_wait_retries: "{{ platform_wait_item.retries | default(platform_wait_default_retries) }}"
+    platform_wait_delay: "{{ platform_wait_item.delay | default(platform_wait_default_delay) }}"

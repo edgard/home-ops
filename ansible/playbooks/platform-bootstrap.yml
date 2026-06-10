@@ -1,0 +1,9 @@
+---
+- name: Bootstrap platform components
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Bootstrap platform
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: bootstrap

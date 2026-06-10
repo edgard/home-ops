@@ -1,0 +1,12 @@
+---
+- name: Ensure bootstrap namespaces exist
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ item }}"
+  loop: "{{ platform_bootstrap_namespaces }}"

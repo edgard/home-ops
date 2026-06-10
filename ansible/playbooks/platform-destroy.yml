@@ -1,0 +1,9 @@
+---
+- name: Destroy platform bootstrap components
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Destroy platform
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: destroy

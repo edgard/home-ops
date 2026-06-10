@@ -1,0 +1,28 @@
+---
+- name: Validate bootstrap metadata resolution
+  hosts: localhost
+  gather_facts: false
+  vars:
+    bootstrap_metadata_repo_root: "{{ playbook_dir }}/../.."
+
+  tasks:
+    - name: Load inventory variables
+      ansible.builtin.include_vars:
+        file: "{{ bootstrap_metadata_repo_root }}/ansible/inventory/group_vars/all.yml"
+
+    - name: Load platform role defaults
+      ansible.builtin.include_vars:
+        file: "{{ bootstrap_metadata_repo_root }}/ansible/roles/platform/defaults/main.yml"
+
+    - name: Load bootstrap release metadata
+      ansible.builtin.include_tasks: ../roles/platform/tasks/build_release.yml
+      loop: "{{ platform_bootstrap_releases }}"
+      loop_control:
+        loop_var: platform_release
+
+    - name: Assert expected bootstrap releases resolved
+      ansible.builtin.assert:
+        that:
+          - platform_bootstrap_release_specs | length == 5
+          - platform_bootstrap_release_specs | map(attribute="name") | list == ["nfs-provisioner", "multus", "cert-manager", "external-secrets", "argocd"]
+          - platform_bootstrap_release_specs | selectattr("name", "equalto", "cert-manager") | map(attribute="chart_version") | first is match("^v?1\\.")

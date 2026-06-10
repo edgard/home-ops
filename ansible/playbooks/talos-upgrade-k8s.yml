@@ -1,0 +1,9 @@
+---
+- name: Upgrade Kubernetes control plane
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Upgrade Kubernetes
+      ansible.builtin.include_role:
+        name: talos
+        tasks_from: upgrade_k8s

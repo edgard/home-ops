@@ -1,0 +1,87 @@
+---
+- name: Require Talos node
+  ansible.builtin.assert:
+    that:
+      - talos_node | length > 0
+    fail_msg: TALOS_NODE is required.
+
+- name: Build Talos upgrade command
+  ansible.builtin.set_fact:
+    talos_upgrade_command:
+      - talosctl
+      - --nodes
+      - "{{ talos_node }}"
+      - upgrade
+      - --image
+      - "{{ talos_upgrade.installer.repository }}:{{ talos_upgrade.installer.version }}"
+      - --reboot-mode
+      - "{{ talos_upgrade.upgrade.rebootMode | default('default') }}"
+      - --timeout
+      - "{{ talos_upgrade.upgrade.timeout | default('30m') }}"
+      - --wait
+
+- name: Upgrade Talos node
+  when: not (talos_upgrade_test_mode | default(false))
+  ansible.builtin.command:
+    argv: "{{ talos_upgrade_command }}"
+  changed_when: true
+
+- name: Read Kubernetes nodes
+  when: not (talos_upgrade_test_mode | default(false))
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Node
+  register: talos_upgrade_nodes
+
+- name: Find upgraded Kubernetes node
+  ansible.builtin.set_fact:
+    talos_upgrade_kubernetes_node: "{{ item.metadata.name }}"
+  loop: "{{ talos_upgrade_nodes.resources }}"
+  when: >-
+    not (talos_upgrade_test_mode | default(false))
+    and (
+      item.metadata.name == talos_node
+      or (
+        item.status.addresses | default([])
+        | selectattr('type', 'equalto', 'InternalIP')
+        | selectattr('address', 'equalto', talos_node)
+        | list
+        | length > 0
+      )
+    )
+
+- name: Uncordon upgraded Kubernetes node
+  when:
+    - not (talos_upgrade_test_mode | default(false))
+    - talos_upgrade_kubernetes_node is defined
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: patched
+    definition:
+      apiVersion: v1
+      kind: Node
+      metadata:
+        name: "{{ talos_upgrade_kubernetes_node }}"
+      spec:
+        unschedulable: false
+
+- name: Read Talos server version
+  when: not (talos_upgrade_test_mode | default(false))
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --nodes
+      - "{{ talos_node }}"
+      - version
+  register: talos_upgrade_version
+  changed_when: false
+
+- name: Assert Talos server version
+  when: not (talos_upgrade_test_mode | default(false))
+  ansible.builtin.assert:
+    that:
+      - talos_upgrade.installer.version in talos_upgrade_version.stdout
+    fail_msg: "Talos server version mismatch; expected {{ talos_upgrade.installer.version }}."

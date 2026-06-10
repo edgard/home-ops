@@ -1,0 +1,54 @@
+---
+- name: Require Talos bootstrap variables
+  ansible.builtin.assert:
+    that:
+      - talos_node | length > 0
+      - talos_cluster_name | length > 0
+    fail_msg: TALOS_NODE and TALOS_CLUSTER_NAME are required.
+
+- name: Wait for Talos API
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - version
+      - --nodes
+      - "{{ talos_node }}"
+  register: talos_bootstrap_api_wait
+  until: talos_bootstrap_api_wait.rc == 0
+  retries: "{{ talos_api_wait_retries }}"
+  delay: "{{ talos_api_wait_delay }}"
+  changed_when: false
+
+- name: Bootstrap Talos control plane
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - bootstrap
+      - --nodes
+      - "{{ talos_node }}"
+  register: talos_bootstrap_result
+  failed_when: false
+  changed_when: talos_bootstrap_result.rc == 0
+
+- name: Wait for Talos health
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - health
+      - --nodes
+      - "{{ talos_node }}"
+      - --wait-timeout
+      - "{{ talos_health_wait_timeout }}"
+  changed_when: false
+
+- name: Fetch kubeconfig
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - kubeconfig
+      - --nodes
+      - "{{ talos_node }}"
+      - --force-context-name
+      - "{{ kube_context }}"
+      - --force
+  changed_when: true

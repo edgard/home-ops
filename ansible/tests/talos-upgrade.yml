@@ -1,0 +1,26 @@
+---
+- name: Validate Talos upgrade command construction
+  hosts: localhost
+  gather_facts: false
+  vars:
+    talos_upgrade_test_mode: true
+    talos_node: 192.0.2.10
+
+  tasks:
+    - name: Include Talos upgrade tasks
+      ansible.builtin.include_role:
+        name: talos
+        tasks_from: upgrade
+      vars:
+        talos_upgrade:
+          installer:
+            repository: ghcr.io/siderolabs/installer
+            version: v9.9.9
+          upgrade:
+            rebootMode: default
+            timeout: 30m
+
+    - name: Assert Talos upgrade command
+      ansible.builtin.assert:
+        that:
+          - talos_upgrade_command == [ "talosctl", "--nodes", "192.0.2.10", "upgrade", "--image", "ghcr.io/siderolabs/installer:v9.9.9", "--reboot-mode", "default", "--timeout", "30m", "--wait" ]

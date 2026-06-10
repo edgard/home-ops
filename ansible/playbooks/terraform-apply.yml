@@ -1,0 +1,9 @@
+---
+- name: Apply Terraform infrastructure
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Apply Terraform infrastructure
+      ansible.builtin.include_role:
+        name: tofu
+        tasks_from: apply

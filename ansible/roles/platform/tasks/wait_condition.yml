@@ -1,0 +1,20 @@
+---
+- name: Wait for Kubernetes resource condition
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ platform_wait_api_version }}"
+    kind: "{{ platform_wait_kind }}"
+    name: "{{ platform_wait_name }}"
+    namespace: "{{ platform_wait_namespace if platform_wait_namespace | default('') | length > 0 else omit }}"
+  register: platform_wait_result
+  until:
+    - platform_wait_result.resources | length > 0
+    - >-
+      platform_wait_result.resources[0].status.conditions | default([])
+      | selectattr('type', 'equalto', platform_wait_condition_type)
+      | selectattr('status', 'equalto', platform_wait_condition_status | default('True'))
+      | list
+      | length > 0
+  retries: "{{ platform_wait_retries | default(platform_wait_default_retries) }}"
+  delay: "{{ platform_wait_delay | default(platform_wait_default_delay) }}"

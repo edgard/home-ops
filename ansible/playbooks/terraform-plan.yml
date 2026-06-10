@@ -1,0 +1,9 @@
+---
+- name: Plan Terraform infrastructure
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Plan Terraform infrastructure
+      ansible.builtin.include_role:
+        name: tofu
+        tasks_from: plan

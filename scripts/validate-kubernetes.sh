@@ -609,10 +609,27 @@ validate_rendered_apps() {
 }
 
 validate_deprecations() {
+  local failed=0
   local kubernetes_version
+  local paths=()
 
   kubernetes_version="$(get_kubernetes_target_version)"
-  pluto detect-files -d "${repo_root}" --target-versions "k8s=${kubernetes_version}" -o wide
+
+  while IFS= read -r -d '' path; do
+    paths+=("$path")
+  done < <(raw_manifest_paths)
+
+  if [ ${#paths[@]} -eq 0 ]; then
+    return 0
+  fi
+
+  for path in "${paths[@]}"; do
+    if ! pluto detect-files -d "$path" --target-versions "k8s=${kubernetes_version}" -o wide; then
+      failed=1
+    fi
+  done
+
+  return "$failed"
 }
 
 main() {

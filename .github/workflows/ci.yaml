@@ -38,6 +38,9 @@ jobs:
           tofu_version: 1.12.1
           tofu_wrapper: false
 
+      - name: Set up Ansible
+        run: task deps
+
       - name: Set up yq
         uses: dcarbone/install-yq-action@4075b4dca348d74bd83f2bf82d30f25d7c54539b # v1.3.1
         with:

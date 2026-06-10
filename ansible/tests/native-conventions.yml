@@ -1,0 +1,173 @@
+---
+- name: Validate strict Ansible-native conventions
+  hosts: localhost
+  gather_facts: false
+  vars:
+    conventions_repo_root: "{{ playbook_dir }}/../.."
+    conventions_role_files:
+      - ansible/roles/argocd/defaults/main.yml
+      - ansible/roles/platform/defaults/main.yml
+      - ansible/roles/talos/defaults/main.yml
+      - ansible/roles/talos/vars/main.yml
+      - ansible/roles/tofu/defaults/main.yml
+
+  tasks:
+    - name: Check role default and var files
+      ansible.builtin.stat:
+        path: "{{ conventions_repo_root }}/{{ item }}"
+      loop: "{{ conventions_role_files }}"
+      register: conventions_role_file_stats
+
+    - name: Assert conventional role files exist
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+        fail_msg: "Missing conventional role file: {{ item.item }}"
+      loop: "{{ conventions_role_file_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Check moved Talos secret is ignored
+      ansible.builtin.command:
+        argv:
+          - git
+          - check-ignore
+          - -q
+          - ansible/roles/talos/files/secrets.yaml
+      args:
+        chdir: "{{ conventions_repo_root }}"
+      changed_when: false
+
+    - name: Check local Python virtualenv is ignored
+      ansible.builtin.command:
+        argv:
+          - git
+          - check-ignore
+          - -q
+          - .venv
+      args:
+        chdir: "{{ conventions_repo_root }}"
+      changed_when: false
+
+    - name: Check local Ansible runtime directory is ignored
+      ansible.builtin.command:
+        argv:
+          - git
+          - check-ignore
+          - -q
+          - .ansible
+      args:
+        chdir: "{{ conventions_repo_root }}"
+      changed_when: false
+
+    - name: Read Ansible config
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible.cfg"
+      register: conventions_ansible_config
+
+    - name: Assert Ansible uses project-local collections
+      ansible.builtin.assert:
+        that:
+          - "'collections_path = .ansible/collections' in (conventions_ansible_config.content | b64decode)"
+
+    - name: Read Taskfile
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/Taskfile.yaml"
+      register: conventions_taskfile
+
+    - name: Assert Taskfile has no stale bootstrap working directory
+      ansible.builtin.assert:
+        that:
+          - "'TASKFILE_DIR}}/bootstrap' not in (conventions_taskfile.content | b64decode)"
+          - "'ansible-lint not installed; skipping' not in (conventions_taskfile.content | b64decode)"
+          - "'.VENV_DIR}}/bin/ansible-playbook' in (conventions_taskfile.content | b64decode)"
+          - "'.ansible/collections' in (conventions_taskfile.content | b64decode)"
+          - "'task deps' in (conventions_taskfile.content | b64decode)"
+        fail_msg: "Taskfile compatibility wrappers do not meet strict Ansible gate expectations."
+
+    - name: Read inventory group vars
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible/inventory/group_vars/all.yml"
+      register: conventions_inventory_vars
+
+    - name: Assert Ansible uses the repo virtualenv interpreter by default
+      ansible.builtin.assert:
+        that:
+          - "'ansible_python_interpreter' in (conventions_inventory_vars.content | b64decode)"
+          - "'.venv/bin/python' in (conventions_inventory_vars.content | b64decode)"
+
+    - name: Find Ansible task files
+      ansible.builtin.find:
+        paths:
+          - "{{ conventions_repo_root }}/ansible/roles/argocd/tasks"
+          - "{{ conventions_repo_root }}/ansible/roles/platform/tasks"
+          - "{{ conventions_repo_root }}/ansible/roles/talos/tasks"
+          - "{{ conventions_repo_root }}/ansible/roles/tofu/tasks"
+        patterns:
+          - "*.yml"
+        recurse: true
+        file_type: file
+      register: conventions_ansible_role_files
+
+    - name: Read Ansible role files
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      loop: "{{ conventions_ansible_role_files.files }}"
+      loop_control:
+        label: "{{ item.path | regex_replace('^' + conventions_repo_root + '/', '') }}"
+      register: conventions_ansible_role_file_contents
+
+    - name: Assert role files do not invoke kubectl
+      ansible.builtin.assert:
+        that:
+          - "'kubectl' not in (item.content | b64decode)"
+        fail_msg: "Ansible role file still invokes kubectl: {{ item.source }}"
+      loop: "{{ conventions_ansible_role_file_contents.results }}"
+      loop_control:
+        label: "{{ item.source | regex_replace('^' + conventions_repo_root + '/', '') }}"
+
+    - name: Assert bootstrap release defaults moved into platform role
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible/roles/platform/defaults/main.yml"
+      register: conventions_platform_defaults
+
+    - name: Validate platform release ordering in role defaults
+      ansible.builtin.assert:
+        that:
+          - "'platform_bootstrap_releases' in (conventions_platform_defaults.content | b64decode)"
+          - "'nfs-provisioner' in (conventions_platform_defaults.content | b64decode)"
+          - "'argocd' in (conventions_platform_defaults.content | b64decode)"
+
+    - name: Read Argo CD refresh role
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible/roles/argocd/tasks/refresh.yml"
+      register: conventions_argocd_refresh
+
+    - name: Assert named Argo CD refresh checks application existence
+      ansible.builtin.assert:
+        that:
+          - "'Read requested Argo CD application' in (conventions_argocd_refresh.content | b64decode)"
+          - "'Argo CD Application not found' in (conventions_argocd_refresh.content | b64decode)"
+
+    - name: Read k8tz warmup tasks
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible/roles/platform/tasks/k8tz_warmup.yml"
+      register: conventions_k8tz_warmup
+
+    - name: Assert k8tz warmup uses always cleanup
+      ansible.builtin.assert:
+        that:
+          - "'always:' in (conventions_k8tz_warmup.content | b64decode)"
+          - "'Remove k8tz warmup pod' in (conventions_k8tz_warmup.content | b64decode)"
+
+    - name: Read tofu role defaults
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible/roles/tofu/defaults/main.yml"
+      register: conventions_tofu_defaults
+
+    - name: Assert tofu clean preserves wildcard cleanup
+      ansible.builtin.assert:
+        that:
+          - "'tofu_clean_file_patterns' in (conventions_tofu_defaults.content | b64decode)"
+          - "'*.tfplan' in (conventions_tofu_defaults.content | b64decode)"
+          - "'terraform.tfstate*' in (conventions_tofu_defaults.content | b64decode)"

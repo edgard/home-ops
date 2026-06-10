@@ -1,0 +1,71 @@
+---
+- name: Validate Ansible project layout
+  hosts: localhost
+  gather_facts: false
+  vars:
+    layout_repo_root: "{{ playbook_dir }}/../.."
+    layout_required_files:
+      - ansible.cfg
+      - ansible/requirements.yml
+      - ansible/requirements.txt
+      - ansible/inventory/hosts.yml
+      - ansible/inventory/group_vars/all.yml
+      - ansible/roles/argocd/defaults/main.yml
+      - ansible/roles/platform/defaults/main.yml
+      - ansible/roles/talos/defaults/main.yml
+      - ansible/roles/talos/vars/main.yml
+      - ansible/roles/tofu/defaults/main.yml
+      - ansible/roles/talos/files/controlplane-patch.yaml
+      - ansible/roles/talos/tasks/generate.yml
+      - ansible/roles/talos/tasks/apply.yml
+      - ansible/roles/talos/tasks/bootstrap.yml
+      - ansible/roles/talos/tasks/upgrade.yml
+      - ansible/roles/talos/tasks/upgrade_k8s.yml
+      - ansible/roles/talos/tasks/reset.yml
+      - ansible/roles/platform/tasks/bootstrap.yml
+      - ansible/roles/platform/tasks/destroy.yml
+      - ansible/roles/argocd/tasks/refresh.yml
+      - ansible/roles/tofu/tasks/plan.yml
+      - ansible/roles/tofu/tasks/apply.yml
+      - ansible/roles/tofu/tasks/clean.yml
+      - .ansible-lint
+    layout_removed_paths:
+      - ansible/ansible.cfg
+      - ansible/group_vars/all.yml
+      - ansible/inventory/localhost.yml
+      - ansible/roles/talos/vars/upgrade.yml
+      - bootstrap
+      - scripts/talos-cluster.sh
+      - scripts/test-ansible-argo-refresh.sh
+      - scripts/test-ansible-playbooks.sh
+
+  tasks:
+    - name: Check required files
+      ansible.builtin.stat:
+        path: "{{ layout_repo_root }}/{{ item }}"
+      loop: "{{ layout_required_files }}"
+      register: layout_required_file_stats
+
+    - name: Assert required files exist
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+        fail_msg: "Missing required file: {{ item.item }}"
+      loop: "{{ layout_required_file_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Check removed paths
+      ansible.builtin.stat:
+        path: "{{ layout_repo_root }}/{{ item }}"
+      loop: "{{ layout_removed_paths }}"
+      register: layout_removed_path_stats
+
+    - name: Assert obsolete paths are gone
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+        fail_msg: "Obsolete path still exists: {{ item.item }}"
+      loop: "{{ layout_removed_path_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"

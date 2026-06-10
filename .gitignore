@@ -1,9 +1,10 @@
-/.claude
+/.ansible/
 /.envrc
+/.venv/
 /terraform/**/.terraform/
 /terraform/**/.terraform.lock.hcl
 /terraform/**/terraform.tfstate
 /terraform/**/terraform.tfstate.backup
 /terraform/**/*.tfplan
 /terraform/**/.bw-provider-state
-/bootstrap/secrets.yaml
+/ansible/roles/talos/files/secrets.yaml

@@ -1,0 +1,42 @@
+---
+- name: Run platform bootstrap preflight
+  ansible.builtin.import_tasks: preflight.yml
+
+- name: Build bootstrap release specs
+  ansible.builtin.set_fact:
+    platform_bootstrap_release_specs: []
+
+- name: Load bootstrap release specs
+  ansible.builtin.include_tasks: build_release.yml
+  loop: "{{ platform_bootstrap_releases }}"
+  loop_control:
+    loop_var: platform_release
+
+- name: Ensure bootstrap namespaces
+  ansible.builtin.import_tasks: namespaces.yml
+
+- name: Warm bootstrap images
+  ansible.builtin.import_tasks: k8tz_warmup.yml
+
+- name: Install foundational bootstrap releases
+  ansible.builtin.include_tasks: install_release_with_manifests.yml
+  loop: "{{ platform_bootstrap_release_specs | selectattr('phase', 'in', ['storage', 'networking']) | list }}"
+  loop_control:
+    loop_var: platform_release_spec
+    label: "{{ platform_release_spec.name }}"
+
+- name: Install cert-manager bootstrap release
+  ansible.builtin.include_tasks: install_release.yml
+  vars:
+    platform_release_spec: "{{ platform_bootstrap_release_specs | selectattr('phase', 'equalto', 'certificates') | first }}"
+
+- name: Wait for cert-manager resources
+  ansible.builtin.include_tasks: wait_items.yml
+  vars:
+    platform_wait_items: "{{ platform_cert_manager_waits }}"
+
+- name: Bootstrap External Secrets
+  ansible.builtin.import_tasks: external_secrets.yml
+
+- name: Bootstrap Argo CD
+  ansible.builtin.import_tasks: argocd.yml

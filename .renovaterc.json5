@@ -52,7 +52,7 @@
       description: "Upgrade target versions",
       managerFilePatterns: [
         "/^apps\\/platform-system\\/tuppr\\/manifests\\/.*\\.kubernetesupgrade\\.ya?ml$/",
-        "/^bootstrap\\/talos-upgrade\\.ya?ml$/",
+        "/^ansible\\/roles\\/talos\\/vars\\/main\\.ya?ml$/",
       ],
       matchStrings: [
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
@@ -89,7 +89,9 @@
     {
       customType: "regex",
       description: "Talos installer image tag in bootstrap patch",
-      managerFilePatterns: ["/^bootstrap\\/controlplane-patch\\.ya?ml$/"],
+      managerFilePatterns: [
+        "/^ansible\\/roles\\/talos\\/files\\/controlplane-patch\\.ya?ml$/",
+      ],
       matchStrings: [
         "image:\\s*(?<depName>factory\\.talos\\.dev\\/metal-installer\\/[a-z0-9]+):(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[^\\s\"']+)?)",
       ],

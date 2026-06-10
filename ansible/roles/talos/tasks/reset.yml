@@ -1,0 +1,17 @@
+---
+- name: Require Talos node
+  ansible.builtin.assert:
+    that:
+      - talos_node | length > 0
+    fail_msg: TALOS_NODE is required.
+
+- name: Reset Talos node
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - reset
+      - --nodes
+      - "{{ talos_node }}"
+      - --graceful=false
+      - --reboot
+  changed_when: true
