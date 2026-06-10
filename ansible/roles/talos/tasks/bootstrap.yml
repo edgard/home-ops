@@ -7,6 +7,7 @@
     fail_msg: TALOS_NODE and TALOS_CLUSTER_NAME are required.
 
 - name: Wait for Talos API
+  when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl
@@ -20,6 +21,7 @@
   changed_when: false
 
 - name: Bootstrap Talos control plane
+  when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl
@@ -27,10 +29,13 @@
       - --nodes
       - "{{ talos_node }}"
   register: talos_bootstrap_result
-  failed_when: false
+  failed_when:
+    - talos_bootstrap_result.rc != 0
+    - "'already bootstrapped' not in ((talos_bootstrap_result.stdout | default('') + talos_bootstrap_result.stderr | default('')) | lower)"
   changed_when: talos_bootstrap_result.rc == 0
 
 - name: Wait for Talos health
+  when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl
@@ -42,6 +47,7 @@
   changed_when: false
 
 - name: Fetch kubeconfig
+  when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl

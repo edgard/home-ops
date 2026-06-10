@@ -6,7 +6,6 @@
     state: absent
     src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
     wait: true
-  failed_when: false
 
 - name: Remove bootstrap Helm releases
   kubernetes.core.helm:

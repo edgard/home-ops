@@ -83,6 +83,7 @@
           - "'.VENV_DIR}}/bin/ansible-playbook' in (conventions_taskfile.content | b64decode)"
           - "'.ansible/collections' in (conventions_taskfile.content | b64decode)"
           - "'task deps' in (conventions_taskfile.content | b64decode)"
+          - '''-e "k8s_version='' not in (conventions_taskfile.content | b64decode)'
         fail_msg: "Taskfile compatibility wrappers do not meet strict Ansible gate expectations."
 
     - name: Read inventory group vars
@@ -95,6 +96,8 @@
         that:
           - "'ansible_python_interpreter' in (conventions_inventory_vars.content | b64decode)"
           - "'.venv/bin/python' in (conventions_inventory_vars.content | b64decode)"
+          - "'k8s_version' in (conventions_inventory_vars.content | b64decode)"
+          - "'K8S_VERSION' in (conventions_inventory_vars.content | b64decode)"
 
     - name: Find Ansible task files
       ansible.builtin.find:
@@ -159,6 +162,63 @@
         that:
           - "'always:' in (conventions_k8tz_warmup.content | b64decode)"
           - "'Remove k8tz warmup pod' in (conventions_k8tz_warmup.content | b64decode)"
+
+    - name: Read Talos generate tasks
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible/roles/talos/tasks/generate.yml"
+      register: conventions_talos_generate
+
+    - name: Assert Talos generate cleans all temporary files in always
+      ansible.builtin.assert:
+        that:
+          - "'always:' in (conventions_talos_generate.content | b64decode)"
+          - "'    - name: Remove temporary Talos secrets file' in (conventions_talos_generate.content | b64decode)"
+          - "'    - name: Remove temporary Talos output directory' in (conventions_talos_generate.content | b64decode)"
+
+    - name: Read platform wait condition tasks
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible/roles/platform/tasks/wait_condition.yml"
+      register: conventions_platform_wait_condition
+
+    - name: Assert platform waits use Kubernetes module-native waiting
+      ansible.builtin.assert:
+        that:
+          - "'wait: true' in (conventions_platform_wait_condition.content | b64decode)"
+          - "'wait_condition:' in (conventions_platform_wait_condition.content | b64decode)"
+          - "'wait_sleep:' in (conventions_platform_wait_condition.content | b64decode)"
+          - "'wait_timeout:' in (conventions_platform_wait_condition.content | b64decode)"
+          - "'until:' not in (conventions_platform_wait_condition.content | b64decode)"
+
+    - name: Read platform destroy tasks
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible/roles/platform/tasks/destroy.yml"
+      register: conventions_platform_destroy
+
+    - name: Assert platform destroy does not hide root application deletion failures
+      ansible.builtin.assert:
+        that:
+          - "'failed_when: false' not in (conventions_platform_destroy.content | b64decode)"
+
+    - name: Read Talos command task files
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/{{ item }}"
+      loop:
+        - ansible/roles/talos/tasks/apply.yml
+        - ansible/roles/talos/tasks/bootstrap.yml
+        - ansible/roles/talos/tasks/generate.yml
+        - ansible/roles/talos/tasks/reset.yml
+        - ansible/roles/talos/tasks/upgrade.yml
+        - ansible/roles/talos/tasks/upgrade_k8s.yml
+      register: conventions_talos_command_task_files
+
+    - name: Assert Talos side-effecting tasks support check mode
+      ansible.builtin.assert:
+        that:
+          - "'ansible_check_mode' in (item.content | b64decode)"
+        fail_msg: "Talos side-effecting task file lacks check-mode guards: {{ item.item }}"
+      loop: "{{ conventions_talos_command_task_files.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
     - name: Read tofu role defaults
       ansible.builtin.slurp:

@@ -8,3 +8,4 @@ kube_context: "{{ lookup('env', 'KUBE_CONTEXT') | default('admin@' + talos_clust
 talos_cluster_name: "{{ lookup('env', 'TALOS_CLUSTER_NAME') | default('homelab', true) }}"
 talos_install_disk: "{{ lookup('env', 'TALOS_INSTALL_DISK') }}"
 talos_node: "{{ lookup('env', 'TALOS_NODE') }}"
+k8s_version: "{{ lookup('env', 'K8S_VERSION') }}"

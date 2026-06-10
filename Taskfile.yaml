@@ -195,7 +195,7 @@ tasks:
         - TALOS_NODE
         - K8S_VERSION
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-upgrade-k8s.yml -e "k8s_version={{.K8S_VERSION}}"'
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-upgrade-k8s.yml'
 
   # Platform and Argo operations
   platform:create:
