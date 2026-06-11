@@ -3,10 +3,37 @@
   hosts: localhost
   gather_facts: false
   vars:
+    talos_upgrade_repo_root: "{{ playbook_dir }}/../.."
     talos_upgrade_test_mode: true
     talos_node: 192.0.2.10
 
   tasks:
+    - name: Load default Talos upgrade vars
+      ansible.builtin.include_vars:
+        file: "{{ talos_upgrade_repo_root }}/ansible/roles/talos/vars/main.yml"
+        name: talos_upgrade_defaults
+
+    - name: Read Talos control plane patch
+      ansible.builtin.slurp:
+        src: "{{ talos_upgrade_repo_root }}/ansible/roles/talos/files/controlplane-patch.yaml"
+      register: talos_upgrade_controlplane_patch
+
+    - name: Parse Talos control plane patch
+      ansible.builtin.set_fact:
+        talos_upgrade_controlplane_config: "{{ (talos_upgrade_controlplane_patch.content | b64decode | from_yaml_all | list | first) }}"
+
+    - name: Assert default Talos upgrade target matches generated machine config
+      ansible.builtin.assert:
+        that:
+          - >-
+            talos_upgrade_defaults.talos_upgrade.installer.version
+            == (
+              talos_upgrade_controlplane_config.machine.install.image
+              | regex_search(':v[0-9]+\\.[0-9]+\\.[0-9]+$')
+              | regex_replace('^:', '')
+            )
+        fail_msg: "Default Talos upgrade installer must match machine.install.image in the control plane patch."
+
     - name: Include Talos upgrade tasks
       ansible.builtin.include_role:
         name: talos

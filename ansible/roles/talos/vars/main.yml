@@ -3,7 +3,7 @@ talos_upgrade:
   installer:
     repository: ghcr.io/siderolabs/installer
     # renovate: datasource=github-releases depName=siderolabs/talos
-    version: v1.11.3
+    version: v1.13.3
   upgrade:
     rebootMode: default
     timeout: 30m
