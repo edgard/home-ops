@@ -1,0 +1,83 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      app:
+        image:
+          repository: dungfu/twitch-drops-miner
+          tag: 16.dev.8c55d85
+        env:
+          TZ: Europe/Warsaw
+          WEBUI_HOST: 0.0.0.0
+          WEBUI_PORT: "5800"
+        ports:
+          - name: http
+            containerPort: 5800
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 5800
+        protocol: TCP
+        targetPort: http
+
+route:
+  main:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Twitch Drops Miner
+      gethomepage.dev/group: Selfhosted
+      gethomepage.dev/icon: twitch.svg
+      gethomepage.dev/app: twitch-drops-miner
+      gatus.home-operations.com/endpoint: |
+        group: selfhosted
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - twitchdrops.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 5800
+
+persistence:
+  data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 2Gi
+    advancedMounts:
+      main:
+        app:
+          - path: /TwitchDropsMiner/config
+            subPath: config
+          - path: /TwitchDropsMiner/cache
+            subPath: cache
