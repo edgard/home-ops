@@ -1,0 +1,7 @@
+---
+fullnameOverride: metrics-server
+replicas: 1
+updateStrategy:
+  type: Recreate
+args:
+  - --kubelet-insecure-tls
