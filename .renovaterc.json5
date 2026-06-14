@@ -145,6 +145,15 @@
       internalChecksFilter: "strict",
     },
 
+    // Delay OpenTofu CLI updates so setup-opentofu installer metadata can publish
+    {
+      description: "Defer OpenTofu CLI updates",
+      matchDatasources: ["github-releases"],
+      matchPackageNames: ["opentofu/opentofu"],
+      minimumReleaseAge: "7 days",
+      internalChecksFilter: "strict",
+    },
+
     // Automerge: non-major updates (excluding manual review packages)
     {
       description: "Auto-merge non-major updates",

@@ -15,7 +15,7 @@ spec:
       serviceAccountName: k8tz-wait-cert-manager
       containers:
         - name: wait
-          image: alpine/kubectl:1.36.1
+          image: alpine/kubectl:1.36.2
           command:
             - /bin/sh
             - -c
