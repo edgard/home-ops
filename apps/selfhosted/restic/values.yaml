@@ -104,6 +104,8 @@ controllers:
           - homelab
           - --tag
           - appdata
+          - --retry-lock
+          - 30m
           - --verbose
         env:
           RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
@@ -143,9 +145,10 @@ controllers:
               --keep-monthly 12 \
               --keep-yearly 3 \
               --prune \
+              --retry-lock 30m \
               --verbose
             echo "Running check with full data verification..."
-            restic check --read-data --verbose
+            restic check --read-data --retry-lock 30m --verbose
         env:
           RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:

@@ -1,0 +1,63 @@
+---
+- name: Load app drill context
+  ansible.builtin.include_tasks: load_app.yml
+
+- name: Assert app uses restic appdata restore
+  ansible.builtin.assert:
+    that:
+      - backup_app_restore_mode == "restic-appdata"
+      - backup_app_local_pvc_names | length == 1
+      - backup_app_restore_paths | length > 0
+      - not (backup_app_has_name_override | bool)
+      - not (backup_app_has_fullname_override | bool)
+    fail_msg: "App {{ backup_app }} must use dr.restore.mode restic-appdata, define exactly one local PVC, and avoid nameOverride/fullnameOverride to use dr:drill."
+
+- name: Set drill timestamp
+  ansible.builtin.set_fact:
+    backup_restore_timestamp: "{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+
+- name: Build drill job
+  ansible.builtin.include_tasks: build_job.yml
+  vars:
+    backup_job_name: "restic-drill-{{ backup_app_name }}-{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%d%H%M%S') }}"
+    backup_job_component: drill
+    backup_job_volumes:
+      - name: appdata
+        persistentVolumeClaim:
+          claimName: "{{ backup_appdata_claim }}"
+    backup_job_volume_mounts:
+      - name: appdata
+        mountPath: "{{ backup_restore_root }}"
+    backup_job_script: |
+      set -eu
+      DRILL_PATH="{{ backup_restore_root }}/.drill/{{ backup_app_name }}-{{ backup_restore_timestamp }}"
+      trap 'rm -rf "$DRILL_PATH"' EXIT
+      mkdir -p "$DRILL_PATH"
+      for RESTORE_INCLUDE in {% for restore_path in backup_app_restore_paths %}"/data/appdata/{{ restore_path }}" {% endfor %}; do
+        RESTORE_PATH="${RESTORE_INCLUDE#/data/appdata/}"
+        case "$RESTORE_PATH" in
+          /*|*..*) echo "Refusing unsafe drill path: $RESTORE_PATH"; exit 1 ;;
+        esac
+        restic restore "$RESTIC_SNAPSHOT" \
+          --host {{ backup_restic_host }} \
+          --tag {{ backup_restic_tag }} \
+          --exclude-xattr '*' \
+          --include "$RESTORE_INCLUDE" \
+          --target "$DRILL_PATH"
+        RESTORED="$DRILL_PATH/data/appdata/${RESTORE_PATH}"
+        test -d "$RESTORED"
+        find "$RESTORED" -mindepth 1 -print -quit | grep -q .
+      done
+    backup_job_env_extra:
+      - name: RESTIC_SNAPSHOT
+        value: "{{ backup_snapshot }}"
+
+- name: Record drill job
+  ansible.builtin.set_fact:
+    backup_drill_job: "{{ backup_job_definition }}"
+
+- name: Run drill job
+  when: not (backup_test_mode | bool)
+  ansible.builtin.include_tasks: run_job.yml
+  vars:
+    backup_job_definition: "{{ backup_drill_job }}"

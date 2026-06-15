@@ -1,0 +1,9 @@
+---
+- name: Restore all restic appdata from restic
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Restore all appdata
+      ansible.builtin.include_role:
+        name: backup
+        tasks_from: restore_all_appdata

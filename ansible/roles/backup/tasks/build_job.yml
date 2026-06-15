@@ -1,0 +1,47 @@
+---
+- name: Build restic job definition
+  ansible.builtin.set_fact:
+    backup_job_definition:
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: "{{ backup_job_name }}"
+        namespace: "{{ backup_namespace }}"
+      spec:
+        backoffLimit: 0
+        ttlSecondsAfterFinished: "{{ backup_job_ttl_seconds }}"
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: restic
+              app.kubernetes.io/component: "{{ backup_job_component }}"
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: restic
+                image: "{{ backup_restic_image }}"
+                imagePullPolicy: IfNotPresent
+                command:
+                  - /bin/sh
+                  - -c
+                  - "{{ backup_job_script }}"
+                env: >-
+                  {{
+                    [
+                      {
+                        'name': 'RESTIC_PASSWORD',
+                        'valueFrom': {
+                          'secretKeyRef': {
+                            'name': backup_restic_password_secret,
+                            'key': backup_restic_password_key
+                          }
+                        }
+                      },
+                      {
+                        'name': 'RESTIC_REPOSITORY',
+                        'value': backup_restic_repository
+                      }
+                    ] + (backup_job_env_extra | default([]))
+                  }}
+                volumeMounts: "{{ backup_job_volume_mounts | default([]) }}"
+            volumes: "{{ backup_job_volumes | default([]) }}"

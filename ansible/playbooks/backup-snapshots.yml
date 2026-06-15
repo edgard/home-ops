@@ -1,0 +1,9 @@
+---
+- name: List restic backup snapshots
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: List restic snapshots
+      ansible.builtin.include_role:
+        name: backup
+        tasks_from: snapshots

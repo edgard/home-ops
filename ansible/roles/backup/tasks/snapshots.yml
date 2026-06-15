@@ -1,0 +1,17 @@
+---
+- name: Build snapshots job
+  ansible.builtin.include_tasks: build_job.yml
+  vars:
+    backup_job_name: "restic-snapshots-{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%d%H%M%S') }}"
+    backup_job_component: snapshots
+    backup_job_script: |
+      set -eu
+      restic snapshots --host {{ backup_restic_host }} --tag {{ backup_restic_tag }}
+
+- name: Record snapshots job
+  ansible.builtin.set_fact:
+    backup_snapshots_job: "{{ backup_job_definition }}"
+
+- name: Run snapshots job
+  when: not (backup_test_mode | bool)
+  ansible.builtin.include_tasks: run_job.yml

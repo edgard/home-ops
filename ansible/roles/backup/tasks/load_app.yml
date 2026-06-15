@@ -1,0 +1,68 @@
+---
+- name: Require backup app name
+  ansible.builtin.assert:
+    that:
+      - backup_app is defined
+      - backup_app | length > 0
+    fail_msg: backup_app is required.
+
+- name: Find app metadata files
+  ansible.builtin.find:
+    paths: "{{ backup_repo_root }}/apps"
+    patterns:
+      - app.yaml
+    recurse: true
+    file_type: file
+  register: backup_app_metadata_files
+
+- name: Locate app metadata file
+  ansible.builtin.set_fact:
+    backup_app_files: >-
+      {{
+        backup_app_metadata_files.files
+        | map(attribute='path')
+        | select('search', '/' + backup_app + '/app.yaml$')
+        | list
+      }}
+
+- name: Assert app metadata file is unique
+  ansible.builtin.assert:
+    that:
+      - backup_app_files | length == 1
+    fail_msg: "DR app metadata not found or not unique: {{ backup_app }}"
+
+- name: Load app metadata
+  ansible.builtin.include_vars:
+    file: "{{ backup_app_files[0] }}"
+    name: backup_app_metadata
+
+- name: Load app values
+  ansible.builtin.include_vars:
+    file: "{{ backup_app_files[0] | dirname }}/values.yaml"
+    name: backup_app_values
+
+- name: Reset app local PVC inventory
+  ansible.builtin.set_fact:
+    backup_app_local_pvc_names: []
+
+- name: Collect app local PVC persistence entries
+  ansible.builtin.set_fact:
+    backup_app_local_pvc_names: "{{ backup_app_local_pvc_names + [item.key] }}"
+  loop: "{{ backup_app_values.persistence | default({}) | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - (item.value.type | default('persistentVolumeClaim')) == 'persistentVolumeClaim'
+    - (item.value.existingClaim | default('')) == ''
+
+- name: Record app DR context
+  ansible.builtin.set_fact:
+    backup_app_name: "{{ backup_app_files[0] | dirname | basename }}"
+    backup_app_namespace: "{{ backup_app_files[0] | dirname | dirname | basename }}"
+    backup_app_tier: "{{ backup_app_metadata.dr.tier | default('') }}"
+    backup_app_restore_mode: "{{ backup_app_metadata.dr.restore.mode | default('') }}"
+    backup_app_restore_paths:
+      - "{{ backup_app_files[0] | dirname | dirname | basename }}/{{ backup_app_files[0] | dirname | basename }}"
+    backup_app_has_name_override: "{{ backup_app_values.nameOverride is defined }}"
+    backup_app_has_fullname_override: "{{ backup_app_values.fullnameOverride is defined }}"
+    backup_application_name: "{{ backup_app_files[0] | dirname | basename }}"
