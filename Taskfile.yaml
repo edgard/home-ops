@@ -228,6 +228,70 @@ tasks:
     cmds:
       - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/argo-refresh.yml {{if .app}}-e "app={{.app}}"{{end}}'
 
+  # Backup and disaster recovery operations
+  backup:snapshots:
+    desc: List restic appdata backup snapshots
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/backup-snapshots.yml'
+
+  backup:check:
+    desc: Check the local restic backup repository
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/backup-check.yml'
+
+  restore:app:
+    desc: Restore one restic-backed app from a snapshot
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    vars:
+      app: '{{.app | default ""}}'
+      snapshot: '{{.snapshot | default "latest"}}'
+      confirm: '{{.confirm | default ""}}'
+    requires:
+      vars:
+        - app
+        - confirm
+    cmds:
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/restore-app.yml -e "backup_app={{.app}} backup_snapshot={{.snapshot}} backup_confirm={{.confirm}}"'
+
+  restore:all-appdata:
+    desc: Restore all restic-backed appdata apps from a snapshot; requires confirm=RESTORE_ALL
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    vars:
+      snapshot: '{{.snapshot | default "latest"}}'
+      confirm: '{{.confirm | default ""}}'
+    requires:
+      vars:
+        - confirm
+    cmds:
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/restore-all-appdata.yml -e "backup_snapshot={{.snapshot}} backup_confirm={{.confirm}}"'
+
+  dr:drill:
+    desc: Restore one app into a temporary drill path and verify restored content
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    vars:
+      app: '{{.app | default ""}}'
+      snapshot: '{{.snapshot | default "latest"}}'
+    requires:
+      vars:
+        - app
+    cmds:
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/dr-drill.yml -e "backup_app={{.app}} backup_snapshot={{.snapshot}}"'
+
   # Terraform operations
   tf:plan:
     desc: Terraform plan

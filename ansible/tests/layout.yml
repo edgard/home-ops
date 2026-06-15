@@ -11,6 +11,7 @@
       - ansible/inventory/hosts.yml
       - ansible/inventory/group_vars/all.yml
       - ansible/roles/argocd/defaults/main.yml
+      - ansible/roles/backup/defaults/main.yml
       - ansible/roles/platform/defaults/main.yml
       - ansible/roles/talos/defaults/main.yml
       - ansible/roles/talos/vars/main.yml
@@ -25,10 +26,21 @@
       - ansible/roles/platform/tasks/bootstrap.yml
       - ansible/roles/platform/tasks/destroy.yml
       - ansible/roles/argocd/tasks/refresh.yml
+      - ansible/roles/backup/tasks/snapshots.yml
+      - ansible/roles/backup/tasks/check.yml
+      - ansible/roles/backup/tasks/restore_app.yml
+      - ansible/roles/backup/tasks/restore_all_appdata.yml
+      - ansible/roles/backup/tasks/collect_restore_all_app.yml
+      - ansible/roles/backup/tasks/drill.yml
       - ansible/roles/tofu/tasks/plan.yml
       - ansible/roles/tofu/tasks/apply.yml
       - ansible/roles/tofu/tasks/clean.yml
       - .ansible-lint
+      - ansible/playbooks/backup-snapshots.yml
+      - ansible/playbooks/backup-check.yml
+      - ansible/playbooks/restore-app.yml
+      - ansible/playbooks/restore-all-appdata.yml
+      - ansible/playbooks/dr-drill.yml
     layout_removed_paths:
       - ansible/ansible.cfg
       - ansible/group_vars/all.yml
@@ -38,6 +50,9 @@
       - scripts/talos-cluster.sh
       - scripts/test-ansible-argo-refresh.sh
       - scripts/test-ansible-playbooks.sh
+      - ansible/playbooks/backup-create-consistent.yml
+      - ansible/roles/backup/tasks/collect_restore_app.yml
+      - ansible/roles/backup/tasks/create_consistent.yml
 
   tasks:
     - name: Check required files

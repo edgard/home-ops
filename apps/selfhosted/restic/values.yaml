@@ -104,6 +104,8 @@ controllers:
           - homelab
           - --tag
           - appdata
+          - --retry-lock
+          - 30m
           - --verbose
         env:
           RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
@@ -122,7 +124,7 @@ controllers:
   maintenance:
     type: cronjob
     cronjob:
-      schedule: "0 4 * * 1"
+      schedule: "0 5 * * 1"
     pod:
       restartPolicy: OnFailure
     containers:
@@ -143,9 +145,10 @@ controllers:
               --keep-monthly 12 \
               --keep-yearly 3 \
               --prune \
+              --retry-lock 30m \
               --verbose
             echo "Running check with full data verification..."
-            restic check --read-data --verbose
+            restic check --read-data --retry-lock 30m --verbose
         env:
           RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:

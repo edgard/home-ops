@@ -5,3 +5,7 @@ chart:
   version: 5.0.1
 sync:
   wave: "0"
+dr:
+  tier: "standard"
+  restore:
+    mode: "restic-appdata"

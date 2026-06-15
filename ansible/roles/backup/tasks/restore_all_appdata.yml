@@ -1,0 +1,293 @@
+---
+- name: Require destructive bulk restore confirmation
+  ansible.builtin.assert:
+    that:
+      - backup_confirm == "RESTORE_ALL"
+    fail_msg: "Set confirm=RESTORE_ALL to run restore:all-appdata."
+
+- name: Find app metadata files for bulk restore
+  ansible.builtin.find:
+    paths: "{{ backup_repo_root }}/apps"
+    patterns:
+      - app.yaml
+    recurse: true
+    file_type: file
+  register: backup_restore_all_metadata_files
+
+- name: Reset bulk restore app inventory
+  ansible.builtin.set_fact:
+    backup_restore_all_apps: []
+
+- name: Collect restic appdata apps
+  ansible.builtin.include_tasks: collect_restore_all_app.yml
+  loop: "{{ backup_restore_all_metadata_files.files | map(attribute='path') | sort }}"
+  loop_control:
+    loop_var: backup_restore_all_candidate
+    label: "{{ backup_restore_all_candidate | dirname | basename }}"
+
+- name: Record bulk restore paths
+  ansible.builtin.set_fact:
+    backup_restore_all_paths: "{{ backup_restore_all_apps | map(attribute='restore_path') | list }}"
+
+- name: Assert bulk restore has appdata targets
+  ansible.builtin.assert:
+    that:
+      - backup_restore_all_apps | length > 0
+      - backup_restore_all_paths | length == backup_restore_all_apps | length
+    fail_msg: "No restic-appdata apps were found for restore:all-appdata."
+
+- name: Set bulk restore timestamp
+  ansible.builtin.set_fact:
+    backup_restore_timestamp: "{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+
+- name: Reset bulk Argo CD patch lists
+  ansible.builtin.set_fact:
+    backup_restore_all_argocd_pause_patches: []
+    backup_restore_all_argocd_resume_patches: []
+
+- name: Build Argo CD pause and resume patches for bulk restore
+  ansible.builtin.set_fact:
+    backup_restore_all_argocd_pause_patches: "{{ backup_restore_all_argocd_pause_patches + [backup_restore_all_argocd_pause_patch] }}"
+    backup_restore_all_argocd_resume_patches: "{{ backup_restore_all_argocd_resume_patches + [backup_restore_all_argocd_resume_patch] }}"
+  loop: "{{ backup_restore_all_apps }}"
+  loop_control:
+    label: "{{ item.application_name }}"
+  vars:
+    backup_restore_all_argocd_pause_patch:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: "{{ item.application_name }}"
+        namespace: "{{ backup_argocd_namespace }}"
+        annotations:
+          argocd.argoproj.io/skip-reconcile: "true"
+    backup_restore_all_argocd_resume_patch:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: "{{ item.application_name }}"
+        namespace: "{{ backup_argocd_namespace }}"
+        annotations:
+          argocd.argoproj.io/skip-reconcile:
+
+- name: Build bulk restore job
+  ansible.builtin.include_tasks: build_job.yml
+  vars:
+    backup_job_name: "restic-restore-all-appdata-{{ lookup('ansible.builtin.pipe', 'date -u +%Y%m%d%H%M%S') }}"
+    backup_job_component: restore-all-appdata
+    backup_job_volumes:
+      - name: appdata
+        persistentVolumeClaim:
+          claimName: "{{ backup_appdata_claim }}"
+    backup_job_volume_mounts:
+      - name: appdata
+        mountPath: "{{ backup_restore_root }}"
+    backup_job_script: |
+      set -eu
+      RESTORE_TIMESTAMP="{{ backup_restore_timestamp }}"
+      ARCHIVE_INDEX="{{ backup_restore_staging }}/archive-index"
+
+      restore_rollback() {
+        restore_status=$?
+        if [ "$restore_status" -ne 0 ] && [ -f "$ARCHIVE_INDEX" ]; then
+          while IFS='|' read -r restore_target restore_archive; do
+            if [ -n "$restore_target" ] && [ ! -e "$restore_target" ] && [ -e "$restore_archive" ]; then
+              mv "$restore_archive" "$restore_target"
+            fi
+          done < "$ARCHIVE_INDEX"
+        fi
+        exit "$restore_status"
+      }
+      trap restore_rollback EXIT
+
+      rm -rf {{ backup_restore_staging }}
+      mkdir -p {{ backup_restore_staging }}
+      : > "$ARCHIVE_INDEX"
+
+      for RESTORE_INCLUDE in {% for restore_path in backup_restore_all_paths %}"/data/appdata/{{ restore_path }}" {% endfor %}; do
+        RESTORE_PATH="${RESTORE_INCLUDE#/data/appdata/}"
+        case "$RESTORE_PATH" in
+          /*|*..*) echo "Refusing unsafe restore path: $RESTORE_PATH"; exit 1 ;;
+        esac
+
+        restic restore "$RESTIC_SNAPSHOT" \
+          --host {{ backup_restic_host }} \
+          --tag {{ backup_restic_tag }} \
+          --include "$RESTORE_INCLUDE" \
+          --target {{ backup_restore_staging }}
+
+        STAGED="{{ backup_restore_staging }}/data/appdata/${RESTORE_PATH}"
+        test -d "$STAGED"
+        find "$STAGED" -mindepth 1 -print -quit | grep -q .
+      done
+
+      for RESTORE_PATH in {% for restore_path in backup_restore_all_paths %}"{{ restore_path }}" {% endfor %}; do
+        STAGED="{{ backup_restore_staging }}/data/appdata/${RESTORE_PATH}"
+        TARGET="{{ backup_restore_root }}/${RESTORE_PATH}"
+        SAFE_PATH="$(printf '%s' "$RESTORE_PATH" | tr '/' '-')"
+        ARCHIVE="{{ backup_restore_root }}/.pre-restore/all-${RESTORE_TIMESTAMP}-${SAFE_PATH}"
+
+        mkdir -p "$(dirname "$TARGET")"
+        if [ -e "$TARGET" ]; then
+          mkdir -p "$(dirname "$ARCHIVE")"
+          mv "$TARGET" "$ARCHIVE"
+          printf '%s|%s\n' "$TARGET" "$ARCHIVE" >> "$ARCHIVE_INDEX"
+        fi
+        mv "$STAGED" "$TARGET"
+      done
+      rm -rf {{ backup_restore_staging }}
+    backup_job_env_extra:
+      - name: RESTIC_SNAPSHOT
+        value: "{{ backup_snapshot }}"
+
+- name: Record bulk restore job
+  ansible.builtin.set_fact:
+    backup_restore_all_job: "{{ backup_job_definition }}"
+
+- name: Run bulk appdata restore
+  when: not (backup_test_mode | bool)
+  block:
+    - name: Pause Argo CD reconciliation for appdata apps
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: patched
+        definition: "{{ item }}"
+      loop: "{{ backup_restore_all_argocd_pause_patches }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+
+    - name: Read app Deployments
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ item.namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/instance={{ item.app_name }}"
+      loop: "{{ backup_restore_all_apps }}"
+      loop_control:
+        label: "{{ item.namespace }}/{{ item.app_name }}"
+      register: backup_restore_all_deployment_results
+
+    - name: Read app CronJobs
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: batch/v1
+        kind: CronJob
+        namespace: "{{ item.namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/instance={{ item.app_name }}"
+      loop: "{{ backup_restore_all_apps }}"
+      loop_control:
+        label: "{{ item.namespace }}/{{ item.app_name }}"
+      register: backup_restore_all_cronjob_results
+
+    - name: Record bulk restore workload state
+      ansible.builtin.set_fact:
+        backup_restore_all_original_deployments: "{{ backup_restore_all_deployment_results.results | map(attribute='resources') | flatten }}"
+        backup_restore_all_original_cronjobs: "{{ backup_restore_all_cronjob_results.results | map(attribute='resources') | flatten }}"
+
+    - name: Scale appdata Deployments down
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: patched
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ item.metadata.name }}"
+            namespace: "{{ item.metadata.namespace }}"
+          spec:
+            replicas: 0
+      loop: "{{ backup_restore_all_original_deployments }}"
+      loop_control:
+        label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+
+    - name: Suspend appdata CronJobs
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: patched
+        definition:
+          apiVersion: batch/v1
+          kind: CronJob
+          metadata:
+            name: "{{ item.metadata.name }}"
+            namespace: "{{ item.metadata.namespace }}"
+          spec:
+            suspend: true
+      loop: "{{ backup_restore_all_original_cronjobs }}"
+      loop_control:
+        label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+
+    - name: Run bulk restore job
+      ansible.builtin.include_tasks: run_job.yml
+      vars:
+        backup_job_definition: "{{ backup_restore_all_job }}"
+  always:
+    - name: Restore appdata Deployment replicas
+      when: backup_restore_all_original_deployments is defined
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: patched
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: "{{ item.metadata.name }}"
+            namespace: "{{ item.metadata.namespace }}"
+          spec:
+            replicas: "{{ item.spec.replicas | default(1) }}"
+      loop: "{{ backup_restore_all_original_deployments | default([]) }}"
+      loop_control:
+        label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+
+    - name: Restore appdata CronJob suspend state
+      when: backup_restore_all_original_cronjobs is defined
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: patched
+        definition:
+          apiVersion: batch/v1
+          kind: CronJob
+          metadata:
+            name: "{{ item.metadata.name }}"
+            namespace: "{{ item.metadata.namespace }}"
+          spec:
+            suspend: "{{ item.spec.suspend | default(false) }}"
+      loop: "{{ backup_restore_all_original_cronjobs | default([]) }}"
+      loop_control:
+        label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+
+    - name: Resume Argo CD reconciliation for appdata apps
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: patched
+        definition: "{{ item }}"
+      loop: "{{ backup_restore_all_argocd_resume_patches | default([]) }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+
+    - name: Refresh restored Argo CD applications
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: patched
+        definition:
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: "{{ item.application_name }}"
+            namespace: "{{ backup_argocd_namespace }}"
+            annotations:
+              argocd.argoproj.io/refresh: hard
+      loop: "{{ backup_restore_all_apps | default([]) }}"
+      loop_control:
+        label: "{{ item.application_name }}"

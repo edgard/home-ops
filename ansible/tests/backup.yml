@@ -1,0 +1,235 @@
+---
+- name: Validate backup and restore role contracts
+  hosts: localhost
+  gather_facts: false
+  vars:
+    backup_test_common:
+      backup_test_mode: true
+      backup_repo_root: "{{ playbook_dir }}/../.."
+    backup_operator_surface_files:
+      - Taskfile.yaml
+      - README.md
+      - docs/dr/restore.md
+      - docs/dr/drill.md
+    backup_role_contract_files:
+      - ansible/roles/backup/tasks/run_job.yml
+
+  tasks:
+    - name: Read backup operator surface files
+      ansible.builtin.slurp:
+        src: "{{ backup_test_common.backup_repo_root }}/{{ item }}"
+      loop: "{{ backup_operator_surface_files }}"
+      register: backup_operator_surface_file_contents
+
+    - name: Assert consistent backup command is not exposed
+      ansible.builtin.assert:
+        that:
+          - "'backup:create-consistent' not in (item.content | b64decode)"
+          - "'backup-create-consistent' not in (item.content | b64decode)"
+          - "'create_consistent' not in (item.content | b64decode)"
+        fail_msg: "Consistent backup command is still exposed in {{ item.item }}"
+      loop: "{{ backup_operator_surface_file_contents.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Assert drill evidence log is not required
+      ansible.builtin.assert:
+        that:
+          - "'Evidence Log' not in (item.content | b64decode)"
+          - "'Record the result' not in (item.content | b64decode)"
+          - "'record date' not in ((item.content | b64decode) | lower)"
+        fail_msg: "DR drill docs still require recording drill evidence in {{ item.item }}"
+      loop: "{{ backup_operator_surface_file_contents.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Assert restore all appdata command is exposed
+      ansible.builtin.assert:
+        that:
+          - "'restore:all-appdata' in (backup_operator_surface_file_contents.results | selectattr('item', 'equalto', 'Taskfile.yaml') | first).content | b64decode"
+          - "'restore-all-appdata.yml' in (backup_operator_surface_file_contents.results | selectattr('item', 'equalto', 'Taskfile.yaml') | first).content | b64decode"
+          - "'RESTORE_ALL' in (backup_operator_surface_file_contents.results | selectattr('item', 'equalto', 'Taskfile.yaml') | first).content | b64decode"
+          - "'restore:all-appdata' in (backup_operator_surface_file_contents.results | selectattr('item', 'equalto', 'README.md') | first).content | b64decode"
+          - "'restore:all-appdata' in (backup_operator_surface_file_contents.results | selectattr('item', 'equalto', 'docs/dr/restore.md') | first).content | b64decode"
+        fail_msg: "Bulk appdata restore command is not exposed in the operator docs."
+
+    - name: Read backup role contract files
+      ansible.builtin.slurp:
+        src: "{{ backup_test_common.backup_repo_root }}/{{ item }}"
+      loop: "{{ backup_role_contract_files }}"
+      register: backup_role_contract_file_contents
+
+    - name: Assert restic jobs fail fast and expose logs
+      ansible.builtin.assert:
+        that:
+          - "'Failed' in (item.content | b64decode)"
+          - "'backup_job_succeeded' in (item.content | b64decode)"
+          - "'backup_job_failed' in (item.content | b64decode)"
+          - "'failed_when' in (item.content | b64decode)"
+        fail_msg: "Restic job runner does not explicitly handle failed Jobs in {{ item.item }}"
+      loop: "{{ backup_role_contract_file_contents.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Build generic restic job with extra env
+      ansible.builtin.include_role:
+        name: backup
+        tasks_from: build_job
+      vars:
+        backup_job_name: restic-contract-test
+        backup_job_component: contract-test
+        backup_job_script: "restic version"
+        backup_job_env_extra:
+          - name: TEST_EXTRA
+            value: present
+
+    - name: Assert generic restic job keeps extra env
+      ansible.builtin.assert:
+        that:
+          - backup_job_definition.spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'TEST_EXTRA') | list | length == 1
+
+    - name: Reject unknown restore app
+      block:
+        - name: Try unknown app restore
+          ansible.builtin.include_role:
+            name: backup
+            tasks_from: restore_app
+          vars:
+            backup_app: not-a-real-app
+            backup_confirm: RESTORE
+            backup_snapshot: latest
+            backup_test_mode: "{{ backup_test_common.backup_test_mode }}"
+            backup_repo_root: "{{ backup_test_common.backup_repo_root }}"
+      rescue:
+        - name: Record unknown app rejection
+          ansible.builtin.set_fact:
+            backup_unknown_app_rejected: true
+
+    - name: Assert unknown app was rejected
+      ansible.builtin.assert:
+        that:
+          - backup_unknown_app_rejected | default(false)
+
+    - name: Reject unsupported restore mode
+      block:
+        - name: Try disposable app restore
+          ansible.builtin.include_role:
+            name: backup
+            tasks_from: restore_app
+          vars:
+            backup_app: echo
+            backup_confirm: RESTORE
+            backup_snapshot: latest
+            backup_test_mode: "{{ backup_test_common.backup_test_mode }}"
+            backup_repo_root: "{{ backup_test_common.backup_repo_root }}"
+      rescue:
+        - name: Record unsupported restore rejection
+          ansible.builtin.set_fact:
+            backup_unsupported_app_rejected: true
+
+    - name: Assert unsupported restore mode was rejected
+      ansible.builtin.assert:
+        that:
+          - backup_unsupported_app_rejected | default(false)
+
+    - name: Build restore job for valid app
+      ansible.builtin.include_role:
+        name: backup
+        tasks_from: restore_app
+      vars:
+        backup_app: atuin
+        backup_confirm: RESTORE
+        backup_snapshot: latest
+        backup_test_mode: "{{ backup_test_common.backup_test_mode }}"
+        backup_repo_root: "{{ backup_test_common.backup_repo_root }}"
+
+    - name: Assert restore job contract
+      ansible.builtin.assert:
+        that:
+          - backup_app_metadata.dr.restore.paths is not defined
+          - backup_app_restore_paths == ["selfhosted/atuin"]
+          - backup_restore_job.metadata.namespace == "selfhosted"
+          - backup_restore_job.spec.template.spec.volumes[0].persistentVolumeClaim.claimName == "restic-appdata"
+          - backup_restore_job.spec.template.spec.containers[0].volumeMounts[0].mountPath == "/restore-root/data/appdata"
+          - "'/data/appdata/selfhosted/atuin' in backup_restore_job.spec.template.spec.containers[0].command[2]"
+          - "'--target /restore-staging' in backup_restore_job.spec.template.spec.containers[0].command[2]"
+          - "'/restore-root/data/appdata/selfhosted/atuin' in backup_restore_job.spec.template.spec.containers[0].command[2]"
+          - '''find "$STAGED" -mindepth 1 -print -quit | grep -q .'' in backup_restore_job.spec.template.spec.containers[0].command[2]'
+          - "'restore_rollback' in backup_restore_job.spec.template.spec.containers[0].command[2]"
+          - "'trap restore_rollback EXIT' in backup_restore_job.spec.template.spec.containers[0].command[2]"
+          - backup_restore_job.spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'RESTIC_SNAPSHOT') | list | length == 1
+          - backup_argocd_pause_patch.metadata.annotations["argocd.argoproj.io/skip-reconcile"] == "true"
+          - backup_argocd_resume_patch.metadata.annotations["argocd.argoproj.io/skip-reconcile"] is none
+
+    - name: Reject restore all without bulk confirmation
+      block:
+        - name: Try restore all without confirmation
+          ansible.builtin.include_role:
+            name: backup
+            tasks_from: restore_all_appdata
+          vars:
+            backup_confirm: RESTORE
+            backup_snapshot: latest
+            backup_test_mode: "{{ backup_test_common.backup_test_mode }}"
+            backup_repo_root: "{{ backup_test_common.backup_repo_root }}"
+      rescue:
+        - name: Record restore all confirmation rejection
+          ansible.builtin.set_fact:
+            backup_restore_all_confirmation_rejected: true
+
+    - name: Assert restore all confirmation was rejected
+      ansible.builtin.assert:
+        that:
+          - backup_restore_all_confirmation_rejected | default(false)
+
+    - name: Build restore all appdata job
+      ansible.builtin.include_role:
+        name: backup
+        tasks_from: restore_all_appdata
+      vars:
+        backup_confirm: RESTORE_ALL
+        backup_snapshot: latest
+        backup_test_mode: "{{ backup_test_common.backup_test_mode }}"
+        backup_repo_root: "{{ backup_test_common.backup_repo_root }}"
+
+    - name: Assert restore all appdata job contract
+      ansible.builtin.assert:
+        that:
+          - backup_restore_all_apps | selectattr('app_name', 'equalto', 'atuin') | list | length == 1
+          - backup_restore_all_apps | selectattr('app_name', 'equalto', 'paperless') | list | length == 1
+          - backup_restore_all_apps | selectattr('app_name', 'equalto', 'echo') | list | length == 0
+          - "'selfhosted/atuin' in backup_restore_all_paths"
+          - "'selfhosted/paperless' in backup_restore_all_paths"
+          - "'selfhosted/echo' not in backup_restore_all_paths"
+          - backup_restore_all_job.metadata.namespace == "selfhosted"
+          - backup_restore_all_job.spec.template.spec.volumes[0].persistentVolumeClaim.claimName == "restic-appdata"
+          - backup_restore_all_job.spec.template.spec.containers[0].volumeMounts[0].mountPath == "/restore-root/data/appdata"
+          - "'/data/appdata/selfhosted/atuin' in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
+          - "'/data/appdata/selfhosted/paperless' in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
+          - "'/data/appdata/selfhosted/echo' not in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
+          - "'--target /restore-staging' in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
+          - '''find "$STAGED" -mindepth 1 -print -quit | grep -q .'' in backup_restore_all_job.spec.template.spec.containers[0].command[2]'
+          - "'restore_rollback' in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
+          - "'ARCHIVE_INDEX' in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
+          - backup_restore_all_job.spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'RESTIC_SNAPSHOT') | list | length == 1
+          - backup_restore_all_argocd_pause_patches | selectattr('metadata.name', 'equalto', 'atuin') | list | length == 1
+          - backup_restore_all_argocd_pause_patches | selectattr('metadata.name', 'equalto', 'paperless') | list | length == 1
+          - backup_restore_all_argocd_pause_patches | selectattr('metadata.name', 'equalto', 'echo') | list | length == 0
+
+    - name: Build drill job for valid app
+      ansible.builtin.include_role:
+        name: backup
+        tasks_from: drill
+      vars:
+        backup_app: atuin
+        backup_snapshot: latest
+        backup_test_mode: "{{ backup_test_common.backup_test_mode }}"
+        backup_repo_root: "{{ backup_test_common.backup_repo_root }}"
+
+    - name: Assert drill job derives appdata path
+      ansible.builtin.assert:
+        that:
+          - backup_drill_job.metadata.namespace == "selfhosted"
+          - backup_app_restore_paths == ["selfhosted/atuin"]
+          - "'/data/appdata/selfhosted/atuin' in backup_drill_job.spec.template.spec.containers[0].command[2]"
+          - backup_drill_job.spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'RESTIC_SNAPSHOT') | list | length == 1
