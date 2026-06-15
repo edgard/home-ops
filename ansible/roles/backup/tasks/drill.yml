@@ -41,6 +41,7 @@
         restic restore "$RESTIC_SNAPSHOT" \
           --host {{ backup_restic_host }} \
           --tag {{ backup_restic_tag }} \
+          --exclude-xattr '*' \
           --include "$RESTORE_INCLUDE" \
           --target "$DRILL_PATH"
         RESTORED="$DRILL_PATH/data/appdata/${RESTORE_PATH}"

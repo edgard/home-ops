@@ -113,6 +113,7 @@
         restic restore "$RESTIC_SNAPSHOT" \
           --host {{ backup_restic_host }} \
           --tag {{ backup_restic_tag }} \
+          --exclude-xattr '*' \
           --include "$RESTORE_INCLUDE" \
           --target {{ backup_restore_staging }}
 

@@ -152,6 +152,7 @@
           - backup_restore_job.spec.template.spec.volumes[0].persistentVolumeClaim.claimName == "restic-appdata"
           - backup_restore_job.spec.template.spec.containers[0].volumeMounts[0].mountPath == "/restore-root/data/appdata"
           - "'/data/appdata/selfhosted/atuin' in backup_restore_job.spec.template.spec.containers[0].command[2]"
+          - '"--exclude-xattr ''*''" in backup_restore_job.spec.template.spec.containers[0].command[2]'
           - "'--target /restore-staging' in backup_restore_job.spec.template.spec.containers[0].command[2]"
           - "'/restore-root/data/appdata/selfhosted/atuin' in backup_restore_job.spec.template.spec.containers[0].command[2]"
           - '''find "$STAGED" -mindepth 1 -print -quit | grep -q .'' in backup_restore_job.spec.template.spec.containers[0].command[2]'
@@ -207,6 +208,7 @@
           - "'/data/appdata/selfhosted/atuin' in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
           - "'/data/appdata/selfhosted/paperless' in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
           - "'/data/appdata/selfhosted/echo' not in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
+          - '"--exclude-xattr ''*''" in backup_restore_all_job.spec.template.spec.containers[0].command[2]'
           - "'--target /restore-staging' in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
           - '''find "$STAGED" -mindepth 1 -print -quit | grep -q .'' in backup_restore_all_job.spec.template.spec.containers[0].command[2]'
           - "'restore_rollback' in backup_restore_all_job.spec.template.spec.containers[0].command[2]"
@@ -232,4 +234,5 @@
           - backup_drill_job.metadata.namespace == "selfhosted"
           - backup_app_restore_paths == ["selfhosted/atuin"]
           - "'/data/appdata/selfhosted/atuin' in backup_drill_job.spec.template.spec.containers[0].command[2]"
+          - '"--exclude-xattr ''*''" in backup_drill_job.spec.template.spec.containers[0].command[2]'
           - backup_drill_job.spec.template.spec.containers[0].env | selectattr('name', 'equalto', 'RESTIC_SNAPSHOT') | list | length == 1
