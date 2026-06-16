@@ -2,7 +2,7 @@
 chart:
   repo: oci://ghcr.io/mogenius/helm-charts/renovate-operator
   path: "."
-  version: 4.11.0
+  version: 4.12.1
 sync:
   wave: "-3"
 dr:
