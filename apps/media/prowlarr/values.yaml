@@ -76,3 +76,5 @@ persistence:
     size: 5Gi
     globalMounts:
       - path: /config
+    annotations:
+      k8up.io/backup: "true"

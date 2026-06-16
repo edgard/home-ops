@@ -1,9 +1,0 @@
----
-- name: Check restic backup repository
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Check restic repository
-      ansible.builtin.include_role:
-        name: backup
-        tasks_from: check

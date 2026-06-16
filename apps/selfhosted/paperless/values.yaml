@@ -322,6 +322,8 @@ persistence:
             subPath: export
           - path: /usr/src/paperless/inbox
             subPath: inbox
+    annotations:
+      k8up.io/backup: "true"
   tessdata:
     type: emptyDir
     advancedMounts:

@@ -148,3 +148,5 @@ persistence:
     size: 5Gi
     globalMounts:
       - path: /datastore
+    annotations:
+      k8up.io/backup: "true"

@@ -1,0 +1,4 @@
+---
+serviceAccount:
+  main:
+    enabled: false

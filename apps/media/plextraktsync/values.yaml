@@ -86,6 +86,8 @@ persistence:
     size: 1Gi
     globalMounts:
       - path: /app/config
+    annotations:
+      k8up.io/backup: "true"
   config-file:
     type: configMap
     name: plextraktsync-config

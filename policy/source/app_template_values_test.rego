@@ -40,3 +40,37 @@ test_requires_complete_homepage_annotations if {
   })
   "route.main must define the full gethomepage.dev annotation set in /repo/apps/selfhosted/demo/values.yaml" in deny with input as {"apps": [app], "manifests": [valid_manifest]}
 }
+
+test_requires_k8up_backup_annotation_on_local_pvcs if {
+  app := object.union(valid_app_template, {
+    "local_persistent_volume_claims": [{
+      "name": "data",
+      "backup_annotation": "",
+    }],
+  })
+  "local persistentVolumeClaim data must set k8up.io/backup: \"true\" in /repo/apps/selfhosted/demo/values.yaml" in deny with input as {"apps": [app], "manifests": [valid_manifest]}
+}
+
+test_rejects_k8up_backup_annotation_on_existing_claims if {
+  app := object.union(valid_app_template, {
+    "existing_claim_persistence": [{
+      "name": "media",
+      "backup_annotation": "true",
+    }],
+  })
+  "existingClaim persistence media must not set k8up.io/backup in /repo/apps/selfhosted/demo/values.yaml" in deny with input as {"apps": [app], "manifests": [valid_manifest]}
+}
+
+test_rejects_name_override_on_k8up_backed_apps if {
+  app := object.union(valid_app_template, {
+    "has_name_override": true,
+  })
+  "K8up-backed app-template values must not set nameOverride in /repo/apps/selfhosted/demo/values.yaml" in deny with input as {"apps": [app], "manifests": [valid_manifest]}
+}
+
+test_rejects_fullname_override_on_k8up_backed_apps if {
+  app := object.union(valid_app_template, {
+    "has_fullname_override": true,
+  })
+  "K8up-backed app-template values must not set fullnameOverride in /repo/apps/selfhosted/demo/values.yaml" in deny with input as {"apps": [app], "manifests": [valid_manifest]}
+}

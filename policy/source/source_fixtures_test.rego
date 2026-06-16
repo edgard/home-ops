@@ -7,6 +7,8 @@ valid_app_template := {
   "values_file": "/repo/apps/selfhosted/demo/values.yaml",
   "chart_repo": "oci://ghcr.io/bjw-s-labs/helm/app-template",
   "chart_version": "4.6.2",
+  "has_name_override": false,
+  "has_fullname_override": false,
   "values_top_level_keys": ["defaultPodOptions", "controllers", "service", "route", "persistence"],
   "controller_keys": ["main"],
   "service_keys": ["main"],
@@ -31,6 +33,14 @@ valid_app_template := {
     "gethomepage.dev/app": "demo",
     "gatus.home-operations.com/endpoint": "group: selfhosted\n",
   },
+  "local_persistent_volume_claims": [{
+    "name": "data",
+    "backup_annotation": "true",
+  }],
+  "existing_claim_persistence": [{
+    "name": "media",
+    "backup_annotation": "",
+  }],
   "raw_httproute_manifest_paths": [],
 }
 

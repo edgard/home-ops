@@ -1,0 +1,6 @@
+---
+image:
+  tag: v2.15.0
+k8up:
+  operatorNamespace: platform-system
+  skipWithoutAnnotation: true

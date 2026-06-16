@@ -6,7 +6,6 @@
     conventions_repo_root: "{{ playbook_dir }}/../.."
     conventions_role_files:
       - ansible/roles/argocd/defaults/main.yml
-      - ansible/roles/backup/defaults/main.yml
       - ansible/roles/platform/defaults/main.yml
       - ansible/roles/talos/defaults/main.yml
       - ansible/roles/talos/vars/main.yml
@@ -104,7 +103,6 @@
       ansible.builtin.find:
         paths:
           - "{{ conventions_repo_root }}/ansible/roles/argocd/tasks"
-          - "{{ conventions_repo_root }}/ansible/roles/backup/tasks"
           - "{{ conventions_repo_root }}/ansible/roles/platform/tasks"
           - "{{ conventions_repo_root }}/ansible/roles/talos/tasks"
           - "{{ conventions_repo_root }}/ansible/roles/tofu/tasks"

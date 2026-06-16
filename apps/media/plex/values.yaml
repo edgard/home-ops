@@ -95,6 +95,8 @@ persistence:
     size: 20Gi
     globalMounts:
       - path: /config
+    annotations:
+      k8up.io/backup: "true"
   media:
     type: persistentVolumeClaim
     existingClaim: media

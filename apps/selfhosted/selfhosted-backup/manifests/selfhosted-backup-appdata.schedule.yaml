@@ -1,0 +1,36 @@
+---
+apiVersion: k8up.io/v1
+kind: Schedule
+metadata:
+  name: appdata
+  namespace: selfhosted
+spec:
+  backend:
+    repoPasswordSecretRef:
+      name: k8up-restic-credentials
+      key: RESTIC_PASSWORD
+    rest:
+      url: http://restic.selfhosted.svc.cluster.local:8000/k8up/selfhosted
+      userSecretRef:
+        name: k8up-restic-credentials
+        key: RESTIC_USERNAME
+      passwordSecretReg:
+        name: k8up-restic-credentials
+        key: RESTIC_PASSWORD
+  backup:
+    schedule: "0 3 * * *"
+    failedJobsHistoryLimit: 2
+    successfulJobsHistoryLimit: 2
+  check:
+    schedule: "0 4 * * 1"
+    failedJobsHistoryLimit: 2
+    successfulJobsHistoryLimit: 2
+  prune:
+    schedule: "30 4 * * 1"
+    failedJobsHistoryLimit: 2
+    successfulJobsHistoryLimit: 2
+    retention:
+      keepDaily: 14
+      keepWeekly: 8
+      keepMonthly: 12
+      keepYearly: 3

@@ -83,6 +83,8 @@ persistence:
     size: 10Gi
     globalMounts:
       - path: /config
+    annotations:
+      k8up.io/backup: "true"
   config-main:
     type: configMap
     name: homeassistant-config

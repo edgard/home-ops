@@ -5,7 +5,3 @@ chart:
   version: 1.30.1
 sync:
   wave: "-2"
-dr:
-  tier: "platform"
-  restore:
-    mode: "gitops"

@@ -5,7 +5,3 @@ chart:
   version: 5.0.1
 sync:
   wave: "-3"
-dr:
-  tier: "platform"
-  restore:
-    mode: "external"

@@ -208,3 +208,5 @@ persistence:
         app:
           - path: /meili_data
             subPath: meilisearch
+    annotations:
+      k8up.io/backup: "true"

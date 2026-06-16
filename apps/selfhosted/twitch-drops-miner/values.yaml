@@ -81,3 +81,5 @@ persistence:
             subPath: config
           - path: /TwitchDropsMiner/cache
             subPath: cache
+    annotations:
+      k8up.io/backup: "true"

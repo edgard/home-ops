@@ -67,11 +67,7 @@ task argo:sync                       # Refresh every Argo CD application
 task argo:sync app=plex              # Refresh one Argo CD application
 
 # Backup / DR
-task backup:snapshots                # List local restic appdata snapshots
-task backup:check                    # Check the local restic repository
-task restore:app app=paperless snapshot=latest confirm=RESTORE
-task restore:all-appdata snapshot=latest confirm=RESTORE_ALL
-task dr:drill app=atuin snapshot=latest
+kubectl get snapshots.k8up.io,backups.k8up.io,checks.k8up.io,prunes.k8up.io,restores.k8up.io -n selfhosted
 
 # Vault
 task vault:edit-talos                # Edit encrypted Talos bootstrap secrets

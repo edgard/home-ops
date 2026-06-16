@@ -142,6 +142,42 @@ deny contains msg if {
   msg := sprintf("route.main must define gatus.home-operations.com/endpoint for routed apps in %s", [app.values_file])
 }
 
+deny contains msg if {
+  some app in input.apps
+  is_app_template_chart(app)
+  some pvc in object.get(app, "local_persistent_volume_claims", [])
+  object.get(pvc, "backup_annotation", "") != "true"
+  msg := sprintf("local persistentVolumeClaim %s must set k8up.io/backup: \"true\" in %s", [pvc.name, app.values_file])
+}
+
+deny contains msg if {
+  some app in input.apps
+  is_app_template_chart(app)
+  some claim in object.get(app, "existing_claim_persistence", [])
+  object.get(claim, "backup_annotation", "") != ""
+  msg := sprintf("existingClaim persistence %s must not set k8up.io/backup in %s", [claim.name, app.values_file])
+}
+
+deny contains msg if {
+  some app in input.apps
+  is_app_template_chart(app)
+  count(object.get(app, "local_persistent_volume_claims", [])) > 0
+  object.get(app, "has_name_override", false)
+  msg := sprintf("K8up-backed app-template values must not set nameOverride in %s", [app.values_file])
+}
+
+deny contains msg if {
+  some app in input.apps
+  is_app_template_chart(app)
+  count(object.get(app, "local_persistent_volume_claims", [])) > 0
+  object.get(app, "has_fullname_override", false)
+  msg := sprintf("K8up-backed app-template values must not set fullnameOverride in %s", [app.values_file])
+}
+
+is_app_template_chart(app) if {
+  app.chart_repo == "oci://ghcr.io/bjw-s-labs/helm/app-template"
+}
+
 is_app_template_v4(app) if {
   app.chart_repo == "oci://ghcr.io/bjw-s-labs/helm/app-template"
   app.chart_version == "4.6.2"

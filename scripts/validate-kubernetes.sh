@@ -271,7 +271,6 @@ write_metadata_inventory() {
     local values_file="$app/values.yaml"
     local category="${app#"${apps_root}/"}"
     local app_name chart_repo chart_version chart_name sync_wave
-    local dr_tier dr_restore_mode has_dr_restore_paths
     local local_persistent_volume_claim_count has_existing_claim
     local has_app_file has_values_file has_nonempty_values_file has_name_override has_fullname_override
     local has_ignore_differences ignore_differences_type
@@ -285,9 +284,6 @@ write_metadata_inventory() {
     chart_version=""
     chart_name=""
     sync_wave=""
-    dr_tier=""
-    dr_restore_mode=""
-    has_dr_restore_paths=false
     local_persistent_volume_claim_count=0
     has_existing_claim=false
     has_name_override=false
@@ -301,9 +297,6 @@ write_metadata_inventory() {
       chart_version="$(yq eval '.chart.version // ""' "$app_file")"
       chart_name="$(yq eval '.chart.name // ""' "$app_file")"
       sync_wave="$(yq eval '.sync.wave // ""' "$app_file")"
-      dr_tier="$(yq eval '.dr.tier // ""' "$app_file")"
-      dr_restore_mode="$(yq eval '.dr.restore.mode // ""' "$app_file")"
-      has_dr_restore_paths="$(yq eval '.dr.restore | has("paths")' "$app_file" 2>/dev/null || echo false)"
       has_ignore_differences="$(yq eval 'has("ignoreDifferences")' "$app_file")"
       if [ "$has_ignore_differences" = "true" ]; then
         ignore_differences_type="$(yq eval '.ignoreDifferences | type' "$app_file")"
@@ -338,9 +331,6 @@ write_metadata_inventory() {
     printf '    chart_version: %s\n' "$(yaml_quote "$chart_version")"
     printf '    chart_name: %s\n' "$(yaml_quote "$chart_name")"
     printf '    sync_wave: %s\n' "$(yaml_quote "$sync_wave")"
-    printf '    dr_tier: %s\n' "$(yaml_quote "$dr_tier")"
-    printf '    dr_restore_mode: %s\n' "$(yaml_quote "$dr_restore_mode")"
-    printf '    has_dr_restore_paths: %s\n' "$has_dr_restore_paths"
     printf '    local_persistent_volume_claim_count: %s\n' "$local_persistent_volume_claim_count"
     printf '    has_existing_claim: %s\n' "$has_existing_claim"
     printf '    has_name_override: %s\n' "$has_name_override"
@@ -395,6 +385,8 @@ write_source_app_inventory() {
   printf '    values_file: %s\n' "$(yaml_quote "$values_file")"
   printf '    chart_repo: %s\n' "$(yaml_quote "$repo")"
   printf '    chart_version: %s\n' "$(yaml_quote "$version")"
+  printf '    has_name_override: %s\n' "$(yq eval 'has("nameOverride")' "$values_file" 2>/dev/null || printf 'false')"
+  printf '    has_fullname_override: %s\n' "$(yq eval 'has("fullnameOverride")' "$values_file" 2>/dev/null || printf 'false')"
   write_yaml_list '    values_top_level_keys' "${values_top_level_keys[@]}"
   write_yaml_list '    controller_keys' "${controller_keys[@]}"
   write_yaml_list '    service_keys' "${service_keys[@]}"
@@ -411,6 +403,8 @@ write_source_app_inventory() {
   write_yaml_list '    route_main_hostnames' "${route_main_hostnames[@]}"
   write_yaml_list '    route_main_backend_identifiers' "${route_main_backend_identifiers[@]}"
   printf '    route_main_annotations: %s\n' "$(json_value "$values_file" '.route.main.annotations // {}' '{}')"
+  printf '    local_persistent_volume_claims: %s\n' "$(json_value "$values_file" '.persistence // {} | to_entries | map(select((.value.type // "persistentVolumeClaim") == "persistentVolumeClaim" and ((.value.existingClaim // "") == "")) | {"name": .key, "backup_annotation": (.value.annotations."k8up.io/backup" // "")})' '[]')"
+  printf '    existing_claim_persistence: %s\n' "$(json_value "$values_file" '.persistence // {} | to_entries | map(select((.value.type // "persistentVolumeClaim") == "persistentVolumeClaim" and ((.value.existingClaim // "") != "")) | {"name": .key, "backup_annotation": (.value.annotations."k8up.io/backup" // "")})' '[]')"
   write_yaml_list '    raw_httproute_manifest_paths' "${raw_httproute_manifest_paths[@]}"
 }
 

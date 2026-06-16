@@ -85,3 +85,5 @@ persistence:
     size: 10Gi
     globalMounts:
       - path: /server/volume
+    annotations:
+      k8up.io/backup: "true"

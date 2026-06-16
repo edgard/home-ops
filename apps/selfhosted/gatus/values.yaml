@@ -138,6 +138,8 @@ persistence:
     globalMounts:
       - path: /data
 
+    annotations:
+      k8up.io/backup: "true"
 configMaps:
   base-config:
     data:

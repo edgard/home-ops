@@ -1,9 +1,0 @@
----
-- name: Run app restore drill
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Run restore drill
-      ansible.builtin.include_role:
-        name: backup
-        tasks_from: drill

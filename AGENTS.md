@@ -34,11 +34,11 @@ terraform/               # Cloudflare/Tailscale infra
 ```
 
 **App Categories**:
-- platform-system: cert-manager, external-dns, external-secrets, gateway-api, istio, istio-base, reloader, tailscale-router
+- platform-system: cert-manager, external-dns, external-secrets, gateway-api, istio, istio-base, k8up, reloader, tailscale-router
 - kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner
-- home-automation: homeassistant, scrypted
-- media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
-- selfhosted: atuin, changedetection, echo, gatus, homepage, karakeep, paperless, renovate-operator, restic
+- home-automation: home-automation-backup, homeassistant, scrypted
+- media: bazarr, flaresolverr, media-backup, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
+- selfhosted: atuin, changedetection, echo, gatus, homepage, karakeep, paperless, renovate-operator, restic, selfhosted-backup
 
 ## Conventions
 
