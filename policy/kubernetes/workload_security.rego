@@ -8,6 +8,7 @@ root_run_image_prefixes := [
   "ghcr.io/karakeep-app/karakeep:",
   "ghcr.io/paperless-ngx/paperless-ngx:",
   "icereed/paperless-gpt:",
+  "openthread/border-router:",
   "qmcgaw/gluetun:",
   "restic/rest-server:",
   "restic/restic:",
