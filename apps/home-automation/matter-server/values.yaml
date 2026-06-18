@@ -21,6 +21,13 @@ controllers:
         image:
           repository: ghcr.io/matter-js/python-matter-server
           tag: 8.1.2
+        args:
+          - --storage-path
+          - /data
+          - --paa-root-cert-dir
+          - /data/credentials
+          - --primary-interface
+          - br0
         ports:
           - name: ws
             containerPort: 5580
