@@ -25,6 +25,7 @@ security_context_exempt_image_prefixes := [
   "ghcr.io/koush/scrypted:",
   "ghcr.io/paperless-ngx/paperless-ngx:",
   "icereed/paperless-gpt:",
+  "openthread/border-router:",
   "qmcgaw/gluetun:",
   "restic/rest-server:",
   "restic/restic:",
