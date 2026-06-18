@@ -40,12 +40,7 @@ controllers:
           readiness:
             enabled: true
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            add:
-              - NET_ADMIN
-            drop:
-              - ALL
+          privileged: true
 
 service:
   main:
