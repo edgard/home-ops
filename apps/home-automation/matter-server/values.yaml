@@ -19,15 +19,12 @@ controllers:
     containers:
       app:
         image:
-          repository: ghcr.io/matter-js/python-matter-server
-          tag: 8.1.2
-        args:
-          - --storage-path
-          - /data
-          - --paa-root-cert-dir
-          - /data/credentials
-          - --primary-interface
-          - br0
+          repository: ghcr.io/matter-js/matterjs-server
+          tag: 1.1.0
+        env:
+          PORT: "5580"
+          PRIMARY_INTERFACE: br0
+          STORAGE_PATH: /data
         ports:
           - name: ws
             containerPort: 5580
@@ -35,6 +32,9 @@ controllers:
         probes:
           startup:
             enabled: true
+            spec:
+              failureThreshold: 36
+              periodSeconds: 10
           liveness:
             enabled: true
           readiness:
