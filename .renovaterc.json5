@@ -20,6 +20,14 @@
     ],
   },
 
+  // === GitHub Actions Manager ===
+  "github-actions": {
+    managerFilePatterns: [
+      "/^\\.github\\/workflows\\/[^/]+\\.ya?ml$/",
+      "/^\\.github\\/actions\\/[^/]+\\/action\\.yml$/",
+    ],
+  },
+
   // === Custom Managers ===
   customManagers: [
     // Helm charts in app metadata files (OCI and HTTP repositories)
@@ -62,13 +70,19 @@
     // Tool versions passed as action inputs in CI workflow
     {
       customType: "regex",
-      description: "CI tool versions in GitHub Actions workflow",
-      managerFilePatterns: ["/^\\.github\\/workflows\\/ci\\.ya?ml$/"],
+      description: "CI tool versions in GitHub Actions",
+      managerFilePatterns: [
+        "/^\\.github\\/workflows\\/ci\\.yml$/",
+        "/^\\.github\\/actions\\/setup-toolchain\\/action\\.yml$/",
+      ],
       matchStrings: [
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*tofu_version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*IMAGE_TAG:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*kubeconform-version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*PRETTIER_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*YAMLFMT_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*ACTIONLINT_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
       ],
     },
 
