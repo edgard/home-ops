@@ -1,0 +1,116 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 0
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
+
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      app:
+        image:
+          repository: ghcr.io/garethgeorge/backrest
+          tag: v1.13.0
+        env:
+          BACKREST_CONFIG: /backrest/config/config.json
+          BACKREST_DATA: /backrest/data
+          BACKREST_PORT: 0.0.0.0:9898
+          RESTIC_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+          RESTIC_REST_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+          RESTIC_REST_USERNAME: restic
+          TMPDIR: /backrest/tmp
+          TZ: Europe/Warsaw
+          XDG_CACHE_HOME: /backrest/cache
+        ports:
+          - name: http
+            containerPort: 9898
+        probes:
+          startup:
+            enabled: true
+          liveness:
+            enabled: true
+          readiness:
+            enabled: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 9898
+        targetPort: http
+
+route:
+  main:
+    annotations:
+      gethomepage.dev/enabled: "true"
+      gethomepage.dev/name: Backrest
+      gethomepage.dev/group: Selfhosted
+      gethomepage.dev/icon: backrest.svg
+      gethomepage.dev/app: backrest
+      gatus.home-operations.com/endpoint: |
+        group: selfhosted
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - backrest.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 9898
+
+persistence:
+  data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    globalMounts:
+      - path: /backrest/data
+  config:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    globalMounts:
+      - path: /backrest/config
+  cache:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    globalMounts:
+      - path: /backrest/cache
+  tmp:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    globalMounts:
+      - path: /backrest/tmp
+  appdata:
+    type: persistentVolumeClaim
+    existingClaim: restic-appdata
+    globalMounts:
+      - path: /data/appdata

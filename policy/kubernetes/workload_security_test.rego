@@ -41,6 +41,13 @@ test_linuxserver_images_are_exempt_from_run_as_non_root if {
   count(results) == 0
 }
 
+test_backrest_is_exempt_from_run_as_non_root if {
+  exempt_container := object.union(base_deployment.spec.template.spec.containers[0], {"image": "ghcr.io/garethgeorge/backrest:v1.13.0"})
+  doc := object.union(base_deployment, {"spec": object.union(base_deployment.spec, {"template": {"spec": {"securityContext": {"runAsNonRoot": false}, "containers": [exempt_container]}}})})
+  results := deny with input as doc
+  count(results) == 0
+}
+
 test_tailscale_is_exempt_from_container_security_rules if {
   doc := object.union(base_deployment, {"spec": object.union(base_deployment.spec, {"template": {"spec": {"securityContext": {"runAsNonRoot": false}, "containers": [{
     "name": "tailscale",

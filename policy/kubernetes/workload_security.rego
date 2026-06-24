@@ -3,6 +3,7 @@ package main
 import rego.v1
 
 root_run_image_prefixes := [
+  "ghcr.io/garethgeorge/backrest:",
   "ghcr.io/home-assistant/home-assistant:",
   "ghcr.io/koush/scrypted:",
   "ghcr.io/karakeep-app/karakeep:",
