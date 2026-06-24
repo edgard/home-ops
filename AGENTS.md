@@ -6,13 +6,15 @@ GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 ## Build & Test
 
 - Format: `task fmt`
+- Format check: `task fmt:check`
 - Dependencies: `task deps` creates `.venv` and installs Ansible Python dependencies
-- Lint: `task lint` (offline validation: shellcheck, Ansible syntax/lint, yamllint, metadata policy, raw manifest policy/schema/deprecation checks, batched rendered policy/schema/deprecation checks, `tofu validate`)
+- Lint: `task lint` (offline validation: formatting, shellcheck, yamllint, GitHub Actions workflow lint, Ansible syntax/lint/contracts, metadata policy, raw manifest policy/schema/deprecation checks, batched rendered policy/schema/deprecation checks, `tofu validate`)
+- Focused checks: `task lint:static`, `task lint:workflows`, `task lint:ansible`, `task lint:kubernetes`, `task lint:terraform`
 - Policy layers:
   - `policy/metadata/` validates app metadata structure and required sync waves
   - `policy/kubernetes/` validates manifest and rendered-workload guardrails
 - Policy semantics are regression-tested in `policy/metadata/*_test.rego` and `policy/kubernetes/*_test.rego`
-- CI gate: `task lint`
+- CI gate: GitHub `Quality Gate` job, backed by the same focused local `task lint:*` targets aggregated by `task lint`
 - Pre-commit gate: `task precommit` (`task fmt` + `task lint`)
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
 
@@ -99,7 +101,8 @@ Store: `external-secrets-store`
 - Field order: `apiVersion → kind → metadata → spec`
 - Metadata order: `name → namespace → labels → annotations`
 - Validation split:
-  - `task lint` covers direct repo validation
+  - `task lint` covers direct repo validation and aggregates the focused `lint:*` targets
+  - CI runs the focused targets as separate pull-request jobs and uses `Quality Gate` as the required aggregate check
   - Prefer policy or lint checks when the assertion is about repository content
 - Metadata policy lives under `policy/metadata/` and is enforced via Conftest
 - Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
