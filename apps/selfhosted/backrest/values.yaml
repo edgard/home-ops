@@ -20,7 +20,7 @@ controllers:
           repository: ghcr.io/garethgeorge/backrest
           tag: v1.13.0
         env:
-          BACKREST_CONFIG: /backrest/config/config.json
+          BACKREST_CONFIG: /backrest/config.json
           BACKREST_DATA: /backrest/data
           BACKREST_PORT: 0.0.0.0:9898
           RESTIC_PASSWORD:
@@ -34,7 +34,7 @@ controllers:
                 name: restic-credentials
                 key: RESTIC_PASSWORD
           RESTIC_REST_USERNAME: restic
-          TMPDIR: /backrest/tmp
+          TMPDIR: /backrest
           TZ: Europe/Warsaw
           XDG_CACHE_HOME: /backrest/cache
         ports:
@@ -85,30 +85,12 @@ route:
             port: 9898
 
 persistence:
-  data:
+  state:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
-    size: 5Gi
+    size: 25Gi
     globalMounts:
-      - path: /backrest/data
-  config:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 1Gi
-    globalMounts:
-      - path: /backrest/config
-  cache:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 10Gi
-    globalMounts:
-      - path: /backrest/cache
-  tmp:
-    type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 5Gi
-    globalMounts:
-      - path: /backrest/tmp
+      - path: /backrest
   appdata:
     type: persistentVolumeClaim
     existingClaim: restic-appdata
