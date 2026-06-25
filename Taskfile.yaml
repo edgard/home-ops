@@ -87,18 +87,57 @@ tasks:
       - yamlfmt "**/*.{yaml,yml}"
       - tofu fmt -recursive
 
+  fmt:check:
+    desc: Check formatting without modifying files
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - yamlfmt -lint "**/*.{yaml,yml}"
+      - tofu fmt -check -recursive
+
   lint:
     desc: Run the offline validation checks
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - task: fmt:check
+      - task: lint:static
+      - task: lint:workflows
+      - task: lint:ansible
+      - task: lint:kubernetes
+      - task: lint:terraform
+
+  lint:static:
+    desc: Run static shell and YAML checks
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - shellcheck --severity=warning scripts/*.sh
+      - yamllint -c .yamllint .
+
+  lint:workflows:
+    desc: Validate GitHub Actions workflows
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - find .github/workflows -maxdepth 1 \( -name "*.yml" -o -name "*.yaml" \) -print0 | xargs -0 actionlint
+
+  lint:ansible:
+    desc: Run Ansible syntax, lint, and contract checks
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
     cmds:
-      - shellcheck --severity=warning scripts/*.sh
-      - yamllint -c .yamllint .
       - for playbook in ansible/playbooks/*.yml ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" --syntax-check "$playbook"; done
       - '"{{.ANSIBLE_LINT}}" ansible'
       - for test in ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" "$test"; done
+
+  lint:kubernetes:
+    desc: Run Kubernetes source, policy, schema, and deprecation checks
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
       - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh"'
+
+  lint:terraform:
+    desc: Run backendless OpenTofu validation
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
       - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -upgrade -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
 
   precommit:
