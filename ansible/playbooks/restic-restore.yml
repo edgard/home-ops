@@ -1,0 +1,6 @@
+---
+- name: Restore Kubernetes appdata from shared restic repo
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: restic_restore

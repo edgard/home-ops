@@ -1,0 +1,100 @@
+---
+- name: Record application destination namespace
+  ansible.builtin.set_fact:
+    restic_restore_app_namespace: "{{ restic_restore_application.spec.destination.namespace }}"
+
+- name: Reset application PVC resource keys
+  ansible.builtin.set_fact:
+    restic_restore_app_pvc_resource_keys: []
+
+- name: Collect application PVC resource keys
+  ansible.builtin.set_fact:
+    restic_restore_app_pvc_resource_keys: "{{ restic_restore_app_pvc_resource_keys + [restic_restore_app_pvc_resource_key] }}"
+  vars:
+    restic_restore_app_pvc_resource_namespace: "{{ restic_restore_resource.namespace | default(restic_restore_app_namespace, true) }}"
+    restic_restore_app_pvc_resource_key: "{{ restic_restore_app_pvc_resource_namespace }}/{{ restic_restore_resource.name }}"
+  when: restic_restore_resource.kind == "PersistentVolumeClaim"
+  loop: "{{ restic_restore_application.status.resources | default([]) }}"
+  loop_control:
+    loop_var: restic_restore_resource
+    label: "{{ restic_restore_resource.kind }}/{{ restic_restore_resource.name }}"
+
+- name: Select restorable PVCs
+  ansible.builtin.set_fact:
+    restic_restore_app_pvcs: []
+
+- name: Add restorable appdata PVC
+  ansible.builtin.set_fact:
+    restic_restore_app_pvcs: "{{ restic_restore_app_pvcs + [restic_restore_pvc] }}"
+  vars:
+    restic_restore_pvc_key: "{{ restic_restore_pvc.metadata.namespace }}/{{ restic_restore_pvc.metadata.name }}"
+  when:
+    - restic_restore_pvc_key in restic_restore_app_pvc_resource_keys
+    - restic_restore_pvc.spec.storageClassName | default('') == "nfs-fast"
+    - restic_restore_pvc_key not in restic_restore_excluded_pvcs
+  loop: "{{ restic_restore_source_pvcs }}"
+  loop_control:
+    loop_var: restic_restore_pvc
+    label: "{{ restic_restore_pvc.metadata.namespace }}/{{ restic_restore_pvc.metadata.name }}"
+
+- name: Build PVC key list
+  ansible.builtin.set_fact:
+    restic_restore_app_pvc_full_names: "{{ restic_restore_app_pvcs | map(attribute='metadata.namespace') | zip(restic_restore_app_pvcs | map(attribute='metadata.name')) | map('join', '/') | list }}"
+
+- name: Build PVC path lists
+  ansible.builtin.set_fact:
+    restic_restore_app_pvc_paths: "{{ restic_restore_app_pvc_full_names | map('regex_replace', '^', restic_restore_snapshot_root + '/') | list }}"
+    restic_restore_app_restore_paths: "{{ restic_restore_app_pvc_full_names | map('regex_replace', '^', restic_restore_target_root + restic_restore_snapshot_root + '/') | list }}"
+
+- name: Reset application scalable workload keys
+  ansible.builtin.set_fact:
+    restic_restore_app_workload_keys: []
+
+- name: Collect application scalable workload keys
+  ansible.builtin.set_fact:
+    restic_restore_app_workload_keys: "{{ restic_restore_app_workload_keys + [restic_restore_app_workload_key] }}"
+  vars:
+    restic_restore_app_workload_namespace: "{{ restic_restore_resource.namespace | default(restic_restore_app_namespace, true) }}"
+    restic_restore_app_workload_key: "{{ restic_restore_app_workload_namespace }}/{{ restic_restore_resource.kind }}/{{ restic_restore_resource.name }}"
+  when: restic_restore_resource.kind in ["Deployment", "StatefulSet"]
+  loop: "{{ restic_restore_application.status.resources | default([]) }}"
+  loop_control:
+    loop_var: restic_restore_resource
+    label: "{{ restic_restore_resource.kind }}/{{ restic_restore_resource.name }}"
+
+- name: Select scalable app workloads
+  ansible.builtin.set_fact:
+    restic_restore_app_workloads: []
+
+- name: Add scalable workload for this app
+  ansible.builtin.set_fact:
+    restic_restore_app_workloads: "{{ restic_restore_app_workloads + [restic_restore_workload_ref] }}"
+  vars:
+    restic_restore_workload_key: "{{ restic_restore_workload.metadata.namespace }}/{{ restic_restore_workload.kind }}/{{ restic_restore_workload.metadata.name }}"
+    restic_restore_workload_ref:
+      api_version: apps/v1
+      kind: "{{ restic_restore_workload.kind }}"
+      namespace: "{{ restic_restore_workload.metadata.namespace }}"
+      name: "{{ restic_restore_workload.metadata.name }}"
+      replicas: "{{ (restic_restore_workload.spec.replicas | default(1)) | int }}"
+  when:
+    - restic_restore_workload_key in restic_restore_app_workload_keys
+  loop: "{{ restic_restore_source_workloads }}"
+  loop_control:
+    loop_var: restic_restore_workload
+    label: "{{ restic_restore_workload.metadata.namespace }}/{{ restic_restore_workload.metadata.name }}"
+
+- name: Add app entry to restore plan
+  when: restic_restore_app_pvc_paths | length > 0
+  ansible.builtin.set_fact:
+    restic_restore_plan: "{{ restic_restore_plan + [restic_restore_app_plan_entry] }}"
+  vars:
+    restic_restore_app_plan_entry:
+      app: "{{ restic_restore_application.metadata.name }}"
+      namespace: "{{ restic_restore_app_namespace }}"
+      pvc_paths: "{{ restic_restore_app_pvc_paths }}"
+      restore_paths: "{{ restic_restore_app_restore_paths }}"
+      workloads: "{{ restic_restore_app_workloads | sort(attribute='name') }}"
+      had_sync_policy: "{{ restic_restore_application.spec.syncPolicy is defined }}"
+      sync_policy: "{{ restic_restore_application.spec.syncPolicy | default({}) }}"
+      had_automated_sync: "{{ restic_restore_application.spec.syncPolicy.automated is defined }}"

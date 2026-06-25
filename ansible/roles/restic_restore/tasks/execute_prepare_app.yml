@@ -1,0 +1,45 @@
+---
+- name: Disable Argo CD automated sync for app
+  when: restic_restore_app_plan.had_automated_sync | bool
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: "{{ restic_restore_argocd_namespace }}"
+    name: "{{ restic_restore_app_plan.app }}"
+    patch:
+      - op: remove
+        path: /spec/syncPolicy/automated
+
+- name: Scale app workloads down
+  kubernetes.core.k8s_scale:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace }}"
+    name: "{{ item.name }}"
+    replicas: 0
+    wait: true
+    wait_timeout: 300
+  loop: "{{ restic_restore_app_plan.workloads }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.kind }}/{{ item.name }}"
+
+- name: Validate restore delete paths
+  ansible.builtin.assert:
+    that:
+      - item is match('^/restore/data/appdata/.+')
+    fail_msg: "Refusing unsafe restore path: {{ item }}"
+  loop: "{{ restic_restore_app_plan.restore_paths }}"
+
+- name: Delete current PVC contents
+  kubernetes.core.k8s_exec:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    namespace: "{{ restic_restore_namespace }}"
+    pod: "{{ restic_restore_pod_name }}"
+    command: >-
+      sh -ceu "if [ -d '{{ item }}' ]; then find '{{ item }}' -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; else mkdir -p '{{ item }}'; fi"
+  loop: "{{ restic_restore_app_plan.restore_paths }}"

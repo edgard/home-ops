@@ -1,0 +1,15 @@
+---
+- name: Restore app PVC paths
+  kubernetes.core.k8s_exec:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    namespace: "{{ restic_restore_namespace }}"
+    pod: "{{ restic_restore_pod_name }}"
+    command: >-
+      restic --retry-lock {{ restic_restore_retry_lock }} restore {{ restic_restore_effective_snapshot }}
+      --host {{ restic_restore_snapshot_host }}
+      --tag {{ restic_restore_snapshot_tag }}
+      --path {{ restic_restore_snapshot_path }}
+      {{ restic_restore_app_plan.pvc_paths | map('regex_replace', '^(.*)$', '--include \1') | join(' ') }}
+      --exclude-xattr '*'
+      --target {{ restic_restore_target_root }}

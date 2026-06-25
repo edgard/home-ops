@@ -1,0 +1,30 @@
+---
+- name: Scale app workloads up
+  kubernetes.core.k8s_scale:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace }}"
+    name: "{{ item.name }}"
+    replicas: "{{ item.replicas }}"
+    wait: true
+    wait_timeout: 300
+  loop: "{{ restic_restore_app_plan.workloads }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.kind }}/{{ item.name }}"
+
+- name: Restore original Argo CD sync policy for app
+  when: restic_restore_app_plan.had_sync_policy | bool
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: patched
+    definition:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: "{{ restic_restore_app_plan.app }}"
+        namespace: "{{ restic_restore_argocd_namespace }}"
+      spec:
+        syncPolicy: "{{ restic_restore_app_plan.sync_policy }}"

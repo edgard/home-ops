@@ -7,6 +7,7 @@
     conventions_role_files:
       - ansible/roles/argocd/defaults/main.yml
       - ansible/roles/platform/defaults/main.yml
+      - ansible/roles/restic_restore/defaults/main.yml
       - ansible/roles/talos/defaults/main.yml
       - ansible/roles/talos/vars/main.yml
       - ansible/roles/tofu/defaults/main.yml
@@ -83,6 +84,8 @@
           - "'.VENV_DIR}}/bin/ansible-playbook' in (conventions_taskfile.content | b64decode)"
           - "'.ansible/collections' in (conventions_taskfile.content | b64decode)"
           - "'task deps' in (conventions_taskfile.content | b64decode)"
+          - "'restic:restore:' in (conventions_taskfile.content | b64decode)"
+          - "'restic:restore-all:' in (conventions_taskfile.content | b64decode)"
           - '''-e "k8s_version='' not in (conventions_taskfile.content | b64decode)'
         fail_msg: "Taskfile compatibility wrappers do not meet strict Ansible gate expectations."
 
@@ -104,6 +107,7 @@
         paths:
           - "{{ conventions_repo_root }}/ansible/roles/argocd/tasks"
           - "{{ conventions_repo_root }}/ansible/roles/platform/tasks"
+          - "{{ conventions_repo_root }}/ansible/roles/restic_restore/tasks"
           - "{{ conventions_repo_root }}/ansible/roles/talos/tasks"
           - "{{ conventions_repo_root }}/ansible/roles/tofu/tasks"
         patterns:

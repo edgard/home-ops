@@ -1,0 +1,99 @@
+---
+- name: Normalize restore mode
+  ansible.builtin.assert:
+    that:
+      - restic_restore_mode in ["app", "all"]
+      - restic_restore_mode == "all" or restic_restore_app | length > 0
+    fail_msg: "Use restic_restore_mode=app with restic_restore_app, or restic_restore_mode=all."
+
+- name: Set effective snapshot
+  ansible.builtin.set_fact:
+    restic_restore_effective_snapshot: "{{ restic_restore_snapshot | default('latest', true) }}"
+
+- name: Read Argo CD Applications
+  when: not (restic_restore_test_mode | bool)
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: "{{ restic_restore_argocd_namespace }}"
+  register: restic_restore_live_applications
+
+- name: Read PVCs
+  when: not (restic_restore_test_mode | bool)
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: PersistentVolumeClaim
+  register: restic_restore_live_pvcs
+
+- name: Read Deployments
+  when: not (restic_restore_test_mode | bool)
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: apps/v1
+    kind: Deployment
+  register: restic_restore_live_deployments
+
+- name: Read StatefulSets
+  when: not (restic_restore_test_mode | bool)
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: apps/v1
+    kind: StatefulSet
+  register: restic_restore_live_statefulsets
+
+- name: Normalize source facts
+  ansible.builtin.set_fact:
+    restic_restore_source_applications: "{{ restic_restore_applications if restic_restore_test_mode | bool else restic_restore_live_applications.resources | default([]) }}"
+    restic_restore_source_pvcs: "{{ restic_restore_pvcs if restic_restore_test_mode | bool else restic_restore_live_pvcs.resources | default([]) }}"
+    restic_restore_source_workloads: >-
+      {{
+        restic_restore_workloads
+        if restic_restore_test_mode | bool
+        else (restic_restore_live_deployments.resources | default([])) + (restic_restore_live_statefulsets.resources | default([]))
+      }}
+
+- name: Select restore applications
+  ansible.builtin.set_fact:
+    restic_restore_selected_applications: >-
+      {{
+        restic_restore_source_applications
+        | selectattr('metadata.name', 'defined')
+        | rejectattr('metadata.name', 'in', restic_restore_excluded_apps)
+        | list
+      }}
+
+- name: Restrict selected applications for single app restore
+  when: restic_restore_mode == "app"
+  ansible.builtin.set_fact:
+    restic_restore_selected_applications: "{{ restic_restore_selected_applications | selectattr('metadata.name', 'equalto', restic_restore_app) | list }}"
+
+- name: Assert requested app exists in Argo CD
+  when: restic_restore_mode == "app"
+  ansible.builtin.assert:
+    that:
+      - restic_restore_selected_applications | length == 1
+    fail_msg: "Argo CD Application not found or excluded: {{ restic_restore_app }}"
+
+- name: Reset restore plan
+  ansible.builtin.set_fact:
+    restic_restore_plan: []
+
+- name: Build restore plan entries
+  ansible.builtin.include_tasks: plan_app.yml
+  loop: "{{ restic_restore_selected_applications | sort(attribute='metadata.name') }}"
+  loop_control:
+    loop_var: restic_restore_application
+    label: "{{ restic_restore_application.metadata.name }}"
+
+- name: Assert single app restore has restorable appdata
+  when: restic_restore_mode == "app"
+  ansible.builtin.assert:
+    that:
+      - restic_restore_plan | length == 1
+    fail_msg: "No restorable nfs-fast appdata PVC found for app: {{ restic_restore_app }}"

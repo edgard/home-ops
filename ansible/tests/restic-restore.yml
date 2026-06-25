@@ -1,0 +1,174 @@
+---
+- name: Validate restic restore plan construction
+  hosts: localhost
+  gather_facts: false
+  vars:
+    restic_restore_test_mode: true
+    restic_restore_snapshot: ""
+    restic_restore_applications:
+      - metadata:
+          name: cert-data
+        spec:
+          destination:
+            namespace: platform-system
+        status:
+          resources:
+            - kind: PersistentVolumeClaim
+              namespace: platform-system
+              name: cert-data
+            - kind: Deployment
+              namespace: platform-system
+              name: cert-data
+      - metadata:
+          name: paperless
+        spec:
+          destination:
+            namespace: selfhosted
+        status:
+          resources:
+            - kind: PersistentVolumeClaim
+              namespace: selfhosted
+              name: paperless
+            - kind: Deployment
+              namespace: selfhosted
+              name: paperless-main
+            - kind: Deployment
+              namespace: selfhosted
+              name: paperless-gpt
+      - metadata:
+          name: restic
+        spec:
+          destination:
+            namespace: selfhosted
+        status:
+          resources:
+            - kind: PersistentVolumeClaim
+              namespace: selfhosted
+              name: restic-repo
+      - metadata:
+          name: nfs-provisioner
+        spec:
+          destination:
+            namespace: kube-system
+        status:
+          resources:
+            - kind: PersistentVolumeClaim
+              namespace: media
+              name: media
+    restic_restore_pvcs:
+      - metadata:
+          namespace: platform-system
+          name: cert-data
+        spec:
+          storageClassName: nfs-fast
+      - metadata:
+          namespace: selfhosted
+          name: paperless
+        spec:
+          storageClassName: nfs-fast
+      - metadata:
+          namespace: selfhosted
+          name: restic-repo
+        spec:
+          storageClassName: ""
+      - metadata:
+          namespace: media
+          name: media
+        spec:
+          storageClassName: ""
+    restic_restore_workloads:
+      - kind: Deployment
+        metadata:
+          namespace: platform-system
+          name: cert-data
+        spec:
+          replicas: 1
+          template:
+            spec:
+              volumes:
+                - name: data
+                  persistentVolumeClaim:
+                    claimName: cert-data
+      - kind: Deployment
+        metadata:
+          namespace: selfhosted
+          name: paperless-main
+        spec:
+          replicas: 1
+          template:
+            spec:
+              volumes:
+                - name: data
+                  persistentVolumeClaim:
+                    claimName: paperless
+      - kind: Deployment
+        metadata:
+          namespace: selfhosted
+          name: paperless-gpt
+        spec:
+          replicas: 1
+          template:
+            spec:
+              volumes: []
+
+  tasks:
+    - name: Build single app restore plan
+      ansible.builtin.include_role:
+        name: restic_restore
+      vars:
+        restic_restore_mode: app
+        restic_restore_app: paperless
+
+    - name: Assert single app plan defaults snapshot to latest
+      ansible.builtin.assert:
+        that:
+          - restic_restore_effective_snapshot == "latest"
+          - restic_restore_plan | length == 1
+          - restic_restore_plan[0].app == "paperless"
+          - restic_restore_plan[0].namespace == "selfhosted"
+          - restic_restore_plan[0].pvc_paths == ["/data/appdata/selfhosted/paperless"]
+          - restic_restore_plan[0].restore_paths == ["/restore/data/appdata/selfhosted/paperless"]
+          - 'restic_restore_plan[0].workloads == [{"api_version": "apps/v1", "kind": "Deployment", "namespace": "selfhosted", "name": "paperless-gpt", "replicas": 1}, {"api_version": "apps/v1", "kind": "Deployment", "namespace": "selfhosted", "name": "paperless-main", "replicas": 1}]'
+
+    - name: Build all app restore plan
+      ansible.builtin.include_role:
+        name: restic_restore
+      vars:
+        restic_restore_mode: all
+
+    - name: Assert restore-all includes platform appdata and excludes shared media and restic repo PVCs
+      ansible.builtin.assert:
+        that:
+          - restic_restore_plan | length == 2
+          - restic_restore_plan | map(attribute="app") | sort | list == ["cert-data", "paperless"]
+
+    - name: Read restore execution tasks
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/../roles/restic_restore/tasks/{{ item }}"
+      loop:
+        - execute.yml
+        - execute_prepare_app.yml
+        - execute_restore_app.yml
+        - execute_resume_app.yml
+      register: restic_restore_execution_task_files
+
+    - name: Assert execution uses production restore guardrails
+      ansible.builtin.assert:
+        that:
+          - "'Remove stale restic restore job' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'kubernetes.core.k8s_json_patch' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'--host' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'restic_restore_snapshot_host' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'--tag' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'restic_restore_snapshot_tag' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'--path' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'restic_restore_snapshot_path' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'Read stale restic restore pods' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'Remove stale restic restore pods' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'Assert ApplicationSet exists' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'Prepare planned apps' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'Restore planned app data' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'Resume planned apps' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'block:' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'rescue:' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
+          - "'item.replicas' in (restic_restore_execution_task_files.results | map(attribute='content') | map('b64decode') | join('\n'))"
