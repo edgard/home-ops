@@ -79,17 +79,23 @@ controllers:
           - /bin/sh
           - -c
           - |
-            if ! restic snapshots > /dev/null 2>&1; then
+            if ! restic --retry-lock 30m snapshots > /dev/null 2>&1; then
               echo "Initializing restic repository..."
-              restic init
+              restic --retry-lock 30m init
             fi
         env:
-          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
+          RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
                 name: restic-credentials
                 key: RESTIC_PASSWORD
+          RESTIC_REST_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+          RESTIC_REST_USERNAME: restic
     containers:
       app:
         image:
@@ -98,6 +104,8 @@ controllers:
         securityContext:
           allowPrivilegeEscalation: false
         args:
+          - --retry-lock
+          - 30m
           - backup
           - /data/appdata
           - --host
@@ -106,12 +114,18 @@ controllers:
           - appdata
           - --verbose
         env:
-          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
+          RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
                 name: restic-credentials
                 key: RESTIC_PASSWORD
+          RESTIC_REST_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+          RESTIC_REST_USERNAME: restic
         probes:
           liveness:
             enabled: false
@@ -137,22 +151,31 @@ controllers:
           - -c
           - |
             echo "Running forget with retention policy..."
-            restic forget \
+            restic --retry-lock 30m forget \
+              --group-by host,paths,tags \
               --keep-daily 14 \
               --keep-weekly 8 \
               --keep-monthly 12 \
               --keep-yearly 3 \
               --prune \
               --verbose
-            echo "Running check with full data verification..."
-            restic check --read-data --verbose
+            echo "Running repository metadata check..."
+            restic --retry-lock 30m check --verbose
+            echo "Running partial data verification..."
+            restic --retry-lock 30m check --read-data-subset=10% --verbose
         env:
-          RESTIC_REPOSITORY: rest:http://restic:$(RESTIC_PASSWORD)@restic.selfhosted.svc.cluster.local:8000/
+          RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:
             valueFrom:
               secretKeyRef:
                 name: restic-credentials
                 key: RESTIC_PASSWORD
+          RESTIC_REST_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+          RESTIC_REST_USERNAME: restic
         probes:
           liveness:
             enabled: false
