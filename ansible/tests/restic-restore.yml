@@ -114,7 +114,7 @@
   tasks:
     - name: Build single app restore plan
       ansible.builtin.include_role:
-        name: restic_restore
+        name: restic
       vars:
         restic_restore_mode: app
         restic_restore_app: paperless
@@ -132,7 +132,7 @@
 
     - name: Build all app restore plan
       ansible.builtin.include_role:
-        name: restic_restore
+        name: restic
       vars:
         restic_restore_mode: all
 
@@ -144,7 +144,7 @@
 
     - name: Read restore execution tasks
       ansible.builtin.slurp:
-        src: "{{ playbook_dir }}/../roles/restic_restore/tasks/{{ item }}"
+        src: "{{ playbook_dir }}/../roles/restic/tasks/{{ item }}"
       loop:
         - execute.yml
         - execute_prepare_app.yml
