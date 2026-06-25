@@ -1,0 +1,34 @@
+---
+restic_restore_mode: app
+restic_restore_app: ""
+restic_restore_snapshot: latest
+restic_restore_confirm: false
+restic_restore_argocd_namespace: argocd
+restic_restore_applicationset_name: apps
+restic_restore_namespace: selfhosted
+restic_restore_job_name: restic-restore
+restic_restore_repo_url: rest:http://restic.selfhosted.svc.cluster.local:8000/
+restic_restore_rest_username: restic
+restic_restore_credentials_secret: restic-credentials
+restic_restore_credentials_key: RESTIC_PASSWORD
+restic_restore_image: restic/restic:0.19.0
+restic_restore_snapshot_root: /data/appdata
+restic_restore_snapshot_host: homelab
+restic_restore_snapshot_tag: appdata
+restic_restore_snapshot_path: /data/appdata
+restic_restore_target_root: /restore
+restic_restore_appdata_pvc: restic-appdata
+restic_restore_retry_lock: 30m
+restic_restore_test_mode: false
+restic_restore_excluded_apps:
+  - restic
+  - root
+  - media-backup
+  - selfhosted-backup
+restic_restore_excluded_pvcs:
+  - media/media
+  - selfhosted/restic-repo
+  - selfhosted/restic-appdata
+restic_restore_applications: []
+restic_restore_pvcs: []
+restic_restore_workloads: []

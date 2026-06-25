@@ -1,0 +1,16 @@
+---
+- name: Build restic restore plan
+  ansible.builtin.import_tasks: plan.yml
+
+- name: Stop after plan when restore is not confirmed
+  when:
+    - not (restic_restore_test_mode | bool)
+    - not (restic_restore_confirm | bool)
+  ansible.builtin.debug:
+    var: restic_restore_plan
+
+- name: Execute confirmed restic restore
+  when:
+    - not (restic_restore_test_mode | bool)
+    - restic_restore_confirm | bool
+  ansible.builtin.include_tasks: execute.yml

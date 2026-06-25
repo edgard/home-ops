@@ -267,6 +267,34 @@ tasks:
     cmds:
       - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/argo-refresh.yml {{if .app}}-e "app={{.app}}"{{end}}'
 
+  restic:restore:
+    desc: Plan or run a restic restore for one Argo CD app
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    vars:
+      app: '{{.app | default ""}}'
+      snapshot: '{{.snapshot | default "latest"}}'
+      confirm_restore: '{{.confirm_restore | default "false"}}'
+    requires:
+      vars:
+        - app
+    cmds:
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/restic-restore.yml -e "restic_restore_mode=app" -e "restic_restore_app={{.app}}" -e "restic_restore_snapshot={{.snapshot}}" -e "restic_restore_confirm={{.confirm_restore}}"'
+
+  restic:restore-all:
+    desc: Plan or run a restic restore for all appdata PVCs
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    vars:
+      snapshot: '{{.snapshot | default "latest"}}'
+      confirm_restore: '{{.confirm_restore | default "false"}}'
+    cmds:
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/restic-restore.yml -e "restic_restore_mode=all" -e "restic_restore_snapshot={{.snapshot}}" -e "restic_restore_confirm={{.confirm_restore}}"'
+
   # Terraform operations
   tf:plan:
     desc: Terraform plan
