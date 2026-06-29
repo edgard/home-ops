@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
-
 controllers:
   main:
     annotations:
@@ -55,7 +54,6 @@ controllers:
             add:
               - SETUID
               - SETGID
-
 service:
   main:
     controller: main
@@ -65,18 +63,8 @@ service:
         enabled: true
         port: 32400
         targetPort: 32400
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Plex
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: plex.svg
-      gethomepage.dev/app: plex
-      gatus.home-operations.com/endpoint: |
-        group: media
-        url: https://plex.edgard.org/identity
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -87,7 +75,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 32400
-
 persistence:
   data:
     type: persistentVolumeClaim

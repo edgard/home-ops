@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 1000
     runAsNonRoot: true
     runAsUser: 1000
-
 controllers:
   main:
     type: deployment
@@ -38,7 +37,6 @@ controllers:
               - ALL
             add:
               - NET_BIND_SERVICE
-
 service:
   main:
     controller: main
@@ -49,17 +47,8 @@ service:
         port: 8000
         protocol: TCP
         targetPort: 8000
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Bambuddy
-      gethomepage.dev/group: Selfhosted
-      gethomepage.dev/icon: mdi-printer-3d-nozzle
-      gethomepage.dev/app: bambuddy
-      gatus.home-operations.com/endpoint: |
-        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -70,7 +59,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 8000
-
 persistence:
   logs:
     type: emptyDir

@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
-
 controllers:
   main:
     type: deployment
@@ -256,7 +255,6 @@ controllers:
             enabled: true
           readiness:
             enabled: true
-
 service:
   main:
     controller: main
@@ -284,17 +282,8 @@ service:
     ports:
       redis:
         port: 6379
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Paperless
-      gethomepage.dev/group: Selfhosted
-      gethomepage.dev/icon: paperless-ngx.svg
-      gethomepage.dev/app: paperless
-      gatus.home-operations.com/endpoint: |
-        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -305,7 +294,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 8000
-
 persistence:
   data:
     type: persistentVolumeClaim

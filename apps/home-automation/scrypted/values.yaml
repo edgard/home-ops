@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 0
     runAsUser: 0
     runAsNonRoot: false
-
 controllers:
   main:
     type: deployment
@@ -45,7 +44,6 @@ controllers:
         resources:
           limits: null
           requests: null
-
 service:
   main:
     controller: main
@@ -56,17 +54,8 @@ service:
         port: 11080
         protocol: TCP
         targetPort: 11080
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Scrypted
-      gethomepage.dev/group: Home Automation
-      gethomepage.dev/icon: scrypted.png
-      gethomepage.dev/app: scrypted
-      gatus.home-operations.com/endpoint: |
-        group: home-automation
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -77,7 +66,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 11080
-
 persistence:
   data:
     type: persistentVolumeClaim

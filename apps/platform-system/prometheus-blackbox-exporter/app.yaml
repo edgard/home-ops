@@ -1,0 +1,7 @@
+---
+chart:
+  repo: https://prometheus-community.github.io/helm-charts
+  name: prometheus-blackbox-exporter
+  version: 11.15.0
+sync:
+  wave: "-3"

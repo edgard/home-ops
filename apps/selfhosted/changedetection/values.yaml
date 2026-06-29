@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 1000
     runAsNonRoot: true
     runAsUser: 1000
-
 controllers:
   main:
     annotations:
@@ -109,7 +108,6 @@ controllers:
           capabilities:
             drop:
               - ALL
-
 service:
   main:
     controller: main
@@ -119,17 +117,8 @@ service:
         enabled: true
         port: 5000
         targetPort: http
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Change Detection
-      gethomepage.dev/group: Selfhosted
-      gethomepage.dev/icon: changedetection.svg
-      gethomepage.dev/app: changedetection
-      gatus.home-operations.com/endpoint: |
-        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -140,7 +129,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 5000
-
 persistence:
   data:
     type: persistentVolumeClaim

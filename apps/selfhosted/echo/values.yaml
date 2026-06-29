@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 1000
     runAsNonRoot: true
     runAsUser: 1000
-
 controllers:
   main:
     type: deployment
@@ -32,7 +31,6 @@ controllers:
           capabilities:
             drop:
               - ALL
-
 service:
   main:
     controller: main
@@ -42,17 +40,8 @@ service:
         enabled: true
         port: 8080
         targetPort: 8080
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Echo
-      gethomepage.dev/group: Selfhosted
-      gethomepage.dev/icon: webhook.svg
-      gethomepage.dev/app: echo
-      gatus.home-operations.com/endpoint: |
-        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system

@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
-
 controllers:
   main:
     type: deployment
@@ -43,7 +42,6 @@ controllers:
             enabled: true
         securityContext:
           privileged: true
-
 service:
   main:
     controller: main
@@ -54,17 +52,8 @@ service:
         port: 8123
         protocol: TCP
         targetPort: 8123
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Home Assistant
-      gethomepage.dev/group: Home Automation
-      gethomepage.dev/icon: home-assistant.svg
-      gethomepage.dev/app: homeassistant
-      gatus.home-operations.com/endpoint: |
-        group: home-automation
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -75,7 +64,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 8123
-
 persistence:
   data:
     type: persistentVolumeClaim

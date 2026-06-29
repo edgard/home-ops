@@ -15,6 +15,5 @@ webhook:
 cainjector:
   strategy:
     type: Recreate
-
 prometheus:
-  enabled: false
+  enabled: true

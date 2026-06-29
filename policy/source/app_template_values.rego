@@ -94,54 +94,6 @@ deny contains msg if {
   msg := sprintf("route.main hostnames must stay within *.edgard.org in %s", [app.values_file])
 }
 
-deny contains msg if {
-  some app in input.apps
-  is_app_template_v4(app)
-  count(object.get(app, "route_main_hostnames", [])) > 0
-  object.get(object.get(app, "route_main_annotations", {}), "gethomepage.dev/enabled", "") != "true"
-  msg := sprintf("route.main must define the full gethomepage.dev annotation set in %s", [app.values_file])
-}
-
-deny contains msg if {
-  some app in input.apps
-  is_app_template_v4(app)
-  count(object.get(app, "route_main_hostnames", [])) > 0
-  object.get(object.get(app, "route_main_annotations", {}), "gethomepage.dev/name", "") == ""
-  msg := sprintf("route.main must define the full gethomepage.dev annotation set in %s", [app.values_file])
-}
-
-deny contains msg if {
-  some app in input.apps
-  is_app_template_v4(app)
-  count(object.get(app, "route_main_hostnames", [])) > 0
-  object.get(object.get(app, "route_main_annotations", {}), "gethomepage.dev/group", "") == ""
-  msg := sprintf("route.main must define the full gethomepage.dev annotation set in %s", [app.values_file])
-}
-
-deny contains msg if {
-  some app in input.apps
-  is_app_template_v4(app)
-  count(object.get(app, "route_main_hostnames", [])) > 0
-  object.get(object.get(app, "route_main_annotations", {}), "gethomepage.dev/icon", "") == ""
-  msg := sprintf("route.main must define the full gethomepage.dev annotation set in %s", [app.values_file])
-}
-
-deny contains msg if {
-  some app in input.apps
-  is_app_template_v4(app)
-  count(object.get(app, "route_main_hostnames", [])) > 0
-  object.get(object.get(app, "route_main_annotations", {}), "gethomepage.dev/app", "") == ""
-  msg := sprintf("route.main must define the full gethomepage.dev annotation set in %s", [app.values_file])
-}
-
-deny contains msg if {
-  some app in input.apps
-  is_app_template_v4(app)
-  count(object.get(app, "route_main_hostnames", [])) > 0
-  object.get(object.get(app, "route_main_annotations", {}), "gatus.home-operations.com/endpoint", "") == ""
-  msg := sprintf("route.main must define gatus.home-operations.com/endpoint for routed apps in %s", [app.values_file])
-}
-
 is_app_template_v4(app) if {
   app.chart_repo == "oci://ghcr.io/bjw-s-labs/helm/app-template"
   app.chart_version == "4.6.2"

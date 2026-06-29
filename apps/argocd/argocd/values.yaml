@@ -1,6 +1,5 @@
 ---
 fullnameOverride: argocd
-
 configs:
   secret:
     createSecret: true
@@ -14,37 +13,24 @@ configs:
         - .webhooks[].clientConfig.caBundle
         - .webhooks[].failurePolicy
         - .metadata.generation
-
 dex:
   enabled: false
-
 notifications:
   enabled: false
-
 applicationSet:
   enabled: true
   deploymentAnnotations:
     reloader.stakater.com/auto: "true"
-
 controller:
   statefulsetAnnotations:
     reloader.stakater.com/auto: "true"
-
+  metrics:
+    enabled: true
 server:
   deploymentAnnotations:
     reloader.stakater.com/auto: "true"
   httproute:
     enabled: true
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: ArgoCD
-      gethomepage.dev/group: Platform
-      gethomepage.dev/icon: argo-cd.svg
-      gethomepage.dev/app: argocd-server
-      gethomepage.dev/namespace: argocd
-      gethomepage.dev/pod-selector: app.kubernetes.io/name=argocd-server
-      gatus.home-operations.com/endpoint: |
-        group: argocd
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -56,7 +42,6 @@ server:
           - path:
               type: PathPrefix
               value: /
-
 repoServer:
   deploymentAnnotations:
     reloader.stakater.com/auto: "true"

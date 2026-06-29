@@ -1,0 +1,36 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: prometheus-blackbox-exporter-http
+  namespace: platform-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  interval: 1m
+  scrapeTimeout: 10s
+  module: http_2xx
+  prober:
+    url: prometheus-blackbox-exporter.platform-system.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      labels:
+        group: routed
+      static:
+        - https://argocd.edgard.org
+        - https://grafana.edgard.org
+        - https://homeassistant.edgard.org
+        - https://scrypted.edgard.org
+        - https://bazarr.edgard.org
+        - https://plex.edgard.org/identity
+        - https://prowlarr.edgard.org
+        - https://qbittorrent.edgard.org
+        - https://radarr.edgard.org
+        - https://sonarr.edgard.org
+        - https://atuin.edgard.org
+        - https://bambuddy.edgard.org
+        - https://changedetection.edgard.org
+        - https://echo.edgard.org
+        - https://karakeep.edgard.org
+        - https://paperless.edgard.org
+        - https://twitchdrops.edgard.org

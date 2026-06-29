@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
-
 controllers:
   main:
     type: deployment
@@ -37,7 +36,6 @@ controllers:
             add:
               - SETUID
               - SETGID
-
 service:
   main:
     controller: main
@@ -47,17 +45,8 @@ service:
         enabled: true
         port: 9696
         targetPort: 9696
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Prowlarr
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: prowlarr.svg
-      gethomepage.dev/app: prowlarr
-      gatus.home-operations.com/endpoint: |
-        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -68,7 +57,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 9696
-
 persistence:
   data:
     type: persistentVolumeClaim

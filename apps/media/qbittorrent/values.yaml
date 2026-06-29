@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
-
 controllers:
   main:
     annotations:
@@ -68,7 +67,6 @@ controllers:
           capabilities:
             add:
               - NET_ADMIN
-
 service:
   main:
     controller: main
@@ -90,17 +88,8 @@ service:
         port: 6881
         protocol: UDP
         targetPort: 6881
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: qBittorrent
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: qbittorrent.svg
-      gethomepage.dev/app: qbittorrent
-      gatus.home-operations.com/endpoint: |
-        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -111,7 +100,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 8080
-
 persistence:
   data:
     type: persistentVolumeClaim

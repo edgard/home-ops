@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
-
 controllers:
   main:
     type: deployment
@@ -37,7 +36,6 @@ controllers:
             add:
               - SETUID
               - SETGID
-
 service:
   main:
     controller: main
@@ -47,17 +45,8 @@ service:
         enabled: true
         port: 8989
         targetPort: 8989
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Sonarr
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: sonarr.svg
-      gethomepage.dev/app: sonarr
-      gatus.home-operations.com/endpoint: |
-        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -68,7 +57,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 8989
-
 persistence:
   data:
     type: persistentVolumeClaim

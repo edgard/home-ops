@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 1000
     runAsNonRoot: true
     runAsUser: 1000
-
 controllers:
   main:
     type: deployment
@@ -36,7 +35,6 @@ controllers:
           capabilities:
             drop:
               - ALL
-
 service:
   main:
     controller: main
@@ -47,17 +45,8 @@ service:
         port: 5800
         protocol: TCP
         targetPort: http
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Twitch Drops Miner
-      gethomepage.dev/group: Selfhosted
-      gethomepage.dev/icon: twitch.svg
-      gethomepage.dev/app: twitch-drops-miner
-      gatus.home-operations.com/endpoint: |
-        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -68,7 +57,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 5800
-
 persistence:
   data:
     type: persistentVolumeClaim

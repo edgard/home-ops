@@ -6,7 +6,6 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
-
 controllers:
   main:
     type: deployment
@@ -37,7 +36,6 @@ controllers:
             add:
               - SETUID
               - SETGID
-
 service:
   main:
     controller: main
@@ -47,17 +45,8 @@ service:
         enabled: true
         port: 7878
         targetPort: 7878
-
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Radarr
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: radarr.svg
-      gethomepage.dev/app: radarr
-      gatus.home-operations.com/endpoint: |
-        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system
@@ -68,7 +57,6 @@ route:
       - backendRefs:
           - identifier: main
             port: 7878
-
 persistence:
   data:
     type: persistentVolumeClaim
