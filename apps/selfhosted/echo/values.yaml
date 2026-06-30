@@ -45,14 +45,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Echo
-      gethomepage.dev/group: Selfhosted
-      gethomepage.dev/icon: webhook.svg
-      gethomepage.dev/app: echo
-      gatus.home-operations.com/endpoint: |
-        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system

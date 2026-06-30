@@ -43,7 +43,7 @@ runs:
 
     - name: Set Up OpenTofu
       if: ${{ inputs.profile == 'format' || inputs.profile == 'ansible' || inputs.profile == 'terraform' }}
-      uses: opentofu/setup-opentofu@847eaa4afeb791b06daa46e8eafa8b1b68d7cfb4 # v2.0.1
+      uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
         # renovate: datasource=github-releases depName=opentofu/opentofu
         tofu_version: 1.12.3
@@ -89,7 +89,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=npm depName=prettier
-        PRETTIER_VERSION: 3.9.1
+        PRETTIER_VERSION: 3.9.4
       run: npm install --global "prettier@${PRETTIER_VERSION}"
 
     - name: Install yamlfmt

@@ -93,14 +93,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: qBittorrent
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: qbittorrent.svg
-      gethomepage.dev/app: qbittorrent
-      gatus.home-operations.com/endpoint: |
-        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system

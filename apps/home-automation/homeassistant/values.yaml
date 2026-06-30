@@ -57,14 +57,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Home Assistant
-      gethomepage.dev/group: Home Automation
-      gethomepage.dev/icon: home-assistant.svg
-      gethomepage.dev/app: homeassistant
-      gatus.home-operations.com/endpoint: |
-        group: home-automation
     parentRefs:
       - name: gateway
         namespace: platform-system

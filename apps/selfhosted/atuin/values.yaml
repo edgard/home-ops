@@ -54,14 +54,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Atuin
-      gethomepage.dev/group: Selfhosted
-      gethomepage.dev/icon: atuin.svg
-      gethomepage.dev/app: atuin
-      gatus.home-operations.com/endpoint: |
-        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system

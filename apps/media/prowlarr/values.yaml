@@ -50,14 +50,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Prowlarr
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: prowlarr.svg
-      gethomepage.dev/app: prowlarr
-      gatus.home-operations.com/endpoint: |
-        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system
