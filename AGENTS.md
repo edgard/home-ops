@@ -1,7 +1,8 @@
 # Home Ops
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
-**Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) • Helm • Ansible • Terraform
+**Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) •
+Prometheus/Grafana • Helm • Ansible • Terraform
 
 ## Build & Test
 
@@ -75,6 +76,24 @@ controllers:
 ### Networking
 - HTTPRoute → `gateway.platform-system.https`, hostname: `<app>.edgard.org`
 - Multus LAN IP (media apps): `k8s.v1.cni.cncf.io/networks: [{"name":"multus-lan-bridge","namespace":"kube-system","ips":["192.168.1.X/24"]}]`
+
+### Monitoring
+- `kube-prometheus-stack` is the compact monitoring stack: Prometheus,
+  Grafana, Alertmanager, kube-state-metrics, node-exporter, default dashboards,
+  and Prometheus Operator.
+- Grafana is the operations UI at `grafana.edgard.org`; Homepage and Gatus are
+  intentionally not part of the stack.
+- Alertmanager handles actionable alerts and sends Telegram notifications from
+  Bitwarden-backed `telegram_bot_token` and `telegram_chat_id`.
+- Blackbox Exporter replaces Gatus-style route, DNS, and connectivity checks
+  with `monitoring.coreos.com/v1` `Probe` resources.
+- Use `ServiceMonitor` or `PodMonitor` for in-cluster metrics endpoints. Use
+  `Probe` for user-facing HTTPRoute checks, DNS checks, ICMP, and other
+  blackbox reachability tests.
+- Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
+  annotations to routed apps.
+- Loki and Alloy are out of scope unless a future change explicitly adds log
+  aggregation.
 
 ### Storage
 - `nfs-fast`: `/mnt/spool/appdata` (default)
