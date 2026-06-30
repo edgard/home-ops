@@ -14,29 +14,10 @@ test_requires_main_primary_controller if {
   "app-template values must use controllers.main as the canonical primary controller in /repo/apps/selfhosted/demo/values.yaml" in deny with input as {"apps": [app], "manifests": [valid_manifest]}
 }
 
-test_requires_gatus_sidecar_template_for_routed_apps if {
+test_allows_routed_apps_without_dashboard_annotations if {
   app := object.union(valid_app_template, {
-    "route_main_annotations": {
-      "gethomepage.dev/enabled": "true",
-      "gethomepage.dev/name": "Demo",
-      "gethomepage.dev/group": "Selfhosted",
-      "gethomepage.dev/icon": "demo.svg",
-      "gethomepage.dev/app": "demo",
-      "gatus.home-operations.com/endpoint": "",
-    },
+    "route_main_annotations": {},
   })
-  "route.main must define gatus.home-operations.com/endpoint for routed apps in /repo/apps/selfhosted/demo/values.yaml" in deny with input as {"apps": [app], "manifests": [valid_manifest]}
-}
-
-test_requires_complete_homepage_annotations if {
-  app := object.union(valid_app_template, {
-    "route_main_annotations": {
-      "gethomepage.dev/enabled": "true",
-      "gethomepage.dev/name": "Demo",
-      "gethomepage.dev/group": "Selfhosted",
-      "gethomepage.dev/icon": "",
-      "gethomepage.dev/app": "demo",
-    },
-  })
-  "route.main must define the full gethomepage.dev annotation set in /repo/apps/selfhosted/demo/values.yaml" in deny with input as {"apps": [app], "manifests": [valid_manifest]}
+  results := deny with input as {"apps": [app], "manifests": [valid_manifest]}
+  count(results) == 0
 }

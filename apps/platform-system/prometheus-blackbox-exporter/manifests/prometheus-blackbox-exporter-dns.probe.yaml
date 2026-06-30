@@ -1,0 +1,22 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: prometheus-blackbox-exporter-dns
+  namespace: platform-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  interval: 1m
+  scrapeTimeout: 10s
+  module: dns_edgard_org
+  prober:
+    url: prometheus-blackbox-exporter.platform-system.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      labels:
+        group: dns
+      static:
+        - 8.8.8.8:53
+        - 1.1.1.1:53
+        - 9.9.9.9:53

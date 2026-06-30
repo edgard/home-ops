@@ -50,14 +50,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Radarr
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: radarr.svg
-      gethomepage.dev/app: radarr
-      gatus.home-operations.com/endpoint: |
-        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system

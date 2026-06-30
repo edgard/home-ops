@@ -287,14 +287,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Paperless
-      gethomepage.dev/group: Selfhosted
-      gethomepage.dev/icon: paperless-ngx.svg
-      gethomepage.dev/app: paperless
-      gatus.home-operations.com/endpoint: |
-        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system

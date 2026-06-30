@@ -175,14 +175,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Karakeep
-      gethomepage.dev/group: Selfhosted
-      gethomepage.dev/icon: karakeep.svg
-      gethomepage.dev/app: karakeep
-      gatus.home-operations.com/endpoint: |
-        group: selfhosted
     parentRefs:
       - name: gateway
         namespace: platform-system
