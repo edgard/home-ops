@@ -47,6 +47,9 @@ grafana:
     auth.anonymous:
       enabled: true
       org_role: Viewer
+    plugins:
+      preinstall_auto_update: false
+      preinstall_disabled: true
     server:
       root_url: https://grafana.edgard.org
   persistence:
