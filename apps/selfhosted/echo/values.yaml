@@ -6,6 +6,7 @@ defaultPodOptions:
     runAsGroup: 1000
     runAsNonRoot: true
     runAsUser: 1000
+
 controllers:
   main:
     type: deployment
@@ -31,6 +32,7 @@ controllers:
           capabilities:
             drop:
               - ALL
+
 service:
   main:
     controller: main
@@ -40,6 +42,7 @@ service:
         enabled: true
         port: 8080
         targetPort: 8080
+
 route:
   main:
     parentRefs:

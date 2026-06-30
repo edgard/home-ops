@@ -1,5 +1,6 @@
 ---
 fullnameOverride: argocd
+
 configs:
   secret:
     createSecret: true
@@ -13,19 +14,24 @@ configs:
         - .webhooks[].clientConfig.caBundle
         - .webhooks[].failurePolicy
         - .metadata.generation
+
 dex:
   enabled: false
+
 notifications:
   enabled: false
+
 applicationSet:
   enabled: true
   deploymentAnnotations:
     reloader.stakater.com/auto: "true"
+
 controller:
   statefulsetAnnotations:
     reloader.stakater.com/auto: "true"
   metrics:
     enabled: true
+
 server:
   deploymentAnnotations:
     reloader.stakater.com/auto: "true"
@@ -42,6 +48,7 @@ server:
           - path:
               type: PathPrefix
               value: /
+
 repoServer:
   deploymentAnnotations:
     reloader.stakater.com/auto: "true"

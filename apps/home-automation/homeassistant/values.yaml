@@ -6,6 +6,7 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
+
 controllers:
   main:
     type: deployment
@@ -42,6 +43,7 @@ controllers:
             enabled: true
         securityContext:
           privileged: true
+
 service:
   main:
     controller: main
@@ -52,6 +54,7 @@ service:
         port: 8123
         protocol: TCP
         targetPort: 8123
+
 route:
   main:
     parentRefs:
@@ -64,6 +67,7 @@ route:
       - backendRefs:
           - identifier: main
             port: 8123
+
 persistence:
   data:
     type: persistentVolumeClaim

@@ -6,6 +6,7 @@ defaultPodOptions:
     runAsGroup: 1000
     runAsNonRoot: true
     runAsUser: 1000
+
 controllers:
   main:
     type: deployment
@@ -37,6 +38,7 @@ controllers:
               - ALL
             add:
               - NET_BIND_SERVICE
+
 service:
   main:
     controller: main
@@ -47,6 +49,7 @@ service:
         port: 8000
         protocol: TCP
         targetPort: 8000
+
 route:
   main:
     parentRefs:
@@ -59,6 +62,7 @@ route:
       - backendRefs:
           - identifier: main
             port: 8000
+
 persistence:
   logs:
     type: emptyDir

@@ -6,6 +6,7 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
+
 controllers:
   main:
     type: deployment
@@ -152,6 +153,7 @@ controllers:
           capabilities:
             drop:
               - ALL
+
 service:
   main:
     controller: main
@@ -170,6 +172,7 @@ service:
     ports:
       http:
         port: 7700
+
 route:
   main:
     parentRefs:
@@ -182,6 +185,7 @@ route:
       - backendRefs:
           - identifier: main
             port: 3000
+
 persistence:
   data:
     type: persistentVolumeClaim

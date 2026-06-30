@@ -6,6 +6,7 @@ defaultPodOptions:
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
+
 controllers:
   main:
     type: deployment
@@ -36,6 +37,7 @@ controllers:
             add:
               - SETUID
               - SETGID
+
 service:
   main:
     controller: main
@@ -45,6 +47,7 @@ service:
         enabled: true
         port: 8989
         targetPort: 8989
+
 route:
   main:
     parentRefs:
@@ -57,6 +60,7 @@ route:
       - backendRefs:
           - identifier: main
             port: 8989
+
 persistence:
   data:
     type: persistentVolumeClaim
