@@ -59,14 +59,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Scrypted
-      gethomepage.dev/group: Home Automation
-      gethomepage.dev/icon: scrypted.png
-      gethomepage.dev/app: scrypted
-      gatus.home-operations.com/endpoint: |
-        group: home-automation
     parentRefs:
       - name: gateway
         namespace: platform-system

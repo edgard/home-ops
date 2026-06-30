@@ -68,15 +68,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Plex
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: plex.svg
-      gethomepage.dev/app: plex
-      gatus.home-operations.com/endpoint: |
-        group: media
-        url: https://plex.edgard.org/identity
     parentRefs:
       - name: gateway
         namespace: platform-system

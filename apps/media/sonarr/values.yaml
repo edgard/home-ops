@@ -50,14 +50,6 @@ service:
 
 route:
   main:
-    annotations:
-      gethomepage.dev/enabled: "true"
-      gethomepage.dev/name: Sonarr
-      gethomepage.dev/group: Media
-      gethomepage.dev/icon: sonarr.svg
-      gethomepage.dev/app: sonarr
-      gatus.home-operations.com/endpoint: |
-        group: media
     parentRefs:
       - name: gateway
         namespace: platform-system

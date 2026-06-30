@@ -1,0 +1,149 @@
+---
+defaultRules:
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeProxy: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+
+alertmanager:
+  alertmanagerSpec:
+    configSecret: alertmanager-config
+    podAntiAffinity: ""
+    retention: 120h
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: nfs-fast
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+    useExistingSecret: true
+
+grafana:
+  admin:
+    existingSecret: grafana-credentials
+    userKey: admin-user
+    passwordKey: admin-password
+  defaultDashboardsTimezone: Europe/Warsaw
+  grafana.ini:
+    analytics:
+      check_for_plugin_updates: false
+      check_for_updates: false
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer
+    plugins:
+      preinstall_auto_update: false
+      preinstall_disabled: true
+    server:
+      root_url: https://grafana.edgard.org
+  persistence:
+    enabled: true
+    type: sts
+    storageClassName: nfs-fast
+    accessModes:
+      - ReadWriteOnce
+    size: 5Gi
+  sidecar:
+    dashboards:
+      searchNamespace: ALL
+  serviceMonitor:
+    enabled: true
+
+prometheus:
+  prometheusSpec:
+    podAntiAffinity: ""
+    podMonitorNamespaceSelector: {}
+    podMonitorSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    probeNamespaceSelector: {}
+    probeSelector: {}
+    probeSelectorNilUsesHelmValues: false
+    replicas: 1
+    retention: 30d
+    ruleNamespaceSelector: {}
+    ruleSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelector: {}
+    serviceMonitorSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: nfs-fast
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 50Gi
+
+additionalPrometheusRulesMap:
+  home-ops-actionable:
+    groups:
+      - name: home-ops.actionable
+        rules:
+          - alert: BlackboxProbeFailed
+            expr: probe_success == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "{{ $labels.instance }} is failing blackbox checks"
+              description: "Blackbox probe {{ $labels.job }} for {{ $labels.instance }} has failed for 5 minutes."
+          - alert: NodeFilesystemAlmostFull
+            expr: |
+              (
+                node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs",mountpoint!~"/run.*|/var/lib/kubelet/pods.*"}
+                /
+                node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs",mountpoint!~"/run.*|/var/lib/kubelet/pods.*"}
+              ) < 0.10
+              and on(instance, device, mountpoint)
+              node_filesystem_readonly{fstype!~"tmpfs|fuse.*|overlay|squashfs",mountpoint!~"/run.*|/var/lib/kubelet/pods.*"} == 0
+            for: 15m
+            labels:
+              severity: critical
+            annotations:
+              summary: "{{ $labels.instance }} filesystem is almost full"
+              description: "{{ $labels.mountpoint }} on {{ $labels.instance }} has less than 10% space available."
+          - alert: PodRestartingFrequently
+            expr: increase(kube_pod_container_status_restarts_total{container!="POD"}[15m]) > 3
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "{{ $labels.namespace }}/{{ $labels.pod }} is restarting frequently"
+              description: "Container {{ $labels.container }} restarted more than 3 times in 15 minutes."
+          - alert: CertificateExpiringSoon
+            expr: |
+              (certmanager_certificate_expiration_timestamp_seconds - time()) < 604800
+              and
+              (certmanager_certificate_expiration_timestamp_seconds - time()) > 0
+            for: 30m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} expires soon"
+              description: "Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in less than 7 days."
+          - alert: ArgoCDAppUnhealthy
+            expr: argocd_app_info{health_status!~"Healthy|Progressing"} == 1
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Argo CD app {{ $labels.name }} is {{ $labels.health_status }}"
+              description: "Argo CD reports {{ $labels.name }} in project {{ $labels.project }} as {{ $labels.health_status }}."

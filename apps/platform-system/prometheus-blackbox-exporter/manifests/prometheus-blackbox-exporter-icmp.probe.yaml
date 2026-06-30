@@ -1,0 +1,25 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: prometheus-blackbox-exporter-icmp
+  namespace: platform-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  interval: 1m
+  scrapeTimeout: 10s
+  module: icmp
+  prober:
+    url: prometheus-blackbox-exporter.platform-system.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      labels:
+        group: connectivity
+      static:
+        - www.amazon.com
+        - www.google.com
+        - www.microsoft.com
+        - www.cloudflare.com
+        - www.akamai.com
+        - www.fastly.com
