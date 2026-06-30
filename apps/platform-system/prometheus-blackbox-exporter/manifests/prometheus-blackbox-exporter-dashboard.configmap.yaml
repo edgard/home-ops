@@ -173,7 +173,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "sum(probe_success{group=~\"$group\", instance=~\"$instance\"} == 0)",
+              "expr": "sum(probe_success{group=~\"$group\", instance=~\"$instance\"} == bool 0)",
               "legendFormat": "failing probes",
               "refId": "A"
             }
@@ -389,13 +389,11 @@ data:
                 "indexByName": {
                   "group": 0,
                   "instance": 1,
-                  "target": 2,
-                  "Value": 3
+                  "Value": 2
                 },
                 "renameByName": {
                   "group": "Group",
-                  "instance": "Instance",
-                  "target": "Target"
+                  "instance": "Instance"
                 }
               }
             }
