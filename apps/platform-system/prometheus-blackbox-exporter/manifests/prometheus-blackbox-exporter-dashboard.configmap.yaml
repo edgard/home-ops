@@ -1430,142 +1430,12 @@ data:
           "type": "state-timeline"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": "auto",
-                "cellOptions": {
-                  "type": "auto"
-                },
-                "inspect": false
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "TLS days"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "d"
-                  },
-                  {
-                    "id": "decimals",
-                    "value": 0
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "mode": "basic",
-                      "type": "color-background"
-                    }
-                  },
-                  {
-                    "id": "thresholds",
-                    "value": {
-                      "mode": "absolute",
-                      "steps": [
-                        {
-                          "color": "red",
-                          "value": null
-                        },
-                        {
-                          "color": "orange",
-                          "value": 7
-                        },
-                        {
-                          "color": "green",
-                          "value": 14
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 24,
-            "x": 0,
-            "y": 49
-          },
-          "id": 21,
-          "options": {
-            "cellHeight": "sm",
-            "footer": {
-              "countRows": false,
-              "fields": "",
-              "reducer": [
-                "sum"
-              ],
-              "show": false
-            },
-            "showHeader": true
-          },
-          "pluginVersion": "11.6.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-              },
-              "expr": "(probe_ssl_earliest_cert_expiry{group=\"routed\"} - time()) / 86400",
-              "refId": "A",
-              "format": "table",
-              "instant": true
-            }
-          ],
-          "title": "TLS expiry",
-          "transformations": [
-            {
-              "id": "organize",
-              "options": {
-                "excludeByName": {
-                  "Time": true,
-                  "__name__": true,
-                  "endpoint": true,
-                  "group": true,
-                  "job": true,
-                  "namespace": true,
-                  "pod": true,
-                  "service": true
-                },
-                "indexByName": {
-                  "instance": 0,
-                  "Value": 1
-                },
-                "renameByName": {
-                  "instance": "Target",
-                  "Value": "TLS days"
-                }
-              }
-            }
-          ],
-          "type": "table"
-        },
-        {
           "collapsed": false,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 56
+            "y": 49
           },
           "id": 12,
           "panels": [],
@@ -1717,7 +1587,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 57
+            "y": 50
           },
           "id": 13,
           "options": {
@@ -1867,7 +1737,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 57
+            "y": 50
           },
           "id": 15,
           "options": {
@@ -1907,7 +1777,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 64
+            "y": 57
           },
           "id": 22,
           "panels": [],
@@ -2010,7 +1880,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 65
+            "y": 58
           },
           "id": 14,
           "options": {
@@ -2147,7 +2017,7 @@ data:
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 65
+            "y": 58
           },
           "id": 16,
           "options": {
@@ -2187,7 +2057,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 72
+            "y": 65
           },
           "id": 17,
           "panels": [],
@@ -2254,7 +2124,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 73
+            "y": 66
           },
           "id": 18,
           "options": {
@@ -2348,7 +2218,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 73
+            "y": 66
           },
           "id": 19,
           "options": {
