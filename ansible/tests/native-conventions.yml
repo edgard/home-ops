@@ -11,6 +11,26 @@
       - ansible/roles/talos/defaults/main.yml
       - ansible/roles/talos/vars/main.yml
       - ansible/roles/tofu/defaults/main.yml
+    conventions_observability_warning_alerts:
+      - TargetDown
+      - ConfigReloaderSidecarErrors
+      - AlertmanagerFailedToSendAlerts
+      - PrometheusErrorSendingAlertsToSomeAlertmanagers
+      - PrometheusNotConnectedToAlertmanagers
+      - PrometheusNotificationQueueRunningFull
+      - PrometheusKubernetesListWatchFailures
+      - PrometheusSDRefreshFailure
+      - PrometheusMissingRuleEvaluations
+      - PrometheusTSDBCompactionsFailing
+      - PrometheusTSDBReloadsFailing
+      - PrometheusDuplicateTimestamps
+      - PrometheusOutOfOrderTimestamps
+      - PrometheusLabelLimitHit
+      - PrometheusScrapeSampleLimitHit
+      - PrometheusScrapeBodySizeLimitHit
+      - PrometheusTargetLimitHit
+      - PrometheusNotIngestingSamples
+      - PrometheusOperator.*
 
   tasks:
     - name: Check role default and var files
@@ -144,6 +164,20 @@
           - "'platform_bootstrap_releases' in (conventions_platform_defaults.content | b64decode)"
           - "'nfs-provisioner' in (conventions_platform_defaults.content | b64decode)"
           - "'argocd' in (conventions_platform_defaults.content | b64decode)"
+
+    - name: Read Alertmanager config ExternalSecret
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/apps/platform-system/kube-prometheus-stack/manifests/kube-prometheus-stack-alertmanager-config.externalsecret.yaml"
+      register: conventions_alertmanager_config
+
+    - name: Assert observability warning alerts route to Telegram
+      ansible.builtin.assert:
+        that:
+          - '''- severity = "warning"'' in (conventions_alertmanager_config.content | b64decode)'
+          - '''- alertname =~ "^('' in (conventions_alertmanager_config.content | b64decode)'
+          - "item in (conventions_alertmanager_config.content | b64decode)"
+        fail_msg: "Alertmanager warning route does not include observability alert {{ item }}"
+      loop: "{{ conventions_observability_warning_alerts }}"
 
     - name: Read Argo CD refresh role
       ansible.builtin.slurp:
