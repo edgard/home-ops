@@ -30,6 +30,8 @@ security_context_exempt_image_prefixes := [
   "ghcr.io/tailscale/tailscale:",
 ]
 
+paperless_gpt_required_capabilities := {"CHOWN", "SETUID", "SETGID"}
+
 deny contains msg if {
   is_app_template_workload
   object.get(input.spec, "replicas", 1) != 1
@@ -64,6 +66,15 @@ deny contains msg if {
   not exempt_root_run(container)
   not effective_run_as_non_root(container)
   msg := sprintf("%s/%s container %s must run as non-root", [input.kind, input.metadata.name, container.name])
+}
+
+deny contains msg if {
+  is_app_template_workload
+  some container in workload_containers
+  image_matches_prefix(object.get(container, "image", ""), ["icereed/paperless-gpt:"])
+  missing := paperless_gpt_required_capabilities - {cap | cap := object.get(object.get(object.get(container, "securityContext", {}), "capabilities", {}), "add", [])[_]}
+  count(missing) > 0
+  msg := sprintf("%s/%s container %s must add capabilities required by the paperless-gpt entrypoint: %v", [input.kind, input.metadata.name, container.name, missing])
 }
 
 is_app_template_workload if {
