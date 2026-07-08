@@ -50,3 +50,16 @@ test_tailscale_is_exempt_from_container_security_rules if {
   results := deny with input as doc
   count(results) == 0
 }
+
+test_paperless_gpt_requires_entrypoint_capabilities if {
+  doc := object.union(base_deployment, {"spec": object.union(base_deployment.spec, {"template": {"spec": {"securityContext": {"runAsNonRoot": false}, "containers": [{
+    "name": "app",
+    "image": "icereed/paperless-gpt:v0.26.0",
+    "securityContext": {
+      "allowPrivilegeEscalation": false,
+      "capabilities": {"drop": ["ALL"]},
+    },
+  }]}}})})
+  results := deny with input as doc
+  count(results) == 1
+}

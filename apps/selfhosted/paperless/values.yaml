@@ -173,6 +173,10 @@ controllers:
           capabilities:
             drop:
               - ALL
+            add:
+              - CHOWN
+              - SETUID
+              - SETGID
   gotenberg:
     type: deployment
     replicas: 1
