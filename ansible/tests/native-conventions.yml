@@ -122,6 +122,25 @@
           - "'k8s_version' in (conventions_inventory_vars.content | b64decode)"
           - "'K8S_VERSION' in (conventions_inventory_vars.content | b64decode)"
 
+    - name: Read Renovate config
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/.renovaterc.json5"
+      register: conventions_renovate_config
+
+    - name: Read restic role defaults
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/ansible/roles/restic/defaults/main.yml"
+      register: conventions_restic_defaults
+
+    - name: Assert restic restore image is Renovate-managed
+      ansible.builtin.assert:
+        that:
+          - "'# renovate: datasource=docker depName=restic/restic' in (conventions_restic_defaults.content | b64decode)"
+          - "'restic_restore_image: restic/restic:' in (conventions_restic_defaults.content | b64decode)"
+          - "'Restic restore image in Ansible defaults' in (conventions_renovate_config.content | b64decode)"
+          - "'restic_restore_image' in (conventions_renovate_config.content | b64decode)"
+        fail_msg: "The restic restore image default must remain managed by Renovate."
+
     - name: Find Ansible task files
       ansible.builtin.find:
         paths:
