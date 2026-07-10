@@ -111,6 +111,18 @@
       ],
       datasourceTemplate: "docker",
     },
+
+    // Restic restore job image in Ansible role defaults
+    {
+      customType: "regex",
+      description: "Restic restore image in Ansible defaults",
+      managerFilePatterns: [
+        "/^ansible\\/roles\\/restic\\/defaults\\/main\\.ya?ml$/",
+      ],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*restic_restore_image:\\s*[^:\\s]+:(?<currentValue>[^\\s]+)",
+      ],
+    },
   ],
 
   // === Package Rules ===
