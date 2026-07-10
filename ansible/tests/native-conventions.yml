@@ -198,6 +198,17 @@
         fail_msg: "Alertmanager warning route does not include observability alert {{ item }}"
       loop: "{{ conventions_observability_warning_alerts }}"
 
+    - name: Assert Telegram alerts use the Home Ops message format
+      ansible.builtin.assert:
+        that:
+          - "'🏠 Home Ops · Monitoring' in (conventions_alertmanager_config.content | b64decode)"
+          - "'<blockquote>' in (conventions_alertmanager_config.content | b64decode)"
+          - "'.Alerts.Firing' in (conventions_alertmanager_config.content | b64decode)"
+          - "'.Alerts.Resolved' in (conventions_alertmanager_config.content | b64decode)"
+          - "'Grafana: https://grafana.edgard.org/explore' not in (conventions_alertmanager_config.content | b64decode)"
+          - "'.GeneratorURL' not in (conventions_alertmanager_config.content | b64decode)"
+        fail_msg: "Telegram alerts do not use the expected Home Ops message format"
+
     - name: Read Argo CD refresh role
       ansible.builtin.slurp:
         src: "{{ conventions_repo_root }}/ansible/roles/argocd/tasks/refresh.yml"
