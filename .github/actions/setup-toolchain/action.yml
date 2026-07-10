@@ -39,7 +39,7 @@ runs:
       uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
       with:
         # renovate: datasource=github-releases depName=helm/helm
-        version: v4.2.2
+        version: v4.2.3
 
     - name: Set Up OpenTofu
       if: ${{ inputs.profile == 'format' || inputs.profile == 'ansible' || inputs.profile == 'terraform' }}
@@ -89,7 +89,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=npm depName=prettier
-        PRETTIER_VERSION: 3.9.4
+        PRETTIER_VERSION: 3.9.5
       run: npm install --global "prettier@${PRETTIER_VERSION}"
 
     - name: Install yamlfmt
