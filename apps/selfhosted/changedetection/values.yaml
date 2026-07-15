@@ -26,6 +26,8 @@ controllers:
           FETCH_WORKERS: "10"
           PLAYWRIGHT_DRIVER_URL: ws://127.0.0.1:3000
           DISABLE_VERSION_CHECK: "true"
+          LLM_MODEL: gpt-5-mini
+          LLM_MAX_INPUT_CHARS: "20000"
         envFrom:
           - secretRef:
               name: changedetection-credentials

@@ -141,6 +141,29 @@
           - "'restic_restore_image' in (conventions_renovate_config.content | b64decode)"
         fail_msg: "The restic restore image default must remain managed by Renovate."
 
+    - name: Read Changedetection values
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/apps/selfhosted/changedetection/values.yaml"
+      register: conventions_changedetection_values
+
+    - name: Read Changedetection credentials ExternalSecret
+      ansible.builtin.slurp:
+        src: "{{ conventions_repo_root }}/apps/selfhosted/changedetection/manifests/changedetection-credentials.externalsecret.yaml"
+      register: conventions_changedetection_credentials
+
+    - name: Assert Changedetection AI summaries use the shared OpenAI credential
+      ansible.builtin.assert:
+        that:
+          - "'LLM_MODEL: gpt-5-mini' in (conventions_changedetection_values.content | b64decode)"
+          - '''LLM_MAX_INPUT_CHARS: "20000"'' in (conventions_changedetection_values.content | b64decode)'
+          - "'LLM_API_BASE:' not in (conventions_changedetection_values.content | b64decode)"
+          - "'LLM_FEATURES_DISABLED:' not in (conventions_changedetection_values.content | b64decode)"
+          - "'name: changedetection-credentials' in (conventions_changedetection_values.content | b64decode)"
+          - "'LLM_API_KEY:' in (conventions_changedetection_credentials.content | b64decode)"
+          - "'secretKey: openai_api_key' in (conventions_changedetection_credentials.content | b64decode)"
+          - "'key: openai_api_key' in (conventions_changedetection_credentials.content | b64decode)"
+        fail_msg: "Changedetection AI summary configuration must use GPT-5 mini and the shared OpenAI credential."
+
     - name: Find Ansible task files
       ansible.builtin.find:
         paths:
