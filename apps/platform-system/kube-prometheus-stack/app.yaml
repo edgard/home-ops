@@ -2,6 +2,6 @@
 chart:
   repo: https://prometheus-community.github.io/helm-charts
   name: kube-prometheus-stack
-  version: 87.16.1
+  version: 87.17.0
 sync:
   wave: "-4"
