@@ -46,7 +46,7 @@ runs:
       uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
         # renovate: datasource=github-releases depName=opentofu/opentofu
-        tofu_version: 1.12.3
+        tofu_version: 1.12.4
         tofu_wrapper: false
 
     - name: Set Up yq
