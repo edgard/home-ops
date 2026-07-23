@@ -85,7 +85,8 @@ controllers:
           PAPERLESS_TIKA_ENABLED: "1"
           PAPERLESS_TIKA_ENDPOINT: http://paperless-tika:9998
           PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://paperless-gotenberg:3000
-          PAPERLESS_CONSUMER_POLLING: "60"
+          PAPERLESS_CONSUMER_POLLING_INTERVAL: "60"
+          PAPERLESS_CONSUMER_DELETE_DUPLICATES: "true"
           PAPERLESS_CONSUMER_RECURSIVE: "true"
           PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
           PAPERLESS_CONSUMPTION_DIR: /usr/src/paperless/inbox
