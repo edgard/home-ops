@@ -9,7 +9,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 - Argo CD
 - Istio Gateway API
 - External Secrets with Bitwarden
-- Prometheus, Grafana, Alertmanager, and Blackbox Exporter
+- Prometheus, Grafana, Alertmanager, Blackbox Exporter, Loki, and Alloy
 - Helm
 - Ansible
 - Terraform
