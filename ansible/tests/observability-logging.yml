@@ -1,0 +1,190 @@
+---
+- name: Validate lightweight logging observability contracts
+  hosts: localhost
+  gather_facts: false
+  vars:
+    observability_repo_root: "{{ playbook_dir }}/../.."
+
+  tasks:
+    - name: Read logging observability configuration
+      ansible.builtin.slurp:
+        src: "{{ observability_repo_root }}/{{ item }}"
+      loop:
+        - apps/platform-system/loki/app.yaml
+        - apps/platform-system/loki/values.yaml
+        - apps/platform-system/alloy/app.yaml
+        - apps/platform-system/alloy/values.yaml
+        - apps/platform-system/kube-prometheus-stack/values.yaml
+        - apps/selfhosted/restic/values.yaml
+        - ansible/roles/restic/defaults/main.yml
+      register: observability_logging_files
+
+    - name: Parse logging observability configuration
+      ansible.builtin.set_fact:
+        observability_loki_app: "{{ observability_logging_files.results[0].content | b64decode | from_yaml }}"
+        observability_loki_values: "{{ observability_logging_files.results[1].content | b64decode | from_yaml }}"
+        observability_alloy_app: "{{ observability_logging_files.results[2].content | b64decode | from_yaml }}"
+        observability_alloy_values: "{{ observability_logging_files.results[3].content | b64decode | from_yaml }}"
+        observability_monitoring_values: "{{ observability_logging_files.results[4].content | b64decode | from_yaml }}"
+        observability_restic_values: "{{ observability_logging_files.results[5].content | b64decode | from_yaml }}"
+        observability_restic_defaults: "{{ observability_logging_files.results[6].content | b64decode | from_yaml }}"
+
+    - name: Assert Loki uses the pinned monolithic NFS-backed topology
+      ansible.builtin.assert:
+        that:
+          - observability_loki_app.chart.repo == "https://grafana-community.github.io/helm-charts"
+          - observability_loki_app.chart.name == "loki"
+          - observability_loki_app.chart.version == "18.5.4"
+          - observability_loki_app.sync.wave == "0"
+          - observability_loki_values.deploymentMode == "Monolithic"
+          - observability_loki_values.loki.auth_enabled is false
+          - observability_loki_values.loki.commonConfig.replication_factor == 1
+          - observability_loki_values.loki.commonConfig.path_prefix == "/var/loki"
+          - observability_loki_values.loki.schemaConfig.configs[0].store == "tsdb"
+          - observability_loki_values.loki.schemaConfig.configs[0].schema == "v13"
+          - observability_loki_values.loki.schemaConfig.configs[0].object_store == "filesystem"
+          - observability_loki_values.loki.storage.type == "filesystem"
+          - observability_loki_values.loki.compactor.retention_enabled is true
+          - observability_loki_values.loki.limits_config.retention_period == "720h"
+          - observability_loki_values.loki.limits_config.reject_old_samples is true
+          - observability_loki_values.loki.limits_config.reject_old_samples_max_age == "168h"
+          - observability_loki_values.loki.limits_config.allow_structured_metadata is true
+          - observability_loki_values.loki.limits_config.discover_log_levels is true
+          - observability_loki_values.singleBinary.replicas == 1
+          - observability_loki_values.singleBinary.persistence.enabled is true
+          - observability_loki_values.singleBinary.persistence.enableStatefulSetAutoDeletePVC is true
+          - observability_loki_values.singleBinary.persistence.storageClass == "nfs-fast"
+          - observability_loki_values.singleBinary.persistence.size == "30Gi"
+          - observability_loki_values.singleBinary.persistence.whenDeleted == "Retain"
+          - observability_loki_values.singleBinary.persistence.whenScaled == "Retain"
+          - observability_loki_values.defaults.automountServiceAccountToken is false
+          - observability_loki_values.serviceAccount.automountServiceAccountToken is false
+          - "'resources' not in observability_loki_values.singleBinary"
+
+    - name: Assert Loki disables distributed and optional workloads
+      ansible.builtin.assert:
+        that:
+          - observability_loki_values.gateway.enabled is false
+          - observability_loki_values.chunksCache.enabled is false
+          - observability_loki_values.resultsCache.enabled is false
+          - observability_loki_values.lokiCanary.enabled is false
+          - observability_loki_values.ruler.enabled is false
+          - observability_loki_values.sidecar.rules.enabled is false
+          - observability_loki_values.minio.enabled is false
+          - observability_loki_values.test.enabled is false
+          - observability_loki_values.backend.replicas == 0
+          - observability_loki_values.read.replicas == 0
+          - observability_loki_values.write.replicas == 0
+          - observability_loki_values.ingester.replicas == 0
+          - observability_loki_values.querier.replicas == 0
+          - observability_loki_values.queryFrontend.replicas == 0
+          - observability_loki_values.queryScheduler.replicas == 0
+          - observability_loki_values.distributor.replicas == 0
+          - observability_loki_values.compactor.replicas == 0
+          - observability_loki_values.indexGateway.replicas == 0
+          - observability_loki_values.bloomPlanner.replicas == 0
+          - observability_loki_values.bloomBuilder.replicas == 0
+          - observability_loki_values.bloomGateway.replicas == 0
+
+    - name: Assert Loki monitoring exposes only the selected dashboards and critical alerts
+      ansible.builtin.assert:
+        that:
+          - observability_loki_values.monitoring.serviceMonitor.enabled is true
+          - observability_loki_values.monitoring.dashboards.enabled is true
+          - observability_loki_values.monitoring.dashboards.defaultDashboardsTimezone == "Europe/Warsaw"
+          - observability_loki_values.monitoring.dashboards['loki-logs'].enabled is true
+          - observability_loki_values.monitoring.dashboards['loki-retention'].enabled is true
+          - observability_loki_values.monitoring.dashboards['loki-operational'].enabled is false
+          - observability_loki_values.monitoring.alerts.enabled is true
+          - observability_loki_values.monitoring.alerts.disabled.LokiRequestLatency is true
+          - observability_loki_values.monitoring.alerts.disabled.LokiTooManyCompactorsRunning is true
+          - observability_loki_values.monitoring.alerts.overrides.LokiRequestErrors.severity == "critical"
+          - observability_loki_values.monitoring.alerts.overrides.LokiRequestPanics.severity == "critical"
+          - observability_loki_values.monitoring.alerts.overrides.LokiCompactorHasNotSuccessfullyRunCompaction.severity == "critical"
+          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[0].alert == "LokiDiscardingLogs"
+          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[0].for == "15m"
+          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[0].labels.severity == "critical"
+          - "'loki_discarded_samples_total' in observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[0].expr"
+          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].alert == "LokiStorageBackendAlmostFull"
+          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].for == "15m"
+          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].labels.severity == "critical"
+          - "'storage-loki-0' in observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].expr"
+          - "'< 0.10' in observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].expr"
+
+    - name: Assert Alloy uses the pinned checkpointed StatefulSet
+      ansible.builtin.assert:
+        that:
+          - observability_alloy_app.chart.repo == "https://grafana.github.io/helm-charts"
+          - observability_alloy_app.chart.name == "alloy"
+          - observability_alloy_app.chart.version == "1.11.0"
+          - observability_alloy_app.sync.wave == "0"
+          - observability_alloy_values.crds.create is false
+          - observability_alloy_values.alloy.storagePath == "/var/lib/alloy"
+          - observability_alloy_values.alloy.enableReporting is false
+          - observability_alloy_values.alloy.clustering.enabled is false
+          - "'resources' not in observability_alloy_values.alloy"
+          - observability_alloy_values.configReloader.enabled is false
+          - observability_alloy_values.controller.type == "statefulset"
+          - observability_alloy_values.controller.replicas == 1
+          - observability_alloy_values.controller.enableStatefulSetAutoDeletePVC is false
+          - observability_alloy_values.controller.autoscaling.enabled is false
+          - observability_alloy_values.controller.autoscaling.horizontal.enabled is false
+          - observability_alloy_values.ingress.enabled is false
+          - observability_alloy_values.serviceMonitor.enabled is true
+          - observability_alloy_values.controller.volumeClaimTemplates[0].metadata.name == "storage"
+          - observability_alloy_values.controller.volumeClaimTemplates[0].spec.storageClassName == "nfs-fast"
+          - observability_alloy_values.controller.volumeClaimTemplates[0].spec.resources.requests.storage == "1Gi"
+          - observability_alloy_values.alloy.mounts.extra[0].name == "storage"
+          - observability_alloy_values.alloy.mounts.extra[0].mountPath == "/var/lib/alloy"
+
+    - name: Assert Alloy is non-root and has least-privilege Kubernetes API access
+      ansible.builtin.assert:
+        that:
+          - observability_alloy_values.global.podSecurityContext.runAsNonRoot is true
+          - observability_alloy_values.global.podSecurityContext.runAsUser == 473
+          - observability_alloy_values.global.podSecurityContext.runAsGroup == 473
+          - observability_alloy_values.global.podSecurityContext.fsGroup == 473
+          - observability_alloy_values.global.podSecurityContext.seccompProfile.type == "RuntimeDefault"
+          - observability_alloy_values.alloy.securityContext.runAsNonRoot is true
+          - observability_alloy_values.alloy.securityContext.runAsUser == 473
+          - observability_alloy_values.alloy.securityContext.runAsGroup == 473
+          - observability_alloy_values.alloy.securityContext.readOnlyRootFilesystem is true
+          - observability_alloy_values.alloy.securityContext.allowPrivilegeEscalation is false
+          - observability_alloy_values.alloy.securityContext.capabilities.drop == ["ALL"]
+          - observability_alloy_values.rbac.rules | length == 2
+          - observability_alloy_values.rbac.rules[0].resources == ["pods", "pods/log", "namespaces"]
+          - observability_alloy_values.rbac.rules[1].resources == ["events"]
+          - observability_alloy_values.rbac.clusterRules | length == 1
+          - observability_alloy_values.rbac.clusterRules[0].resources == ["nodes"]
+
+    - name: Assert Alloy pipelines satisfy the Loki metadata contract
+      ansible.builtin.assert:
+        that:
+          - '''loki.source.kubernetes "pod_logs"'' in observability_alloy_values.alloy.configMap.content'
+          - '''loki.source.kubernetes_events "cluster_events"'' in observability_alloy_values.alloy.configMap.content'
+          - (observability_alloy_values.alloy.configMap.content | regex_search('log_format\s*=\s*"logfmt"')) is not none
+          - (observability_alloy_values.alloy.configMap.content | regex_search('job_name\s*=\s*"kubernetes/events"')) is not none
+          - '''cluster = "homelab"'' in observability_alloy_values.alloy.configMap.content'
+          - (observability_alloy_values.alloy.configMap.content | regex_search('target_label\s*=\s*"namespace"')) is not none
+          - (observability_alloy_values.alloy.configMap.content | regex_search('target_label\s*=\s*"app"')) is not none
+          - (observability_alloy_values.alloy.configMap.content | regex_search('target_label\s*=\s*"container"')) is not none
+          - (observability_alloy_values.alloy.configMap.content | regex_search('pod\s*=\s*"pod"')) is not none
+          - (observability_alloy_values.alloy.configMap.content | regex_search('node\s*=\s*"node"')) is not none
+          - (observability_alloy_values.alloy.configMap.content | regex_search('container_image\s*=\s*"container_image"')) is not none
+          - (observability_alloy_values.alloy.configMap.content | regex_search('container_runtime\s*=\s*"container_runtime"')) is not none
+          - (observability_alloy_values.alloy.configMap.content | regex_search('stage\.label_drop\s*\{\s*values\s*=\s*\["job",\s*"instance"\]')) is not none
+          - "'http://loki.platform-system.svc.cluster.local:3100/loki/api/v1/push' in observability_alloy_values.alloy.configMap.content"
+
+    - name: Assert Grafana and Restic integrate with Loki and Alloy
+      ansible.builtin.assert:
+        that:
+          - observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | length == 1
+          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).url == "http://loki.platform-system.svc.cluster.local:3100"
+          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).access == "proxy"
+          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).isDefault is false
+          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).editable is false
+          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).jsonData.maxLines == 1000
+          - "'/data/appdata/platform-system/storage-loki-0' not in observability_restic_values.controllers.backup.containers.app.args"
+          - "'/data/appdata/platform-system/storage-alloy-0' not in observability_restic_values.controllers.backup.containers.app.args"
+          - "'loki' not in observability_restic_defaults.restic_restore_excluded_apps"
+          - "'alloy' not in observability_restic_defaults.restic_restore_excluded_apps"

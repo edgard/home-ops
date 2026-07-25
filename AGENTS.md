@@ -2,7 +2,7 @@
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 **Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) •
-Prometheus/Grafana • Helm • Ansible • Terraform
+Prometheus/Grafana/Loki/Alloy • Helm • Ansible • Terraform
 
 ## Build & Test
 
@@ -37,7 +37,7 @@ terraform/               # Cloudflare/Tailscale infra
 ```
 
 **App Categories**:
-- platform-system: cert-manager, external-dns, external-secrets, gateway-api, istio, istio-base, kube-prometheus-stack, prometheus-blackbox-exporter, reloader, tailscale-router
+- platform-system: alloy, cert-manager, external-dns, external-secrets, gateway-api, istio, istio-base, kube-prometheus-stack, loki, prometheus-blackbox-exporter, reloader, tailscale-router
 - kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner
 - home-automation: homeassistant, scrypted
 - media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
@@ -92,8 +92,20 @@ controllers:
   blackbox reachability tests.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
   annotations to routed apps.
-- Loki and Alloy are out of scope unless a future change explicitly adds log
-  aggregation.
+- Loki is a single monolithic StatefulSet with 30-day retention on a retained
+  30Gi `nfs-fast` claim. It is internal-only and has no HTTPRoute.
+- Alloy is a single non-root, checkpointed StatefulSet that collects pod
+  stdout/stderr and Kubernetes Events through the Kubernetes API and forwards
+  them to Loki. It has no HTTPRoute.
+- Pod log labels are `cluster`, `namespace`, `app`, and `container`; `pod`,
+  `node`, `container_image`, and `container_runtime` are structured metadata.
+  Events use `cluster`, `namespace`, `job="kubernetes/events"`, and the stable
+  Alloy instance label.
+- Grafana provisions Loki as a non-editable internal datasource. Anonymous
+  Viewer access means reachable LAN/Tailscale users can query collected logs.
+- Loki data and Alloy checkpoints are included in Restic backup and restore.
+- Talos host-service logs, external Loki access, log-derived alerts, and object
+  storage are out of scope.
 
 ### Storage
 - `nfs-fast`: `/mnt/spool/appdata` (default)

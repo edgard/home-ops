@@ -35,6 +35,16 @@ alertmanager:
     useExistingSecret: true
 
 grafana:
+  additionalDataSources:
+    - name: Loki
+      uid: loki
+      type: loki
+      access: proxy
+      url: http://loki.platform-system.svc.cluster.local:3100
+      isDefault: false
+      editable: false
+      jsonData:
+        maxLines: 1000
   admin:
     existingSecret: grafana-credentials
     userKey: admin-user

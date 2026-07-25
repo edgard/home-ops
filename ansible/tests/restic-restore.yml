@@ -46,6 +46,32 @@
               namespace: selfhosted
               name: restic-repo
       - metadata:
+          name: loki
+        spec:
+          destination:
+            namespace: platform-system
+        status:
+          resources:
+            - kind: PersistentVolumeClaim
+              namespace: platform-system
+              name: storage-loki-0
+            - kind: StatefulSet
+              namespace: platform-system
+              name: loki
+      - metadata:
+          name: alloy
+        spec:
+          destination:
+            namespace: platform-system
+        status:
+          resources:
+            - kind: PersistentVolumeClaim
+              namespace: platform-system
+              name: storage-alloy-0
+            - kind: StatefulSet
+              namespace: platform-system
+              name: alloy
+      - metadata:
           name: nfs-provisioner
         spec:
           destination:
@@ -76,6 +102,16 @@
           name: media
         spec:
           storageClassName: ""
+      - metadata:
+          namespace: platform-system
+          name: storage-loki-0
+        spec:
+          storageClassName: nfs-fast
+      - metadata:
+          namespace: platform-system
+          name: storage-alloy-0
+        spec:
+          storageClassName: nfs-fast
     restic_restore_workloads:
       - kind: Deployment
         metadata:
@@ -110,6 +146,30 @@
           template:
             spec:
               volumes: []
+      - kind: StatefulSet
+        metadata:
+          namespace: platform-system
+          name: loki
+        spec:
+          replicas: 1
+          template:
+            spec:
+              volumes: []
+          volumeClaimTemplates:
+            - metadata:
+                name: storage
+      - kind: StatefulSet
+        metadata:
+          namespace: platform-system
+          name: alloy
+        spec:
+          replicas: 1
+          template:
+            spec:
+              volumes: []
+          volumeClaimTemplates:
+            - metadata:
+                name: storage
 
   tasks:
     - name: Build single app restore plan
@@ -136,11 +196,13 @@
       vars:
         restic_restore_mode: all
 
-    - name: Assert restore-all includes platform appdata and excludes shared media and restic repo PVCs
+    - name: Assert restore-all includes logging and excludes shared storage
       ansible.builtin.assert:
         that:
-          - restic_restore_plan | length == 2
-          - restic_restore_plan | map(attribute="app") | sort | list == ["cert-data", "paperless"]
+          - restic_restore_plan | length == 4
+          - restic_restore_plan | map(attribute="app") | sort | list == ["alloy", "cert-data", "loki", "paperless"]
+          - (restic_restore_plan | selectattr("app", "equalto", "loki") | first).pvc_paths == ["/data/appdata/platform-system/storage-loki-0"]
+          - (restic_restore_plan | selectattr("app", "equalto", "alloy") | first).pvc_paths == ["/data/appdata/platform-system/storage-alloy-0"]
 
     - name: Read restore execution tasks
       ansible.builtin.slurp:
