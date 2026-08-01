@@ -18,7 +18,7 @@ controllers:
       tesseract-langs:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: 3.0.3
+          tag: 3.0.4
         securityContext:
           runAsUser: 0
           runAsGroup: 0
@@ -69,7 +69,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: 3.0.3
+          tag: 3.0.4
         env:
           PAPERLESS_URL: https://paperless.edgard.org
           PAPERLESS_PORT: "8000"
@@ -249,7 +249,7 @@ controllers:
       app:
         image:
           repository: docker.io/library/redis
-          tag: "8.8.1"
+          tag: "8.10.0"
         args:
           - redis-server
           - --save
