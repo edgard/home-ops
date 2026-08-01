@@ -34,7 +34,7 @@
         that:
           - observability_loki_app.chart.repo == "https://grafana-community.github.io/helm-charts"
           - observability_loki_app.chart.name == "loki"
-          - observability_loki_app.chart.version == "18.5.4"
+          - observability_loki_app.chart.version == "18.7.1"
           - observability_loki_app.sync.wave == "0"
           - observability_loki_values.deploymentMode == "Monolithic"
           - observability_loki_values.loki.auth_enabled is false
