@@ -75,7 +75,7 @@ runs:
       uses: princespaghetti/setup-conftest@417586a9b2e806fc5a95c72dfe98e296ef092b6f # v1.2.0
       with:
         # renovate: datasource=github-releases depName=open-policy-agent/conftest
-        version: 0.68.2
+        version: 0.69.0
 
     - name: Install APT Tools
       if: ${{ inputs.profile == 'static' }}
