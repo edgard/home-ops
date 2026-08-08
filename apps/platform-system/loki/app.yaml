@@ -2,6 +2,6 @@
 chart:
   repo: https://grafana-community.github.io/helm-charts
   name: loki
-  version: 18.7.4
+  version: 18.7.5
 sync:
   wave: "0"
