@@ -2,6 +2,6 @@
 chart:
   repo: oci://ghcr.io/stakater/charts/reloader
   path: "."
-  version: 2.2.15
+  version: 2.2.16
 sync:
   wave: "-4"
