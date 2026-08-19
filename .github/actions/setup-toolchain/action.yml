@@ -26,7 +26,7 @@ runs:
       uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
       with:
         # renovate: datasource=github-releases depName=go-task/task
-        version: 3.52.0
+        version: 3.53.1
 
     - name: Set Up Node
       if: ${{ inputs.profile == 'format' }}
