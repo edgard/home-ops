@@ -1,0 +1,228 @@
+---
+argocdReleaseOverride: victoria-metrics-k8s-stack
+
+victoria-metrics-operator:
+  crds:
+    enabled: false
+    plain: false
+  extraArgs:
+    controller.disableReconcileFor: AlertmanagerConfig,PodMonitor,Probe,PrometheusRule,ScrapeConfig,ServiceMonitor,VLAgent,VLCluster,VLDistributed,VLogs,VLSingle,VMAlert,VMAlertmanager,VMAlertmanagerConfig,VMAnomaly,VMAnomalyConfig,VMAuth,VMCluster,VMDistributed,VMRule,VMScrapeConfig,VMStaticScrape,VTSingle,VTCluster,VMUser
+  serviceMonitor:
+    enabled: true
+    vm: true
+    interval: 30s
+  operator:
+    disable_prometheus_converter: true
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+
+defaultRules:
+  enabled: false
+
+alertmanager:
+  enabled: false
+vmalert:
+  enabled: false
+vmcluster:
+  enabled: false
+
+vmsingle:
+  enabled: true
+  spec:
+    replicaCount: 1
+    retentionPeriod: 30d
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    serviceScrapeSpec:
+      endpoints:
+        - port: http
+          interval: 30s
+    storage:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: nfs-fast
+      resources:
+        requests:
+          storage: 50Gi
+
+vmagent:
+  enabled: true
+  spec:
+    replicaCount: 1
+    scrapeInterval: 30s
+    externalLabels:
+      cluster: homelab
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+    serviceScrapeSpec:
+      endpoints:
+        - port: http
+          interval: 30s
+
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeScheduler:
+  enabled: false
+coreDns:
+  enabled: false
+
+external:
+  vl:
+    read:
+      url: http://victoria-logs-single-server.platform-system.svc.cluster.local:9428
+
+defaultDatasources:
+  victoriametrics:
+    datasources:
+      - name: VictoriaMetrics
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        isDefault: true
+        editable: false
+        jsonData:
+          disableRecordingRules: true
+          prometheusType: Prometheus
+          prometheusVersion: 3.0.0
+  victorialogs:
+    datasources:
+      - name: VictoriaLogs
+        uid: victorialogs
+        type: victoriametrics-logs-datasource
+        access: proxy
+        editable: false
+        jsonData:
+          maxLines: 1000
+  victoriatraces:
+    datasources: []
+  alertmanager:
+    datasources: []
+
+grafana:
+  admin:
+    existingSecret: grafana-credentials
+    userKey: admin-user
+    passwordKey: admin-password
+  defaultDashboardsTimezone: Europe/Warsaw
+  envFromSecret: grafana-alerting-credentials
+  extraConfigmapMounts:
+    - name: grafana-alerting-provisioning
+      configMap: grafana-alerting-provisioning
+      mountPath: /etc/grafana/provisioning/alerting
+      readOnly: true
+  grafana.ini:
+    analytics:
+      check_for_plugin_updates: false
+      check_for_updates: false
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer
+    plugins:
+      preinstall_auto_update: false
+      preinstall_disabled: true
+    server:
+      root_url: https://grafana.edgard.org
+  persistence:
+    enabled: true
+    type: sts
+    storageClassName: nfs-fast
+    accessModes:
+      - ReadWriteOnce
+    size: 5Gi
+  plugins:
+    - victoriametrics-logs-datasource@0.30.1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  sidecar:
+    dashboards:
+      searchNamespace: ALL
+
+defaultDashboards:
+  dashboards:
+    alertmanager-overview:
+      enabled: false
+    controller-manager:
+      enabled: false
+    grafana-overview:
+      enabled: false
+    kubelet:
+      enabled: false
+    node-exporter-full:
+      enabled: true
+    proxy:
+      enabled: false
+    scheduler:
+      enabled: false
+    victorialogs-cluster:
+      enabled: false
+    victorialogs-single-node:
+      enabled: true
+    victorialogs-vlagent:
+      enabled: false
+    victoriametrics-cluster:
+      enabled: false
+    victoriametrics-operator:
+      enabled: false
+    victoriametrics-single-node:
+      enabled: true
+    victoriametrics-vmalert:
+      enabled: false
+    victoriametrics-vmagent:
+      enabled: false
+    victoriatraces-cluster:
+      enabled: false
+    victoriatraces-single-node:
+      enabled: false
+  sources:
+    etcd:
+      enabled: false
+    kube-prometheus:
+      enabled: false
+    kubernetes-system-api-server:
+      enabled: false
+    kubernetes-system-coredns:
+      enabled: false
+    kubernetes-views-global:
+      enabled: false
+    kubernetes-views-namespaces:
+      enabled: false
+    kubernetes-views-nodes:
+      enabled: false
+    kubernetes-views-pods:
+      enabled: false
+    node-exporter-full:
+      enabled: true
+    victorialogs-cluster:
+      enabled: false
+    victorialogs-single-node:
+      enabled: true
+    victorialogs-vlagent:
+      enabled: false
+    victoriametrics-backupmanager:
+      enabled: false
+    victoriametrics-cluster:
+      enabled: false
+    victoriametrics-operator:
+      enabled: false
+    victoriametrics-single-node:
+      enabled: true
+    victoriametrics-vmalert:
+      enabled: false
+    victoriametrics-vmagent:
+      enabled: false
+    victoriatraces-cluster:
+      enabled: false
+    victoriatraces-single-node:
+      enabled: false

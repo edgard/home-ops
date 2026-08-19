@@ -1,0 +1,7 @@
+---
+chart:
+  repo: https://victoriametrics.github.io/helm-charts/
+  name: victoria-logs-collector
+  version: 0.3.7
+sync:
+  wave: "0"

@@ -11,27 +11,6 @@
       - ansible/roles/talos/defaults/main.yml
       - ansible/roles/talos/vars/main.yml
       - ansible/roles/tofu/defaults/main.yml
-    conventions_observability_warning_alerts:
-      - TargetDown
-      - ConfigReloaderSidecarErrors
-      - AlertmanagerFailedToSendAlerts
-      - PrometheusErrorSendingAlertsToSomeAlertmanagers
-      - PrometheusNotConnectedToAlertmanagers
-      - PrometheusNotificationQueueRunningFull
-      - PrometheusKubernetesListWatchFailures
-      - PrometheusSDRefreshFailure
-      - PrometheusMissingRuleEvaluations
-      - PrometheusTSDBCompactionsFailing
-      - PrometheusTSDBReloadsFailing
-      - PrometheusDuplicateTimestamps
-      - PrometheusOutOfOrderTimestamps
-      - PrometheusLabelLimitHit
-      - PrometheusScrapeSampleLimitHit
-      - PrometheusScrapeBodySizeLimitHit
-      - PrometheusTargetLimitHit
-      - PrometheusNotIngestingSamples
-      - PrometheusOperator.*
-
   tasks:
     - name: Check role default and var files
       ansible.builtin.stat:
@@ -207,30 +186,47 @@
           - "'nfs-provisioner' in (conventions_platform_defaults.content | b64decode)"
           - "'argocd' in (conventions_platform_defaults.content | b64decode)"
 
-    - name: Read Alertmanager config ExternalSecret
+    - name: Read Grafana alerting credentials ExternalSecret
       ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/apps/platform-system/kube-prometheus-stack/manifests/kube-prometheus-stack-alertmanager-config.externalsecret.yaml"
-      register: conventions_alertmanager_config
+        src: "{{ conventions_repo_root }}/apps/platform-system/victoria-metrics-k8s-stack/manifests/victoria-metrics-k8s-stack-grafana-alerting-credentials.externalsecret.yaml"
+      register: conventions_grafana_alerting_credentials
 
-    - name: Assert observability warning alerts route to Telegram
+    - name: Assert Grafana alerting credentials remain Bitwarden-backed
       ansible.builtin.assert:
         that:
-          - '''- severity = "warning"'' in (conventions_alertmanager_config.content | b64decode)'
-          - '''- alertname =~ "^('' in (conventions_alertmanager_config.content | b64decode)'
-          - "item in (conventions_alertmanager_config.content | b64decode)"
-        fail_msg: "Alertmanager warning route does not include observability alert {{ item }}"
-      loop: "{{ conventions_observability_warning_alerts }}"
+          - "'name: grafana-alerting-credentials' in (conventions_grafana_alerting_credentials.content | b64decode)"
+          - "'secretKey: TELEGRAM_BOT_TOKEN' in (conventions_grafana_alerting_credentials.content | b64decode)"
+          - "'key: telegram_bot_token' in (conventions_grafana_alerting_credentials.content | b64decode)"
+          - "'secretKey: TELEGRAM_CHAT_ID' in (conventions_grafana_alerting_credentials.content | b64decode)"
+          - "'key: telegram_chat_id' in (conventions_grafana_alerting_credentials.content | b64decode)"
 
-    - name: Assert Telegram alerts use the Home Ops message format
+    - name: Find application YAML files for monitoring API validation
+      ansible.builtin.find:
+        paths:
+          - "{{ conventions_repo_root }}/apps"
+        patterns:
+          - "*.yaml"
+          - "*.yml"
+        recurse: true
+        file_type: file
+      register: conventions_app_yaml_files
+
+    - name: Read application YAML files for monitoring API validation
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      loop: "{{ conventions_app_yaml_files.files }}"
+      loop_control:
+        label: "{{ item.path | regex_replace('^' + conventions_repo_root + '/', '') }}"
+      register: conventions_app_yaml_contents
+
+    - name: Assert Prometheus Operator APIs are absent
       ansible.builtin.assert:
         that:
-          - "'🏠 Home Ops · Monitoring' in (conventions_alertmanager_config.content | b64decode)"
-          - "'<blockquote>' in (conventions_alertmanager_config.content | b64decode)"
-          - "'.Alerts.Firing' in (conventions_alertmanager_config.content | b64decode)"
-          - "'.Alerts.Resolved' in (conventions_alertmanager_config.content | b64decode)"
-          - "'Grafana: https://grafana.edgard.org/explore' not in (conventions_alertmanager_config.content | b64decode)"
-          - "'.GeneratorURL' not in (conventions_alertmanager_config.content | b64decode)"
-        fail_msg: "Telegram alerts do not use the expected Home Ops message format"
+          - "'monitoring.coreos.com' not in (item.content | b64decode)"
+        fail_msg: "Prometheus Operator API remains in {{ item.source }}"
+      loop: "{{ conventions_app_yaml_contents.results }}"
+      loop_control:
+        label: "{{ item.source | regex_replace('^' + conventions_repo_root + '/', '') }}"
 
     - name: Read Argo CD refresh role
       ansible.builtin.slurp:

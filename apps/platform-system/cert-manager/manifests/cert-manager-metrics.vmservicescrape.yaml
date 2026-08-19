@@ -1,0 +1,33 @@
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: cert-manager
+  namespace: platform-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - cainjector
+          - cert-manager
+          - webhook
+      - key: app.kubernetes.io/instance
+        operator: In
+        values:
+          - cert-manager
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - cainjector
+          - controller
+          - webhook
+  endpoints:
+    - targetPort: http-metrics
+      path: /metrics
+      interval: 60s
+      scrapeTimeout: 30s

@@ -2,7 +2,7 @@
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 **Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) •
-Prometheus/Grafana/Loki/Alloy • Helm • Ansible • Terraform
+VictoriaMetrics/VictoriaLogs/VLAgent/Grafana • Helm • Ansible • Terraform
 
 ## Build & Test
 
@@ -37,7 +37,7 @@ terraform/               # Cloudflare/Tailscale infra
 ```
 
 **App Categories**:
-- platform-system: alloy, cert-manager, external-dns, external-secrets, gateway-api, istio, istio-base, kube-prometheus-stack, loki, prometheus-blackbox-exporter, reloader, tailscale-router
+- platform-system: cert-manager, external-dns, external-secrets, gateway-api, istio, istio-base, prometheus-blackbox-exporter, reloader, tailscale-router, victoria-logs-collector, victoria-logs-single, victoria-metrics-k8s-stack
 - kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner
 - home-automation: homeassistant, scrypted
 - media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
@@ -78,34 +78,51 @@ controllers:
 - Multus LAN IP (media apps): `k8s.v1.cni.cncf.io/networks: [{"name":"multus-lan-bridge","namespace":"kube-system","ips":["192.168.1.X/24"]}]`
 
 ### Monitoring
-- `kube-prometheus-stack` is the compact monitoring stack: Prometheus,
-  Grafana, Alertmanager, kube-state-metrics, node-exporter, default dashboards,
-  and Prometheus Operator.
+- `victoria-metrics-k8s-stack` is the compact monitoring stack: VictoriaMetrics
+  Operator, VMAgent, VMSingle, kube-state-metrics, node-exporter, and Grafana.
+- VMSingle retains metrics for 30 days on a 50Gi `nfs-fast` claim. VMAgent is the
+  only metrics scraper. VMAlert, VMAlertmanager, standalone Alertmanager,
+  Prometheus compatibility conversion, and Prometheus Operator CRDs are disabled.
+- The chart's complete operator CRD bundle is disabled. Twelve CRD schemas are
+  vendored from `victoria-metrics-operator` 0.67.2: six active APIs plus six
+  indexer-only schemas required for operator v0.74.0 startup. Policy forbids
+  resources for every indexer-only schema, and the corresponding controllers are
+  disabled; VMAlert and VMAlertmanager CRDs remain absent.
 - Grafana is the operations UI at `grafana.edgard.org`; Homepage and Gatus are
   intentionally not part of the stack.
-- Alertmanager handles actionable alerts and sends Telegram notifications from
-  Bitwarden-backed `telegram_bot_token` and `telegram_chat_id`.
+- Grafana Unified Alerting is the sole alert-rule and notification engine. Exactly
+  20 actionable alert rules are file-provisioned from Git and read-only in the UI;
+  there are no recording rules. Its built-in notification router sends Telegram
+  messages using Bitwarden-backed `telegram_bot_token` and `telegram_chat_id`;
+  there is no separate Alertmanager.
+- Grafana exposes exactly five dashboards: Home Ops Overview, Node Exporter Full,
+  VictoriaMetrics Single, VictoriaLogs Single, and Pod Logs Explorer. The three
+  vendor dashboards are synchronized by the pinned stack chart; the two Home Ops
+  dashboards are stored in Git and query raw metrics or logs.
 - Blackbox Exporter replaces Gatus-style route, DNS, and connectivity checks
-  with `monitoring.coreos.com/v1` `Probe` resources.
-- Use `ServiceMonitor` or `PodMonitor` for in-cluster metrics endpoints. Use
-  `Probe` for user-facing HTTPRoute checks, DNS checks, ICMP, and other
+  with `operator.victoriametrics.com/v1beta1` `VMProbe` resources.
+- Use `VMServiceScrape` or `VMPodScrape` for in-cluster metrics endpoints. Use
+  `VMProbe` for user-facing HTTPRoute checks, DNS checks, ICMP, and other
   blackbox reachability tests.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
   annotations to routed apps.
-- Loki is a single monolithic StatefulSet with 30-day retention on a retained
-  30Gi `nfs-fast` claim. It is internal-only and has no HTTPRoute.
-- Alloy is a single non-root, checkpointed StatefulSet that collects pod
-  stdout/stderr and Kubernetes Events through the Kubernetes API and forwards
-  them to Loki. It has no HTTPRoute.
-- Pod log labels are `cluster`, `namespace`, `app`, and `container`; `pod`,
-  `node`, `container_image`, and `container_runtime` are structured metadata.
-  Events use `cluster`, `namespace`, `job="kubernetes/events"`, and the stable
-  Alloy instance label.
-- Grafana provisions Loki as a non-editable internal datasource. Anonymous
-  Viewer access means reachable LAN/Tailscale users can query collected logs.
-- Loki data and Alloy checkpoints are included in Restic backup and restore.
-- Talos host-service logs, external Loki access, log-derived alerts, and object
-  storage are out of scope.
+- VictoriaLogs is a single StatefulSet with 30-day retention on a retained 30Gi
+  `nfs-fast` claim. It is internal-only and has no HTTPRoute.
+- VLAgent is a confined-root DaemonSet that reads pod stdout/stderr through
+  read-only `/var/log` and `/var/lib` host mounts. Its only writable path is the
+  dedicated node-local `/var/lib/vl-collector` queue. Kubernetes Events are not
+  collected.
+- Log stream fields are `cluster`, `kubernetes.pod_namespace`,
+  `kubernetes.pod_labels.app_kubernetes_io_name`, and
+  `kubernetes.container_name`. Pod, node, image, runtime, and other Kubernetes
+  metadata remain ordinary searchable fields.
+- Grafana provisions VictoriaLogs as a non-editable internal datasource with UID
+  `victorialogs`. Anonymous Viewer access means reachable LAN/Tailscale users can
+  query collected logs.
+- VMSingle, VictoriaLogs, and Grafana data are included in Restic backup and
+  restore. VLAgent's node-local buffer is transient and excluded from restore.
+- Talos host-service logs, external Victoria endpoints, log-derived alerts, and
+  object storage are out of scope.
 
 ### Storage
 - `nfs-fast`: `/mnt/spool/appdata` (default)

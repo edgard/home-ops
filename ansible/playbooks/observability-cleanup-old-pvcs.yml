@@ -1,0 +1,80 @@
+---
+- name: Delete retired observability PVCs after the Victoria cutover
+  hosts: localhost
+  gather_facts: false
+  vars:
+    observability_cleanup_confirm: false
+    observability_cleanup_namespace: platform-system
+    observability_cleanup_old_statefulsets:
+      - alertmanager-kube-prometheus-stack-alertmanager
+      - alloy
+      - kube-prometheus-stack-grafana
+      - loki
+      - prometheus-kube-prometheus-stack-prometheus
+    observability_cleanup_new_pvcs:
+      - server-volume-victoria-logs-single-server-0
+      - storage-victoria-metrics-k8s-stack-grafana-0
+      - vmsingle-victoria-metrics-k8s-stack
+    observability_cleanup_old_pvcs:
+      - alertmanager-kube-prometheus-stack-alertmanager-db-alertmanager-kube-prometheus-stack-alertmanager-0
+      - prometheus-kube-prometheus-stack-prometheus-db-prometheus-kube-prometheus-stack-prometheus-0
+      - storage-alloy-0
+      - storage-kube-prometheus-stack-grafana-0
+      - storage-loki-0
+
+  tasks:
+    - name: Require explicit legacy observability PVC cleanup confirmation
+      ansible.builtin.assert:
+        that:
+          - observability_cleanup_confirm | bool
+        fail_msg: >-
+          Refusing to delete legacy observability PVCs. Re-run with
+          observability_cleanup_confirm=true only after the Victoria cutover has been verified.
+
+    - name: Read StatefulSets remaining in the observability namespace
+      kubernetes.core.k8s_info:
+        context: "{{ kube_context }}"
+        api_version: apps/v1
+        kind: StatefulSet
+        namespace: "{{ observability_cleanup_namespace }}"
+      register: observability_cleanup_statefulsets
+
+    - name: Assert retired StatefulSets have been pruned
+      ansible.builtin.assert:
+        that:
+          - >-
+            observability_cleanup_statefulsets.resources
+            | map(attribute='metadata.name')
+            | intersect(observability_cleanup_old_statefulsets)
+            | length == 0
+        fail_msg: "A retired Prometheus, Alertmanager, Grafana, Loki, or Alloy StatefulSet still exists."
+
+    - name: Read replacement observability claims
+      kubernetes.core.k8s_info:
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: PersistentVolumeClaim
+        name: "{{ item }}"
+        namespace: "{{ observability_cleanup_namespace }}"
+      loop: "{{ observability_cleanup_new_pvcs }}"
+      register: observability_cleanup_replacement_claims
+
+    - name: Assert every replacement claim exists and is distinct
+      ansible.builtin.assert:
+        that:
+          - item.resources | length == 1
+          - item.resources[0].metadata.name not in observability_cleanup_old_pvcs
+        fail_msg: "Replacement observability claim is missing or overlaps a legacy claim: {{ item.item }}"
+      loop: "{{ observability_cleanup_replacement_claims.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Delete exact retired observability claims
+      kubernetes.core.k8s:
+        context: "{{ kube_context }}"
+        state: absent
+        api_version: v1
+        kind: PersistentVolumeClaim
+        name: "{{ item }}"
+        namespace: "{{ observability_cleanup_namespace }}"
+      loop: "{{ observability_cleanup_old_pvcs }}"

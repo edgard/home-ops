@@ -1,0 +1,1659 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alerting-provisioning
+  namespace: platform-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+data:
+  rules.yaml: |
+    apiVersion: 1
+    groups:
+    - orgId: 1
+      name: home-ops-actionable
+      folder: Home Ops
+      interval: 1m
+      rules:
+      - uid: alt-9f7900c1e4c053b2b46b7ea3
+        title: BlackboxProbeFailed
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (probe_success == 0) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 0s
+        annotations:
+          description: Blackbox probe {{ $labels.job }} for {{ $labels.instance }} has failed for 5 minutes.
+          summary: '{{ $labels.instance }} is failing blackbox checks'
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-116d50f200ea630c8ea3b2aa
+        title: NodeFilesystemAlmostFull
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: |-
+              ((
+                node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs",mountpoint!~"/run.*|/var/lib/kubelet/pods.*"}
+                /
+                node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs",mountpoint!~"/run.*|/var/lib/kubelet/pods.*"}
+              ) < 0.10
+              and on(instance, device, mountpoint)
+              node_filesystem_readonly{fstype!~"tmpfs|fuse.*|overlay|squashfs",mountpoint!~"/run.*|/var/lib/kubelet/pods.*"} == 0
+              ) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        keepFiringFor: 0s
+        annotations:
+          description: '{{ $labels.mountpoint }} on {{ $labels.instance }} has less than 10% space available.'
+          summary: '{{ $labels.instance }} filesystem is almost full'
+        labels:
+          severity: warning
+        isPaused: false
+      - uid: alt-27ab4e7fa60b571aace6ec3b
+        title: NodeMemoryAvailableLow
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"} < 0.10) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        keepFiringFor: 0s
+        annotations:
+          summary: Node available memory is low
+          description: The node has had less than 10% available memory for 15 minutes.
+        labels:
+          severity: warning
+        isPaused: false
+      - uid: alt-d84c285429731daeb016e862
+        title: KubePersistentVolumeFillingUp
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: |-
+              ((
+                kubelet_volume_stats_available_bytes{job="kubelet", namespace=~".*", metrics_path="/metrics"}
+                  /
+                kubelet_volume_stats_capacity_bytes{job="kubelet", namespace=~".*", metrics_path="/metrics"}
+              ) < 0.03
+              and
+              kubelet_volume_stats_used_bytes{job="kubelet", namespace=~".*", metrics_path="/metrics"} > 0
+              unless on (cluster, namespace, persistentvolumeclaim)
+              kube_persistentvolumeclaim_access_mode{ access_mode="ReadOnlyMany"} == 1
+              unless on (cluster, namespace, persistentvolumeclaim)
+              kube_persistentvolumeclaim_labels{label_excluded_from_alerts="true"} == 1) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        keepFiringFor: 0s
+        annotations:
+          description: The PersistentVolume claimed by {{ $labels.persistentvolumeclaim }} in Namespace {{ $labels.namespace }} {{ with $labels.cluster -}} on Cluster {{ . }} {{- end }} is only {{ $value | humanizePercentage }} free.
+          runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepersistentvolumefillingup
+          summary: PersistentVolume is filling up.
+        labels:
+          severity: warning
+        isPaused: false
+      - uid: alt-39cd4a839049aeac2c99e713
+        title: KubePersistentVolumeErrors
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (kube_persistentvolume_status_phase{phase=~"Failed|Pending",job="kube-state-metrics"} > 0) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 0s
+        annotations:
+          description: The persistent volume {{ $labels.persistentvolume }} {{ with $labels.cluster -}} on Cluster {{ . }} {{- end }} has status {{ $labels.phase }}.
+          runbook_url: https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepersistentvolumeerrors
+          summary: PersistentVolume is having issues with provisioning.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-382c153d3761e0395c31e3c9
+        title: PodRestartingFrequently
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (increase(kube_pod_container_status_restarts_total{container!="POD"}[15m]) > 3) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        keepFiringFor: 0s
+        annotations:
+          description: Container {{ $labels.container }} restarted more than 3 times in 15 minutes.
+          summary: '{{ $labels.namespace }}/{{ $labels.pod }} is restarting frequently'
+        labels:
+          severity: warning
+        isPaused: false
+      - uid: alt-4b28ca9fca7de23c17654767
+        title: PodContainerOOMKilled
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (sum by (namespace, pod, container) (increase(container_oom_events_total{container!="", pod!=""}[10m])) > 0) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        keepFiringFor: 0s
+        annotations:
+          summary: A container was OOM-killed
+          description: The container reported an out-of-memory kill during the last 10 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-2b8f87bbd5293fe6871936a6
+        title: CertificateExpiringSoon
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: |-
+              ((certmanager_certificate_expiration_timestamp_seconds - time()) < 604800
+              and
+              (certmanager_certificate_expiration_timestamp_seconds - time()) > 0
+              ) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 30m
+        keepFiringFor: 0s
+        annotations:
+          description: Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in less than 7 days.
+          summary: Certificate {{ $labels.namespace }}/{{ $labels.name }} expires soon
+        labels:
+          severity: warning
+        isPaused: false
+      - uid: alt-78443a3cbc818605bf4adfb2
+        title: ArgoCDAppUnhealthy
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (argocd_app_info{health_status!~"Healthy|Progressing"} == 1) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        keepFiringFor: 0s
+        annotations:
+          description: Argo CD reports {{ $labels.name }} in project {{ $labels.project }} as {{ $labels.health_status }}.
+          summary: Argo CD app {{ $labels.name }} is {{ $labels.health_status }}
+        labels:
+          severity: warning
+        isPaused: false
+      - uid: alt-8d96aafcd9b8439afe3852a2
+        title: NodeNotReady
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (kube_node_status_condition{job="kube-state-metrics", condition="Ready", status="true"} == 0) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        keepFiringFor: 0s
+        annotations:
+          summary: The Kubernetes node is not ready
+          description: The single Kubernetes node has reported NotReady for 10 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-0eed5c4bbed56c4353709b19
+        title: ResticBackupStale
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: |-
+              ((
+                time() - kube_cronjob_status_last_successful_time{namespace="selfhosted", cronjob="restic-backup"} > 129600
+              )
+              or
+              (
+                time() - kube_cronjob_created{namespace="selfhosted", cronjob="restic-backup"} > 129600
+                unless on (namespace, cronjob)
+                kube_cronjob_status_last_successful_time{namespace="selfhosted", cronjob="restic-backup"}
+              )) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        keepFiringFor: 0s
+        annotations:
+          summary: The daily Restic backup is stale
+          description: The restic-backup CronJob has not completed successfully for more than 36 hours.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-648d230328d8039e9a5d0d59
+        title: CoreScrapeTargetDown
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: |-
+              (up{job=~"node-exporter|kube-state-metrics|kubelet|prometheus-blackbox-exporter"} == 0
+              or label_set(absent(up{job="node-exporter"}), "job", "node-exporter")
+              or label_set(absent(up{job="kube-state-metrics"}), "job", "kube-state-metrics")
+              or label_set(absent(up{job="kubelet"}), "job", "kubelet")
+              or label_set(absent(up{job="prometheus-blackbox-exporter"}), "job", "prometheus-blackbox-exporter")) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        keepFiringFor: 0s
+        annotations:
+          summary: A core monitoring target is unavailable
+          description: A core exporter is down or absent, leaving actionable alerts without source metrics.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-805b6a09d3c366299225a977
+        title: VMSingleDown
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (absent(up{job=~".*vmsingle.*"} == 1)) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 0s
+        annotations:
+          summary: VMSingle is unavailable
+          description: VMAgent has not successfully scraped VMSingle for 5 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-4ec0359dc4f13071c2f92faa
+        title: VMAgentDown
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (absent(up{job=~".*vmagent.*"} == 1)) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 0s
+        annotations:
+          summary: VMAgent is unavailable
+          description: VictoriaMetrics has not received a healthy VMAgent self-scrape for 5 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-cf2aeac25adc1540f7689e30
+        title: VictoriaMetricsOperatorDown
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (absent(up{job=~".*victoria-metrics-operator.*"} == 1)) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 0s
+        annotations:
+          summary: VictoriaMetrics Operator is unavailable
+          description: The VictoriaMetrics Operator metrics target has been absent for 5 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-4b522f8ae6f42fa22c206bd8
+        title: VictoriaLogsDown
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (absent(up{job=~".*victoria-logs-single.*"} == 1)) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 0s
+        annotations:
+          summary: VictoriaLogs is unavailable
+          description: VMAgent has not successfully scraped VictoriaLogs for 5 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-055c68ff79532dcde7f6281e
+        title: VLAgentDown
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (absent(up{job=~".*victoria-logs-collector.*"} == 1)) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 0s
+        annotations:
+          summary: VLAgent is unavailable
+          description: The VLAgent metrics target has been absent for 5 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-9dda2f3ed490ab2a9bca21b7
+        title: VMAgentRemoteWriteFailures
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (increase(vmagent_remotewrite_retries_count_total[5m]) > 0) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        keepFiringFor: 0s
+        annotations:
+          summary: VMAgent remote writes are retrying
+          description: VMAgent has continuously retried writes to VMSingle for 10 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-ac32c8d782ab28beadcf210e
+        title: VictoriaLogsRowsDropped
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (sum by (reason) (increase(vl_rows_dropped_total{reason!="debug"}[5m])) > 0) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        keepFiringFor: 0s
+        annotations:
+          summary: VictoriaLogs is dropping log rows
+          description: VictoriaLogs has continuously rejected log rows for 15 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+      - uid: alt-3fb7eccadd87aaf0a38431fe
+        title: GrafanaNotificationFailures
+        condition: C
+        data:
+        - refId: A
+          queryType: ''
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: prometheus
+          model:
+            datasource:
+              type: prometheus
+              uid: prometheus
+            editorMode: code
+            expr: (increase(grafana_alertmanager_notifications_failed_total[5m]) > 0) * 0 + 1
+            instant: true
+            intervalMs: 1000
+            legendFormat: __auto
+            maxDataPoints: 43200
+            range: false
+            refId: A
+        - refId: B
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions: []
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: A
+            intervalMs: 1000
+            maxDataPoints: 43200
+            reducer: last
+            refId: B
+            type: reduce
+        - refId: C
+          queryType: ''
+          relativeTimeRange:
+            from: 0
+            to: 0
+          datasourceUid: __expr__
+          model:
+            conditions:
+            - evaluator:
+                params:
+                - 0
+                type: gt
+              operator:
+                type: and
+              query:
+                params:
+                - C
+              reducer:
+                params: []
+                type: last
+              type: query
+            datasource:
+              type: __expr__
+              uid: __expr__
+            expression: B
+            intervalMs: 1000
+            maxDataPoints: 43200
+            refId: C
+            type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        keepFiringFor: 0s
+        annotations:
+          summary: Grafana notification delivery is failing
+          description: Grafana's built-in notification router has failed to deliver notifications for 5 minutes.
+        labels:
+          severity: critical
+        isPaused: false
+  contactpoints.yaml: |
+    apiVersion: 1
+    contactPoints:
+    - orgId: 1
+      name: telegram
+      receivers:
+      - uid: home-ops-telegram
+        type: telegram
+        disableResolveMessage: false
+        settings:
+          bottoken: $TELEGRAM_BOT_TOKEN
+          chatid: $TELEGRAM_CHAT_ID
+          parse_mode: HTML
+          message: '{{ template "home-ops.telegram.message" . }}'
+  policies.yaml: |
+    apiVersion: 1
+    policies:
+    - orgId: 1
+      receiver: telegram
+      group_by:
+      - alertname
+      - namespace
+      - job
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 6h
+      routes:
+      - receiver: telegram
+        object_matchers:
+        - - alertname
+          - =~
+          - DatasourceNoData|DatasourceError
+        group_by:
+        - alertname
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 6h
+  templates.yaml: |-
+    apiVersion: 1
+    templates:
+    - orgId: 1
+      name: home-ops.telegram
+      template: "{{ define \"home-ops.telegram.alert\" -}}\n{{- with .Annotations.summary }}<b>{{ . | html }}</b>{{ end }}\n{{- with .Annotations.description }}\n<blockquote>{{ . | html }}</blockquote>{{ end }}\n{{- with .Labels.severity }}\n<b>Severity:</b> {{ . | title | html }}{{ end }}\n{{- with .Labels.namespace }}\n<b>Namespace:</b> <code>{{ . | html }}</code>{{ end }}\n{{- if .Labels.name }}\n<b>Target:</b> <code>{{ .Labels.name | html }}</code>\n{{- else if .Labels.pod }}\n<b>Target:</b> <code>{{ .Labels.pod | html }}</code>\n{{- else if .Labels.instance }}\n<b>Target:</b> <code>{{ .Labels.instance | html }}</code>{{ end }}\n{{- with .Annotations.runbook_url }}\n\U0001F4D6 <a href=\"{{ . | html }}\">Runbook</a>{{ end }}\n{{- end }}\n\n{{ define \"home-ops.telegram.alert-list\" -}}\n{{- /* Alerts | first 10: slice caps Telegram output before Grafana's 4096-byte limit. */ -}}\n{{- if gt (len .) 10 }}\n  {{- range $index, $alert := slice . 0 10 }}\n    {{- if $index }}\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500{{ end }}\n{{ template \"home-ops.telegram.alert\" $alert }}\n  {{- end }}\n\n<i>{{ len (slice . 10) }} additional alert(s) omitted.</i>\n{{- else }}\n  {{- range $index, $alert := . }}\n    {{- if $index }}\n\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500{{ end }}\n{{ template \"home-ops.telegram.alert\" $alert }}\n  {{- end }}\n{{- end }}\n{{- end }}\n\n{{ define \"home-ops.telegram.message\" -}}\n<b>\U0001F3E0 Home Ops \xB7 Monitoring</b>\n{{- if gt (len .Alerts.Firing) 0 }}\n\n{{ if eq .CommonLabels.severity \"critical\" }}\U0001F534{{ else }}\u26A0\uFE0F{{ end }} <b>FIRING \xB7 {{ .CommonLabels.alertname | html }} ({{ len .Alerts.Firing }})</b>\n{{ template \"home-ops.telegram.alert-list\" .Alerts.Firing }}\n{{- end }}\n{{- if gt (len .Alerts.Resolved) 0 }}\n\n\u2705 <b>RESOLVED \xB7 {{ .CommonLabels.alertname | html }} ({{ len .Alerts.Resolved }})</b>\n{{ template \"home-ops.telegram.alert-list\" .Alerts.Resolved }}\n{{- end }}\n{{- end }}"

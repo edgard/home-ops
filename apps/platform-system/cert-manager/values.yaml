@@ -19,4 +19,4 @@ cainjector:
 prometheus:
   enabled: true
   servicemonitor:
-    enabled: true
+    enabled: false

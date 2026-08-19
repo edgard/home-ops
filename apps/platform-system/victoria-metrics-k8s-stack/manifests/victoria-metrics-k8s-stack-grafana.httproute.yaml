@@ -15,5 +15,5 @@ spec:
     - grafana.edgard.org
   rules:
     - backendRefs:
-        - name: kube-prometheus-stack-grafana
+        - name: victoria-metrics-k8s-stack-grafana
           port: 80

@@ -1,0 +1,23 @@
+---
+server:
+  replicaCount: 1
+  retentionPeriod: 30d
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  persistentVolume:
+    enabled: true
+    storageClassName: nfs-fast
+    size: 30Gi
+  serviceMonitor:
+    enabled: false
+  vmServiceScrape:
+    enabled: true
+    interval: 30s
+
+vector:
+  enabled: false
+
+dashboards:
+  enabled: false
