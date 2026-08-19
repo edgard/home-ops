@@ -26,6 +26,7 @@ restic_restore_excluded_apps:
   - root
   - media-backup
   - selfhosted-backup
+  - victoria-logs-collector
 restic_restore_excluded_pvcs:
   - media/media
   - selfhosted/restic-repo

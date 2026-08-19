@@ -1,22 +1,23 @@
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: Probe
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMProbe
 metadata:
   name: prometheus-blackbox-exporter-http
   namespace: platform-system
   annotations:
     argocd.argoproj.io/sync-wave: "1"
 spec:
+  jobName: prometheus-blackbox-exporter-http
   interval: 1m
   scrapeTimeout: 10s
   module: http_2xx
-  prober:
+  vmProberSpec:
     url: prometheus-blackbox-exporter.platform-system.svc.cluster.local:9115
   targets:
     staticConfig:
       labels:
         group: routed
-      static:
+      targets:
         - https://argocd.edgard.org
         - https://grafana.edgard.org
         - https://homeassistant.edgard.org

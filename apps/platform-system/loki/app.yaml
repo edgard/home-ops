@@ -1,7 +1,0 @@
----
-chart:
-  repo: https://grafana-community.github.io/helm-charts
-  name: loki
-  version: 18.9.0
-sync:
-  wave: "0"

@@ -1,188 +1,419 @@
 ---
-- name: Validate lightweight logging observability contracts
+- name: Validate Victoria observability contracts
   hosts: localhost
   gather_facts: false
   vars:
     observability_repo_root: "{{ playbook_dir }}/../.."
+    observability_removed_apps:
+      - kube-prometheus-stack
+      - loki
+      - alloy
+    observability_required_victoria_crds:
+      - victoria-metrics-k8s-stack-vmagent.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmalertmanagerconfig.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmanomalyconfig.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmnodescrape.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmpodscrape.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmprobe.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmrule.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmscrapeconfig.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmservicescrape.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmsingle.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmstaticscrape.customresourcedefinition.yaml
+      - victoria-metrics-k8s-stack-vmuser.customresourcedefinition.yaml
+    observability_disabled_victoria_controllers:
+      - AlertmanagerConfig
+      - PodMonitor
+      - Probe
+      - PrometheusRule
+      - ScrapeConfig
+      - ServiceMonitor
+      - VLAgent
+      - VLCluster
+      - VLDistributed
+      - VLogs
+      - VLSingle
+      - VMAlert
+      - VMAlertmanager
+      - VMAlertmanagerConfig
+      - VMAnomaly
+      - VMAnomalyConfig
+      - VMAuth
+      - VMCluster
+      - VMDistributed
+      - VMRule
+      - VMScrapeConfig
+      - VMStaticScrape
+      - VTSingle
+      - VTCluster
+      - VMUser
+    observability_warning_alerts:
+      - ArgoCDAppUnhealthy
+      - CertificateExpiringSoon
+      - KubePersistentVolumeFillingUp
+      - NodeFilesystemAlmostFull
+      - NodeMemoryAvailableLow
+      - PodRestartingFrequently
+    observability_critical_alerts:
+      - BlackboxProbeFailed
+      - CoreScrapeTargetDown
+      - GrafanaNotificationFailures
+      - KubePersistentVolumeErrors
+      - NodeNotReady
+      - PodContainerOOMKilled
+      - ResticBackupStale
+      - VLAgentDown
+      - VMAgentDown
+      - VMAgentRemoteWriteFailures
+      - VMSingleDown
+      - VictoriaLogsDown
+      - VictoriaLogsRowsDropped
+      - VictoriaMetricsOperatorDown
+    observability_enabled_dashboards:
+      - node-exporter-full
+      - victorialogs-single-node
+      - victoriametrics-single-node
+    observability_disabled_dashboards:
+      - alertmanager-overview
+      - controller-manager
+      - grafana-overview
+      - kubelet
+      - proxy
+      - scheduler
+      - victorialogs-cluster
+      - victorialogs-vlagent
+      - victoriametrics-cluster
+      - victoriametrics-operator
+      - victoriametrics-vmalert
+      - victoriametrics-vmagent
+      - victoriatraces-cluster
+      - victoriatraces-single-node
+    observability_enabled_dashboard_sources:
+      - node-exporter-full
+      - victorialogs-single-node
+      - victoriametrics-single-node
+    observability_disabled_dashboard_sources:
+      - etcd
+      - kube-prometheus
+      - kubernetes-system-api-server
+      - kubernetes-system-coredns
+      - kubernetes-views-global
+      - kubernetes-views-namespaces
+      - kubernetes-views-nodes
+      - kubernetes-views-pods
+      - victorialogs-cluster
+      - victorialogs-vlagent
+      - victoriametrics-backupmanager
+      - victoriametrics-cluster
+      - victoriametrics-operator
+      - victoriametrics-vmalert
+      - victoriametrics-vmagent
+      - victoriatraces-cluster
+      - victoriatraces-single-node
 
   tasks:
-    - name: Read logging observability configuration
+    - name: Find the selectively vendored VictoriaMetrics CRDs
+      ansible.builtin.find:
+        paths: "{{ observability_repo_root }}/apps/platform-system/victoria-metrics-k8s-stack/manifests"
+        patterns: "*.customresourcedefinition.yaml"
+        file_type: file
+      register: observability_victoria_crd_files
+
+    - name: Assert only the required VictoriaMetrics CRDs are vendored
+      ansible.builtin.assert:
+        that:
+          - observability_victoria_crd_files.files | map(attribute='path') | map('basename') | sort == observability_required_victoria_crds | sort
+
+    - name: Read Victoria observability configuration
       ansible.builtin.slurp:
         src: "{{ observability_repo_root }}/{{ item }}"
       loop:
-        - apps/platform-system/loki/app.yaml
-        - apps/platform-system/loki/values.yaml
-        - apps/platform-system/alloy/app.yaml
-        - apps/platform-system/alloy/values.yaml
-        - apps/platform-system/kube-prometheus-stack/values.yaml
+        - apps/platform-system/victoria-metrics-k8s-stack/app.yaml
+        - apps/platform-system/victoria-metrics-k8s-stack/values.yaml
+        - apps/platform-system/victoria-metrics-k8s-stack/manifests/victoria-metrics-k8s-stack-grafana-alerting.configmap.yaml
+        - apps/platform-system/victoria-logs-single/app.yaml
+        - apps/platform-system/victoria-logs-single/values.yaml
+        - apps/platform-system/victoria-logs-collector/app.yaml
+        - apps/platform-system/victoria-logs-collector/values.yaml
+        - apps/platform-system/victoria-logs-single/manifests/victoria-logs-single-pod-explorer.configmap.yaml
+        - apps/platform-system/victoria-metrics-k8s-stack/manifests/victoria-metrics-k8s-stack-home-ops-overview.configmap.yaml
         - apps/selfhosted/restic/values.yaml
         - ansible/roles/restic/defaults/main.yml
-      register: observability_logging_files
+      register: observability_files
 
-    - name: Parse logging observability configuration
+    - name: Parse Victoria observability configuration
       ansible.builtin.set_fact:
-        observability_loki_app: "{{ observability_logging_files.results[0].content | b64decode | from_yaml }}"
-        observability_loki_values: "{{ observability_logging_files.results[1].content | b64decode | from_yaml }}"
-        observability_alloy_app: "{{ observability_logging_files.results[2].content | b64decode | from_yaml }}"
-        observability_alloy_values: "{{ observability_logging_files.results[3].content | b64decode | from_yaml }}"
-        observability_monitoring_values: "{{ observability_logging_files.results[4].content | b64decode | from_yaml }}"
-        observability_restic_values: "{{ observability_logging_files.results[5].content | b64decode | from_yaml }}"
-        observability_restic_defaults: "{{ observability_logging_files.results[6].content | b64decode | from_yaml }}"
+        observability_metrics_app: "{{ observability_files.results[0].content | b64decode | from_yaml }}"
+        observability_metrics_values: "{{ observability_files.results[1].content | b64decode | from_yaml }}"
+        observability_alerting_configmap: "{{ observability_files.results[2].content | b64decode | from_yaml }}"
+        observability_logs_app: "{{ observability_files.results[3].content | b64decode | from_yaml }}"
+        observability_logs_values: "{{ observability_files.results[4].content | b64decode | from_yaml }}"
+        observability_collector_app: "{{ observability_files.results[5].content | b64decode | from_yaml }}"
+        observability_collector_values: "{{ observability_files.results[6].content | b64decode | from_yaml }}"
+        observability_logs_dashboard: "{{ observability_files.results[7].content | b64decode | from_yaml }}"
+        observability_home_dashboard: "{{ observability_files.results[8].content | b64decode | from_yaml }}"
+        observability_restic_values: "{{ observability_files.results[9].content | b64decode | from_yaml }}"
+        observability_restic_defaults: "{{ observability_files.results[10].content | b64decode | from_yaml }}"
 
-    - name: Assert Loki uses the pinned monolithic NFS-backed topology
+    - name: Parse Grafana alerting provisioning files
+      ansible.builtin.set_fact:
+        observability_grafana_rules: "{{ observability_alerting_configmap.data['rules.yaml'] | from_yaml }}"
+        observability_grafana_contactpoints: "{{ observability_alerting_configmap.data['contactpoints.yaml'] | from_yaml }}"
+        observability_grafana_policies: "{{ observability_alerting_configmap.data['policies.yaml'] | from_yaml }}"
+        observability_grafana_templates: "{{ observability_alerting_configmap.data['templates.yaml'] | from_yaml }}"
+
+    - name: Flatten Grafana-managed rules
+      ansible.builtin.set_fact:
+        observability_all_grafana_rules: "{{ observability_grafana_rules.groups | map(attribute='rules') | flatten }}"
+
+    - name: Assert the VictoriaMetrics stack is single-node and Grafana-owned
       ansible.builtin.assert:
         that:
-          - observability_loki_app.chart.repo == "https://grafana-community.github.io/helm-charts"
-          - observability_loki_app.chart.name == "loki"
-          - observability_loki_app.sync.wave == "0"
-          - observability_loki_values.deploymentMode == "Monolithic"
-          - observability_loki_values.loki.auth_enabled is false
-          - observability_loki_values.loki.commonConfig.replication_factor == 1
-          - observability_loki_values.loki.commonConfig.path_prefix == "/var/loki"
-          - observability_loki_values.loki.schemaConfig.configs[0].store == "tsdb"
-          - observability_loki_values.loki.schemaConfig.configs[0].schema == "v13"
-          - observability_loki_values.loki.schemaConfig.configs[0].object_store == "filesystem"
-          - observability_loki_values.loki.storage.type == "filesystem"
-          - observability_loki_values.loki.compactor.retention_enabled is true
-          - observability_loki_values.loki.limits_config.retention_period == "720h"
-          - observability_loki_values.loki.limits_config.reject_old_samples is true
-          - observability_loki_values.loki.limits_config.reject_old_samples_max_age == "168h"
-          - observability_loki_values.loki.limits_config.allow_structured_metadata is true
-          - observability_loki_values.loki.limits_config.discover_log_levels is true
-          - observability_loki_values.singleBinary.replicas == 1
-          - observability_loki_values.singleBinary.persistence.enabled is true
-          - observability_loki_values.singleBinary.persistence.enableStatefulSetAutoDeletePVC is true
-          - observability_loki_values.singleBinary.persistence.storageClass == "nfs-fast"
-          - observability_loki_values.singleBinary.persistence.size == "30Gi"
-          - observability_loki_values.singleBinary.persistence.whenDeleted == "Retain"
-          - observability_loki_values.singleBinary.persistence.whenScaled == "Retain"
-          - observability_loki_values.defaults.automountServiceAccountToken is false
-          - observability_loki_values.serviceAccount.automountServiceAccountToken is false
-          - "'resources' not in observability_loki_values.singleBinary"
+          - observability_metrics_app.chart.repo == "https://victoriametrics.github.io/helm-charts/"
+          - observability_metrics_app.chart.name == "victoria-metrics-k8s-stack"
+          - observability_metrics_app.chart.version == "0.91.0"
+          - observability_metrics_app.sync.wave == "-4"
+          - observability_metrics_values.argocdReleaseOverride == "victoria-metrics-k8s-stack"
+          - observability_metrics_values['victoria-metrics-operator'].crds.enabled is false
+          - observability_metrics_values['victoria-metrics-operator'].crds.plain is false
+          - observability_metrics_values['victoria-metrics-operator'].operator.disable_prometheus_converter is true
+          - observability_metrics_values['victoria-metrics-operator'].extraArgs['controller.disableReconcileFor'].split(',') | sort == observability_disabled_victoria_controllers | sort
+          - observability_metrics_values['victoria-metrics-operator'].serviceMonitor.enabled is true
+          - observability_metrics_values['victoria-metrics-operator'].serviceMonitor.vm is true
+          - observability_metrics_values.defaultRules.enabled is false
+          - observability_metrics_values.alertmanager.enabled is false
+          - observability_metrics_values.vmalert.enabled is false
+          - observability_metrics_values.vmsingle.enabled is true
+          - observability_metrics_values.vmsingle.spec.replicaCount == 1
+          - observability_metrics_values.vmsingle.spec.retentionPeriod == "30d"
+          - observability_metrics_values.vmsingle.spec.storage.storageClassName == "nfs-fast"
+          - observability_metrics_values.vmsingle.spec.storage.resources.requests.storage == "50Gi"
+          - observability_metrics_values.vmsingle.spec.resources.limits is not defined
+          - observability_metrics_values.vmsingle.spec.serviceScrapeSpec.endpoints[0].port == "http"
+          - observability_metrics_values.vmsingle.spec.serviceScrapeSpec.endpoints[0].interval == "30s"
+          - observability_metrics_values.vmagent.enabled is true
+          - observability_metrics_values.vmagent.spec.replicaCount == 1
+          - observability_metrics_values.vmagent.spec.scrapeInterval == "30s"
+          - observability_metrics_values.vmagent.spec.externalLabels.cluster == "homelab"
+          - observability_metrics_values.vmagent.spec.resources.limits is not defined
+          - observability_metrics_values.vmagent.spec.serviceScrapeSpec.endpoints[0].port == "http"
+          - observability_metrics_values.vmagent.spec.serviceScrapeSpec.endpoints[0].interval == "30s"
 
-    - name: Assert Loki disables distributed and optional workloads
+    - name: Assert Grafana preserves the public interface and fresh persistence
       ansible.builtin.assert:
         that:
-          - observability_loki_values.gateway.enabled is false
-          - observability_loki_values.chunksCache.enabled is false
-          - observability_loki_values.resultsCache.enabled is false
-          - observability_loki_values.lokiCanary.enabled is false
-          - observability_loki_values.ruler.enabled is false
-          - observability_loki_values.sidecar.rules.enabled is false
-          - observability_loki_values.minio.enabled is false
-          - observability_loki_values.test.enabled is false
-          - observability_loki_values.backend.replicas == 0
-          - observability_loki_values.read.replicas == 0
-          - observability_loki_values.write.replicas == 0
-          - observability_loki_values.ingester.replicas == 0
-          - observability_loki_values.querier.replicas == 0
-          - observability_loki_values.queryFrontend.replicas == 0
-          - observability_loki_values.queryScheduler.replicas == 0
-          - observability_loki_values.distributor.replicas == 0
-          - observability_loki_values.compactor.replicas == 0
-          - observability_loki_values.indexGateway.replicas == 0
-          - observability_loki_values.bloomPlanner.replicas == 0
-          - observability_loki_values.bloomBuilder.replicas == 0
-          - observability_loki_values.bloomGateway.replicas == 0
+          - observability_metrics_values.grafana.admin.existingSecret == "grafana-credentials"
+          - observability_metrics_values.grafana.defaultDashboardsTimezone == "Europe/Warsaw"
+          - observability_metrics_values.grafana.persistence.enabled is true
+          - observability_metrics_values.grafana.persistence.type == "sts"
+          - observability_metrics_values.grafana.persistence.storageClassName == "nfs-fast"
+          - observability_metrics_values.grafana.persistence.size == "5Gi"
+          - observability_metrics_values.grafana['grafana.ini'].server.root_url == "https://grafana.edgard.org"
+          - observability_metrics_values.grafana['grafana.ini']['auth.anonymous'].enabled is true
+          - observability_metrics_values.grafana['grafana.ini']['auth.anonymous'].org_role == "Viewer"
+          - observability_metrics_values.grafana['grafana.ini'].recording_rules is not defined
+          - observability_metrics_values.grafana.envFromSecret == "grafana-alerting-credentials"
+          - observability_metrics_values.grafana.plugins == ["victoriametrics-logs-datasource@0.30.1"]
+          - observability_metrics_values.grafana.resources.limits is not defined
+          - observability_metrics_values.grafana.extraConfigmapMounts[0].configMap == "grafana-alerting-provisioning"
+          - observability_metrics_values.grafana.extraConfigmapMounts[0].mountPath == "/etc/grafana/provisioning/alerting"
 
-    - name: Assert Loki monitoring exposes only the selected dashboards and critical alerts
+    - name: Assert only the intended Grafana datasources are provisioned
       ansible.builtin.assert:
         that:
-          - observability_loki_values.monitoring.serviceMonitor.enabled is true
-          - observability_loki_values.monitoring.dashboards.enabled is true
-          - observability_loki_values.monitoring.dashboards.defaultDashboardsTimezone == "Europe/Warsaw"
-          - observability_loki_values.monitoring.dashboards['loki-logs'].enabled is true
-          - observability_loki_values.monitoring.dashboards['loki-retention'].enabled is true
-          - observability_loki_values.monitoring.dashboards['loki-operational'].enabled is false
-          - observability_loki_values.monitoring.alerts.enabled is true
-          - observability_loki_values.monitoring.alerts.disabled.LokiRequestLatency is true
-          - observability_loki_values.monitoring.alerts.disabled.LokiTooManyCompactorsRunning is true
-          - observability_loki_values.monitoring.alerts.overrides.LokiRequestErrors.severity == "critical"
-          - observability_loki_values.monitoring.alerts.overrides.LokiRequestPanics.severity == "critical"
-          - observability_loki_values.monitoring.alerts.overrides.LokiCompactorHasNotSuccessfullyRunCompaction.severity == "critical"
-          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[0].alert == "LokiDiscardingLogs"
-          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[0].for == "15m"
-          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[0].labels.severity == "critical"
-          - "'loki_discarded_samples_total' in observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[0].expr"
-          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].alert == "LokiStorageBackendAlmostFull"
-          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].for == "15m"
-          - observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].labels.severity == "critical"
-          - "'storage-loki-0' in observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].expr"
-          - "'< 0.10' in observability_loki_values.monitoring.additionalPrometheusRules['home-ops'].groups[0].rules[1].expr"
+          - observability_metrics_values.defaultDatasources.victoriametrics.datasources | length == 1
+          - observability_metrics_values.defaultDatasources.victoriametrics.datasources[0].uid == "prometheus"
+          - observability_metrics_values.defaultDatasources.victoriametrics.datasources[0].type == "prometheus"
+          - observability_metrics_values.defaultDatasources.victoriametrics.datasources[0].isDefault is true
+          - observability_metrics_values.defaultDatasources.victoriametrics.datasources[0].editable is false
+          - observability_metrics_values.defaultDatasources.victoriametrics.datasources[0].jsonData.disableRecordingRules is true
+          - observability_metrics_values.defaultDatasources.victorialogs.datasources | length == 1
+          - observability_metrics_values.defaultDatasources.victorialogs.datasources[0].uid == "victorialogs"
+          - observability_metrics_values.defaultDatasources.victorialogs.datasources[0].type == "victoriametrics-logs-datasource"
+          - observability_metrics_values.defaultDatasources.victorialogs.datasources[0].editable is false
+          - observability_metrics_values.defaultDatasources.alertmanager.datasources | length == 0
+          - observability_metrics_values.external.vl.read.url == "http://victoria-logs-single-server.platform-system.svc.cluster.local:9428"
 
-    - name: Assert Alloy uses the pinned checkpointed StatefulSet
+    - name: Assert Grafana provisions only the actionable alert inventory
       ansible.builtin.assert:
         that:
-          - observability_alloy_app.chart.repo == "https://grafana.github.io/helm-charts"
-          - observability_alloy_app.chart.name == "alloy"
-          - observability_alloy_app.sync.wave == "0"
-          - observability_alloy_values.crds.create is false
-          - observability_alloy_values.alloy.storagePath == "/var/lib/alloy"
-          - observability_alloy_values.alloy.enableReporting is false
-          - observability_alloy_values.alloy.clustering.enabled is false
-          - "'resources' not in observability_alloy_values.alloy"
-          - observability_alloy_values.configReloader.enabled is false
-          - observability_alloy_values.controller.type == "statefulset"
-          - observability_alloy_values.controller.replicas == 1
-          - observability_alloy_values.controller.enableStatefulSetAutoDeletePVC is false
-          - observability_alloy_values.controller.autoscaling.enabled is false
-          - observability_alloy_values.controller.autoscaling.horizontal.enabled is false
-          - observability_alloy_values.ingress.enabled is false
-          - observability_alloy_values.serviceMonitor.enabled is true
-          - observability_alloy_values.controller.volumeClaimTemplates[0].metadata.name == "storage"
-          - observability_alloy_values.controller.volumeClaimTemplates[0].spec.storageClassName == "nfs-fast"
-          - observability_alloy_values.controller.volumeClaimTemplates[0].spec.resources.requests.storage == "1Gi"
-          - observability_alloy_values.alloy.mounts.extra[0].name == "storage"
-          - observability_alloy_values.alloy.mounts.extra[0].mountPath == "/var/lib/alloy"
+          - observability_grafana_rules.apiVersion == 1
+          - observability_all_grafana_rules | length == 20
+          - observability_all_grafana_rules | selectattr('record', 'defined') | length == 0
+          - observability_all_grafana_rules | map(attribute='noDataState') | unique == ['OK']
+          - observability_all_grafana_rules | map(attribute='execErrState') | unique == ['Error']
+          - observability_all_grafana_rules | map(attribute='uid') | list | length == observability_all_grafana_rules | map(attribute='uid') | unique | length
+          - observability_all_grafana_rules | map(attribute='title') | sort == (observability_warning_alerts + observability_critical_alerts) | sort
+          - observability_all_grafana_rules | selectattr('labels.severity', 'equalto', 'warning') | map(attribute='title') | sort == observability_warning_alerts | sort
+          - observability_all_grafana_rules | selectattr('labels.severity', 'equalto', 'critical') | map(attribute='title') | sort == observability_critical_alerts | sort
+          - observability_all_grafana_rules | map(attribute='data') | flatten | selectattr('datasourceUid', 'equalto', 'prometheus') | length == 20
 
-    - name: Assert Alloy is non-root and has least-privilege Kubernetes API access
+    - name: Select essential alert rules for expression validation
+      ansible.builtin.set_fact:
+        observability_memory_alert: "{{ observability_all_grafana_rules | selectattr('title', 'equalto', 'NodeMemoryAvailableLow') | first }}"
+        observability_oom_alert: "{{ observability_all_grafana_rules | selectattr('title', 'equalto', 'PodContainerOOMKilled') | first }}"
+        observability_node_alert: "{{ observability_all_grafana_rules | selectattr('title', 'equalto', 'NodeNotReady') | first }}"
+        observability_backup_alert: "{{ observability_all_grafana_rules | selectattr('title', 'equalto', 'ResticBackupStale') | first }}"
+        observability_scrape_alert: "{{ observability_all_grafana_rules | selectattr('title', 'equalto', 'CoreScrapeTargetDown') | first }}"
+
+    - name: Assert essential alert expressions and thresholds
       ansible.builtin.assert:
         that:
-          - observability_alloy_values.global.podSecurityContext.runAsNonRoot is true
-          - observability_alloy_values.global.podSecurityContext.runAsUser == 473
-          - observability_alloy_values.global.podSecurityContext.runAsGroup == 473
-          - observability_alloy_values.global.podSecurityContext.fsGroup == 473
-          - observability_alloy_values.global.podSecurityContext.seccompProfile.type == "RuntimeDefault"
-          - observability_alloy_values.alloy.securityContext.runAsNonRoot is true
-          - observability_alloy_values.alloy.securityContext.runAsUser == 473
-          - observability_alloy_values.alloy.securityContext.runAsGroup == 473
-          - observability_alloy_values.alloy.securityContext.readOnlyRootFilesystem is true
-          - observability_alloy_values.alloy.securityContext.allowPrivilegeEscalation is false
-          - observability_alloy_values.alloy.securityContext.capabilities.drop == ["ALL"]
-          - observability_alloy_values.rbac.rules | length == 2
-          - observability_alloy_values.rbac.rules[0].resources == ["pods", "pods/log", "namespaces"]
-          - observability_alloy_values.rbac.rules[1].resources == ["events"]
-          - observability_alloy_values.rbac.clusterRules | length == 1
-          - observability_alloy_values.rbac.clusterRules[0].resources == ["nodes"]
+          - observability_memory_alert.for == "15m"
+          - "'node_memory_MemAvailable_bytes' in observability_memory_alert.data[0].model.expr"
+          - "'node_memory_MemTotal_bytes' in observability_memory_alert.data[0].model.expr"
+          - "'< 0.10' in observability_memory_alert.data[0].model.expr"
+          - "'container_oom_events_total' in observability_oom_alert.data[0].model.expr"
+          - "'[10m]' in observability_oom_alert.data[0].model.expr"
+          - observability_node_alert.for == "10m"
+          - "'kube_node_status_condition' in observability_node_alert.data[0].model.expr"
+          - '''condition="Ready"'' in observability_node_alert.data[0].model.expr'
+          - "'kube_cronjob_status_last_successful_time' in observability_backup_alert.data[0].model.expr"
+          - "'kube_cronjob_created' in observability_backup_alert.data[0].model.expr"
+          - '''namespace="selfhosted"'' in observability_backup_alert.data[0].model.expr'
+          - '''cronjob="restic-backup"'' in observability_backup_alert.data[0].model.expr'
+          - "'129600' in observability_backup_alert.data[0].model.expr"
+          - observability_scrape_alert.for == "10m"
+          - "'} == 0' in observability_scrape_alert.data[0].model.expr"
+          - "observability_scrape_alert.data[0].model.expr | regex_findall('absent\\(') | length == 4"
+          - "'node-exporter' in observability_scrape_alert.data[0].model.expr"
+          - "'kube-state-metrics' in observability_scrape_alert.data[0].model.expr"
+          - "'kubelet' in observability_scrape_alert.data[0].model.expr"
+          - "'prometheus-blackbox-exporter' in observability_scrape_alert.data[0].model.expr"
 
-    - name: Assert Alloy pipelines satisfy the Loki metadata contract
+    - name: Assert Telegram notification resources are file-provisioned
       ansible.builtin.assert:
         that:
-          - '''loki.source.kubernetes "pod_logs"'' in observability_alloy_values.alloy.configMap.content'
-          - '''loki.source.kubernetes_events "cluster_events"'' in observability_alloy_values.alloy.configMap.content'
-          - (observability_alloy_values.alloy.configMap.content | regex_search('log_format\s*=\s*"logfmt"')) is not none
-          - (observability_alloy_values.alloy.configMap.content | regex_search('job_name\s*=\s*"kubernetes/events"')) is not none
-          - '''cluster = "homelab"'' in observability_alloy_values.alloy.configMap.content'
-          - (observability_alloy_values.alloy.configMap.content | regex_search('target_label\s*=\s*"namespace"')) is not none
-          - (observability_alloy_values.alloy.configMap.content | regex_search('target_label\s*=\s*"app"')) is not none
-          - (observability_alloy_values.alloy.configMap.content | regex_search('target_label\s*=\s*"container"')) is not none
-          - (observability_alloy_values.alloy.configMap.content | regex_search('pod\s*=\s*"pod"')) is not none
-          - (observability_alloy_values.alloy.configMap.content | regex_search('node\s*=\s*"node"')) is not none
-          - (observability_alloy_values.alloy.configMap.content | regex_search('container_image\s*=\s*"container_image"')) is not none
-          - (observability_alloy_values.alloy.configMap.content | regex_search('container_runtime\s*=\s*"container_runtime"')) is not none
-          - (observability_alloy_values.alloy.configMap.content | regex_search('stage\.label_drop\s*\{\s*values\s*=\s*\["job",\s*"instance"\]')) is not none
-          - "'http://loki.platform-system.svc.cluster.local:3100/loki/api/v1/push' in observability_alloy_values.alloy.configMap.content"
+          - observability_grafana_contactpoints.apiVersion == 1
+          - observability_grafana_contactpoints.contactPoints[0].name == "telegram"
+          - observability_grafana_contactpoints.contactPoints[0].receivers[0].type == "telegram"
+          - observability_grafana_contactpoints.contactPoints[0].receivers[0].disableResolveMessage is false
+          - observability_grafana_contactpoints.contactPoints[0].receivers[0].settings.bottoken == "$TELEGRAM_BOT_TOKEN"
+          - observability_grafana_contactpoints.contactPoints[0].receivers[0].settings.chatid == "$TELEGRAM_CHAT_ID"
+          - observability_grafana_policies.policies[0].receiver == "telegram"
+          - observability_grafana_policies.policies[0].group_wait == "30s"
+          - observability_grafana_policies.policies[0].group_interval == "5m"
+          - observability_grafana_policies.policies[0].repeat_interval == "6h"
+          - observability_grafana_policies.policies[0].routes[0].object_matchers[0] == ["alertname", "=~", "DatasourceNoData|DatasourceError"]
+          - observability_grafana_policies.policies[0].routes[0].group_by == ["alertname"]
+          - observability_grafana_templates.templates[0].name == "home-ops.telegram"
+          - "'🏠 Home Ops · Monitoring' in observability_grafana_templates.templates[0].template"
+          - "'Alerts | first 10' in observability_grafana_templates.templates[0].template"
+          - "'additional alert(s) omitted' in observability_grafana_templates.templates[0].template"
 
-    - name: Assert Grafana and Restic integrate with Loki and Alloy
+    - name: Assert VictoriaLogs is persistent, internal, and natively scraped
       ansible.builtin.assert:
         that:
-          - observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | length == 1
-          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).url == "http://loki.platform-system.svc.cluster.local:3100"
-          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).access == "proxy"
-          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).isDefault is false
-          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).editable is false
-          - (observability_monitoring_values.grafana.additionalDataSources | selectattr("uid", "equalto", "loki") | first).jsonData.maxLines == 1000
-          - "'/data/appdata/platform-system/storage-loki-0' not in observability_restic_values.controllers.backup.containers.app.args"
-          - "'/data/appdata/platform-system/storage-alloy-0' not in observability_restic_values.controllers.backup.containers.app.args"
-          - "'loki' not in observability_restic_defaults.restic_restore_excluded_apps"
-          - "'alloy' not in observability_restic_defaults.restic_restore_excluded_apps"
+          - observability_logs_app.chart.repo == "https://victoriametrics.github.io/helm-charts/"
+          - observability_logs_app.chart.name == "victoria-logs-single"
+          - observability_logs_app.chart.version == "0.13.9"
+          - observability_logs_app.sync.wave == "0"
+          - observability_logs_values.server.retentionPeriod == "30d"
+          - observability_logs_values.server.persistentVolume.enabled is true
+          - observability_logs_values.server.persistentVolume.storageClassName == "nfs-fast"
+          - observability_logs_values.server.persistentVolume.size == "30Gi"
+          - observability_logs_values.server.serviceMonitor.enabled is false
+          - observability_logs_values.server.vmServiceScrape.enabled is true
+          - observability_logs_values.vector.enabled is false
+          - observability_logs_values.dashboards.enabled is false
+
+    - name: Assert VLAgent is a confined root DaemonSet with node-local buffering
+      ansible.builtin.assert:
+        that:
+          - observability_collector_app.chart.repo == "https://victoriametrics.github.io/helm-charts/"
+          - observability_collector_app.chart.name == "victoria-logs-collector"
+          - observability_collector_app.chart.version == "0.3.7"
+          - observability_collector_app.sync.wave == "0"
+          - observability_collector_values.remoteWrite[0].url == "http://victoria-logs-single-server.platform-system.svc.cluster.local:9428"
+          - observability_collector_values.collector.extraFields == '{"cluster":"homelab"}'
+          - observability_collector_values.collector.streamFields == ["cluster", "kubernetes.pod_namespace", "kubernetes.pod_labels.app_kubernetes_io_name", "kubernetes.container_name"]
+          - observability_collector_values.collector.includePodLabels is true
+          - observability_collector_values.collector.includePodAnnotations is false
+          - observability_collector_values.collector.includeNodeLabels is false
+          - observability_collector_values.collector.includeNodeAnnotations is false
+          - observability_collector_values.collector.ignoreFields == []
+          - observability_collector_values.podSecurityContext.runAsNonRoot is false
+          - observability_collector_values.podSecurityContext.runAsUser == 0
+          - observability_collector_values.podSecurityContext.seccompProfile.type == "RuntimeDefault"
+          - observability_collector_values.securityContext.runAsNonRoot is false
+          - observability_collector_values.securityContext.runAsUser == 0
+          - observability_collector_values.securityContext.readOnlyRootFilesystem is true
+          - observability_collector_values.securityContext.allowPrivilegeEscalation is false
+          - observability_collector_values.securityContext.capabilities.drop == ["ALL"]
+          - observability_collector_values.defaultVolumeMounts[0].mountPath == "/var/log"
+          - observability_collector_values.defaultVolumeMounts[0].readOnly is true
+          - observability_collector_values.persistence.volume.hostPath.path == "/var/lib/vl-collector"
+          - observability_collector_values.podMonitor.enabled is true
+          - observability_collector_values.podMonitor.vm is true
+
+    - name: Assert the pod log dashboard uses LogsQL through VictoriaLogs
+      ansible.builtin.assert:
+        that:
+          - observability_logs_dashboard.metadata.labels.grafana_dashboard == "1"
+          - (observability_logs_dashboard.data['pod-logs.json'] | from_json).panels[0].datasource.uid == "victorialogs"
+          - (observability_logs_dashboard.data['pod-logs.json'] | from_json).panels[0].targets[0].datasource.uid == "victorialogs"
+          - (observability_logs_dashboard.data['pod-logs.json'] | from_json).panels[0].targets[0].queryType == "instant"
+          - '''cluster:="homelab"'' in (observability_logs_dashboard.data[''pod-logs.json''] | from_json).panels[0].targets[0].expr'
+          - "'kubernetes.pod_namespace' in (observability_logs_dashboard.data['pod-logs.json'] | from_json).panels[0].targets[0].expr"
+
+    - name: Assert the exact lean dashboard inventory
+      ansible.builtin.assert:
+        that:
+          - observability_enabled_dashboards | difference(observability_metrics_values.defaultDashboards.dashboards.keys() | list) | length == 0
+          - observability_disabled_dashboards | difference(observability_metrics_values.defaultDashboards.dashboards.keys() | list) | length == 0
+          - observability_metrics_values.defaultDashboards.dashboards | dict2items | selectattr('key', 'in', observability_enabled_dashboards) | map(attribute='value.enabled') | unique == [true]
+          - observability_metrics_values.defaultDashboards.dashboards | dict2items | selectattr('key', 'in', observability_disabled_dashboards) | map(attribute='value.enabled') | unique == [false]
+          - observability_metrics_values.defaultDashboards.sources | dict2items | selectattr('key', 'in', observability_enabled_dashboard_sources) | map(attribute='value.enabled') | unique == [true]
+          - observability_metrics_values.defaultDashboards.sources | dict2items | selectattr('key', 'in', observability_disabled_dashboard_sources) | map(attribute='value.enabled') | unique == [false]
+          - observability_home_dashboard.metadata.labels.grafana_dashboard == "1"
+          - (observability_home_dashboard.data['home-ops-overview.json'] | from_json).uid == "home-ops-overview"
+          - (observability_home_dashboard.data['home-ops-overview.json'] | from_json).title == "Home Ops Overview"
+          - "'probe_success' in observability_home_dashboard.data['home-ops-overview.json']"
+          - "'probe_duration_seconds' in observability_home_dashboard.data['home-ops-overview.json']"
+          - "'node_memory_MemAvailable_bytes' in observability_home_dashboard.data['home-ops-overview.json']"
+          - "'container_memory_working_set_bytes' in observability_home_dashboard.data['home-ops-overview.json']"
+          - "'container_oom_events_total' in observability_home_dashboard.data['home-ops-overview.json']"
+          - "'kube_cronjob_status_last_successful_time' in observability_home_dashboard.data['home-ops-overview.json']"
+          - "'kube_node_status_condition' in observability_home_dashboard.data['home-ops-overview.json']"
+          - "'argocd_app_info' in observability_home_dashboard.data['home-ops-overview.json']"
+
+    - name: Check removed observability app directories
+      ansible.builtin.stat:
+        path: "{{ observability_repo_root }}/apps/platform-system/{{ item }}"
+      loop: "{{ observability_removed_apps }}"
+      register: observability_removed_app_stats
+
+    - name: Assert obsolete observability apps are absent
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+      loop: "{{ observability_removed_app_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Assert Restic includes durable Victoria state only
+      ansible.builtin.assert:
+        that:
+          - "'/data/appdata/platform-system/storage-victoria-metrics-k8s-stack-grafana-0' not in observability_restic_values.controllers.backup.containers.app.args"
+          - "'/data/appdata/platform-system/server-volume-victoria-logs-single-server-0' not in observability_restic_values.controllers.backup.containers.app.args"
+          - "'victoria-metrics-k8s-stack' not in observability_restic_defaults.restic_restore_excluded_apps"
+          - "'victoria-logs-single' not in observability_restic_defaults.restic_restore_excluded_apps"
+          - "'victoria-logs-collector' in observability_restic_defaults.restic_restore_excluded_apps"
+
+    - name: Read guarded legacy PVC cleanup workflow
+      ansible.builtin.slurp:
+        src: "{{ observability_repo_root }}/ansible/playbooks/observability-cleanup-old-pvcs.yml"
+      register: observability_cleanup_workflow
+
+    - name: Assert cleanup is scoped, guarded, and names every legacy claim
+      ansible.builtin.assert:
+        that:
+          - "'observability_cleanup_confirm | bool' in (observability_cleanup_workflow.content | b64decode)"
+          - "'kubernetes.core.k8s_info' in (observability_cleanup_workflow.content | b64decode)"
+          - "'kubernetes.core.k8s' in (observability_cleanup_workflow.content | b64decode)"
+          - "'state: absent' in (observability_cleanup_workflow.content | b64decode)"
+          - "'alertmanager-kube-prometheus-stack-alertmanager-db-alertmanager-kube-prometheus-stack-alertmanager-0' in (observability_cleanup_workflow.content | b64decode)"
+          - "'prometheus-kube-prometheus-stack-prometheus-db-prometheus-kube-prometheus-stack-prometheus-0' in (observability_cleanup_workflow.content | b64decode)"
+          - "'storage-alloy-0' in (observability_cleanup_workflow.content | b64decode)"
+          - "'storage-kube-prometheus-stack-grafana-0' in (observability_cleanup_workflow.content | b64decode)"
+          - "'storage-loki-0' in (observability_cleanup_workflow.content | b64decode)"

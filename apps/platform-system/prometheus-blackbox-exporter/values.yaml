@@ -41,5 +41,5 @@ securityContext:
 
 serviceMonitor:
   selfMonitor:
-    enabled: true
+    enabled: false
   enabled: false

@@ -1,0 +1,64 @@
+---
+remoteWrite:
+  - url: http://victoria-logs-single-server.platform-system.svc.cluster.local:9428
+    maxDiskUsagePerURL: 1GiB
+
+collector:
+  ignoreFields: []
+  streamFields:
+    - cluster
+    - kubernetes.pod_namespace
+    - kubernetes.pod_labels.app_kubernetes_io_name
+    - kubernetes.container_name
+  includePodLabels: true
+  includePodAnnotations: false
+  includeNodeLabels: false
+  includeNodeAnnotations: false
+  extraFields: '{"cluster":"homelab"}'
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+
+podSecurityContext:
+  enabled: true
+  runAsNonRoot: false
+  runAsUser: 0
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: false
+  runAsUser: 0
+
+podMonitor:
+  enabled: true
+  vm: true
+  interval: 30s
+
+persistence:
+  volume:
+    hostPath:
+      path: /var/lib/vl-collector
+      type: DirectoryOrCreate
+
+defaultVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true
+  - name: varlib
+    mountPath: /var/lib
+    readOnly: true
+
+extraArgs:
+  envflag.enable: true
+  envflag.prefix: VL_
+  loggerFormat: json
+  tmpDataPath: /var/lib/vl-collector

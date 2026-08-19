@@ -9,7 +9,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 - Argo CD
 - Istio Gateway API
 - External Secrets with Bitwarden
-- Prometheus, Grafana, Alertmanager, Blackbox Exporter, Loki, and Alloy
+- VictoriaMetrics, VictoriaLogs, VLAgent, Grafana, and Blackbox Exporter
 - Helm
 - Ansible
 - Terraform
@@ -89,6 +89,39 @@ task tf:clean                        # Remove local Terraform cache and plan fil
 ```
 
 Taskfile is the operator interface; Ansible remains the orchestration implementation underneath.
+
+## Observability
+
+The single-node observability stack uses VMAgent for metric discovery and scraping,
+VMSingle for 30-day metric retention, and VictoriaLogs for 30-day log retention.
+VLAgent reads Kubernetes container logs from each node; Kubernetes Events are not
+collected. Grafana remains available at `https://grafana.edgard.org` and is the sole
+alert evaluator and notification router. Its 20 actionable alert rules, Telegram
+contact point, notification policy, and templates are provisioned from Git and are
+read-only in the UI. There are no recording rules or standalone Alertmanager.
+
+Grafana contains five focused dashboards: Home Ops Overview, Node Exporter Full,
+VictoriaMetrics Single, VictoriaLogs Single, and Pod Logs Explorer. The Home Ops
+view covers routes, node and PVC capacity, memory and OOMs, application health,
+backup freshness, and observability health using raw metrics.
+
+Blackbox HTTP, DNS, and ICMP checks and all in-cluster scrapes use VictoriaMetrics
+Operator resources. VMSingle, VictoriaLogs, and Grafana are included in the shared
+Restic appdata backup. VLAgent's node-local queue is transient and is not restored.
+The chart's full CRD bundle is disabled. Twelve schemas are vendored: six active
+APIs and six compatibility-only schemas required by operator v0.74.0 startup
+indexers. Compatibility-only resources and controllers are prohibited, while
+VMAlert and VMAlertmanager CRDs remain absent.
+
+After a merged migration has been verified in the cluster, the retained legacy
+observability claims can be deleted with the guarded workflow:
+
+```bash
+task observability:cleanup-old-pvcs confirm_cleanup=true
+```
+
+The workflow refuses to run unless the replacement claims exist and the retired
+StatefulSets have already been pruned.
 
 ## Repository Layout
 

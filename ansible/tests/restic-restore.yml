@@ -46,7 +46,7 @@
               namespace: selfhosted
               name: restic-repo
       - metadata:
-          name: loki
+          name: victoria-metrics-k8s-stack
         spec:
           destination:
             namespace: platform-system
@@ -54,12 +54,18 @@
           resources:
             - kind: PersistentVolumeClaim
               namespace: platform-system
-              name: storage-loki-0
+              name: vmsingle-victoria-metrics-k8s-stack
+            - kind: PersistentVolumeClaim
+              namespace: platform-system
+              name: storage-victoria-metrics-k8s-stack-grafana-0
+            - kind: Deployment
+              namespace: platform-system
+              name: vmsingle-victoria-metrics-k8s-stack
             - kind: StatefulSet
               namespace: platform-system
-              name: loki
+              name: victoria-metrics-k8s-stack-grafana
       - metadata:
-          name: alloy
+          name: victoria-logs-single
         spec:
           destination:
             namespace: platform-system
@@ -67,10 +73,20 @@
           resources:
             - kind: PersistentVolumeClaim
               namespace: platform-system
-              name: storage-alloy-0
+              name: server-volume-victoria-logs-single-server-0
             - kind: StatefulSet
               namespace: platform-system
-              name: alloy
+              name: victoria-logs-single-server
+      - metadata:
+          name: victoria-logs-collector
+        spec:
+          destination:
+            namespace: platform-system
+        status:
+          resources:
+            - kind: DaemonSet
+              namespace: platform-system
+              name: victoria-logs-collector
       - metadata:
           name: nfs-provisioner
         spec:
@@ -104,12 +120,17 @@
           storageClassName: ""
       - metadata:
           namespace: platform-system
-          name: storage-loki-0
+          name: vmsingle-victoria-metrics-k8s-stack
         spec:
           storageClassName: nfs-fast
       - metadata:
           namespace: platform-system
-          name: storage-alloy-0
+          name: storage-victoria-metrics-k8s-stack-grafana-0
+        spec:
+          storageClassName: nfs-fast
+      - metadata:
+          namespace: platform-system
+          name: server-volume-victoria-logs-single-server-0
         spec:
           storageClassName: nfs-fast
     restic_restore_workloads:
@@ -146,10 +167,22 @@
           template:
             spec:
               volumes: []
+      - kind: Deployment
+        metadata:
+          namespace: platform-system
+          name: vmsingle-victoria-metrics-k8s-stack
+        spec:
+          replicas: 1
+          template:
+            spec:
+              volumes:
+                - name: storage
+                  persistentVolumeClaim:
+                    claimName: vmsingle-victoria-metrics-k8s-stack
       - kind: StatefulSet
         metadata:
           namespace: platform-system
-          name: loki
+          name: victoria-metrics-k8s-stack-grafana
         spec:
           replicas: 1
           template:
@@ -161,7 +194,7 @@
       - kind: StatefulSet
         metadata:
           namespace: platform-system
-          name: alloy
+          name: victoria-logs-single-server
         spec:
           replicas: 1
           template:
@@ -169,7 +202,7 @@
               volumes: []
           volumeClaimTemplates:
             - metadata:
-                name: storage
+                name: server-volume
 
   tasks:
     - name: Build single app restore plan
@@ -196,13 +229,14 @@
       vars:
         restic_restore_mode: all
 
-    - name: Assert restore-all includes logging and excludes shared storage
+    - name: Assert restore-all includes durable observability state and excludes transient collectors
       ansible.builtin.assert:
         that:
           - restic_restore_plan | length == 4
-          - restic_restore_plan | map(attribute="app") | sort | list == ["alloy", "cert-data", "loki", "paperless"]
-          - (restic_restore_plan | selectattr("app", "equalto", "loki") | first).pvc_paths == ["/data/appdata/platform-system/storage-loki-0"]
-          - (restic_restore_plan | selectattr("app", "equalto", "alloy") | first).pvc_paths == ["/data/appdata/platform-system/storage-alloy-0"]
+          - restic_restore_plan | map(attribute="app") | sort | list == ["cert-data", "paperless", "victoria-logs-single", "victoria-metrics-k8s-stack"]
+          - (restic_restore_plan | selectattr("app", "equalto", "victoria-metrics-k8s-stack") | first).pvc_paths | sort == ["/data/appdata/platform-system/storage-victoria-metrics-k8s-stack-grafana-0", "/data/appdata/platform-system/vmsingle-victoria-metrics-k8s-stack"]
+          - (restic_restore_plan | selectattr("app", "equalto", "victoria-logs-single") | first).pvc_paths == ["/data/appdata/platform-system/server-volume-victoria-logs-single-server-0"]
+          - restic_restore_plan | selectattr("app", "equalto", "victoria-logs-collector") | list | length == 0
 
     - name: Read restore execution tasks
       ansible.builtin.slurp:
