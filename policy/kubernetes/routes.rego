@@ -21,3 +21,19 @@ has_expected_gateway_parent_ref if {
   object.get(ref, "namespace", "") == "platform-system"
   object.get(ref, "sectionName", "") == "https"
 }
+
+deny contains msg if {
+  annotations := object.get(input.metadata, "annotations", {})
+  some annotation in object.keys(annotations)
+  startswith(annotation, "external-dns.alpha.kubernetes.io/")
+  msg := sprintf("%s/%s uses retired ExternalDNS annotation %s", [input.kind, input.metadata.name, annotation])
+}
+
+deny contains msg if {
+  input.kind == "Gateway"
+  input.metadata.name == "gateway"
+  object.get(input.metadata, "namespace", "") == "platform-system"
+  annotations := object.get(input.metadata, "annotations", {})
+  object.get(annotations, "external-dns.kubernetes.io/target", "") != "192.168.1.241"
+  msg := "Gateway/gateway must set external-dns.kubernetes.io/target to 192.168.1.241"
+}
