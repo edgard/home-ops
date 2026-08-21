@@ -2,7 +2,7 @@ package main
 
 import rego.v1
 
-retired_observability_workloads := {
+forbidden_observability_workloads := {
   "alertmanager-kube-prometheus-stack-alertmanager",
   "alloy",
   "kube-prometheus-stack-grafana",
@@ -95,8 +95,8 @@ deny contains msg if {
 
 deny contains msg if {
   input.kind in {"Deployment", "StatefulSet", "DaemonSet"}
-  retired_observability_workloads[input.metadata.name]
-  msg := sprintf("%s/%s is a retired observability workload", [input.kind, input.metadata.name])
+  forbidden_observability_workloads[input.metadata.name]
+  msg := sprintf("%s/%s is forbidden by the Victoria observability architecture", [input.kind, input.metadata.name])
 }
 
 deny contains msg if {

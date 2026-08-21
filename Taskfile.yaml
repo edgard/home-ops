@@ -295,17 +295,6 @@ tasks:
     cmds:
       - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/restic-restore.yml -e "restic_restore_mode=all" -e "restic_restore_snapshot={{.snapshot}}" -e "restic_restore_confirm={{.confirm_restore}}"'
 
-  observability:cleanup-old-pvcs:
-    desc: Delete retired observability PVCs, Prometheus CRDs, and kubelet scrape service
-    interactive: true
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    vars:
-      confirm_cleanup: '{{.confirm_cleanup | default "false"}}'
-    cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/observability-cleanup-old-pvcs.yml -e "observability_cleanup_confirm={{.confirm_cleanup}}"'
-
   # Terraform operations
   tf:plan:
     desc: Terraform plan

@@ -128,7 +128,7 @@ test_external_rule_and_notification_components_are_rejected if {
   "Alertmanager/standalone-router is forbidden; Grafana owns notification routing" in deny with input as standalone_alertmanager
 }
 
-test_retired_loki_and_alloy_workloads_are_rejected if {
+test_forbidden_loki_and_alloy_workloads_are_rejected if {
   loki := {
     "apiVersion": "apps/v1",
     "kind": "StatefulSet",
@@ -141,8 +141,8 @@ test_retired_loki_and_alloy_workloads_are_rejected if {
     "metadata": {"name": "alloy"},
     "spec": {},
   }
-  "StatefulSet/loki is a retired observability workload" in deny with input as loki
-  "StatefulSet/alloy is a retired observability workload" in deny with input as alloy
+  "StatefulSet/loki is forbidden by the Victoria observability architecture" in deny with input as loki
+  "StatefulSet/alloy is forbidden by the Victoria observability architecture" in deny with input as alloy
 }
 
 test_victoria_native_scrapes_are_allowed if {
