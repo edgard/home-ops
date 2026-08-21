@@ -527,6 +527,14 @@ validate_policies() {
   conftest test --no-color --policy "$policy_dir" "${paths[@]}"
 }
 
+validate_policy_tests() {
+  local policy_dir
+
+  for policy_dir in metadata source kubernetes; do
+    conftest verify --no-color --policy "${repo_root}/policy/${policy_dir}"
+  done
+}
+
 validate_manifests() {
   local paths=()
   local kubernetes_version
@@ -643,6 +651,9 @@ main() {
 
   log_step "Metadata policy"
   validate_metadata
+
+  log_step "Policy unit tests"
+  validate_policy_tests
 
   log_step "Raw manifest policy"
   validate_policies
