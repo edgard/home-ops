@@ -4,7 +4,7 @@
   gather_facts: false
   vars:
     observability_repo_root: "{{ playbook_dir }}/../.."
-    observability_removed_apps:
+    observability_forbidden_apps:
       - kube-prometheus-stack
       - loki
       - alloy
@@ -110,18 +110,6 @@
       - victoriametrics-vmagent
       - victoriatraces-cluster
       - victoriatraces-single-node
-    observability_legacy_prometheus_crds:
-      - alertmanagerconfigs.monitoring.coreos.com
-      - alertmanagers.monitoring.coreos.com
-      - podmonitors.monitoring.coreos.com
-      - probes.monitoring.coreos.com
-      - prometheusagents.monitoring.coreos.com
-      - prometheuses.monitoring.coreos.com
-      - prometheusrules.monitoring.coreos.com
-      - scrapeconfigs.monitoring.coreos.com
-      - servicemonitors.monitoring.coreos.com
-      - thanosrulers.monitoring.coreos.com
-
   tasks:
     - name: Find the selectively vendored VictoriaMetrics CRDs
       ansible.builtin.find:
@@ -390,17 +378,17 @@
           - "'kube_node_status_condition' in observability_home_dashboard.data['home-ops-overview.json']"
           - "'argocd_app_info' in observability_home_dashboard.data['home-ops-overview.json']"
 
-    - name: Check removed observability app directories
+    - name: Check forbidden observability app directories
       ansible.builtin.stat:
         path: "{{ observability_repo_root }}/apps/platform-system/{{ item }}"
-      loop: "{{ observability_removed_apps }}"
-      register: observability_removed_app_stats
+      loop: "{{ observability_forbidden_apps }}"
+      register: observability_forbidden_app_stats
 
-    - name: Assert obsolete observability apps are absent
+    - name: Assert forbidden observability apps are absent
       ansible.builtin.assert:
         that:
           - not item.stat.exists
-      loop: "{{ observability_removed_app_stats.results }}"
+      loop: "{{ observability_forbidden_app_stats.results }}"
       loop_control:
         label: "{{ item.item }}"
 
@@ -412,31 +400,3 @@
           - "'victoria-metrics-k8s-stack' not in observability_restic_defaults.restic_restore_excluded_apps"
           - "'victoria-logs-single' not in observability_restic_defaults.restic_restore_excluded_apps"
           - "'victoria-logs-collector' in observability_restic_defaults.restic_restore_excluded_apps"
-
-    - name: Read guarded legacy PVC cleanup workflow
-      ansible.builtin.slurp:
-        src: "{{ observability_repo_root }}/ansible/playbooks/observability-cleanup-old-pvcs.yml"
-      register: observability_cleanup_workflow
-
-    - name: Assert cleanup is scoped, guarded, and names every legacy claim
-      ansible.builtin.assert:
-        that:
-          - "'observability_cleanup_confirm | bool' in (observability_cleanup_workflow.content | b64decode)"
-          - "'kubernetes.core.k8s_info' in (observability_cleanup_workflow.content | b64decode)"
-          - "'kubernetes.core.k8s' in (observability_cleanup_workflow.content | b64decode)"
-          - "'state: absent' in (observability_cleanup_workflow.content | b64decode)"
-          - "'alertmanager-kube-prometheus-stack-alertmanager-db-alertmanager-kube-prometheus-stack-alertmanager-0' in (observability_cleanup_workflow.content | b64decode)"
-          - "'prometheus-kube-prometheus-stack-prometheus-db-prometheus-kube-prometheus-stack-prometheus-0' in (observability_cleanup_workflow.content | b64decode)"
-          - "'storage-alloy-0' in (observability_cleanup_workflow.content | b64decode)"
-          - "'storage-kube-prometheus-stack-grafana-0' in (observability_cleanup_workflow.content | b64decode)"
-          - "'storage-loki-0' in (observability_cleanup_workflow.content | b64decode)"
-          - "'kind: CustomResourceDefinition' in (observability_cleanup_workflow.content | b64decode)"
-          - "'kind: Service' in (observability_cleanup_workflow.content | b64decode)"
-          - "'kube-prometheus-stack-kubelet' in (observability_cleanup_workflow.content | b64decode)"
-          - "'observability_cleanup_old_custom_resources' in (observability_cleanup_workflow.content | b64decode)"
-
-    - name: Assert cleanup names every legacy Prometheus Operator CRD
-      ansible.builtin.assert:
-        that:
-          - item in (observability_cleanup_workflow.content | b64decode)
-      loop: "{{ observability_legacy_prometheus_crds }}"

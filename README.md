@@ -113,17 +113,7 @@ APIs and six compatibility-only schemas required by operator v0.74.0 startup
 indexers. Compatibility-only resources and controllers are prohibited, while
 VMAlert and VMAlertmanager CRDs remain absent.
 
-After a merged migration has been verified in the cluster, the retained legacy
-observability claims, unused Prometheus Operator CRDs, and retired kubelet scrape
-service can be deleted with the guarded workflow:
-
-```bash
-task observability:cleanup-old-pvcs confirm_cleanup=true
-```
-
-The workflow refuses to run unless the replacement claims exist, the retired
-StatefulSets have been pruned, and every legacy Prometheus custom resource type is
-empty. VLAgent streams use VictoriaLogs' native `cluster`,
+VLAgent streams use VictoriaLogs' native `cluster`,
 `kubernetes.pod_namespace`, `kubernetes.pod_labels.app.kubernetes.io/name`, and
 `kubernetes.container_name` field names.
 
