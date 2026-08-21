@@ -110,6 +110,17 @@
       - victoriametrics-vmagent
       - victoriatraces-cluster
       - victoriatraces-single-node
+    observability_legacy_prometheus_crds:
+      - alertmanagerconfigs.monitoring.coreos.com
+      - alertmanagers.monitoring.coreos.com
+      - podmonitors.monitoring.coreos.com
+      - probes.monitoring.coreos.com
+      - prometheusagents.monitoring.coreos.com
+      - prometheuses.monitoring.coreos.com
+      - prometheusrules.monitoring.coreos.com
+      - scrapeconfigs.monitoring.coreos.com
+      - servicemonitors.monitoring.coreos.com
+      - thanosrulers.monitoring.coreos.com
 
   tasks:
     - name: Find the selectively vendored VictoriaMetrics CRDs
@@ -214,6 +225,7 @@
           - observability_metrics_values.grafana['grafana.ini'].recording_rules is not defined
           - observability_metrics_values.grafana.envFromSecret == "grafana-alerting-credentials"
           - observability_metrics_values.grafana.plugins == ["victoriametrics-logs-datasource@0.30.1"]
+          - observability_metrics_values.grafana['grafana.ini'].plugins.preinstall_disabled is false
           - observability_metrics_values.grafana.resources.limits is not defined
           - observability_metrics_values.grafana.extraConfigmapMounts[0].configMap == "grafana-alerting-provisioning"
           - observability_metrics_values.grafana.extraConfigmapMounts[0].mountPath == "/etc/grafana/provisioning/alerting"
@@ -238,6 +250,7 @@
       ansible.builtin.assert:
         that:
           - observability_grafana_rules.apiVersion == 1
+          - observability_grafana_rules.groups | map(attribute='folder') | unique == ['Home Ops Alerts']
           - observability_all_grafana_rules | length == 20
           - observability_all_grafana_rules | selectattr('record', 'defined') | length == 0
           - observability_all_grafana_rules | map(attribute='noDataState') | unique == ['OK']
@@ -326,7 +339,7 @@
           - observability_collector_app.sync.wave == "0"
           - observability_collector_values.remoteWrite[0].url == "http://victoria-logs-single-server.platform-system.svc.cluster.local:9428"
           - observability_collector_values.collector.extraFields == '{"cluster":"homelab"}'
-          - observability_collector_values.collector.streamFields == ["cluster", "kubernetes.pod_namespace", "kubernetes.pod_labels.app_kubernetes_io_name", "kubernetes.container_name"]
+          - observability_collector_values.collector.streamFields == ["cluster", "kubernetes.pod_namespace", "kubernetes.pod_labels.app.kubernetes.io/name", "kubernetes.container_name"]
           - observability_collector_values.collector.includePodLabels is true
           - observability_collector_values.collector.includePodAnnotations is false
           - observability_collector_values.collector.includeNodeLabels is false
@@ -417,3 +430,13 @@
           - "'storage-alloy-0' in (observability_cleanup_workflow.content | b64decode)"
           - "'storage-kube-prometheus-stack-grafana-0' in (observability_cleanup_workflow.content | b64decode)"
           - "'storage-loki-0' in (observability_cleanup_workflow.content | b64decode)"
+          - "'kind: CustomResourceDefinition' in (observability_cleanup_workflow.content | b64decode)"
+          - "'kind: Service' in (observability_cleanup_workflow.content | b64decode)"
+          - "'kube-prometheus-stack-kubelet' in (observability_cleanup_workflow.content | b64decode)"
+          - "'observability_cleanup_old_custom_resources' in (observability_cleanup_workflow.content | b64decode)"
+
+    - name: Assert cleanup names every legacy Prometheus Operator CRD
+      ansible.builtin.assert:
+        that:
+          - item in (observability_cleanup_workflow.content | b64decode)
+      loop: "{{ observability_legacy_prometheus_crds }}"

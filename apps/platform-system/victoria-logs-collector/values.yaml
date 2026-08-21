@@ -8,7 +8,7 @@ collector:
   streamFields:
     - cluster
     - kubernetes.pod_namespace
-    - kubernetes.pod_labels.app_kubernetes_io_name
+    - kubernetes.pod_labels.app.kubernetes.io/name
     - kubernetes.container_name
   includePodLabels: true
   includePodAnnotations: false
