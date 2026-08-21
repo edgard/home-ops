@@ -12,7 +12,7 @@ data:
     groups:
     - orgId: 1
       name: home-ops-actionable
-      folder: Home Ops
+      folder: Home Ops Alerts
       interval: 1m
       rules:
       - uid: alt-9f7900c1e4c053b2b46b7ea3

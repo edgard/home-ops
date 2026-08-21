@@ -113,7 +113,7 @@ controllers:
   dedicated node-local `/var/lib/vl-collector` queue. Kubernetes Events are not
   collected.
 - Log stream fields are `cluster`, `kubernetes.pod_namespace`,
-  `kubernetes.pod_labels.app_kubernetes_io_name`, and
+  `kubernetes.pod_labels.app.kubernetes.io/name`, and
   `kubernetes.container_name`. Pod, node, image, runtime, and other Kubernetes
   metadata remain ordinary searchable fields.
 - Grafana provisions VictoriaLogs as a non-editable internal datasource with UID
