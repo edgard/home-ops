@@ -110,6 +110,107 @@
       - victoriametrics-vmagent
       - victoriatraces-cluster
       - victoriatraces-single-node
+    observability_home_overview_rows:
+      - Current status
+      - Workloads and safety
+      - Capacity
+      - Service health
+    observability_home_overview_panels:
+      - Active alerts
+      - External reachability
+      - Kubernetes node
+      - Backup freshness
+      - Argo CD applications
+      - Certificate expiry
+      - Pod restarts
+      - OOM kills
+      - CPU used
+      - Memory used
+      - Node filesystem free
+      - PVC health
+      - CPU / memory trend
+      - PVC headroom
+      - Largest pods
+      - HTTP / DNS / ICMP health
+      - Slowest HTTP routes
+      - Core scrape services
+      - Observability components
+    observability_home_overview_links:
+      - title: Node Exporter Full
+        type: link
+        url: /d/rYdddlPWk/node-exporter-full
+      - title: VictoriaMetrics Single
+        type: link
+        url: /d/wNf0q_kZk/victoriametrics-single-node
+      - title: VictoriaLogs Single
+        type: link
+        url: /d/OqPIZTX4z/victorialogs-single-node
+      - title: Pod Logs Explorer
+        type: link
+        url: /d/home-ops-pod-logs/kubernetes-pod-logs
+    observability_home_overview_layout:
+      - Current status
+      - Active alerts
+      - External reachability
+      - Kubernetes node
+      - Backup freshness
+      - Workloads and safety
+      - Argo CD applications
+      - Certificate expiry
+      - Pod restarts
+      - OOM kills
+      - Capacity
+      - CPU used
+      - Memory used
+      - Node filesystem free
+      - PVC health
+      - CPU / memory trend
+      - PVC headroom
+      - Largest pods
+      - Service health
+      - HTTP / DNS / ICMP health
+      - Slowest HTTP routes
+      - Core scrape services
+      - Observability components
+    observability_home_overview_compact_cards:
+      - Active alerts
+      - External reachability
+      - Kubernetes node
+      - Backup freshness
+      - Argo CD applications
+      - Certificate expiry
+      - Pod restarts
+      - OOM kills
+      - CPU used
+      - Memory used
+      - Node filesystem free
+      - PVC health
+    observability_home_overview_compact_grid_positions:
+      - {x: 0, y: 1, w: 6, h: 3}
+      - {x: 6, y: 1, w: 6, h: 3}
+      - {x: 12, y: 1, w: 6, h: 3}
+      - {x: 18, y: 1, w: 6, h: 3}
+      - {x: 0, y: 5, w: 6, h: 3}
+      - {x: 6, y: 5, w: 6, h: 3}
+      - {x: 12, y: 5, w: 6, h: 3}
+      - {x: 18, y: 5, w: 6, h: 3}
+      - {x: 0, y: 9, w: 6, h: 3}
+      - {x: 6, y: 9, w: 6, h: 3}
+      - {x: 12, y: 9, w: 6, h: 3}
+      - {x: 18, y: 9, w: 6, h: 3}
+    observability_home_overview_compact_expressions:
+      - 'sum(grafana_alerting_active_alerts{job="victoria-metrics-k8s-stack-grafana"}) or vector(-1)'
+      - "(count(probe_success == 0) or (count(probe_success) * 0)) or vector(-1)"
+      - 'min(kube_node_status_condition{job="kube-state-metrics",condition="Ready",status="true"}) or vector(-1)'
+      - '(((time() - max(kube_cronjob_status_last_successful_time{namespace="selfhosted",cronjob="restic-backup"})) or (time() - max(kube_cronjob_created{namespace="selfhosted",cronjob="restic-backup"}))) / 3600) or vector(-1)'
+      - '(sum((argocd_app_info{health_status!~"Healthy|Progressing"} == 1) or (argocd_app_info{sync_status!="Synced"} == 1)) or (count(argocd_app_info) * 0)) or vector(-1)'
+      - "min((certmanager_certificate_expiration_timestamp_seconds - time()) / 86400) or vector(-1)"
+      - "(sum(increase(kube_pod_container_status_restarts_total[1h])) or (count(kube_pod_container_status_restarts_total) * 0)) or vector(-1)"
+      - '(sum(increase(container_oom_events_total{job="kubelet",metrics_path="/metrics/cadvisor",container!="",pod!=""}[24h])) or (count(container_oom_events_total{job="kubelet",metrics_path="/metrics/cadvisor",container!="",pod!=""}) * 0)) or vector(-1)'
+      - '100 * (1 - avg(rate(node_cpu_seconds_total{job="node-exporter",mode="idle"}[5m]))) or vector(-1)'
+      - '100 * (1 - avg(node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"})) or vector(-1)'
+      - 'min(100 * node_filesystem_avail_bytes{job="node-exporter",fstype!~"tmpfs|fuse.*|overlay|squashfs"} / node_filesystem_size_bytes{job="node-exporter",fstype!~"tmpfs|fuse.*|overlay|squashfs"}) or vector(-1)'
+      - '(sum(kube_persistentvolume_status_phase{phase=~"Failed|Pending",job="kube-state-metrics"} == 1) or (count(kube_persistentvolume_status_phase{phase=~"Failed|Pending",job="kube-state-metrics"}) * 0)) or vector(-1)'
   tasks:
     - name: Find the selectively vendored VictoriaMetrics CRDs
       ansible.builtin.find:
@@ -140,6 +241,20 @@
         - ansible/roles/restic/defaults/main.yml
       register: observability_files
 
+    - name: Find Grafana dashboard ConfigMaps
+      ansible.builtin.find:
+        paths: "{{ observability_repo_root }}/apps"
+        patterns: "*.configmap.yaml"
+        recurse: true
+        file_type: file
+      register: observability_configmap_files
+
+    - name: Read Grafana dashboard ConfigMaps
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      loop: "{{ observability_configmap_files.files }}"
+      register: observability_configmap_contents
+
     - name: Parse Victoria observability configuration
       ansible.builtin.set_fact:
         observability_metrics_app: "{{ observability_files.results[0].content | b64decode | from_yaml }}"
@@ -153,6 +268,10 @@
         observability_home_dashboard: "{{ observability_files.results[8].content | b64decode | from_yaml }}"
         observability_restic_values: "{{ observability_files.results[9].content | b64decode | from_yaml }}"
         observability_restic_defaults: "{{ observability_files.results[10].content | b64decode | from_yaml }}"
+
+    - name: Select Grafana dashboard ConfigMaps
+      ansible.builtin.set_fact:
+        observability_custom_dashboard_configmaps: "{{ observability_configmap_contents.results | map(attribute='content') | map('b64decode') | map('from_yaml') | selectattr('metadata.labels.grafana_dashboard', 'defined') | selectattr('metadata.labels.grafana_dashboard', 'equalto', '1') | list }}"
 
     - name: Parse Grafana alerting provisioning files
       ansible.builtin.set_fact:
@@ -357,26 +476,165 @@
           - '''cluster:="homelab"'' in (observability_logs_dashboard.data[''pod-logs.json''] | from_json).panels[0].targets[0].expr'
           - "'kubernetes.pod_namespace' in (observability_logs_dashboard.data['pod-logs.json'] | from_json).panels[0].targets[0].expr"
 
+    - name: Parse the Home Ops overview dashboard
+      ansible.builtin.set_fact:
+        observability_home_overview: "{{ observability_home_dashboard.data['home-ops-overview.json'] | from_json }}"
+
+    - name: Select Home Ops overview dashboard panels
+      ansible.builtin.set_fact:
+        observability_home_overview_rows_actual: "{{ observability_home_overview.panels | selectattr('type', 'equalto', 'row') | list }}"
+        observability_home_overview_panels_actual: "{{ observability_home_overview.panels | rejectattr('type', 'equalto', 'row') | list }}"
+
     - name: Assert the exact lean dashboard inventory
       ansible.builtin.assert:
         that:
           - observability_enabled_dashboards | difference(observability_metrics_values.defaultDashboards.dashboards.keys() | list) | length == 0
           - observability_disabled_dashboards | difference(observability_metrics_values.defaultDashboards.dashboards.keys() | list) | length == 0
+          - observability_metrics_values.defaultDashboards.dashboards | dict2items | selectattr('value.enabled') | list | length == 3
+          - observability_custom_dashboard_configmaps | length == 2
+          - observability_custom_dashboard_configmaps | selectattr('metadata.name', 'equalto', 'victoria-metrics-k8s-stack-home-ops-overview') | selectattr('metadata.namespace', 'equalto', 'platform-system') | list | length == 1
+          - observability_custom_dashboard_configmaps | selectattr('metadata.name', 'equalto', 'victoria-logs-pod-explorer') | selectattr('metadata.namespace', 'equalto', 'platform-system') | list | length == 1
           - observability_metrics_values.defaultDashboards.dashboards | dict2items | selectattr('key', 'in', observability_enabled_dashboards) | map(attribute='value.enabled') | unique == [true]
           - observability_metrics_values.defaultDashboards.dashboards | dict2items | selectattr('key', 'in', observability_disabled_dashboards) | map(attribute='value.enabled') | unique == [false]
           - observability_metrics_values.defaultDashboards.sources | dict2items | selectattr('key', 'in', observability_enabled_dashboard_sources) | map(attribute='value.enabled') | unique == [true]
           - observability_metrics_values.defaultDashboards.sources | dict2items | selectattr('key', 'in', observability_disabled_dashboard_sources) | map(attribute='value.enabled') | unique == [false]
           - observability_home_dashboard.metadata.labels.grafana_dashboard == "1"
-          - (observability_home_dashboard.data['home-ops-overview.json'] | from_json).uid == "home-ops-overview"
-          - (observability_home_dashboard.data['home-ops-overview.json'] | from_json).title == "Home Ops Overview"
-          - "'probe_success' in observability_home_dashboard.data['home-ops-overview.json']"
-          - "'probe_duration_seconds' in observability_home_dashboard.data['home-ops-overview.json']"
-          - "'node_memory_MemAvailable_bytes' in observability_home_dashboard.data['home-ops-overview.json']"
-          - "'container_memory_working_set_bytes' in observability_home_dashboard.data['home-ops-overview.json']"
-          - "'container_oom_events_total' in observability_home_dashboard.data['home-ops-overview.json']"
-          - "'kube_cronjob_status_last_successful_time' in observability_home_dashboard.data['home-ops-overview.json']"
-          - "'kube_node_status_condition' in observability_home_dashboard.data['home-ops-overview.json']"
-          - "'argocd_app_info' in observability_home_dashboard.data['home-ops-overview.json']"
+          - observability_home_overview.uid == "home-ops-overview"
+          - observability_home_overview.title == "Home Ops Overview"
+          - observability_home_overview.refresh == "30s"
+          - 'observability_home_overview.time == {"from": "now-6h", "to": "now"}'
+          - observability_home_overview_rows_actual | map(attribute='title') | list == observability_home_overview_rows
+          - observability_home_overview_panels_actual | map(attribute='title') | list == observability_home_overview_panels
+          - observability_home_overview.panels | map(attribute='title') | list == observability_home_overview_layout
+          - observability_home_overview.panels | map(attribute='id') | list | length == observability_home_overview.panels | map(attribute='id') | list | unique | length
+          - observability_home_overview.links == observability_home_overview_links
+          - observability_home_overview_panels_actual | map(attribute='datasource.uid') | unique | list == ["prometheus"]
+          - observability_home_overview_panels_actual | map(attribute='targets') | flatten | map(attribute='datasource.uid') | unique | list == ["prometheus"]
+          - observability_home_overview_panels_actual | selectattr('title', 'in', observability_home_overview_compact_cards) | map(attribute='gridPos.h') | unique | list == [3]
+          - observability_home_overview_panels_actual | rejectattr('title', 'in', observability_home_overview_compact_cards) | map(attribute='gridPos.h') | unique | difference([5, 6]) | length == 0
+
+    - name: Assert Home Ops overview panels never overlap
+      ansible.builtin.assert:
+        that:
+          - item.0.id == item.1.id or item.0.gridPos.x + item.0.gridPos.w <= item.1.gridPos.x or item.1.gridPos.x + item.1.gridPos.w <= item.0.gridPos.x or item.0.gridPos.y + item.0.gridPos.h <= item.1.gridPos.y or item.1.gridPos.y + item.1.gridPos.h <= item.0.gridPos.y
+      loop: "{{ observability_home_overview.panels | product(observability_home_overview.panels) | list }}"
+      loop_control:
+        label: "{{ item.0.title }} / {{ item.1.title }}"
+      no_log: true
+
+    - name: Select Home Ops overview cards and diagnostic panels
+      ansible.builtin.set_fact:
+        observability_home_overview_cards: "{{ observability_home_overview_panels_actual | selectattr('title', 'in', observability_home_overview_compact_cards) | list }}"
+        observability_core_scrape_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Core scrape services') | first }}"
+        observability_components_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Observability components') | first }}"
+        observability_pvc_health_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'PVC health') | first }}"
+        observability_argocd_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Argo CD applications') | first }}"
+        observability_active_alerts_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Active alerts') | first }}"
+        observability_reachability_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'External reachability') | first }}"
+        observability_node_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Kubernetes node') | first }}"
+        observability_backup_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Backup freshness') | first }}"
+        observability_certificate_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Certificate expiry') | first }}"
+        observability_filesystem_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Node filesystem free') | first }}"
+        observability_restarts_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Pod restarts') | first }}"
+        observability_oom_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'OOM kills') | first }}"
+        observability_trend_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'CPU / memory trend') | first }}"
+        observability_largest_pods_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Largest pods') | first }}"
+        observability_probe_health_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'HTTP / DNS / ICMP health') | first }}"
+        observability_pvc_headroom_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'PVC headroom') | first }}"
+        observability_slowest_http_panel: "{{ observability_home_overview_panels_actual | selectattr('title', 'equalto', 'Slowest HTTP routes') | first }}"
+
+    - name: Assert Home Ops overview card guardrails and health semantics
+      ansible.builtin.assert:
+        that:
+          - observability_home_overview_cards | map(attribute='fieldConfig.defaults.noValue') | unique | list == ["Unavailable"]
+          - observability_home_overview_cards | map(attribute='title') | list == observability_home_overview_compact_cards
+          - observability_home_overview_cards | map(attribute='targets') | map('length') | unique | list == [1]
+          - observability_home_overview_cards | map(attribute='gridPos') | list == observability_home_overview_compact_grid_positions
+          - observability_home_overview_cards | map(attribute='options.colorMode') | unique | list == ["value"]
+          - observability_home_overview_cards | map(attribute='options.graphMode') | unique | list == ["none"]
+          - observability_home_overview_cards | map(attribute='targets') | flatten | map(attribute='expr') | list == observability_home_overview_compact_expressions
+          - observability_backup_panel.targets[0].expr is search('kube_cronjob_status_last_successful_time')
+          - observability_backup_panel.targets[0].expr is search('kube_cronjob_created')
+          - observability_backup_panel.fieldConfig.defaults.thresholds.steps | map(attribute='value') | list == [none, 24, 36]
+          - observability_active_alerts_panel.targets[0].expr is search('grafana_alerting_active_alerts')
+          - observability_active_alerts_panel.targets[0].expr is search('job="victoria-metrics-k8s-stack-grafana"')
+          - observability_reachability_panel.targets[0].expr == '(count(probe_success == 0) or (count(probe_success) * 0)) or vector(-1)'
+          - 'observability_active_alerts_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "No active alerts", "color": "green"}}'
+          - 'observability_reachability_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "All reachable", "color": "green"}}'
+          - 'observability_node_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "Not ready", "color": "red"}, "1": {"text": "Ready", "color": "green"}}'
+          - 'observability_argocd_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "All applications healthy", "color": "green"}}'
+          - 'observability_restarts_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "No restarts", "color": "green"}}'
+          - 'observability_oom_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "No OOM kills", "color": "green"}}'
+          - 'observability_pvc_health_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "All PVCs healthy", "color": "green"}}'
+          - 'observability_certificate_panel.fieldConfig.defaults.unit == "suffix: days"'
+          - observability_certificate_panel.fieldConfig.defaults.thresholds.steps | map(attribute='value') | list == [none, 7, 14]
+          - observability_pvc_health_panel.targets[0].expr is search('phase=~"Failed\\|Pending"')
+          - observability_pvc_health_panel.targets[0].expr is search('== 1')
+          - observability_argocd_panel.targets[0].expr is search('health_status')
+          - observability_argocd_panel.targets[0].expr is search('sync_status')
+          - observability_argocd_panel.targets[0].expr is search('count\\(argocd_app_info\\) \\* 0')
+          - observability_filesystem_panel.fieldConfig.defaults.thresholds.steps | map(attribute='value') | list == [none, 10, 20]
+          - observability_restarts_panel.targets[0].expr is search('\\[1h\\]')
+          - observability_oom_panel.targets[0].expr is search('\\[24h\\]')
+          - observability_oom_panel.targets[0].expr == '(sum(increase(container_oom_events_total{job="kubelet",metrics_path="/metrics/cadvisor",container!="",pod!=""}[24h])) or (count(container_oom_events_total{job="kubelet",metrics_path="/metrics/cadvisor",container!="",pod!=""}) * 0)) or vector(-1)'
+          - observability_home_overview_cards | selectattr('title', 'equalto', 'Memory used') | map(attribute='targets') | flatten | map(attribute='expr') | list == ['100 * (1 - avg(node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"})) or vector(-1)']
+          - observability_largest_pods_panel.type == "bargauge"
+          - observability_largest_pods_panel.targets[0].instant is true
+          - observability_largest_pods_panel.targets[0].expr is search('topk\\(10')
+          - observability_largest_pods_panel.fieldConfig.defaults.thresholds.steps | length == 1
+          - observability_pvc_headroom_panel.targets[0].instant is true
+          - observability_pvc_headroom_panel.targets[0].expr is search('sort\\(bottomk\\(8')
+          - observability_slowest_http_panel.targets[0].instant is true
+          - observability_slowest_http_panel.targets | length == 1
+          - observability_slowest_http_panel.targets[0].expr is search('topk\\(8')
+          - observability_slowest_http_panel.targets[0].legendFormat is search('host')
+          - observability_slowest_http_panel.fieldConfig.defaults.unit == "s"
+          - observability_trend_panel.targets | length == 2
+          - observability_pvc_headroom_panel.targets | length == 1
+          - observability_largest_pods_panel.targets | length == 1
+          - observability_probe_health_panel.targets | length == 3
+          - observability_probe_health_panel.targets | map(attribute='expr') | list == ['min(probe_success{job="prometheus-blackbox-exporter-http"}) or vector(-1)', 'min(probe_success{job="prometheus-blackbox-exporter-dns"}) or vector(-1)', 'min(probe_success{job="prometheus-blackbox-exporter-icmp"}) or vector(-1)']
+          - observability_probe_health_panel.type == "stat"
+          - observability_probe_health_panel.options.colorMode == "value"
+          - observability_probe_health_panel.options.graphMode == "none"
+          - observability_probe_health_panel.options.orientation == "horizontal"
+          - observability_probe_health_panel.options.textMode == "value_and_name"
+          - 'observability_probe_health_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "Down", "color": "red"}, "1": {"text": "Healthy", "color": "green"}}'
+          - 'observability_core_scrape_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "Down", "color": "red"}, "1": {"text": "Healthy", "color": "green"}}'
+          - 'observability_components_panel.fieldConfig.defaults.mappings[0].options == {"-1": {"text": "Metrics unavailable", "color": "red"}, "0": {"text": "Down", "color": "red"}, "1": {"text": "Healthy", "color": "green"}}'
+          - observability_core_scrape_panel.type == "stat"
+          - observability_core_scrape_panel.options.colorMode == "value"
+          - observability_core_scrape_panel.options.graphMode == "none"
+          - observability_core_scrape_panel.options.orientation == "horizontal"
+          - observability_core_scrape_panel.options.textMode == "value_and_name"
+          - observability_components_panel.type == "stat"
+          - observability_components_panel.options.colorMode == "value"
+          - observability_components_panel.options.graphMode == "none"
+          - observability_components_panel.options.orientation == "horizontal"
+          - observability_components_panel.options.textMode == "value_and_name"
+          - 'observability_home_overview | to_json is search(''"1": {"text": "Ready"'')'
+          - 'observability_home_overview | to_json is search(''"0": {"text": "Not ready"'')'
+          - 'observability_home_overview | to_json is search(''"1": {"text": "Healthy"'')'
+          - 'observability_home_overview | to_json is search(''"0": {"text": "Down"'')'
+          - 'observability_home_overview | to_json is search(''"0": {"text": "No active alerts"'')'
+          - 'observability_home_overview | to_json is search(''"0": {"text": "All PVCs healthy"'')'
+          - observability_home_overview_rows_actual | map(attribute='gridPos.y') | list == [0, 4, 8, 24]
+          - 'observability_trend_panel.gridPos == {"x": 0, "y": 12, "w": 12, "h": 6}'
+          - 'observability_pvc_headroom_panel.gridPos == {"x": 12, "y": 12, "w": 12, "h": 6}'
+          - 'observability_largest_pods_panel.gridPos == {"x": 0, "y": 18, "w": 24, "h": 6}'
+          - 'observability_probe_health_panel.gridPos == {"x": 0, "y": 25, "w": 8, "h": 5}'
+          - 'observability_slowest_http_panel.gridPos == {"x": 8, "y": 25, "w": 16, "h": 5}'
+          - 'observability_core_scrape_panel.gridPos == {"x": 0, "y": 30, "w": 12, "h": 6}'
+          - 'observability_components_panel.gridPos == {"x": 12, "y": 30, "w": 12, "h": 6}'
+
+    - name: Assert Home Ops overview service coverage is exact
+      ansible.builtin.assert:
+        that:
+          - observability_core_scrape_panel.targets | length == 4
+          - observability_core_scrape_panel.targets | map(attribute='expr') | list == ['min(up{job="node-exporter"}) or vector(-1)', 'min(up{job="kubelet"}) or vector(-1)', 'min(up{job="kube-state-metrics"}) or vector(-1)', 'min(up{job="prometheus-blackbox-exporter"}) or vector(-1)']
+          - observability_components_panel.targets | length == 6
+          - observability_components_panel.targets | map(attribute='expr') | list == ['min(up{job="vmsingle-victoria-metrics-k8s-stack"}) or vector(-1)', 'min(up{job="vmagent-victoria-metrics-k8s-stack"}) or vector(-1)', 'min(up{job="victoria-metrics-k8s-stack-victoria-metrics-operator"}) or vector(-1)', 'min(up{job="victoria-logs-single-server"}) or vector(-1)', 'min(up{job="platform-system/victoria-logs-collector"}) or vector(-1)', 'min(up{job="victoria-metrics-k8s-stack-grafana"}) or vector(-1)']
+          - observability_components_panel.targets | map(attribute='expr') | select('search', 'reloader') | list | length == 0
 
     - name: Check forbidden observability app directories
       ansible.builtin.stat:
