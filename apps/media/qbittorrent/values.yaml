@@ -51,7 +51,7 @@ controllers:
           FIREWALL_INPUT_PORTS: "8080,9999"
           HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
           PORT_FORWARD_ONLY: "on"
-          PUBLICIP_API: cloudflare
+          PUBLICIP_ENABLED: "false"
           STORAGE_FILEPATH: /tmp/servers.json
           VERSION_INFORMATION: "off"
           VPN_PORT_FORWARDING: "on"
@@ -61,7 +61,27 @@ controllers:
             http://127.0.0.1:8080/api/v2/app/setPreferences'
           VPN_PORT_FORWARDING_UP_COMMAND: >-
             /bin/sh -c 'wget -qO /dev/null --retry-connrefused
-            --post-data "json={\"listen_port\":{{ "{{PORT}}" }},\"current_network_interface\":\"{{ "{{VPN_INTERFACE}}" }}\",\"random_port\":false,\"upnp\":false,\"bypass_local_auth\":true,\"bypass_auth_subnet_whitelist_enabled\":false,\"bypass_auth_subnet_whitelist\":\"\",\"web_ui_upnp\":false}"
+            --post-data "json={
+            \"listen_port\":{{ "{{PORT}}" }},
+            \"current_network_interface\":\"{{ "{{VPN_INTERFACE}}" }}\",
+            \"random_port\":false,
+            \"upnp\":false,
+            \"bittorrent_protocol\":0,
+            \"proxy_type\":0,
+            \"proxy_ip\":\"\",
+            \"proxy_port\":0,
+            \"proxy_hostname_lookup\":false,
+            \"proxy_peer_connections\":false,
+            \"proxy_auth_enabled\":false,
+            \"dht\":true,
+            \"pex\":true,
+            \"lsd\":false,
+            \"encryption\":0,
+            \"anonymous_mode\":true,
+            \"bypass_local_auth\":true,
+            \"bypass_auth_subnet_whitelist_enabled\":false,
+            \"bypass_auth_subnet_whitelist\":\"\",
+            \"web_ui_upnp\":false}"
             http://127.0.0.1:8080/api/v2/app/setPreferences'
         envFrom:
           - secretRef:
