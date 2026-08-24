@@ -18,12 +18,11 @@ controllers:
       app:
         image:
           repository: lscr.io/linuxserver/qbittorrent
-          tag: 20.04.1
+          tag: 5.2.3
         env:
           PUID: "1000"
           PGID: "1000"
           UMASK: "022"
-          TORRENTING_PORT: "6881"
           WEBUI_PORT: "8080"
         probes:
           startup:
@@ -47,18 +46,22 @@ controllers:
         env:
           VPN_SERVICE_PROVIDER: protonvpn
           VPN_TYPE: wireguard
+          DNS_UPSTREAM_RESOLVER_TYPE: doh
+          DNS_UPSTREAM_RESOLVERS: cloudflare
           FIREWALL_INPUT_PORTS: "8080,9999"
           HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
           PORT_FORWARD_ONLY: "on"
+          PUBLICIP_API: cloudflare
           STORAGE_FILEPATH: /tmp/servers.json
+          VERSION_INFORMATION: "off"
           VPN_PORT_FORWARDING: "on"
           VPN_PORT_FORWARDING_DOWN_COMMAND: >-
-            /bin/sh -c 'wget -O- -nv --retry-connrefused
+            /bin/sh -c 'wget -qO /dev/null --retry-connrefused
             --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo\"}"
             http://127.0.0.1:8080/api/v2/app/setPreferences'
           VPN_PORT_FORWARDING_UP_COMMAND: >-
-            /bin/sh -c 'wget -O- -nv --retry-connrefused
-            --post-data "json={\"listen_port\":{{ "{{PORT}}" }},\"current_network_interface\":\"{{ "{{VPN_INTERFACE}}" }}\",\"random_port\":false,\"upnp\":false}"
+            /bin/sh -c 'wget -qO /dev/null --retry-connrefused
+            --post-data "json={\"listen_port\":{{ "{{PORT}}" }},\"current_network_interface\":\"{{ "{{VPN_INTERFACE}}" }}\",\"random_port\":false,\"upnp\":false,\"bypass_local_auth\":true,\"bypass_auth_subnet_whitelist_enabled\":false,\"bypass_auth_subnet_whitelist\":\"\",\"web_ui_upnp\":false}"
             http://127.0.0.1:8080/api/v2/app/setPreferences'
         envFrom:
           - secretRef:
@@ -89,16 +92,6 @@ service:
         port: 8080
         protocol: TCP
         targetPort: 8080
-      bittorrent-tcp:
-        enabled: true
-        port: 6881
-        protocol: TCP
-        targetPort: 6881
-      bittorrent-udp:
-        enabled: true
-        port: 6881
-        protocol: UDP
-        targetPort: 6881
 
 route:
   main:
