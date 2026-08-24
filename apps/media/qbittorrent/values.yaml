@@ -45,12 +45,21 @@ controllers:
           repository: qmcgaw/gluetun
           tag: v3.41.3
         env:
-          VPN_SERVICE_PROVIDER: mullvad
+          VPN_SERVICE_PROVIDER: protonvpn
           VPN_TYPE: wireguard
           FIREWALL_INPUT_PORTS: "8080,9999"
-          FIREWALL_VPN_INPUT_PORTS: "6881"
           HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
+          PORT_FORWARD_ONLY: "on"
           STORAGE_FILEPATH: /tmp/servers.json
+          VPN_PORT_FORWARDING: "on"
+          VPN_PORT_FORWARDING_DOWN_COMMAND: >-
+            /bin/sh -c 'wget -O- -nv --retry-connrefused
+            --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo\"}"
+            http://127.0.0.1:8080/api/v2/app/setPreferences'
+          VPN_PORT_FORWARDING_UP_COMMAND: >-
+            /bin/sh -c 'wget -O- -nv --retry-connrefused
+            --post-data "json={\"listen_port\":{{ "{{PORT}}" }},\"current_network_interface\":\"{{ "{{VPN_INTERFACE}}" }}\",\"random_port\":false,\"upnp\":false}"
+            http://127.0.0.1:8080/api/v2/app/setPreferences'
         envFrom:
           - secretRef:
               name: qbittorrent-gluetun-credentials
