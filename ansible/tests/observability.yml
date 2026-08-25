@@ -289,7 +289,7 @@
         that:
           - observability_metrics_app.chart.repo == "https://victoriametrics.github.io/helm-charts/"
           - observability_metrics_app.chart.name == "victoria-metrics-k8s-stack"
-          - observability_metrics_app.chart.version == "0.91.0"
+          - observability_metrics_app.chart.version == "0.91.2"
           - observability_metrics_app.sync.wave == "-4"
           - observability_metrics_values.argocdReleaseOverride == "victoria-metrics-k8s-stack"
           - observability_metrics_values['victoria-metrics-operator'].crds.enabled is false

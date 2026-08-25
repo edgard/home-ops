@@ -2,6 +2,6 @@
 chart:
   repo: https://victoriametrics.github.io/helm-charts/
   name: victoria-metrics-k8s-stack
-  version: 0.91.0
+  version: 0.91.2
 sync:
   wave: "-4"
