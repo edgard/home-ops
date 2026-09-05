@@ -22,6 +22,18 @@
       ansible.builtin.set_fact:
         talos_upgrade_controlplane_config: "{{ (talos_upgrade_controlplane_patch.content | b64decode | from_yaml_all | list | first) }}"
 
+    - name: Read automated Kubernetes upgrade target
+      ansible.builtin.slurp:
+        src: "{{ talos_upgrade_repo_root }}/apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
+      register: talos_upgrade_kubernetes_target
+
+    - name: Keep upgrade targets within the deployed Talos support boundary
+      ansible.builtin.assert:
+        that:
+          - talos_upgrade_defaults.talos_upgrade.installer.version is version('v1.14.0', '<')
+          - (talos_upgrade_kubernetes_target.content | b64decode | from_yaml).spec.kubernetes.version is version('v1.37.0', '<')
+        fail_msg: "Talos 1.14 requires an installer migration; Kubernetes 1.37 requires upgrading the deployed Talos 1.13 node first."
+
     - name: Assert default Talos upgrade target matches generated machine config
       ansible.builtin.assert:
         that:
