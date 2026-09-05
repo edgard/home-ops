@@ -6,7 +6,7 @@ valid_app_template := {
   "app_file": "/repo/apps/selfhosted/demo/app.yaml",
   "values_file": "/repo/apps/selfhosted/demo/values.yaml",
   "chart_repo": "oci://ghcr.io/bjw-s-labs/helm/app-template",
-  "chart_version": "4.6.2",
+  "chart_version": "5.1.0",
   "values_top_level_keys": ["defaultPodOptions", "controllers", "service", "route", "persistence"],
   "controller_keys": ["main"],
   "service_keys": ["main"],
@@ -19,11 +19,8 @@ valid_app_template := {
     "runAsUser": "1000",
   },
   "service_main_controller": "main",
-  "service_main_ports": ["http"],
-  "service_main_annotations": {},
   "route_main_hostnames": ["demo.edgard.org"],
   "route_main_backend_identifiers": ["main"],
-  "route_main_annotations": {},
   "raw_httproute_manifest_paths": [],
 }
 
