@@ -45,7 +45,7 @@ terraform/               # Cloudflare/Tailscale infra
 
 ## Conventions
 
-### App-Template v4.6.2 Structure
+### App-Template v5 Structure
 Order: `defaultPodOptions → controllers → service → route → persistence → configMaps`
 
 ```yaml

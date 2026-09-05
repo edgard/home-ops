@@ -233,34 +233,52 @@
         src: "{{ conventions_repo_root }}/ansible/roles/argocd/tasks/refresh.yml"
       register: conventions_argocd_refresh
 
-    - name: Assert named Argo CD refresh checks application existence
+    - name: Assert named Argo CD refresh validates the lookup result
+      vars:
+        refresh_tasks: "{{ conventions_argocd_refresh.content | b64decode | from_yaml }}"
+        lookup_task: "{{ refresh_tasks | selectattr('register', 'defined') | selectattr('register', 'equalto', 'argocd_refresh_requested_application') | first }}"
+        assert_task: "{{ refresh_tasks | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.assert') | map(attribute='value') | first }}"
       ansible.builtin.assert:
         that:
-          - "'Read requested Argo CD application' in (conventions_argocd_refresh.content | b64decode)"
-          - "'Argo CD Application not found' in (conventions_argocd_refresh.content | b64decode)"
+          - lookup_task['kubernetes.core.k8s_info'].kind == 'Application'
+          - lookup_task['kubernetes.core.k8s_info'].name is search('argocd_refresh_requested_app')
+          - assert_task.that == ['argocd_refresh_requested_application.resources | length == 1']
 
     - name: Read k8tz warmup tasks
       ansible.builtin.slurp:
         src: "{{ conventions_repo_root }}/ansible/roles/platform/tasks/k8tz_warmup.yml"
       register: conventions_k8tz_warmup
 
-    - name: Assert k8tz warmup uses always cleanup
+    - name: Assert k8tz warmup removes its pod in always
+      vars:
+        warmup_tasks: "{{ conventions_k8tz_warmup.content | b64decode | from_yaml }}"
+        warmup_block: "{{ warmup_tasks | selectattr('block', 'defined') | first }}"
       ansible.builtin.assert:
         that:
-          - "'always:' in (conventions_k8tz_warmup.content | b64decode)"
-          - "'Remove k8tz warmup pod' in (conventions_k8tz_warmup.content | b64decode)"
+          - warmup_block.always | length == 1
+          - warmup_block.always[0]['kubernetes.core.k8s'].state == 'absent'
+          - warmup_block.always[0]['kubernetes.core.k8s'].kind == 'Pod'
+          - warmup_block.always[0]['kubernetes.core.k8s'].namespace == 'kube-system'
+          - warmup_block.always[0]['kubernetes.core.k8s'].name == warmup_block.block[0]['kubernetes.core.k8s'].definition.metadata.name
 
     - name: Read Talos generate tasks
       ansible.builtin.slurp:
         src: "{{ conventions_repo_root }}/ansible/roles/talos/tasks/generate.yml"
       register: conventions_talos_generate
 
-    - name: Assert Talos generate cleans all temporary files in always
+    - name: Assert Talos generation removes both temporary paths in always
+      vars:
+        generate_tasks: "{{ conventions_talos_generate.content | b64decode | from_yaml }}"
+        generate_block: "{{ generate_tasks | selectattr('block', 'defined') | first }}"
       ansible.builtin.assert:
         that:
-          - "'always:' in (conventions_talos_generate.content | b64decode)"
-          - "'    - name: Remove temporary Talos secrets file' in (conventions_talos_generate.content | b64decode)"
-          - "'    - name: Remove temporary Talos output directory' in (conventions_talos_generate.content | b64decode)"
+          - generate_block.always | length == 2
+          - item['ansible.builtin.file'].state == 'absent'
+          - item['ansible.builtin.file'].path is search('talos_generate_(secrets_temp|output)\\.path')
+          - generate_block.always[0]['ansible.builtin.file'].path != generate_block.always[1]['ansible.builtin.file'].path
+      loop: "{{ generate_block.always }}"
+      loop_control:
+        label: "{{ item.name }}"
 
     - name: Read platform wait condition tasks
       ansible.builtin.slurp:
