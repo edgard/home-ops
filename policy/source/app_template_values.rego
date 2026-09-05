@@ -22,14 +22,14 @@ allowed_app_template_values_orders := {
 
 deny contains msg if {
   some app in input.apps
-  is_app_template_v4(app)
+  is_supported_app_template(app)
   not allowed_app_template_values_orders[concat(",", object.get(app, "values_top_level_keys", []))]
   msg := sprintf("app-template values must use the canonical top-level section order in %s", [app.values_file])
 }
 
 deny contains msg if {
   some app in input.apps
-  is_app_template_v4(app)
+  is_supported_app_template(app)
   has_default_pod_options(app)
   not is_canonical_non_root_profile(app)
   not is_canonical_root_profile(app)
@@ -38,7 +38,7 @@ deny contains msg if {
 
 deny contains msg if {
   some app in input.apps
-  is_app_template_v4(app)
+  is_supported_app_template(app)
   count(object.get(app, "controller_keys", [])) == 1
   app.controller_keys[0] != "main"
   msg := sprintf("app-template values must use controllers.main as the canonical primary controller in %s", [app.values_file])
@@ -46,7 +46,7 @@ deny contains msg if {
 
 deny contains msg if {
   some app in input.apps
-  is_app_template_v4(app)
+  is_supported_app_template(app)
   count(object.get(app, "controller_keys", [])) > 1
   not list_contains(object.get(app, "controller_keys", []), "main")
   msg := sprintf("multi-controller app-template values must expose the primary controller as controllers.main in %s", [app.values_file])
@@ -54,7 +54,7 @@ deny contains msg if {
 
 deny contains msg if {
   some app in input.apps
-  is_app_template_v4(app)
+  is_supported_app_template(app)
   count(object.get(app, "service_keys", [])) > 0
   not list_contains(object.get(app, "service_keys", []), "main")
   msg := sprintf("app-template values with services must expose the primary service as service.main in %s", [app.values_file])
@@ -62,7 +62,7 @@ deny contains msg if {
 
 deny contains msg if {
   some app in input.apps
-  is_app_template_v4(app)
+  is_supported_app_template(app)
   app.service_main_controller != ""
   app.service_main_controller != "main"
   msg := sprintf("service.main.controller must target main in %s", [app.values_file])
@@ -70,7 +70,7 @@ deny contains msg if {
 
 deny contains msg if {
   some app in input.apps
-  is_app_template_v4(app)
+  is_supported_app_template(app)
   count(object.get(app, "route_keys", [])) > 0
   not list_contains(object.get(app, "route_keys", []), "main")
   msg := sprintf("app-template values with routes must expose the primary route as route.main in %s", [app.values_file])
@@ -78,7 +78,7 @@ deny contains msg if {
 
 deny contains msg if {
   some app in input.apps
-  is_app_template_v4(app)
+  is_supported_app_template(app)
   some identifier in object.get(app, "route_main_backend_identifiers", [])
   identifier != ""
   identifier != "main"
@@ -87,16 +87,23 @@ deny contains msg if {
 
 deny contains msg if {
   some app in input.apps
-  is_app_template_v4(app)
+  is_supported_app_template(app)
   some hostname in object.get(app, "route_main_hostnames", [])
   hostname != ""
   not endswith(hostname, ".edgard.org")
   msg := sprintf("route.main hostnames must stay within *.edgard.org in %s", [app.values_file])
 }
 
-is_app_template_v4(app) if {
+is_supported_app_template(app) if {
   app.chart_repo == "oci://ghcr.io/bjw-s-labs/helm/app-template"
-  app.chart_version == "4.6.2"
+  regex.match(`^[45]\.[0-9]+\.[0-9]+$`, app.chart_version)
+}
+
+deny contains msg if {
+  some app in input.apps
+  app.chart_repo == "oci://ghcr.io/bjw-s-labs/helm/app-template"
+  not is_supported_app_template(app)
+  msg := sprintf("unsupported app-template chart version %s in %s; review source policy compatibility", [app.chart_version, app.values_file])
 }
 
 has_default_pod_options(app) if {
