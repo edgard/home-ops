@@ -134,6 +134,7 @@
       matchDepNames: ["/factory\\.talos\\.dev\\/metal-installer\\//"],
       matchPackageNames: ["/factory\\.talos\\.dev\\/metal-installer\\//"],
       overridePackageName: "ghcr.io/siderolabs/installer",
+      allowedVersions: "/^v?1\\.13\\.[0-9]+$/",
     },
 
     // LinuxServer retains historic base-image tags such as 20.04.1 alongside qBittorrent releases.
@@ -170,11 +171,22 @@
       addLabels: ["renovate/manual-review"],
     },
 
+    // Talos 1.14 retires this installer; migrate to Image Factory before lifting.
+    {
+      description: "Keep Talos on 1.13 until the installer migration is complete",
+      matchDatasources: ["github-releases"],
+      matchPackageNames: ["siderolabs/talos"],
+      allowedVersions: "<1.14.0",
+    },
+
+    // Talos 1.13 supports Kubernetes through 1.36. Upgrade the node before lifting.
+    // https://docs.siderolabs.com/talos/v1.13/getting-started/support-matrix
     // Delay Kubernetes upgrades so validation schemas have time to publish
     {
       description: "Defer Kubernetes upgrades",
       matchDatasources: ["github-tags"],
       matchPackageNames: ["siderolabs/kubelet"],
+      allowedVersions: "<1.37.0",
       minimumReleaseAge: "7 days",
       internalChecksFilter: "strict",
     },
