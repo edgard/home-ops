@@ -71,21 +71,6 @@ string_value() {
   printf '%s\n' "$result"
 }
 
-json_value() {
-  local path="$1"
-  local expr="$2"
-  local default_value="${3:-null}"
-  local result
-
-  result="$(yq -o=json "$expr" "$path" 2>/dev/null || true)"
-  if [ -z "$result" ] || [ "$result" = "null" ]; then
-    printf '%s\n' "$default_value"
-    return 0
-  fi
-
-  printf '%s\n' "$result"
-}
-
 map_keys() {
   local path="$1"
   local expr="$2"
@@ -215,28 +200,6 @@ app_manifest_paths() {
   fi
 }
 
-rendered_output_relative_path() {
-  local app="$1"
-  local relative_path=""
-
-  if [[ "$app" == "${repo_root}/apps/"*"/app.yaml" ]]; then
-    relative_path="${app#"${repo_root}/apps/"}"
-    printf '%s\n' "${relative_path%/app.yaml}.yaml"
-    return 0
-  fi
-
-  if [[ "$app" == "${repo_root}/"*"/app.yaml" ]]; then
-    relative_path="${app#"${repo_root}/"}"
-    printf '%s\n' "${relative_path%/app.yaml}.yaml"
-    return 0
-  fi
-
-  relative_path="${app%/app.yaml}"
-  relative_path="${relative_path#/}"
-  relative_path="${relative_path//\//__}"
-  printf 'external/%s.yaml\n' "$relative_path"
-}
-
 run_kubeconform() {
   local kubernetes_version="$1"
   shift
@@ -343,7 +306,6 @@ write_source_app_inventory() {
   local service_keys=()
   local route_keys=()
   local values_top_level_keys=()
-  local service_main_ports=()
   local raw_httproute_manifest_paths=()
 
   app_dir="$(dirname "$app_file")"
@@ -355,7 +317,6 @@ write_source_app_inventory() {
   mapfile -t controller_keys < <(map_keys "$values_file" '.controllers')
   mapfile -t service_keys < <(map_keys "$values_file" '.service')
   mapfile -t route_keys < <(map_keys "$values_file" '.route')
-  mapfile -t service_main_ports < <(map_keys "$values_file" '.service.main.ports')
   mapfile -t route_main_hostnames < <(yq -r '.route.main.hostnames[]' "$values_file" 2>/dev/null || true)
   mapfile -t route_main_backend_identifiers < <(yq -r '.route.main.rules[].backendRefs[].identifier' "$values_file" 2>/dev/null || true)
 
@@ -378,11 +339,8 @@ write_source_app_inventory() {
   printf '      runAsNonRoot: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsNonRoot')")"
   printf '      runAsUser: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsUser')")"
   printf '    service_main_controller: %s\n' "$(yaml_quote "$(string_value "$values_file" '.service.main.controller')")"
-  write_yaml_list '    service_main_ports' "${service_main_ports[@]}"
-  printf '    service_main_annotations: %s\n' "$(json_value "$values_file" '.service.main.annotations // {}' '{}')"
   write_yaml_list '    route_main_hostnames' "${route_main_hostnames[@]}"
   write_yaml_list '    route_main_backend_identifiers' "${route_main_backend_identifiers[@]}"
-  printf '    route_main_annotations: %s\n' "$(json_value "$values_file" '.route.main.annotations // {}' '{}')"
   write_yaml_list '    raw_httproute_manifest_paths' "${raw_httproute_manifest_paths[@]}"
 }
 
@@ -577,7 +535,8 @@ validate_rendered_apps() {
 
     [ -f "$values" ] || continue
 
-    relative_path="$(rendered_output_relative_path "$app")"
+    relative_path="${app#"${repo_root}/apps/"}"
+    relative_path="${relative_path%/app.yaml}.yaml"
 
     rendered="${rendered_root}/${relative_path}"
     mkdir -p "$(dirname "$rendered")"
