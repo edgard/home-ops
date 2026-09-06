@@ -1,0 +1,28 @@
+---
+- name: Validate Karakeep browser integration
+  hosts: localhost
+  gather_facts: false
+  vars:
+    karakeep_browser_repo_root: "{{ playbook_dir }}/../.."
+
+  tasks:
+    - name: Load Karakeep values
+      ansible.builtin.include_vars:
+        file: "{{ karakeep_browser_repo_root }}/apps/selfhosted/karakeep/values.yaml"
+        name: karakeep_browser_values
+
+    - name: Require the maintained Karakeep browser image
+      ansible.builtin.assert:
+        that:
+          - karakeep_browser_values.controllers.chrome.containers.app.image.repository == 'ghcr.io/karakeep-app/karakeep-chrome'
+          - karakeep_browser_values.controllers.chrome.containers.app.image.tag is match('^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+-r[0-9]+$')
+        fail_msg: "Karakeep must use a versioned release of its maintained browser image."
+
+    - name: Preserve the browser image port-forwarding entrypoint
+      ansible.builtin.assert:
+        that:
+          - karakeep_browser_values.controllers.chrome.containers.app.command is not defined
+          - "'--no-sandbox' not in karakeep_browser_values.controllers.chrome.containers.app.args"
+          - "'--disable-software-rasterizer' not in karakeep_browser_values.controllers.chrome.containers.app.args"
+          - karakeep_browser_values.controllers.chrome.containers.app.args | select('match', '^--remote-debugging-(address|port)(=|$)') | list | length == 0
+        fail_msg: "Karakeep browser arguments must not override the image entrypoint's internal port forwarding."
