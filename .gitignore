@@ -9,3 +9,4 @@
 /terraform/**/*.tfplan
 /terraform/**/.bw-provider-state
 /ansible/roles/talos/files/secrets.yaml
+__pycache__/

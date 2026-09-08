@@ -27,6 +27,15 @@ runs:
       with:
         # renovate: datasource=github-releases depName=go-task/task
         version: 3.53.1
+        max-retries: 5
+
+    - name: Set Up Python
+      if: ${{ inputs.profile == 'ansible' }}
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: "3.14"
+        cache: pip
+        cache-dependency-path: ansible/requirements.txt
 
     - name: Set Up Node
       if: ${{ inputs.profile == 'format' }}
@@ -105,8 +114,8 @@ runs:
         tmp="$(mktemp -d)"
         trap 'rm -rf "$tmp"' EXIT
 
-        curl -fsSLo "$tmp/$archive" "https://github.com/google/yamlfmt/releases/download/${YAMLFMT_VERSION}/${archive}"
-        curl -fsSLo "$tmp/$checksum" "https://github.com/google/yamlfmt/releases/download/${YAMLFMT_VERSION}/${checksum}"
+        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$archive" "https://github.com/google/yamlfmt/releases/download/${YAMLFMT_VERSION}/${archive}"
+        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$checksum" "https://github.com/google/yamlfmt/releases/download/${YAMLFMT_VERSION}/${checksum}"
 
         grep "  ${archive}$" "$tmp/$checksum" | (cd "$tmp" && sha256sum --check --status)
         sudo tar -xzf "$tmp/$archive" -C /usr/local/bin yamlfmt
@@ -125,8 +134,8 @@ runs:
         tmp="$(mktemp -d)"
         trap 'rm -rf "$tmp"' EXIT
 
-        curl -fsSLo "$tmp/$archive" "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/${archive}"
-        curl -fsSLo "$tmp/$checksum" "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/${checksum}"
+        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$archive" "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/${archive}"
+        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$checksum" "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/${checksum}"
 
         grep "  ${archive}$" "$tmp/$checksum" | (cd "$tmp" && sha256sum --check --status)
         sudo tar -xzf "$tmp/$archive" -C /usr/local/bin actionlint

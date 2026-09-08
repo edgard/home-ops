@@ -2,6 +2,24 @@ package main
 
 import rego.v1
 
+test_optional_sections_do_not_require_unrelated_sections if {
+  every keys in [
+    ["defaultPodOptions", "controllers", "service", "persistence", "configMaps"],
+    ["defaultPodOptions", "controllers", "configMaps"],
+    ["defaultPodOptions", "controllers", "secrets", "service", "route"],
+  ] {
+    app := object.union(valid_app_template, {"values_top_level_keys": keys})
+    results := deny with input as {"apps": [app]}
+    count(results) == 0
+  }
+}
+
+test_rejects_reversed_present_sections if {
+  app := object.union(valid_app_template, {"values_top_level_keys": ["controllers", "defaultPodOptions", "service"]})
+  results := deny with input as {"apps": [app]}
+  count(results) > 0
+}
+
 test_valid_app_template_values_pass if {
   results := deny with input as {"apps": [valid_app_template], "manifests": [valid_manifest, valid_root_manifest]}
   count(results) == 0

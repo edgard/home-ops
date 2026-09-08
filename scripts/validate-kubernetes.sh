@@ -141,7 +141,7 @@ build_local_schemas() {
     yq -o=json \
       "select(.metadata.name == \"${name}\") | .spec.versions[] | select(.name == \"${version}\") | .schema.openAPIV3Schema" \
       "$manifest" \
-      > "${schema_root}/${group}/${kind,,}_${version}.json"
+      > "${schema_root}/${group}/$(printf '%s' "$kind" | tr '[:upper:]' '[:lower:]')_${version}.json"
   done < <(
     yq -r '
       select(.kind == "CustomResourceDefinition")
@@ -313,25 +313,25 @@ write_source_app_inventory() {
   manifests_dir="${app_dir}/manifests"
   repo="$(string_value "$app_file" '.chart.repo')"
   version="$(string_value "$app_file" '.chart.version')"
-  mapfile -t values_top_level_keys < <(top_level_keys "$values_file")
-  mapfile -t controller_keys < <(map_keys "$values_file" '.controllers')
-  mapfile -t service_keys < <(map_keys "$values_file" '.service')
-  mapfile -t route_keys < <(map_keys "$values_file" '.route')
-  mapfile -t route_main_hostnames < <(yq -r '.route.main.hostnames[]' "$values_file" 2>/dev/null || true)
-  mapfile -t route_main_backend_identifiers < <(yq -r '.route.main.rules[].backendRefs[].identifier' "$values_file" 2>/dev/null || true)
+  while IFS= read -r entry; do values_top_level_keys+=("$entry"); done < <(top_level_keys "$values_file")
+  while IFS= read -r entry; do controller_keys+=("$entry"); done < <(map_keys "$values_file" '.controllers')
+  while IFS= read -r entry; do service_keys+=("$entry"); done < <(map_keys "$values_file" '.service')
+  while IFS= read -r entry; do route_keys+=("$entry"); done < <(map_keys "$values_file" '.route')
+  while IFS= read -r entry; do route_main_hostnames+=("$entry"); done < <(yq -r '.route.main.hostnames[]' "$values_file" 2>/dev/null || true)
+  while IFS= read -r entry; do route_main_backend_identifiers+=("$entry"); done < <(yq -r '.route.main.rules[].backendRefs[].identifier' "$values_file" 2>/dev/null || true)
 
   if [ -d "$manifests_dir" ]; then
-    mapfile -t raw_httproute_manifest_paths < <(find "$manifests_dir" -maxdepth 1 -type f -name '*.httproute.yaml' | sort)
+    while IFS= read -r entry; do raw_httproute_manifest_paths+=("$entry"); done < <(find "$manifests_dir" -maxdepth 1 -type f -name '*.httproute.yaml' | sort)
   fi
 
   printf '  - app_file: %s\n' "$(yaml_quote "$app_file")"
   printf '    values_file: %s\n' "$(yaml_quote "$values_file")"
   printf '    chart_repo: %s\n' "$(yaml_quote "$repo")"
   printf '    chart_version: %s\n' "$(yaml_quote "$version")"
-  write_yaml_list '    values_top_level_keys' "${values_top_level_keys[@]}"
-  write_yaml_list '    controller_keys' "${controller_keys[@]}"
-  write_yaml_list '    service_keys' "${service_keys[@]}"
-  write_yaml_list '    route_keys' "${route_keys[@]}"
+  write_yaml_list '    values_top_level_keys' ${values_top_level_keys[@]+"${values_top_level_keys[@]}"}
+  write_yaml_list '    controller_keys' ${controller_keys[@]+"${controller_keys[@]}"}
+  write_yaml_list '    service_keys' ${service_keys[@]+"${service_keys[@]}"}
+  write_yaml_list '    route_keys' ${route_keys[@]+"${route_keys[@]}"}
   printf '    default_pod_security_context:\n'
   printf '      fsGroup: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.fsGroup')")"
   printf '      fsGroupChangePolicy: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.fsGroupChangePolicy')")"
@@ -339,9 +339,9 @@ write_source_app_inventory() {
   printf '      runAsNonRoot: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsNonRoot')")"
   printf '      runAsUser: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsUser')")"
   printf '    service_main_controller: %s\n' "$(yaml_quote "$(string_value "$values_file" '.service.main.controller')")"
-  write_yaml_list '    route_main_hostnames' "${route_main_hostnames[@]}"
-  write_yaml_list '    route_main_backend_identifiers' "${route_main_backend_identifiers[@]}"
-  write_yaml_list '    raw_httproute_manifest_paths' "${raw_httproute_manifest_paths[@]}"
+  write_yaml_list '    route_main_hostnames' ${route_main_hostnames[@]+"${route_main_hostnames[@]}"}
+  write_yaml_list '    route_main_backend_identifiers' ${route_main_backend_identifiers[@]+"${route_main_backend_identifiers[@]}"}
+  write_yaml_list '    raw_httproute_manifest_paths' ${raw_httproute_manifest_paths[@]+"${raw_httproute_manifest_paths[@]}"}
 }
 
 write_source_manifest_inventory() {
@@ -352,14 +352,14 @@ write_source_manifest_inventory() {
   local metadata_keys_list=()
 
   basename="$(basename "$path")"
-  mapfile -t top_level_keys_list < <(top_level_keys "$path")
-  mapfile -t metadata_keys_list < <(metadata_keys "$path")
+  while IFS= read -r entry; do top_level_keys_list+=("$entry"); done < <(top_level_keys "$path")
+  while IFS= read -r entry; do metadata_keys_list+=("$entry"); done < <(metadata_keys "$path")
 
   printf '  - path: %s\n' "$(yaml_quote "$path")"
   printf '    relative_path: %s\n' "$(yaml_quote "$relative_path")"
   printf '    basename: %s\n' "$(yaml_quote "$basename")"
-  write_yaml_list '    top_level_keys' "${top_level_keys_list[@]}"
-  write_yaml_list '    metadata_keys' "${metadata_keys_list[@]}"
+  write_yaml_list '    top_level_keys' ${top_level_keys_list[@]+"${top_level_keys_list[@]}"}
+  write_yaml_list '    metadata_keys' ${metadata_keys_list[@]+"${metadata_keys_list[@]}"}
 }
 
 write_source_inventory() {
@@ -369,6 +369,12 @@ write_source_inventory() {
   while IFS= read -r app_file; do
     write_source_app_inventory "$app_file"
   done < <(find "${repo_root}/apps" -mindepth 3 -maxdepth 3 -type f -name app.yaml | sort)
+
+  local gateway_dir="${repo_root}/apps/platform-system/istio/manifests"
+  printf 'gateway:\n'
+  printf '  dns_target: %s\n' "$(yaml_quote "$(yq -r '.metadata.annotations."external-dns.kubernetes.io/target"' "${gateway_dir}/istio-gateway.gateway.yaml")")"
+  printf '  lan_cidrs: '
+  yq -o=json -I=0 '.data.deployment | from_yaml | .spec.template.metadata.annotations."k8s.v1.cni.cncf.io/networks" | from_json | map(select(.name == "multus-lan-bridge" and .namespace == "kube-system")) | map(.ips[])' "${gateway_dir}/istio-gateway-parameters.configmap.yaml"
 
   printf 'manifests:\n'
   while IFS= read -r path; do
@@ -519,7 +525,7 @@ validate_rendered_apps() {
   local app_paths=()
   local rendered_paths=()
 
-  mapfile -t app_paths < <(app_manifest_paths)
+  while IFS= read -r entry; do app_paths+=("$entry"); done < <(app_manifest_paths)
   if [ ${#app_paths[@]} -eq 0 ]; then
     return 0
   fi

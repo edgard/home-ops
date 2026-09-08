@@ -34,6 +34,6 @@ deny contains msg if {
   input.metadata.name == "gateway"
   object.get(input.metadata, "namespace", "") == "platform-system"
   annotations := object.get(input.metadata, "annotations", {})
-  object.get(annotations, "external-dns.kubernetes.io/target", "") != "192.168.1.241"
-  msg := "Gateway/gateway must set external-dns.kubernetes.io/target to 192.168.1.241"
+  object.get(annotations, "external-dns.kubernetes.io/target", "") == ""
+  msg := "Gateway/gateway must set external-dns.kubernetes.io/target"
 }

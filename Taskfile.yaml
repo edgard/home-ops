@@ -45,15 +45,15 @@ tasks:
       - task --list
 
   deps:
-    desc: Create .venv and install Ansible Python dependencies
+    desc: Install pinned validation dependencies
     dir: "{{.TASKFILE_DIR}}"
     cmds:
       - python3 -m venv "{{.VENV_DIR}}"
       - '"{{.VENV_PYTHON}}" -m pip install --upgrade pip'
       - '"{{.VENV_PYTHON}}" -m pip uninstall -y ansible || true'
-      - '"{{.VENV_PYTHON}}" -m pip install ansible-core ansible-lint'
-      - '"{{.ANSIBLE_GALAXY}}" collection install -r ansible/requirements.yml -p "{{.ANSIBLE_COLLECTIONS_PATH}}"'
       - '"{{.VENV_PYTHON}}" -m pip install -r ansible/requirements.txt'
+      - '"{{.ANSIBLE_GALAXY}}" collection install -r ansible/requirements.yml -p "{{.ANSIBLE_COLLECTIONS_PATH}}"'
+      - bash scripts/install-vmalert-tool.sh "{{.VENV_DIR}}/bin"
 
   ansible:check:
     internal: true
@@ -126,6 +126,9 @@ tasks:
     cmds:
       - for playbook in ansible/playbooks/*.yml ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" --syntax-check "$playbook"; done
       - '"{{.ANSIBLE_LINT}}" ansible'
+      - '"{{.VENV_PYTHON}}" -m unittest discover -s scripts/tests'
+      - '"{{.VENV_PYTHON}}" scripts/check_ansible_contracts.py'
+      - '"{{.VENV_PYTHON}}" scripts/check_observability.py'
       - for test in ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" "$test"; done
 
   lint:kubernetes:

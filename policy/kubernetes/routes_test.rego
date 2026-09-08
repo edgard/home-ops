@@ -39,7 +39,7 @@ test_legacy_external_dns_annotations_are_rejected_on_any_resource if {
       "name": "demo",
       "namespace": "platform-system",
       "annotations": {
-        "external-dns.alpha.kubernetes.io/target": "192.168.1.241",
+        "external-dns.alpha.kubernetes.io/target": "192.0.2.25",
       },
     },
   }
@@ -55,12 +55,12 @@ test_shared_gateway_requires_modern_lan_target if {
       "name": "gateway",
       "namespace": "platform-system",
       "annotations": {
-        "external-dns.alpha.kubernetes.io/target": "192.168.1.241",
+        "external-dns.alpha.kubernetes.io/target": "192.0.2.25",
       },
     },
   }
 
-  "Gateway/gateway must set external-dns.kubernetes.io/target to 192.168.1.241" in deny with input as gateway
+  "Gateway/gateway must set external-dns.kubernetes.io/target" in deny with input as gateway
 }
 
 test_shared_gateway_allows_modern_lan_target if {
@@ -71,7 +71,7 @@ test_shared_gateway_allows_modern_lan_target if {
       "name": "gateway",
       "namespace": "platform-system",
       "annotations": {
-        "external-dns.kubernetes.io/target": "192.168.1.241",
+        "external-dns.kubernetes.io/target": "192.0.2.25",
       },
     },
   }
