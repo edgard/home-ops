@@ -86,6 +86,15 @@
       ],
     },
 
+    // Test-only MetricsQL evaluator
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^scripts\\/install-vmalert-tool\\.sh$/"],
+      matchStrings: [
+        '# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s+version="(?<currentValue>[^"\\s]+)"',
+      ],
+    },
+
     // Gateway API CRDs (uses renovate comment hint)
     {
       customType: "regex",

@@ -8,7 +8,7 @@ VictoriaMetrics/VictoriaLogs/VLAgent/Grafana • Helm • Ansible • Terraform
 
 - Format: `task fmt`
 - Format check: `task fmt:check`
-- Dependencies: `task deps` creates `.venv` and installs Ansible Python dependencies
+- Dependencies: `task deps` installs pinned Python dependencies, Ansible collections, and the test-only `vmalert-tool` evaluator in `.venv`
 - Lint: `task lint` (offline validation: formatting, shellcheck, yamllint, GitHub Actions workflow lint, Ansible syntax/lint/contracts, metadata policy, raw manifest policy/schema/deprecation checks, batched rendered policy/schema/deprecation checks, `tofu validate`)
 - Focused checks: `task lint:static`, `task lint:workflows`, `task lint:ansible`, `task lint:kubernetes`, `task lint:terraform`
 - Policy layers:
@@ -150,6 +150,8 @@ Store: `external-secrets-store`
   - `task lint` covers direct repo validation and aggregates the focused `lint:*` targets
   - CI runs the focused targets as separate pull-request jobs and uses `Quality Gate` as the required aggregate check
   - Prefer policy or lint checks when the assertion is about repository content
+  - Assert operational invariants and cross-file relationships, not duplicated dependency versions, task names, comments, dashboard prose, or exact equivalent query strings
+  - `scripts/check_ansible_contracts.py` checks parsed safety logic; `scripts/check_observability.py` evaluates dashboard and alert queries against synthetic MetricsQL fixtures
 - Metadata policy lives under `policy/metadata/` and is enforced via Conftest
 - Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
 - `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`

@@ -2,6 +2,40 @@ package main
 
 import rego.v1
 
+required_operator_disable_reconcile_arg := "--controller.disableReconcileFor=AlertmanagerConfig,PodMonitor,Probe,PrometheusRule,ScrapeConfig,ServiceMonitor,VLAgent,VLCluster,VLDistributed,VLogs,VLSingle,VMAlert,VMAlertmanager,VMAlertmanagerConfig,VMAnomaly,VMAnomalyConfig,VMAuth,VMCluster,VMDistributed,VMRule,VMScrapeConfig,VMStaticScrape,VTSingle,VTCluster,VMUser"
+
+operator_deployment := {
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {"name": "victoria-metrics-k8s-stack-victoria-metrics-operator"},
+  "spec": {"template": {"spec": {"containers": [{
+    "name": "operator",
+    "args": [required_operator_disable_reconcile_arg],
+  }]}}},
+}
+
+test_operator_controller_order_is_not_significant if {
+  deployment := operator_deployment
+  original := deployment.spec.template.spec.containers[0].args[0]
+  prefix := "--controller.disableReconcileFor="
+  reordered := sprintf("%s%s", [prefix, concat(",", array.reverse(split(trim_prefix(original, prefix), ",")))])
+  updated := object.union(deployment.spec.template.spec.containers[0], {"args": [reordered]})
+  containers := array.concat([updated], array.slice(deployment.spec.template.spec.containers, 1, count(deployment.spec.template.spec.containers)))
+  mutated := object.union(deployment, {"spec": object.union(deployment.spec, {"template": object.union(deployment.spec.template, {"spec": object.union(deployment.spec.template.spec, {"containers": containers})})})})
+  results := deny with input as mutated
+  count(results) == 0
+}
+
+test_operator_must_disable_every_required_controller if {
+  deployment := operator_deployment
+  original := deployment.spec.template.spec.containers[0].args[0]
+  broken := replace(original, ",VMAlert,", ",")
+  updated := object.union(deployment.spec.template.spec.containers[0], {"args": [broken]})
+  containers := array.concat([updated], array.slice(deployment.spec.template.spec.containers, 1, count(deployment.spec.template.spec.containers)))
+  mutated := object.union(deployment, {"spec": object.union(deployment.spec, {"template": object.union(deployment.spec.template, {"spec": object.union(deployment.spec.template.spec, {"containers": containers})})})})
+  "Deployment/victoria-metrics-k8s-stack-victoria-metrics-operator must disable every controller whose CRD is not installed" in deny with input as mutated
+}
+
 test_prometheus_operator_resources_are_rejected if {
   resource := {
     "apiVersion": "monitoring.coreos.com/v1",
@@ -50,16 +84,7 @@ test_operator_without_selective_controller_argument_is_rejected if {
 }
 
 test_operator_with_selective_controller_argument_is_allowed if {
-  deployment := {
-    "apiVersion": "apps/v1",
-    "kind": "Deployment",
-    "metadata": {"name": "victoria-metrics-k8s-stack-victoria-metrics-operator"},
-    "spec": {"template": {"spec": {"containers": [{
-      "name": "operator",
-      "args": [required_operator_disable_reconcile_arg],
-    }]}}},
-  }
-  results := deny with input as deployment
+  results := deny with input as operator_deployment
   count(results) == 0
 }
 

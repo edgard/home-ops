@@ -25,7 +25,7 @@ allowed_victoria_crds := {
   "vmusers.operator.victoriametrics.com",
 }
 
-required_operator_disable_reconcile_arg := "--controller.disableReconcileFor=AlertmanagerConfig,PodMonitor,Probe,PrometheusRule,ScrapeConfig,ServiceMonitor,VLAgent,VLCluster,VLDistributed,VLogs,VLSingle,VMAlert,VMAlertmanager,VMAlertmanagerConfig,VMAnomaly,VMAnomalyConfig,VMAuth,VMCluster,VMDistributed,VMRule,VMScrapeConfig,VMStaticScrape,VTSingle,VTCluster,VMUser"
+required_operator_disabled_controllers := {"AlertmanagerConfig", "PodMonitor", "Probe", "PrometheusRule", "ScrapeConfig", "ServiceMonitor", "VLAgent", "VLCluster", "VLDistributed", "VLogs", "VLSingle", "VMAlert", "VMAlertmanager", "VMAlertmanagerConfig", "VMAnomaly", "VMAnomalyConfig", "VMAuth", "VMCluster", "VMDistributed", "VMRule", "VMScrapeConfig", "VMStaticScrape", "VTSingle", "VTCluster", "VMUser"}
 
 indexer_only_victoria_kinds := {
   "VMAlertmanagerConfig",
@@ -61,8 +61,16 @@ deny contains msg if {
   input.metadata.name == "victoria-metrics-k8s-stack-victoria-metrics-operator"
   operator := [container | some container in input.spec.template.spec.containers; container.name == "operator"][0]
   args := object.get(operator, "args", [])
-  not required_operator_disable_reconcile_arg in args
+  not has_required_disabled_controllers(args)
   msg := "Deployment/victoria-metrics-k8s-stack-victoria-metrics-operator must disable every controller whose CRD is not installed"
+}
+
+has_required_disabled_controllers(args) if {
+  some arg in args
+  startswith(arg, "--controller.disableReconcileFor=")
+  value := trim_prefix(arg, "--controller.disableReconcileFor=")
+  actual := {trim_space(controller) | some controller in split(value, ",")}
+  actual == required_operator_disabled_controllers
 }
 
 deny contains msg if {

@@ -2,29 +2,50 @@ package main
 
 import rego.v1
 
-allowed_app_template_values_orders := {
+app_template_section_order := [
+  "defaultPodOptions",
   "controllers",
-  "controllers,configMaps",
-  "defaultPodOptions,controllers,persistence",
-  "defaultPodOptions,controllers,route",
-  "defaultPodOptions,controllers,route,persistence",
-  "defaultPodOptions,controllers,service",
-  "defaultPodOptions,controllers,service,persistence",
-  "defaultPodOptions,controllers,service,route",
-  "defaultPodOptions,controllers,service,route,persistence",
-  "defaultPodOptions,controllers,service,route,persistence,configMaps",
-  "defaultPodOptions,controllers,serviceAccount,rbac,service",
-  "defaultPodOptions,controllers,serviceAccount,rbac,service,persistence",
-  "defaultPodOptions,controllers,serviceAccount,rbac,service,route",
-  "defaultPodOptions,controllers,serviceAccount,rbac,service,route,persistence",
-  "defaultPodOptions,controllers,serviceAccount,rbac,service,route,persistence,configMaps",
-}
+  "serviceAccount",
+  "rbac",
+  "service",
+  "route",
+  "persistence",
+  "configMaps",
+]
 
 deny contains msg if {
   some app in input.apps
   is_supported_app_template(app)
-  not allowed_app_template_values_orders[concat(",", object.get(app, "values_top_level_keys", []))]
+  not has_canonical_section_order(object.get(app, "values_top_level_keys", []))
   msg := sprintf("app-template values must use the canonical top-level section order in %s", [app.values_file])
+}
+
+has_canonical_section_order(keys) if {
+  every i, first in app_template_section_order {
+    every j, second in app_template_section_order {
+      section_pair_ordered(keys, i, j, first, second)
+    }
+  }
+}
+
+section_pair_ordered(keys, i, j, _, _) if {
+  i >= j
+}
+
+section_pair_ordered(keys, _, _, first, second) if {
+  ordered_if_present(keys, first, second)
+}
+
+ordered_if_present(keys, first, second) if {
+  not first in keys
+}
+
+ordered_if_present(keys, first, second) if {
+  not second in keys
+}
+
+ordered_if_present(keys, first, second) if {
+  indexof(keys, first) < indexof(keys, second)
 }
 
 deny contains msg if {

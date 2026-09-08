@@ -21,7 +21,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 ```bash
 # Install CLI tools (macOS)
 brew install python helm talosctl go-task opentofu yq yamllint shellcheck prettier yamlfmt pluto kubeconform conftest actionlint
-task deps                         # Create .venv and install Ansible dependencies
+task deps                         # Install pinned validation dependencies
 
 # Set local operator inputs
 export TALOS_NODE="192.168.1.253"
@@ -71,7 +71,7 @@ task argo:sync app=plex              # Refresh one Argo CD application
 task vault:edit-talos                # Edit encrypted Talos bootstrap secrets
 
 # Development
-task deps                          # Create .venv and install Ansible dependencies
+task deps                          # Install pinned validation dependencies
 task fmt                           # Format all code (YAML, Terraform)
 task fmt:check                     # Check formatting without modifying files
 task lint:static                   # Run shellcheck and yamllint
@@ -143,3 +143,9 @@ VLAgent streams use VictoriaLogs' native `cluster`,
 Changes go through pull requests only.
 
 Detailed contributor and agent guidance, including the validation model, testing expectations, repo conventions, and Git workflow, lives in [AGENTS.md](AGENTS.md).
+
+Validation gates protect operational behavior and relationships. Dependency versions
+belong in their source manifests rather than duplicate test assertions. Safety checks
+inspect parsed Ansible tasks, and Grafana queries run against synthetic healthy,
+failing, and missing data with VictoriaMetrics' test-only `vmalert-tool`. Dashboard
+wording, task names, comments, and equivalent query spellings may change freely.

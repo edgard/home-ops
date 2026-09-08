@@ -1,3 +1,8 @@
-kubernetes>=24.2.0
-jsonpatch
-requests-oauthlib
+# Direct validation dependencies; Renovate updates these through the same gates.
+ansible-core==2.21.3
+ansible-lint==26.8.0
+ansible-compat==26.8.0
+kubernetes==36.0.3
+jsonpatch==1.33
+PyYAML==6.0.3
+requests-oauthlib==2.0.0

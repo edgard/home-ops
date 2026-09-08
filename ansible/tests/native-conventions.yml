@@ -1,355 +1,116 @@
 ---
-- name: Validate strict Ansible-native conventions
+- name: Validate Ansible configuration and bounded OpenTofu cleanup
   hosts: localhost
   gather_facts: false
   vars:
     conventions_repo_root: "{{ playbook_dir }}/../.."
-    conventions_role_files:
-      - ansible/roles/argocd/defaults/main.yml
-      - ansible/roles/platform/defaults/main.yml
-      - ansible/roles/restic/defaults/main.yml
-      - ansible/roles/talos/defaults/main.yml
-      - ansible/roles/talos/vars/main.yml
-      - ansible/roles/tofu/defaults/main.yml
+    conventions_generated_files:
+      - saved.tfplan
+      - terraform.tfstate
+      - terraform.tfstate.backup
+      - .terraform.lock.hcl
+      - .bw-provider-state
+      - .terraform/provider-cache
+    conventions_preserved_files:
+      - main.tf
+      - local.tfvars
+      - notes.txt
+      - nested/saved.tfplan
+      - nested/terraform.tfstate
   tasks:
-    - name: Check role default and var files
-      ansible.builtin.stat:
-        path: "{{ conventions_repo_root }}/{{ item }}"
-      loop: "{{ conventions_role_files }}"
-      register: conventions_role_file_stats
-
-    - name: Assert conventional role files exist
-      ansible.builtin.assert:
-        that:
-          - item.stat.exists
-        fail_msg: "Missing conventional role file: {{ item.item }}"
-      loop: "{{ conventions_role_file_stats.results }}"
-      loop_control:
-        label: "{{ item.item }}"
-
-    - name: Check moved Talos secret is ignored
+    - name: Check local runtime directories are ignored
       ansible.builtin.command:
         argv:
           - git
           - check-ignore
           - -q
-          - ansible/roles/talos/files/secrets.yaml
+          - "{{ item }}"
       args:
         chdir: "{{ conventions_repo_root }}"
-      changed_when: false
-
-    - name: Check local Python virtualenv is ignored
-      ansible.builtin.command:
-        argv:
-          - git
-          - check-ignore
-          - -q
-          - .venv
-      args:
-        chdir: "{{ conventions_repo_root }}"
-      changed_when: false
-
-    - name: Check local Ansible runtime directory is ignored
-      ansible.builtin.command:
-        argv:
-          - git
-          - check-ignore
-          - -q
-          - .ansible
-      args:
-        chdir: "{{ conventions_repo_root }}"
-      changed_when: false
-
-    - name: Read Ansible config
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible.cfg"
-      register: conventions_ansible_config
-
-    - name: Assert Ansible uses project-local collections
-      ansible.builtin.assert:
-        that:
-          - "'collections_path = .ansible/collections' in (conventions_ansible_config.content | b64decode)"
-
-    - name: Read Taskfile
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/Taskfile.yaml"
-      register: conventions_taskfile
-
-    - name: Assert Taskfile has no stale bootstrap working directory
-      ansible.builtin.assert:
-        that:
-          - "'TASKFILE_DIR}}/bootstrap' not in (conventions_taskfile.content | b64decode)"
-          - "'ansible-lint not installed; skipping' not in (conventions_taskfile.content | b64decode)"
-          - "'.VENV_DIR}}/bin/ansible-playbook' in (conventions_taskfile.content | b64decode)"
-          - "'.ansible/collections' in (conventions_taskfile.content | b64decode)"
-          - "'task deps' in (conventions_taskfile.content | b64decode)"
-          - "'restic:restore:' in (conventions_taskfile.content | b64decode)"
-          - "'restic:restore-all:' in (conventions_taskfile.content | b64decode)"
-          - '''-e "k8s_version='' not in (conventions_taskfile.content | b64decode)'
-        fail_msg: "Taskfile compatibility wrappers do not meet strict Ansible gate expectations."
-
-    - name: Read inventory group vars
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible/inventory/group_vars/all.yml"
-      register: conventions_inventory_vars
-
-    - name: Assert Ansible uses the repo virtualenv interpreter by default
-      ansible.builtin.assert:
-        that:
-          - "'ansible_python_interpreter' in (conventions_inventory_vars.content | b64decode)"
-          - "'.venv/bin/python' in (conventions_inventory_vars.content | b64decode)"
-          - "'k8s_version' in (conventions_inventory_vars.content | b64decode)"
-          - "'K8S_VERSION' in (conventions_inventory_vars.content | b64decode)"
-
-    - name: Read Renovate config
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/.renovaterc.json5"
-      register: conventions_renovate_config
-
-    - name: Read restic role defaults
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible/roles/restic/defaults/main.yml"
-      register: conventions_restic_defaults
-
-    - name: Assert restic restore image is Renovate-managed
-      ansible.builtin.assert:
-        that:
-          - "'# renovate: datasource=docker depName=restic/restic' in (conventions_restic_defaults.content | b64decode)"
-          - "'restic_restore_image: restic/restic:' in (conventions_restic_defaults.content | b64decode)"
-          - "'Restic restore image in Ansible defaults' in (conventions_renovate_config.content | b64decode)"
-          - "'restic_restore_image' in (conventions_renovate_config.content | b64decode)"
-        fail_msg: "The restic restore image default must remain managed by Renovate."
-
-    - name: Read Changedetection values
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/apps/selfhosted/changedetection/values.yaml"
-      register: conventions_changedetection_values
-
-    - name: Read Changedetection credentials ExternalSecret
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/apps/selfhosted/changedetection/manifests/changedetection-credentials.externalsecret.yaml"
-      register: conventions_changedetection_credentials
-
-    - name: Assert Changedetection AI summaries use the shared OpenAI credential
-      ansible.builtin.assert:
-        that:
-          - "'LLM_MODEL: gpt-5-mini' in (conventions_changedetection_values.content | b64decode)"
-          - '''LLM_MAX_INPUT_CHARS: "20000"'' in (conventions_changedetection_values.content | b64decode)'
-          - "'LLM_API_BASE:' not in (conventions_changedetection_values.content | b64decode)"
-          - "'LLM_FEATURES_DISABLED:' not in (conventions_changedetection_values.content | b64decode)"
-          - "'name: changedetection-credentials' in (conventions_changedetection_values.content | b64decode)"
-          - "'LLM_API_KEY:' in (conventions_changedetection_credentials.content | b64decode)"
-          - "'secretKey: openai_api_key' in (conventions_changedetection_credentials.content | b64decode)"
-          - "'key: openai_api_key' in (conventions_changedetection_credentials.content | b64decode)"
-        fail_msg: "Changedetection AI summary configuration must use GPT-5 mini and the shared OpenAI credential."
-
-    - name: Find Ansible task files
-      ansible.builtin.find:
-        paths:
-          - "{{ conventions_repo_root }}/ansible/roles/argocd/tasks"
-          - "{{ conventions_repo_root }}/ansible/roles/platform/tasks"
-          - "{{ conventions_repo_root }}/ansible/roles/restic/tasks"
-          - "{{ conventions_repo_root }}/ansible/roles/talos/tasks"
-          - "{{ conventions_repo_root }}/ansible/roles/tofu/tasks"
-        patterns:
-          - "*.yml"
-        recurse: true
-        file_type: file
-      register: conventions_ansible_role_files
-
-    - name: Read Ansible role files
-      ansible.builtin.slurp:
-        src: "{{ item.path }}"
-      loop: "{{ conventions_ansible_role_files.files }}"
-      loop_control:
-        label: "{{ item.path | regex_replace('^' + conventions_repo_root + '/', '') }}"
-      register: conventions_ansible_role_file_contents
-
-    - name: Assert role files do not invoke kubectl
-      ansible.builtin.assert:
-        that:
-          - "'kubectl' not in (item.content | b64decode)"
-        fail_msg: "Ansible role file still invokes kubectl: {{ item.source }}"
-      loop: "{{ conventions_ansible_role_file_contents.results }}"
-      loop_control:
-        label: "{{ item.source | regex_replace('^' + conventions_repo_root + '/', '') }}"
-
-    - name: Assert bootstrap release defaults moved into platform role
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible/roles/platform/defaults/main.yml"
-      register: conventions_platform_defaults
-
-    - name: Validate platform release ordering in role defaults
-      ansible.builtin.assert:
-        that:
-          - "'platform_bootstrap_releases' in (conventions_platform_defaults.content | b64decode)"
-          - "'nfs-provisioner' in (conventions_platform_defaults.content | b64decode)"
-          - "'argocd' in (conventions_platform_defaults.content | b64decode)"
-
-    - name: Read Grafana alerting credentials ExternalSecret
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/apps/platform-system/victoria-metrics-k8s-stack/manifests/victoria-metrics-k8s-stack-grafana-alerting-credentials.externalsecret.yaml"
-      register: conventions_grafana_alerting_credentials
-
-    - name: Assert Grafana alerting credentials remain Bitwarden-backed
-      ansible.builtin.assert:
-        that:
-          - "'name: grafana-alerting-credentials' in (conventions_grafana_alerting_credentials.content | b64decode)"
-          - "'secretKey: TELEGRAM_BOT_TOKEN' in (conventions_grafana_alerting_credentials.content | b64decode)"
-          - "'key: telegram_bot_token' in (conventions_grafana_alerting_credentials.content | b64decode)"
-          - "'secretKey: TELEGRAM_CHAT_ID' in (conventions_grafana_alerting_credentials.content | b64decode)"
-          - "'key: telegram_chat_id' in (conventions_grafana_alerting_credentials.content | b64decode)"
-
-    - name: Find application YAML files for monitoring API validation
-      ansible.builtin.find:
-        paths:
-          - "{{ conventions_repo_root }}/apps"
-        patterns:
-          - "*.yaml"
-          - "*.yml"
-        recurse: true
-        file_type: file
-      register: conventions_app_yaml_files
-
-    - name: Read application YAML files for monitoring API validation
-      ansible.builtin.slurp:
-        src: "{{ item.path }}"
-      loop: "{{ conventions_app_yaml_files.files }}"
-      loop_control:
-        label: "{{ item.path | regex_replace('^' + conventions_repo_root + '/', '') }}"
-      register: conventions_app_yaml_contents
-
-    - name: Assert Prometheus Operator APIs are absent
-      ansible.builtin.assert:
-        that:
-          - "'monitoring.coreos.com' not in (item.content | b64decode)"
-        fail_msg: "Prometheus Operator API remains in {{ item.source }}"
-      loop: "{{ conventions_app_yaml_contents.results }}"
-      loop_control:
-        label: "{{ item.source | regex_replace('^' + conventions_repo_root + '/', '') }}"
-
-    - name: Read Argo CD refresh role
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible/roles/argocd/tasks/refresh.yml"
-      register: conventions_argocd_refresh
-
-    - name: Assert named Argo CD refresh validates the lookup result
-      vars:
-        refresh_tasks: "{{ conventions_argocd_refresh.content | b64decode | from_yaml }}"
-        lookup_task: "{{ refresh_tasks | selectattr('register', 'defined') | selectattr('register', 'equalto', 'argocd_refresh_requested_application') | first }}"
-        assert_task: "{{ refresh_tasks | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.assert') | map(attribute='value') | first }}"
-      ansible.builtin.assert:
-        that:
-          - lookup_task['kubernetes.core.k8s_info'].kind == 'Application'
-          - lookup_task['kubernetes.core.k8s_info'].name is search('argocd_refresh_requested_app')
-          - assert_task.that == ['argocd_refresh_requested_application.resources | length == 1']
-
-    - name: Read k8tz warmup tasks
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible/roles/platform/tasks/k8tz_warmup.yml"
-      register: conventions_k8tz_warmup
-
-    - name: Assert k8tz warmup removes its pod in always
-      vars:
-        warmup_tasks: "{{ conventions_k8tz_warmup.content | b64decode | from_yaml }}"
-        warmup_block: "{{ warmup_tasks | selectattr('block', 'defined') | first }}"
-      ansible.builtin.assert:
-        that:
-          - warmup_block.always | length == 1
-          - warmup_block.always[0]['kubernetes.core.k8s'].state == 'absent'
-          - warmup_block.always[0]['kubernetes.core.k8s'].kind == 'Pod'
-          - warmup_block.always[0]['kubernetes.core.k8s'].namespace == 'kube-system'
-          - warmup_block.always[0]['kubernetes.core.k8s'].name == warmup_block.block[0]['kubernetes.core.k8s'].definition.metadata.name
-
-    - name: Read Talos generate tasks
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible/roles/talos/tasks/generate.yml"
-      register: conventions_talos_generate
-
-    - name: Assert Talos generation removes both temporary paths in always
-      vars:
-        generate_tasks: "{{ conventions_talos_generate.content | b64decode | from_yaml }}"
-        generate_block: "{{ generate_tasks | selectattr('block', 'defined') | first }}"
-      ansible.builtin.assert:
-        that:
-          - generate_block.always | length == 2
-          - item['ansible.builtin.file'].state == 'absent'
-          - item['ansible.builtin.file'].path is search('talos_generate_(secrets_temp|output)\\.path')
-          - generate_block.always[0]['ansible.builtin.file'].path != generate_block.always[1]['ansible.builtin.file'].path
-      loop: "{{ generate_block.always }}"
-      loop_control:
-        label: "{{ item.name }}"
-
-    - name: Read platform wait condition tasks
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible/roles/platform/tasks/wait_condition.yml"
-      register: conventions_platform_wait_condition
-
-    - name: Assert platform waits use Kubernetes module-native waiting
-      ansible.builtin.assert:
-        that:
-          - "'wait: true' in (conventions_platform_wait_condition.content | b64decode)"
-          - "'wait_condition:' in (conventions_platform_wait_condition.content | b64decode)"
-          - "'wait_sleep:' in (conventions_platform_wait_condition.content | b64decode)"
-          - "'wait_timeout:' in (conventions_platform_wait_condition.content | b64decode)"
-          - "'until:' not in (conventions_platform_wait_condition.content | b64decode)"
-
-    - name: Read platform destroy tasks
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible/roles/platform/tasks/destroy.yml"
-      register: conventions_platform_destroy
-
-    - name: Assert platform destroy does not hide root application deletion failures
-      ansible.builtin.assert:
-        that:
-          - "'failed_when: false' not in (conventions_platform_destroy.content | b64decode)"
-
-    - name: Read Talos command task files
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/{{ item }}"
       loop:
-        - ansible/roles/talos/tasks/apply.yml
-        - ansible/roles/talos/tasks/bootstrap.yml
-        - ansible/roles/talos/tasks/generate.yml
-        - ansible/roles/talos/tasks/reset.yml
-        - ansible/roles/talos/tasks/upgrade.yml
-        - ansible/roles/talos/tasks/upgrade_k8s.yml
-      register: conventions_talos_command_task_files
+        - .venv
+        - .ansible
+      changed_when: false
 
-    - name: Assert Talos side-effecting tasks support check mode
-      ansible.builtin.assert:
-        that:
-          - "'ansible_check_mode' in (item.content | b64decode)"
-        fail_msg: "Talos side-effecting task file lacks check-mode guards: {{ item.item }}"
-      loop: "{{ conventions_talos_command_task_files.results }}"
-      loop_control:
-        label: "{{ item.item }}"
-
-    - name: Read tofu role defaults
-      ansible.builtin.slurp:
-        src: "{{ conventions_repo_root }}/ansible/roles/tofu/defaults/main.yml"
-      register: conventions_tofu_defaults
-
-    - name: Load tofu role defaults
+    - name: Load OpenTofu role defaults
       ansible.builtin.include_vars:
         file: "{{ conventions_repo_root }}/ansible/roles/tofu/defaults/main.yml"
-        name: conventions_tofu_defaults_vars
 
-    - name: Assert tofu clean preserves wildcard cleanup
-      ansible.builtin.assert:
-        that:
-          - "'tofu_clean_file_patterns' in (conventions_tofu_defaults.content | b64decode)"
-          - "'*.tfplan' in (conventions_tofu_defaults.content | b64decode)"
-          - "'terraform.tfstate*' in (conventions_tofu_defaults.content | b64decode)"
-
-    - name: Check tofu binary path
+    - name: Check resolved OpenTofu executable
       ansible.builtin.stat:
-        path: "{{ conventions_tofu_defaults_vars.tofu_binary_path }}"
+        path: "{{ tofu_binary_path }}"
       register: conventions_tofu_binary
 
-    - name: Assert tofu binary path resolves for Terraform module
+    - name: Assert OpenTofu executable resolves
       ansible.builtin.assert:
         that:
-          - conventions_tofu_defaults_vars.tofu_binary_path is match('^/')
-          - conventions_tofu_binary.stat.exists
+          - tofu_binary_path is match('^/')
           - conventions_tofu_binary.stat.executable
+
+    - name: Create isolated OpenTofu cleanup fixture
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: tofu-clean-contract
+      register: conventions_tofu_fixture
+
+    - name: Exercise real cleanup tasks on disposable files
+      block:
+        - name: Create fixture subdirectories
+          ansible.builtin.file:
+            path: "{{ conventions_tofu_fixture.path }}/{{ item }}"
+            state: directory
+            mode: "0700"
+          loop:
+            - .terraform
+            - nested
+
+        - name: Create generated and preserved fixture files
+          ansible.builtin.copy:
+            content: fixture
+            dest: "{{ conventions_tofu_fixture.path }}/{{ item }}"
+            mode: "0600"
+          loop: "{{ conventions_generated_files + conventions_preserved_files }}"
+
+        - name: Preview real cleanup in check mode
+          ansible.builtin.include_tasks:
+            file: ../roles/tofu/tasks/clean.yml
+            apply:
+              check_mode: true
+          vars:
+            tofu_project_path: "{{ conventions_tofu_fixture.path }}"
+
+        - name: Inspect files after check mode
+          ansible.builtin.stat:
+            path: "{{ conventions_tofu_fixture.path }}/{{ item }}"
+          loop: "{{ conventions_generated_files + conventions_preserved_files }}"
+          register: conventions_check_files
+
+        - name: Assert check mode preserved every file
+          ansible.builtin.assert:
+            that: item.stat.exists
+          loop: "{{ conventions_check_files.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+
+        - name: Execute real cleanup
+          ansible.builtin.include_tasks: ../roles/tofu/tasks/clean.yml
+          vars:
+            tofu_project_path: "{{ conventions_tofu_fixture.path }}"
+
+        - name: Inspect files after cleanup
+          ansible.builtin.stat:
+            path: "{{ conventions_tofu_fixture.path }}/{{ item }}"
+          loop: "{{ conventions_generated_files + conventions_preserved_files }}"
+          register: conventions_clean_files
+
+        - name: Assert only generated top-level artifacts were removed
+          ansible.builtin.assert:
+            that: item.stat.exists == (item.item in conventions_preserved_files)
+          loop: "{{ conventions_clean_files.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+      always:
+        - name: Remove cleanup fixture
+          ansible.builtin.file:
+            path: "{{ conventions_tofu_fixture.path }}"
+            state: absent
