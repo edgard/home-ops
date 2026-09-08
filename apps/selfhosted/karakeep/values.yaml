@@ -34,8 +34,8 @@ controllers:
               secretKeyRef:
                 name: karakeep-credentials
                 key: OPENAI_API_KEY
-          INFERENCE_TEXT_MODEL: gpt-5-mini
-          INFERENCE_IMAGE_MODEL: gpt-5-mini
+          INFERENCE_TEXT_MODEL: gpt-5.6-luna
+          INFERENCE_IMAGE_MODEL: gpt-4o-mini
           INFERENCE_CONTEXT_LENGTH: "4096"
           INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
           INFERENCE_ENABLE_AUTO_TAGGING: "true"
