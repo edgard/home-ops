@@ -141,9 +141,9 @@ controllers:
           PAPERLESS_BASE_URL: http://paperless-main.selfhosted.svc.cluster.local:8000
           PAPERLESS_PUBLIC_URL: https://paperless.edgard.org
           LLM_PROVIDER: openai
-          LLM_MODEL: gpt-5-mini
+          LLM_MODEL: gpt-5.6-luna
           VISION_LLM_PROVIDER: openai
-          VISION_LLM_MODEL: gpt-5-mini
+          VISION_LLM_MODEL: gpt-5.6-terra
           OCR_PROVIDER: "llm"
           PDF_SKIP_EXISTING_OCR: "false"
           PDF_OCR_TAGGING: "false"
