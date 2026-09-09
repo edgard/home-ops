@@ -1,5 +1,5 @@
 # Direct validation dependencies; Renovate updates these through the same gates.
-ansible-core==2.21.3
+ansible-core==2.21.4
 ansible-lint==26.8.0
 ansible-compat==26.8.0
 kubernetes==36.0.3
