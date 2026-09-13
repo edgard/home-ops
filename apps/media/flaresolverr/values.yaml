@@ -16,7 +16,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/flaresolverr/flaresolverr
-          tag: v3.5.1
+          tag: v3.5.2
         probes:
           startup:
             enabled: true
