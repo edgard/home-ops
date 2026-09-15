@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # renovate: datasource=github-releases depName=VictoriaMetrics/VictoriaMetrics
-version="1.151.0"
+version="1.152.0"
 destination="${1:?Usage: install-vmalert-tool.sh DESTINATION}"
 
 if [ -x "$destination/vmalert-tool" ] && "$destination/vmalert-tool" -version 2>&1 | head -1 | grep -Fq "v${version}"; then
