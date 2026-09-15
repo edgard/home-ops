@@ -30,6 +30,7 @@ spec:
         - https://sonarr.edgard.org
         - https://atuin.edgard.org
         - https://bambuddy.edgard.org
+        - https://bentopdf.edgard.org
         - https://changedetection.edgard.org
         - https://echo.edgard.org
         - https://karakeep.edgard.org

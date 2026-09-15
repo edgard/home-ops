@@ -1,0 +1,65 @@
+---
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    pod:
+      securityContext:
+        fsGroup: 101
+        runAsGroup: 101
+        runAsNonRoot: true
+        runAsUser: 101
+    containers:
+      app:
+        image:
+          repository: ghcr.io/alam00000/bentopdf-simple
+          tag: v2.8.8
+        ports:
+          - name: http
+            containerPort: 8080
+        probes:
+          startup:
+            enabled: true
+            type: HTTP
+            path: /
+            port: http
+          liveness:
+            enabled: true
+            type: HTTP
+            path: /
+            port: http
+          readiness:
+            enabled: true
+            type: HTTP
+            path: /
+            port: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8080
+        protocol: TCP
+        targetPort: 8080
+
+route:
+  main:
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - bentopdf.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8080
