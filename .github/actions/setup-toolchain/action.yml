@@ -67,7 +67,7 @@ runs:
 
     - name: Set Up pluto
       if: ${{ inputs.profile == 'kubernetes' }}
-      uses: FairwindsOps/pluto/github-action@366e3d0ebb136f41eadc96ff7a1281d396e1d58b # v5.24.3
+      uses: FairwindsOps/pluto/github-action@ac2c42d55d5ff46a1af0f4b15faf3555119eea23 # v5.24.4
       with:
         # renovate: datasource=docker depName=us-docker.pkg.dev/fairwinds-ops/oss/pluto
         IMAGE_TAG: v5.23
