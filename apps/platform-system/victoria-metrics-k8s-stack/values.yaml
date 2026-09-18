@@ -2,6 +2,9 @@
 argocdReleaseOverride: victoria-metrics-k8s-stack
 
 victoria-metrics-operator:
+  admissionWebhooks:
+    certManager:
+      enabled: true
   crds:
     enabled: false
     plain: false

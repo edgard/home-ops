@@ -5,6 +5,14 @@ import rego.v1
 allowed_storage_classes := {"nfs-fast", "nfs-media", "nfs-restic"}
 
 deny contains msg if {
+  input.kind == "Deployment"
+  input.metadata.name == "csi-nfs-controller"
+  some container in input.spec.template.spec.containers
+  container.name == "csi-snapshotter"
+  msg := "Deployment/csi-nfs-controller must not run csi-snapshotter without snapshot CRDs"
+}
+
+deny contains msg if {
   input.kind == "ExternalSecret"
   object.get(object.get(input.spec, "secretStoreRef", {}), "name", "") != "external-secrets-store"
   msg := sprintf("ExternalSecret/%s must use secretStoreRef.name external-secrets-store", [input.metadata.name])

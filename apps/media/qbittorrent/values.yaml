@@ -89,6 +89,7 @@ controllers:
             port: 9999
           readiness:
             enabled: true
+            type: HTTP
             port: 9999
         securityContext:
           capabilities:

@@ -37,6 +37,14 @@ indexer_only_victoria_kinds := {
 }
 
 deny contains msg if {
+  input.kind == "ValidatingWebhookConfiguration"
+  input.metadata.name == "victoria-metrics-k8s-stack-victoria-metrics-operator-admission"
+  annotations := object.get(input.metadata, "annotations", {})
+  object.get(annotations, "cert-manager.io/inject-ca-from", "") == ""
+  msg := "ValidatingWebhookConfiguration/victoria-metrics-k8s-stack-victoria-metrics-operator-admission must use cert-manager CA injection"
+}
+
+deny contains msg if {
   startswith(object.get(input, "apiVersion", ""), "monitoring.coreos.com/")
   msg := sprintf("%s/%s must not use Prometheus Operator APIs", [input.kind, input.metadata.name])
 }

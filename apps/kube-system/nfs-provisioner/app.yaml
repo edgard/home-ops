@@ -1,6 +1,6 @@
 ---
 chart:
-  repo: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
+  repo: https://kubernetes-csi.github.io/csi-driver-nfs
   name: csi-driver-nfs
   version: 4.13.4
 sync:
