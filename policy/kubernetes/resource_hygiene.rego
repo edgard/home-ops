@@ -5,6 +5,14 @@ import rego.v1
 allowed_storage_classes := {"nfs-fast", "nfs-media", "nfs-restic"}
 
 deny contains msg if {
+  input.kind == "ValidatingWebhookConfiguration"
+  input.metadata.name in {"istiod-default-validator", "istio-validator-platform-system"}
+  some webhook in input.webhooks
+  object.get(webhook, "failurePolicy", "Fail") != "Fail"
+  msg := sprintf("ValidatingWebhookConfiguration/%s must fail closed for %s", [input.metadata.name, webhook.name])
+}
+
+deny contains msg if {
   input.kind == "Deployment"
   input.metadata.name == "csi-nfs-controller"
   some container in input.spec.template.spec.containers
