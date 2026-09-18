@@ -2,6 +2,17 @@ package main
 
 import rego.v1
 
+test_istio_validation_webhooks_must_fail_closed if {
+  some name in {"istiod-default-validator", "istio-validator-platform-system"}
+  webhook := {
+    "apiVersion": "admissionregistration.k8s.io/v1",
+    "kind": "ValidatingWebhookConfiguration",
+    "metadata": {"name": name},
+    "webhooks": [{"name": "validation.istio.io", "failurePolicy": "Ignore"}],
+  }
+  sprintf("ValidatingWebhookConfiguration/%s must fail closed for validation.istio.io", [name]) in deny with input as webhook
+}
+
 test_nfs_controller_must_not_run_snapshotter_without_snapshot_crds if {
   deployment := {
     "apiVersion": "apps/v1",

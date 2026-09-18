@@ -8,6 +8,9 @@ global:
 sidecarInjectorWebhook:
   enabled: false
 
+base:
+  validationFailurePolicy: Fail
+
 pilot:
   autoscaleEnabled: false
 

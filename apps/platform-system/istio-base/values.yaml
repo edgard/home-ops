@@ -2,3 +2,6 @@
 global:
   istioNamespace: platform-system
   configRootNamespace: platform-system
+
+base:
+  validationFailurePolicy: Fail
