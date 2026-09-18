@@ -57,8 +57,13 @@ controllers:
         image:
           repository: ghcr.io/taxel/plextraktsync
           tag: 0.35.18
+        command:
+          - /bin/sh
+          - -ec
         args:
-          - sync
+          - |-
+            plextraktsync sync
+            plextraktsync healthcheck
         env:
           PLEX_BASEURL: http://plex.media.svc.cluster.local:32400
         envFrom:
