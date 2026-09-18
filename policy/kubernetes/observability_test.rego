@@ -14,6 +14,15 @@ operator_deployment := {
   }]}}},
 }
 
+test_operator_webhook_requires_cert_manager_ca_injection if {
+  webhook := {
+    "apiVersion": "admissionregistration.k8s.io/v1",
+    "kind": "ValidatingWebhookConfiguration",
+    "metadata": {"name": "victoria-metrics-k8s-stack-victoria-metrics-operator-admission"},
+  }
+  "ValidatingWebhookConfiguration/victoria-metrics-k8s-stack-victoria-metrics-operator-admission must use cert-manager CA injection" in deny with input as webhook
+}
+
 test_operator_controller_order_is_not_significant if {
   deployment := operator_deployment
   original := deployment.spec.template.spec.containers[0].args[0]

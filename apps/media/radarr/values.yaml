@@ -20,6 +20,7 @@ controllers:
         env:
           PUID: "1000"
           PGID: "1000"
+          TMPDIR: /tmp
           UMASK: "022"
           RADARR__AUTH__METHOD: External
         probes:
