@@ -45,6 +45,14 @@ deny contains msg if {
 }
 
 deny contains msg if {
+  input.kind == "ValidatingWebhookConfiguration"
+  input.metadata.name == "victoria-metrics-k8s-stack-victoria-metrics-operator-admission"
+  some webhook in input.webhooks
+  object.get(webhook, "failurePolicy", "Fail") != "Fail"
+  msg := sprintf("ValidatingWebhookConfiguration/victoria-metrics-k8s-stack-victoria-metrics-operator-admission must fail closed for %s", [webhook.name])
+}
+
+deny contains msg if {
   startswith(object.get(input, "apiVersion", ""), "monitoring.coreos.com/")
   msg := sprintf("%s/%s must not use Prometheus Operator APIs", [input.kind, input.metadata.name])
 }
