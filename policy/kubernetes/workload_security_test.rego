@@ -63,3 +63,12 @@ test_paperless_gpt_requires_entrypoint_capabilities if {
   results := deny with input as doc
   count(results) == 1
 }
+
+test_gluetun_liveness_must_check_http_health if {
+  doc := object.union(base_deployment, {"spec": object.union(base_deployment.spec, {"template": {"spec": {"securityContext": {"runAsNonRoot": false}, "containers": [{
+    "name": "gluetun",
+    "image": "qmcgaw/gluetun:v3.41.3",
+    "livenessProbe": {"tcpSocket": {"port": 9999}},
+  }]}}})})
+  "Deployment/demo container gluetun must use an HTTP liveness probe" in deny with input as doc
+}
