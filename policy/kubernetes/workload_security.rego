@@ -77,6 +77,14 @@ deny contains msg if {
   msg := sprintf("%s/%s container %s must add capabilities required by the paperless-gpt entrypoint: %v", [input.kind, input.metadata.name, container.name, missing])
 }
 
+deny contains msg if {
+  is_app_template_workload
+  some container in workload_containers
+  startswith(object.get(container, "image", ""), "qmcgaw/gluetun:")
+  object.get(object.get(container, "livenessProbe", {}), "httpGet", null) == null
+  msg := sprintf("%s/%s container %s must use an HTTP liveness probe", [input.kind, input.metadata.name, container.name])
+}
+
 is_app_template_workload if {
   input.kind in {"Deployment", "StatefulSet"}
   startswith(object.get(object.get(input.metadata, "labels", {}), "helm.sh/chart", ""), "app-template-")
