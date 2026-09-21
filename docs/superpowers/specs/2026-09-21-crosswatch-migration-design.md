@@ -34,8 +34,10 @@ rollback data. CrossWatch must remain available after a pod restart.
 - Add `https://crosswatch.edgard.org` through the existing HTTPS Gateway and a
   Blackbox HTTP probe after initial authentication has been configured.
 - Retire the broken PlexTraktSync deployment, CronJob, app metadata, and secret
-  only after import and new-event checks pass. Retain its PVC until rollback is
-  no longer needed. Do not alter unrelated media applications.
+  only after import and new-event checks pass. First add Argo's `Delete=false`
+  sync annotation to its chart-generated PVC and verify it is present live, so
+  deleting the Argo app retains the PVC for rollback. Do not alter unrelated
+  media applications.
 
 The Trakt export's collection records are outside the requested watched-status
 migration: CrossWatch's importer does not support Trakt `collection-*` files.
@@ -151,7 +153,8 @@ PVC alone is insufficient.
 5. Confirm Argo CD `Synced` and `Healthy`, HTTP probe success, no CrossWatch or
    Plex database/auth errors in recent logs, and a successful Restic snapshot.
    Then remove PlexTraktSync's failing workload, CronJob, Argo app metadata,
-   and ExternalSecret in a separate PR. Preserve its PVC and the Trakt ZIP.
+   and ExternalSecret in a separate PR. Verify its PVC carries `Delete=false`
+   before merging; preserve the PVC and Trakt ZIP.
    Verify old alerts clear without masking other failures.
 
 Keep PlexTraktSync available until step 4 succeeds. It currently fails Trakt
@@ -184,4 +187,5 @@ CrossWatch data as part of rollback without verifying a usable backup.
 - [CrossWatch backup implementation](https://github.com/cenodude/CrossWatch/blob/v0.12.3/services/backups.py)
 - [CrossWatch Watcher guidance](https://wiki.crosswatch.app/crosswatch/settings/scrobbler/watcher)
 - [SQLite WAL limitations](https://www.sqlite.org/wal.html)
+- [Argo CD resource retention](https://argo-cd.readthedocs.io/en/latest/user-guide/sync-options/#no-resource-deletion)
 - [Local Restic restore runbook](../../restic-backup-restore-runbook.md)
