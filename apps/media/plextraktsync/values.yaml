@@ -89,6 +89,8 @@ persistence:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
     size: 1Gi
+    annotations:
+      argocd.argoproj.io/sync-options: Delete=false
     globalMounts:
       - path: /app/config
   config-file:

@@ -1,0 +1,78 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
+controllers:
+  main:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      app:
+        image:
+          repository: ghcr.io/cenodude/crosswatch
+          tag: 0.12.3
+        env:
+          TZ: Europe/Warsaw
+        ports:
+          - name: http
+            containerPort: 8787
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /healthz
+                port: http
+              periodSeconds: 10
+              failureThreshold: 30
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /healthz
+                port: http
+              periodSeconds: 30
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /healthz
+                port: http
+              periodSeconds: 10
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8787
+        targetPort: http
+
+persistence:
+  config:
+    type: persistentVolumeClaim
+    forceRename: crosswatch-config
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    annotations:
+      argocd.argoproj.io/sync-options: Delete=false
+    globalMounts:
+      - path: /config
