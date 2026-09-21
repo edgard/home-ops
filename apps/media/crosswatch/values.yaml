@@ -34,6 +34,7 @@ controllers:
                 port: http
               periodSeconds: 10
               failureThreshold: 30
+              timeoutSeconds: 5
           liveness:
             enabled: true
             custom: true
@@ -42,6 +43,7 @@ controllers:
                 path: /healthz
                 port: http
               periodSeconds: 30
+              timeoutSeconds: 5
           readiness:
             enabled: true
             custom: true
@@ -50,6 +52,7 @@ controllers:
                 path: /healthz
                 port: http
               periodSeconds: 10
+              timeoutSeconds: 5
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
