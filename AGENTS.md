@@ -40,7 +40,7 @@ terraform/               # Cloudflare/Tailscale infra
 - platform-system: cert-manager, external-dns, external-secrets, gateway-api, istio, istio-base, prometheus-blackbox-exporter, reloader, tailscale-router, victoria-logs-collector, victoria-logs-single, victoria-metrics-k8s-stack
 - kube-system: coredns, k8s-gateway, k8tz, multus, nfs-provisioner
 - home-automation: homeassistant, scrypted
-- media: bazarr, flaresolverr, plex, plextraktsync, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
+- media: bazarr, crosswatch, flaresolverr, plex, prowlarr, qbittorrent, radarr, recyclarr, sonarr, unpackerr
 - selfhosted: atuin, changedetection, echo, karakeep, paperless, renovate-operator, restic
 
 ## Conventions
