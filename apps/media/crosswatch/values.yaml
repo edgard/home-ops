@@ -66,6 +66,19 @@ service:
         port: 8787
         targetPort: http
 
+route:
+  main:
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - crosswatch.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8787
+
 persistence:
   config:
     type: persistentVolumeClaim
