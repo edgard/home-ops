@@ -32,6 +32,7 @@ spec:
         - https://bambuddy.edgard.org
         - https://bentopdf.edgard.org
         - https://changedetection.edgard.org
+        - https://crosswatch.edgard.org/healthz
         - https://echo.edgard.org
         - https://karakeep.edgard.org
         - https://paperless.edgard.org
