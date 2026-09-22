@@ -1,6 +1,3 @@
-# Static DNS records for Cloudflare (public DNS)
-
-# iCloud Mail - DKIM
 resource "cloudflare_dns_record" "dkim" {
   zone_id = var.zone_id
   name    = "sig1._domainkey"
@@ -11,7 +8,6 @@ resource "cloudflare_dns_record" "dkim" {
   comment = "iCloud Mail DKIM"
 }
 
-# iCloud Mail - MX Records
 resource "cloudflare_dns_record" "mx_01" {
   zone_id  = var.zone_id
   name     = "edgard.org"
@@ -34,7 +30,6 @@ resource "cloudflare_dns_record" "mx_02" {
   comment  = "iCloud Mail MX 2"
 }
 
-# Email Security - SPF
 resource "cloudflare_dns_record" "spf" {
   zone_id = var.zone_id
   name    = "edgard.org"
@@ -45,7 +40,6 @@ resource "cloudflare_dns_record" "spf" {
   comment = "iCloud Mail SPF"
 }
 
-# Email Security - DMARC
 resource "cloudflare_dns_record" "dmarc" {
   zone_id = var.zone_id
   name    = "_dmarc"
@@ -56,7 +50,6 @@ resource "cloudflare_dns_record" "dmarc" {
   comment = "iCloud Mail DMARC"
 }
 
-# Apple Domain Verification
 resource "cloudflare_dns_record" "apple_domain" {
   zone_id = var.zone_id
   name    = "edgard.org"
@@ -67,7 +60,6 @@ resource "cloudflare_dns_record" "apple_domain" {
   comment = "Apple Domain Verification"
 }
 
-# GitHub Pages - A Records
 resource "cloudflare_dns_record" "github_pages_a_01" {
   zone_id = var.zone_id
   name    = "edgard.org"
@@ -108,7 +100,6 @@ resource "cloudflare_dns_record" "github_pages_a_04" {
   comment = "GitHub Pages A record 4"
 }
 
-# GitHub Pages - WWW CNAME
 resource "cloudflare_dns_record" "github_pages_www" {
   zone_id = var.zone_id
   name    = "www"

@@ -2,6 +2,7 @@
 """Validate Grafana wiring and evaluate repository MetricsQL against synthetic data."""
 
 import json
+from fnmatch import fnmatchcase
 from pathlib import Path
 import subprocess
 import tempfile
@@ -11,6 +12,52 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 MANIFESTS = ROOT / "apps/platform-system/victoria-metrics-k8s-stack/manifests"
 TEST_EPOCH = 946684800  # vmalert-tool starts tests at 2000-01-01T00:00:00Z.
+REQUIRED_CRDS = {
+    "victoria-metrics-k8s-stack-vmagent.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmalertmanagerconfig.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmanomalyconfig.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmnodescrape.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmpodscrape.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmprobe.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmrule.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmscrapeconfig.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmservicescrape.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmsingle.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmstaticscrape.customresourcedefinition.yaml",
+    "victoria-metrics-k8s-stack-vmuser.customresourcedefinition.yaml",
+}
+DISABLED_CONTROLLERS = {
+    "AlertmanagerConfig",
+    "PodMonitor",
+    "Probe",
+    "PrometheusRule",
+    "ScrapeConfig",
+    "ServiceMonitor",
+    "VLAgent",
+    "VLCluster",
+    "VLDistributed",
+    "VLogs",
+    "VLSingle",
+    "VMAlert",
+    "VMAlertmanager",
+    "VMAlertmanagerConfig",
+    "VMAnomaly",
+    "VMAnomalyConfig",
+    "VMAuth",
+    "VMCluster",
+    "VMDistributed",
+    "VMRule",
+    "VMScrapeConfig",
+    "VMStaticScrape",
+    "VTSingle",
+    "VTCluster",
+    "VMUser",
+}
+DURABLE_OBSERVABILITY_PATHS = {
+    "/data/appdata/platform-system/vmsingle-victoria-metrics-k8s-stack",
+    "/data/appdata/platform-system/storage-victoria-metrics-k8s-stack-grafana-0",
+    "/data/appdata/platform-system/server-volume-victoria-logs-single-server-0",
+}
 
 
 def require(condition, message):
@@ -47,23 +94,15 @@ def validate_provisioning_mount(mounts, config_map_name):
 
 
 def load_runtime_wiring():
-    metrics_values = yaml.safe_load(
-        (ROOT / "apps/platform-system/victoria-metrics-k8s-stack/values.yaml").read_text()
+    config = load_architecture()
+    contact = config["contact_points"]["contactPoints"][0]["receivers"][0]
+    return (
+        config["metrics_values"],
+        config["collector_values"],
+        config["logs_app"],
+        config["credentials"],
+        contact,
     )
-    collector_values = yaml.safe_load(
-        (ROOT / "apps/platform-system/victoria-logs-collector/values.yaml").read_text()
-    )
-    logs_app = yaml.safe_load(
-        (ROOT / "apps/platform-system/victoria-logs-single/app.yaml").read_text()
-    )
-    credentials = yaml.safe_load(
-        (MANIFESTS / "victoria-metrics-k8s-stack-grafana-alerting-credentials.externalsecret.yaml").read_text()
-    )
-    alert_config = yaml.safe_load(
-        (MANIFESTS / "victoria-metrics-k8s-stack-grafana-alerting.configmap.yaml").read_text()
-    )
-    contact = yaml.safe_load(alert_config["data"]["contactpoints.yaml"])["contactPoints"][0]["receivers"][0]
-    return metrics_values, collector_values, logs_app, credentials, contact
 
 
 def validate_runtime_wiring(metrics_values, collector_values, logs_app, credentials, contact):
@@ -74,11 +113,231 @@ def validate_runtime_wiring(metrics_values, collector_values, logs_app, credenti
 
     secret_name = credentials["spec"]["target"]["name"]
     require(secret_name == metrics_values["grafana"]["envFromSecret"], "Grafana must consume the alerting credentials Secret")
-    expected_keys = {contact["settings"]["bottoken"].removeprefix("$"), contact["settings"]["chatid"].removeprefix("$")}
+    settings = (contact["settings"]["bottoken"], contact["settings"]["chatid"])
+    require(
+        all(value.startswith("$") and len(value) > 1 for value in settings),
+        "Telegram credentials must reference Grafana environment variables",
+    )
+    expected_keys = {value[1:] for value in settings}
     data = credentials["spec"]["data"]
     require({item["secretKey"] for item in data} == expected_keys, "Telegram settings must match ExternalSecret output keys")
     remote_keys = [item["remoteRef"].get("key") for item in data]
     require(all(remote_keys) and len(remote_keys) == len(set(remote_keys)), "Telegram credentials require distinct nonempty remote keys")
+
+
+def load_architecture():
+    alert_config = yaml.safe_load(
+        (MANIFESTS / "victoria-metrics-k8s-stack-grafana-alerting.configmap.yaml").read_text()
+    )
+    logs_dashboard = yaml.safe_load(
+        (
+            ROOT
+            / "apps/platform-system/victoria-logs-single/manifests/victoria-logs-single-pod-explorer.configmap.yaml"
+        ).read_text()
+    )
+    metrics_dashboard = yaml.safe_load(
+        (MANIFESTS / "victoria-metrics-k8s-stack-home-ops-overview.configmap.yaml").read_text()
+    )
+    return {
+        "metrics_app": yaml.safe_load(
+            (ROOT / "apps/platform-system/victoria-metrics-k8s-stack/app.yaml").read_text()
+        ),
+        "metrics_values": yaml.safe_load(
+            (ROOT / "apps/platform-system/victoria-metrics-k8s-stack/values.yaml").read_text()
+        ),
+        "logs_app": yaml.safe_load(
+            (ROOT / "apps/platform-system/victoria-logs-single/app.yaml").read_text()
+        ),
+        "logs_values": yaml.safe_load(
+            (ROOT / "apps/platform-system/victoria-logs-single/values.yaml").read_text()
+        ),
+        "collector_app": yaml.safe_load(
+            (ROOT / "apps/platform-system/victoria-logs-collector/app.yaml").read_text()
+        ),
+        "collector_values": yaml.safe_load(
+            (ROOT / "apps/platform-system/victoria-logs-collector/values.yaml").read_text()
+        ),
+        "logs_dashboard": json.loads(logs_dashboard["data"]["pod-logs.json"]),
+        "dashboard_configs": [metrics_dashboard, logs_dashboard],
+        "restic_values": yaml.safe_load(
+            (ROOT / "apps/selfhosted/restic/values.yaml").read_text()
+        ),
+        "restic_defaults": yaml.safe_load(
+            (ROOT / "ansible/roles/restic/defaults/main.yml").read_text()
+        ),
+        "contact_points": yaml.safe_load(alert_config["data"]["contactpoints.yaml"]),
+        "policies": yaml.safe_load(alert_config["data"]["policies.yaml"]),
+        "credentials": yaml.safe_load(
+            (
+                MANIFESTS
+                / "victoria-metrics-k8s-stack-grafana-alerting-credentials.externalsecret.yaml"
+            ).read_text()
+        ),
+    }
+
+
+def validate_architecture(config):
+    metrics_app = config["metrics_app"]
+    metrics = config["metrics_values"]
+    operator = metrics["victoria-metrics-operator"]
+    require(
+        metrics_app["chart"]["repo"] == "https://victoriametrics.github.io/helm-charts/"
+        and metrics_app["chart"]["name"] == "victoria-metrics-k8s-stack"
+        and metrics_app["sync"]["wave"] == "-4",
+        "VictoriaMetrics must own the metrics stack at the CRD sync wave",
+    )
+    require(
+        operator["crds"]["enabled"] is False
+        and operator["crds"]["plain"] is False
+        and operator["operator"]["disable_prometheus_converter"] is True,
+        "VictoriaMetrics chart CRD and Prometheus conversion paths must stay disabled",
+    )
+    disabled = set(operator["extraArgs"]["controller.disableReconcileFor"].split(","))
+    require(disabled == DISABLED_CONTROLLERS, "VictoriaMetrics disabled controller set changed")
+    vendored_crds = {path.name for path in MANIFESTS.glob("*.customresourcedefinition.yaml")}
+    require(vendored_crds == REQUIRED_CRDS, "selectively vendored VictoriaMetrics CRD set changed")
+    require(
+        metrics["defaultRules"]["enabled"] is False
+        and metrics["alertmanager"]["enabled"] is False
+        and metrics["vmalert"]["enabled"] is False,
+        "Grafana must remain the sole alerting engine",
+    )
+
+    vmsingle = metrics["vmsingle"]
+    vmagent = metrics["vmagent"]
+    require(
+        vmsingle["enabled"] is True
+        and vmsingle["spec"]["replicaCount"] == 1
+        and vmsingle["spec"]["retentionPeriod"] == "30d"
+        and vmsingle["spec"]["storage"]["storageClassName"] == "nfs-fast"
+        and vmsingle["spec"]["storage"]["resources"]["requests"]["storage"] == "50Gi"
+        and "limits" not in vmsingle["spec"].get("resources", {}),
+        "VMSingle retention, persistence, or single-node sizing changed",
+    )
+    require(
+        vmagent["enabled"] is True
+        and vmagent["spec"]["replicaCount"] == 1
+        and "limits" not in vmagent["spec"].get("resources", {}),
+        "VMAgent single-node architecture changed",
+    )
+
+    grafana = metrics["grafana"]
+    persistence = grafana["persistence"]
+    require(
+        persistence["enabled"] is True
+        and persistence["storageClassName"] == "nfs-fast"
+        and persistence["size"] == "5Gi"
+        and grafana["grafana.ini"]["auth.anonymous"]["org_role"] == "Viewer",
+        "Grafana persistence or anonymous access role changed",
+    )
+    plugins = {plugin.split("@", 1)[0] for plugin in grafana.get("plugins", [])}
+    require("victoriametrics-logs-datasource" in plugins, "Grafana requires the VictoriaLogs datasource plugin")
+    datasources = metrics["defaultDatasources"]
+    metrics_sources = datasources["victoriametrics"]["datasources"]
+    logs_sources = datasources["victorialogs"]["datasources"]
+    require(
+        len(metrics_sources) == 1
+        and metrics_sources[0]["uid"] == "prometheus"
+        and metrics_sources[0]["isDefault"] is True
+        and metrics_sources[0]["editable"] is False
+        and len(logs_sources) == 1
+        and logs_sources[0]["uid"] == "victorialogs"
+        and logs_sources[0]["editable"] is False
+        and datasources["alertmanager"]["datasources"] == [],
+        "Grafana datasource ownership changed",
+    )
+
+    contact_point = config["contact_points"]["contactPoints"][0]
+    receiver = contact_point["receivers"][0]
+    require(
+        receiver["type"] == "telegram"
+        and receiver["disableResolveMessage"] is False
+        and config["policies"]["policies"][0]["receiver"] == contact_point["name"],
+        "Grafana Telegram contact point and notification policy must stay connected",
+    )
+
+    logs_app = config["logs_app"]
+    logs = config["logs_values"]
+    collector_app = config["collector_app"]
+    collector = config["collector_values"]
+    require(
+        logs_app["chart"]["name"] == "victoria-logs-single"
+        and logs["server"]["retentionPeriod"] == "30d"
+        and logs["server"]["persistentVolume"]["enabled"] is True
+        and logs["server"]["persistentVolume"]["storageClassName"] == "nfs-fast"
+        and logs["server"]["persistentVolume"]["size"] == "30Gi"
+        and logs["server"]["vmServiceScrape"]["enabled"] is True
+        and logs["vector"]["enabled"] is False
+        and logs["dashboards"]["enabled"] is False
+        and collector_app["chart"]["name"] == "victoria-logs-collector",
+        "VictoriaLogs persistence or collection ownership changed",
+    )
+    require(
+        json.loads(collector["collector"]["extraFields"])["cluster"] == "homelab"
+        and set(collector["collector"]["streamFields"])
+        == {
+            "cluster",
+            "kubernetes.pod_namespace",
+            "kubernetes.pod_labels.app.kubernetes.io/name",
+            "kubernetes.container_name",
+        }
+        and collector["securityContext"]["readOnlyRootFilesystem"] is True
+        and collector["securityContext"]["allowPrivilegeEscalation"] is False
+        and collector["securityContext"]["capabilities"]["drop"] == ["ALL"]
+        and collector["defaultVolumeMounts"][0]["readOnly"] is True
+        and collector["persistence"]["volume"]["hostPath"]["path"] == "/var/lib/vl-collector"
+        and collector["podMonitor"]["enabled"] is True
+        and collector["podMonitor"]["vm"] is True,
+        "VictoriaLogs collector security, stream identity, or monitoring changed",
+    )
+    dashboard = config["logs_dashboard"]
+    require(
+        all(
+            item["metadata"].get("labels", {}).get("grafana_dashboard") == "1"
+            for item in config["dashboard_configs"]
+        ),
+        "custom Grafana dashboard discovery labels must stay enabled",
+    )
+    panel = dashboard["panels"][0]
+    require(
+        panel["datasource"]["uid"] == "victorialogs"
+        and panel["targets"][0]["datasource"]["uid"] == "victorialogs"
+        and "kubernetes.pod_namespace" in panel["targets"][0]["expr"],
+        "Pod Logs Explorer must query VictoriaLogs by Kubernetes namespace",
+    )
+
+    excluded_apps = set(config["restic_defaults"]["restic_restore_excluded_apps"])
+    backup_args = config["restic_values"]["controllers"]["backup"]["containers"]["app"]["args"]
+    excluded_paths = set()
+    opaque_exclusions = False
+    for index, argument in enumerate(backup_args):
+        if argument in {"--exclude", "--iexclude", "-e"}:
+            if index + 1 == len(backup_args):
+                opaque_exclusions = True
+            else:
+                excluded_paths.add(backup_args[index + 1])
+        elif argument.startswith(("--exclude=", "--iexclude=", "-e=")):
+            excluded_paths.add(argument.split("=", 1)[1])
+        elif argument in {"--exclude-file", "--iexclude-file", "--exclude-if-present"} or argument.startswith(
+            ("--exclude-file=", "--iexclude-file=", "--exclude-if-present=")
+        ):
+            opaque_exclusions = True
+    excludes_durable_state = opaque_exclusions or any(
+        durable == pattern.rstrip("/")
+        or durable.startswith(pattern.rstrip("/") + "/")
+        or fnmatchcase(durable, pattern)
+        or fnmatchcase(durable.lstrip("/"), pattern.lstrip("/"))
+        for pattern in excluded_paths
+        for durable in DURABLE_OBSERVABILITY_PATHS
+    )
+    require(
+        "/data/appdata" in backup_args
+        and "victoria-metrics-k8s-stack" not in excluded_apps
+        and "victoria-logs-single" not in excluded_apps
+        and "victoria-logs-collector" in excluded_apps
+        and not excludes_durable_state,
+        "Restic must cover durable observability state and exclude only the transient collector",
+    )
 
 
 def value_mapping(panel, value):
@@ -111,6 +370,8 @@ def validate_structure(dashboard, rules):
 
     for rule in rules:
         require(not rule.get("isPaused", False), "provisioned alert is paused")
+        require(rule.get("noDataState") == "OK" and rule.get("execErrState") == "Error", "alert failure states changed")
+        require("record" not in rule, "Grafana alerting must not provision recording rules")
         data = {item["refId"]: item for item in rule["data"]}
         require(len(data) == len(rule["data"]), "duplicate alert query reference")
         threshold = data[rule["condition"]]["model"]
@@ -119,6 +380,7 @@ def validate_structure(dashboard, rules):
         require(reduce["type"] == "reduce" and reduce["reducer"] == "last", "alert must reduce the latest query value")
         query = data[reduce["expression"]]
         require(query["datasourceUid"] == "prometheus" and query["model"]["instant"] is True, "alert must use an instant metrics query")
+    require(len({rule["uid"] for rule in rules}) == len(rules), "duplicate alert UID")
 
 
 def series(name, values):
@@ -217,6 +479,7 @@ def main():
     validate_structure(dashboard, rules)
     validate_provisioning_mount(*load_provisioning_mount())
     validate_runtime_wiring(*load_runtime_wiring())
+    validate_architecture(load_architecture())
     cases = behavior_cases(dashboard, rules)
     tool = ROOT / ".venv/bin/vmalert-tool"
     require(tool.is_file(), "run task deps to install vmalert-tool")

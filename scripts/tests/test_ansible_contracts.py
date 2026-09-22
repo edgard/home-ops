@@ -7,6 +7,7 @@ import unittest
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import check_ansible_contracts as contracts
 from check_ansible_contracts import check_roles, check_changedetection
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,9 +26,6 @@ class AnsibleContractsTest(unittest.TestCase):
     def rejected(self, expected):
         self.assertTrue(any(expected in error for error in check_roles(self.docs)),
                         check_roles(self.docs))
-
-    def test_repository_passes(self):
-        self.assertEqual(check_roles(self.docs), [])
 
     def test_one_terraform_task_loses_no_log(self):
         self.tasks('tofu/tasks/plan')[0].pop('no_log')
@@ -174,6 +172,27 @@ class AnsibleContractsTest(unittest.TestCase):
         self.tasks('talos/tasks/generate')[1]['always'].append({'ansible.builtin.debug': {'msg': 'cleanup finished'}})
         self.tasks('platform/tasks/k8tz_warmup')[-1]['always'].append({'ansible.builtin.debug': {'msg': 'cleanup finished'}})
         self.assertEqual(check_roles(self.docs), [])
+
+
+class VaultSafetyContractsTest(unittest.TestCase):
+    def test_unencrypted_talos_vault_is_rejected(self):
+        errors = contracts.validate_vault_safety(
+            "talos_cluster_secret: plaintext",
+            tracked_paths=set(),
+            ignored_paths={"ansible/roles/talos/files/secrets.yaml"},
+            existing_paths=set(),
+        )
+        self.assertTrue(any("encrypted" in error for error in errors), errors)
+
+    def test_tracked_legacy_secret_is_rejected(self):
+        legacy = "ansible/roles/talos/files/secrets.yaml"
+        errors = contracts.validate_vault_safety(
+            "$ANSIBLE_VAULT;1.1;AES256",
+            tracked_paths={legacy},
+            ignored_paths={legacy},
+            existing_paths={legacy},
+        )
+        self.assertTrue(any("tracked" in error for error in errors), errors)
 
 
 class ChangedetectionContractTest(unittest.TestCase):

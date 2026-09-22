@@ -26,12 +26,11 @@ terraform {
     key    = "homelab/terraform.tfstate"
     region = "eu-central-003"
 
-    # Backblaze B2 S3-compatible endpoint (EU)
+    # B2 needs its regional S3 endpoint and skips unsupported AWS validations.
     endpoints = {
       s3 = "https://s3.eu-central-003.backblazeb2.com"
     }
 
-    # Required for B2
     skip_credentials_validation = true
     skip_region_validation      = true
     skip_requesting_account_id  = true
@@ -44,8 +43,6 @@ provider "bitwarden-secrets" {
   identity_url    = "https://identity.bitwarden.com"
   organization_id = var.bitwarden_org_id
 }
-
-# --- Bitwarden Secrets Lookups ---
 
 data "bitwarden-secrets_secret" "cloudflare_token" {
   id = var.bw_secret_ids["cloudflare_token"]
@@ -63,23 +60,16 @@ data "bitwarden-secrets_secret" "tailscale_client_secret" {
   id = var.bw_secret_ids["tailscale_client_secret"]
 }
 
-# --- Provider Configurations ---
-
 provider "cloudflare" {
   api_token = data.bitwarden-secrets_secret.cloudflare_token.value
 }
 
 provider "kubernetes" {
-  # Reads from KUBECONFIG environment variable or ~/.kube/config
   config_path = "~/.kube/config"
 }
 
-# --- Modules ---
-
-# Cloudflare Module
 module "cloudflare" {
   source = "./cloudflare"
 
-  # Uses the secret retrieved from Bitwarden
   zone_id = data.bitwarden-secrets_secret.cloudflare_zone_id.value
 }

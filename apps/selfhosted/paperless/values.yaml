@@ -34,33 +34,25 @@ controllers:
 
             echo "Installing tesseract language packages..."
 
-            # Update package lists
             apt-get update
 
-            # Install languages from PAPERLESS_OCR_LANGUAGES
-            # Convert space-separated list to apt package names (tesseract-ocr-<lang>)
             PACKAGES="tesseract-ocr"
             for lang in $PAPERLESS_OCR_LANGUAGES; do
               PACKAGES="$PACKAGES tesseract-ocr-$lang"
               echo "  - Adding tesseract-ocr-$lang"
             done
 
-            # Install all packages (this includes osd.traineddata automatically)
             apt-get install -y --no-install-recommends $PACKAGES
 
-            # Copy installed tessdata to shared volume
             TESSDIR=/shared-tessdata
             mkdir -p "$TESSDIR"
             cp -r /usr/share/tesseract-ocr/5/tessdata/* "$TESSDIR/"
 
-            # Set proper permissions for the app user (1000:1000)
             chown -R 1000:1000 "$TESSDIR"
 
-            # List installed languages for debugging
             echo "Installed tesseract data files:"
             ls -lh "$TESSDIR"
 
-            # Clean up apt cache to reduce image size impact
             apt-get clean
             rm -rf /var/lib/apt/lists/*
 
