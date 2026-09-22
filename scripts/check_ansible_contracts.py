@@ -8,6 +8,7 @@ import argparse
 from pathlib import Path
 import re
 import shlex
+import subprocess
 
 from ansible.template import Templar, trust_as_template
 import yaml
@@ -17,9 +18,49 @@ class ContractError(ValueError):
     pass
 
 
+TALOS_VAULT = 'ansible/roles/talos/files/secrets.vault.yml'
+LEGACY_TALOS_SECRET = 'ansible/roles/talos/files/secrets.yaml'
+OPERATOR_VAULT = 'ansible/vault/operator.yml'
+
+
 def require(condition, message):
     if not condition:
         raise ContractError(message)
+
+
+def validate_vault_safety(vault_contents, tracked_paths, ignored_paths, existing_paths):
+    errors = []
+    if not vault_contents.startswith('$ANSIBLE_VAULT;'):
+        errors.append(f'{TALOS_VAULT}: committed Talos secrets must stay encrypted')
+    if LEGACY_TALOS_SECRET in tracked_paths:
+        errors.append(f'{LEGACY_TALOS_SECRET}: legacy plaintext Talos secrets must not be tracked')
+    if LEGACY_TALOS_SECRET not in ignored_paths:
+        errors.append(f'{LEGACY_TALOS_SECRET}: legacy plaintext Talos secrets must stay ignored')
+    if OPERATOR_VAULT in tracked_paths or OPERATOR_VAULT in existing_paths:
+        errors.append(f'{OPERATOR_VAULT}: provider credentials must come from the operator environment, not a tracked or local Vault file')
+    return errors
+
+
+def check_vault_safety(root):
+    tracked_paths = set(
+        subprocess.run(
+            ['git', 'ls-files'], cwd=root, check=True, text=True, capture_output=True
+        ).stdout.splitlines()
+    )
+    ignored_paths = {
+        path
+        for path in (LEGACY_TALOS_SECRET,)
+        if subprocess.run(
+            ['git', 'check-ignore', '-q', path], cwd=root, check=False
+        ).returncode
+        == 0
+    }
+    existing_paths = {
+        path for path in (LEGACY_TALOS_SECRET, OPERATOR_VAULT) if (root / path).exists()
+    }
+    return validate_vault_safety(
+        (root / TALOS_VAULT).read_text(), tracked_paths, ignored_paths, existing_paths
+    )
 
 
 def render(value, variables):
@@ -362,6 +403,7 @@ def main():
     documents = {str(path.relative_to(role_root)): yaml.safe_load(path.read_text())
                  for path in role_root.glob('*/tasks/*.yml')}
     errors = check_roles(documents)
+    errors.extend(check_vault_safety(args.root))
     app = args.root / 'apps/selfhosted/changedetection'
     errors.extend(check_changedetection(yaml.safe_load((app / 'values.yaml').read_text()),
                                         yaml.safe_load((app / 'manifests/changedetection-credentials.externalsecret.yaml').read_text())))

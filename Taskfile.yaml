@@ -119,12 +119,11 @@ tasks:
       - find .github/workflows -maxdepth 1 \( -name "*.yml" -o -name "*.yaml" \) -print0 | xargs -0 actionlint
 
   lint:ansible:
-    desc: Run Ansible syntax, lint, and contract checks
+    desc: Run Ansible lint, contract, and integration checks
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
     cmds:
-      - for playbook in ansible/playbooks/*.yml ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" --syntax-check "$playbook"; done
       - '"{{.ANSIBLE_LINT}}" ansible'
       - '"{{.VENV_PYTHON}}" -m unittest discover -s scripts/tests'
       - '"{{.VENV_PYTHON}}" scripts/check_ansible_contracts.py'

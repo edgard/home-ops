@@ -57,7 +57,7 @@ task talos:gen                       # Generate Talos machine configuration
 task talos:apply                     # Apply Talos machine configuration to the node
 task talos:bootstrap                 # Bootstrap Kubernetes on the Talos node
 task talos:upgrade                   # Upgrade Talos using the pinned role version
-task talos:upgrade-k8s K8S_VERSION=v1.34.0  # Upgrade Kubernetes to the requested version
+task talos:upgrade-k8s K8S_VERSION="${TARGET_KUBERNETES_VERSION}"  # Upgrade Kubernetes to the requested version
 
 # Platform management
 task platform:create                 # Install platform Helm releases and Argo CD root app
@@ -76,7 +76,7 @@ task fmt                           # Format all code (YAML, Terraform)
 task fmt:check                     # Check formatting without modifying files
 task lint:static                   # Run shellcheck and yamllint
 task lint:workflows                # Validate GitHub Actions workflows
-task lint:ansible                  # Run Ansible syntax, lint, and contract checks
+task lint:ansible                  # Run Ansible lint, contract, and integration checks
 task lint:kubernetes               # Run Kubernetes source, policy, schema, and deprecation checks
 task lint:terraform                # Run backendless OpenTofu validation
 task lint                          # Run the full offline validation gate
@@ -92,30 +92,16 @@ Taskfile is the operator interface; Ansible remains the orchestration implementa
 
 ## Observability
 
-The single-node observability stack uses VMAgent for metric discovery and scraping,
-VMSingle for 30-day metric retention, and VictoriaLogs for 30-day log retention.
-VLAgent reads Kubernetes container logs from each node; Kubernetes Events are not
-collected. Grafana remains available at `https://grafana.edgard.org` and is the sole
-alert evaluator and notification router. Its 20 actionable alert rules, Telegram
-contact point, notification policy, and templates are provisioned from Git and are
-read-only in the UI. There are no recording rules or standalone Alertmanager.
+VMAgent scrapes metrics into VMSingle, while VictoriaLogs receives Kubernetes
+container logs from the node collector. Grafana is the sole alert evaluator and
+notification router; alerting, Telegram routing, and dashboards are provisioned
+from Git. There are no recording rules or standalone Alertmanager.
 
-Grafana contains five focused dashboards: Home Ops Overview, Node Exporter Full,
-VictoriaMetrics Single, VictoriaLogs Single, and Pod Logs Explorer. The Home Ops
-view covers routes, node and PVC capacity, memory and OOMs, application health,
-backup freshness, and observability health using raw metrics.
-
-Blackbox HTTP, DNS, and ICMP checks and all in-cluster scrapes use VictoriaMetrics
-Operator resources. VMSingle, VictoriaLogs, and Grafana are included in the shared
-Restic appdata backup. VLAgent's node-local queue is transient and is not restored.
-The chart's full CRD bundle is disabled. Twelve schemas are vendored: six active
-APIs and six compatibility-only schemas required by operator v0.74.0 startup
-indexers. Compatibility-only resources and controllers are prohibited, while
-VMAlert and VMAlertmanager CRDs remain absent.
-
-VLAgent streams use VictoriaLogs' native `cluster`,
-`kubernetes.pod_namespace`, `kubernetes.pod_labels.app.kubernetes.io/name`, and
-`kubernetes.container_name` field names.
+Blackbox checks and in-cluster scrapes use VictoriaMetrics Operator resources. The
+chart CRD bundle is disabled in favor of the selectively vendored schemas required
+by this deployment, with compatibility-only resources and controllers prohibited.
+VMSingle, VictoriaLogs, and Grafana are covered by Restic; the collector's
+node-local queue is transient and excluded from restore.
 
 ## Repository Layout
 

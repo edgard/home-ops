@@ -1,6 +1,8 @@
 """Validate embedded application configuration that YAML lint cannot see."""
 
+import copy
 from pathlib import Path
+import re
 import unittest
 
 import yaml
@@ -16,7 +18,44 @@ class ConfigLoader(yaml.SafeLoader):
 ConfigLoader.add_constructor("!env_var", lambda loader, node: loader.construct_scalar(node))
 
 
+def validate_karakeep_browser(values):
+    app = values["controllers"]["chrome"]["containers"]["app"]
+    image = app["image"]
+    args = app.get("args", [])
+    if image.get("repository") != "ghcr.io/karakeep-app/karakeep-chrome":
+        raise ValueError("Karakeep must use its maintained browser image")
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+", str(image.get("tag", ""))):
+        raise ValueError("Karakeep browser image must use a versioned release")
+    if "command" in app:
+        raise ValueError("Karakeep browser must preserve the image entrypoint")
+    forbidden = {"--no-sandbox", "--disable-software-rasterizer"}
+    if forbidden.intersection(args) or any(
+        re.match(r"^--remote-debugging-(address|port)(=|$)", arg) for arg in args
+    ):
+        raise ValueError("Karakeep browser arguments must preserve internal port forwarding")
+
+
 class MediaConfigContracts(unittest.TestCase):
+    def test_karakeep_uses_maintained_browser_entrypoint(self):
+        values = yaml.safe_load((ROOT / "apps/selfhosted/karakeep/values.yaml").read_text())
+        validate_karakeep_browser(values)
+
+    def test_karakeep_browser_mutations_are_rejected(self):
+        values = yaml.safe_load((ROOT / "apps/selfhosted/karakeep/values.yaml").read_text())
+        mutations = {
+            "repository": lambda app: app["image"].update(repository="example.invalid/browser"),
+            "tag": lambda app: app["image"].update(tag="latest"),
+            "command": lambda app: app.update(command=["chromium"]),
+            "sandbox": lambda app: app["args"].append("--no-sandbox"),
+            "debugging": lambda app: app["args"].append("--remote-debugging-port=9222"),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                broken = copy.deepcopy(values)
+                mutate(broken["controllers"]["chrome"]["containers"]["app"])
+                with self.assertRaises(ValueError):
+                    validate_karakeep_browser(broken)
+
     def test_arr_backups_use_writable_temporary_directory(self):
         for service in ("radarr", "sonarr", "prowlarr"):
             with self.subTest(service=service):
