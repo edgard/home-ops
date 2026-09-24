@@ -46,6 +46,17 @@
             )
         fail_msg: "Default Talos upgrade installer must match machine.install.image in the control plane patch."
 
+    - name: Build Talos upgrade command with repository defaults
+      ansible.builtin.include_role:
+        name: talos
+        tasks_from: upgrade
+
+    - name: Preserve the configured Image Factory installer during upgrades
+      ansible.builtin.assert:
+        that:
+          - talos_upgrade_command[5] == talos_upgrade_controlplane_config.machine.install.image
+        fail_msg: "Talos upgrades must use the installer image from the control plane patch."
+
     - name: Include Talos upgrade tasks
       ansible.builtin.include_role:
         name: talos
