@@ -256,6 +256,8 @@ config:
     - name: internet-amazon
       group: network
       url: icmp://www.amazon.com
+      client:
+        network: ip4
       interval: 1m
       conditions:
         - "[CONNECTED] == true"
@@ -264,6 +266,8 @@ config:
     - name: internet-google
       group: network
       url: icmp://www.google.com
+      client:
+        network: ip4
       interval: 1m
       conditions:
         - "[CONNECTED] == true"
@@ -272,6 +276,8 @@ config:
     - name: internet-microsoft
       group: network
       url: icmp://www.microsoft.com
+      client:
+        network: ip4
       interval: 1m
       conditions:
         - "[CONNECTED] == true"
@@ -280,6 +286,8 @@ config:
     - name: internet-cloudflare
       group: network
       url: icmp://www.cloudflare.com
+      client:
+        network: ip4
       interval: 1m
       conditions:
         - "[CONNECTED] == true"
@@ -288,6 +296,8 @@ config:
     - name: internet-akamai
       group: network
       url: icmp://www.akamai.com
+      client:
+        network: ip4
       interval: 1m
       conditions:
         - "[CONNECTED] == true"
@@ -296,6 +306,8 @@ config:
     - name: internet-fastly
       group: network
       url: icmp://www.fastly.com
+      client:
+        network: ip4
       interval: 1m
       conditions:
         - "[CONNECTED] == true"
