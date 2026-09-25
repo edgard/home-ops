@@ -5,6 +5,17 @@ global:
   proxy:
     autoInject: disabled
 
+env:
+  METRICS_LOCALHOST_ACCESS_ONLY: "true"
+
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      METRICS_LOCALHOST_ACCESS_ONLY: "true"
+  defaultProviders:
+    metrics: []
+  enablePrometheusMerge: false
+
 sidecarInjectorWebhook:
   enabled: false
 
