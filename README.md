@@ -95,6 +95,7 @@ Taskfile is the operator interface; Ansible remains the orchestration implementa
 Gatus checks 18 routed applications, 3 public DNS resolvers, and 6 ICMP targets
 every minute. It sends Telegram alerts after five failures and recovery notices
 after two successes. The status page is at `status.edgard.org`.
+The status page groups these checks under `apps`, `dns`, and `internet`.
 
 Checks are listed explicitly in `apps/platform-system/gatus/values.yaml`. Kubernetes
 validation compares routed hostnames with Gatus targets so a new route needs a

@@ -17,6 +17,4 @@ cainjector:
     type: Recreate
 
 prometheus:
-  enabled: true
-  servicemonitor:
-    enabled: false
+  enabled: false
