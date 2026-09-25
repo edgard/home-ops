@@ -81,3 +81,28 @@ test_gatus_deployment_is_allowed if {
   messages := deny with input as workload
   count(messages) == 0
 }
+
+test_istio_prometheus_telemetry_is_rejected if {
+  values := {
+    "kind": "ConfigMap",
+    "metadata": {
+      "name": "values",
+      "namespace": "platform-system",
+      "labels": {"app.kubernetes.io/name": "istiod"},
+    },
+    "data": {"merged-values": `{"telemetry":{"v2":{"prometheus":{"enabled":true}}}}`},
+  }
+  "ConfigMap/values enables unused Istio Prometheus telemetry" in deny with input as values
+}
+
+test_cert_manager_public_metrics_listener_is_rejected if {
+  deployment := {
+    "kind": "Deployment",
+    "metadata": {"name": "cert-manager", "namespace": "platform-system"},
+    "spec": {"template": {"spec": {"containers": [{
+      "name": "cert-manager-controller",
+      "args": ["--metrics-listen-address=0.0.0.0:9402"],
+    }]}}},
+  }
+  "Deployment/cert-manager exposes unused controller metrics" in deny with input as deployment
+}
