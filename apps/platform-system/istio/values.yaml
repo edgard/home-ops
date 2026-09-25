@@ -16,6 +16,11 @@ meshConfig:
     metrics: []
   enablePrometheusMerge: false
 
+telemetry:
+  v2:
+    prometheus:
+      enabled: false
+
 sidecarInjectorWebhook:
   enabled: false
 
