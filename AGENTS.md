@@ -2,13 +2,13 @@
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 **Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) •
-VictoriaMetrics/VictoriaLogs/VLAgent/Grafana • Helm • Ansible • Terraform
+Gatus • Helm • Ansible • Terraform
 
 ## Build & Test
 
 - Format: `task fmt`
 - Format check: `task fmt:check`
-- Dependencies: `task deps` installs pinned Python dependencies, Ansible collections, and the test-only `vmalert-tool` evaluator in `.venv`
+- Dependencies: `task deps` installs pinned Python dependencies and Ansible collections in `.venv`
 - Lint: `task lint` (offline validation: formatting, shellcheck, yamllint, GitHub Actions workflow lint, Ansible lint/contracts/integration tests, metadata policy, raw and rendered manifest policy/schema/deprecation checks, `tofu validate`)
 - Focused checks: `task lint:static`, `task lint:workflows`, `task lint:ansible`, `task lint:kubernetes`, `task lint:terraform`
 - Policy layers:
@@ -71,27 +71,14 @@ controllers:
 - Multus LAN IP (media apps): `k8s.v1.cni.cncf.io/networks: [{"name":"multus-lan-bridge","namespace":"kube-system","ips":["192.168.1.X/24"]}]`
 
 ### Monitoring
-- VMAgent is the only metrics scraper, VMSingle stores metrics, and Grafana is the
-  sole alert and notification engine. Alerts and Telegram routing are provisioned
-  from Git; standalone Alertmanager, VMAlert, and recording rules stay disabled.
-- The chart CRD bundle and Prometheus conversion are disabled. Required
-  VictoriaMetrics schemas are vendored selectively, and compatibility-only
-  resources and controllers remain prohibited by policy and repository checks.
-- Use `VMServiceScrape` or `VMPodScrape` for in-cluster metrics endpoints. Use
-  `VMProbe` for user-facing HTTPRoute checks, DNS checks, ICMP, and other
-  blackbox reachability tests.
+- Gatus is the only uptime checker and Telegram alert engine. Its 18 routed app,
+  3 DNS, and 6 ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
+- The parsed route coverage check in `scripts/check_uptime.py` runs during
+  `task lint:kubernetes`. Keep Plex `/identity` and CrossWatch `/healthz` checks.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
-  annotations to routed apps.
-- VictoriaLogs is internal-only. Its collector reads pod stdout/stderr through
-  read-only host mounts and writes only to its node-local queue; Kubernetes Events
-  are not collected.
-- Log stream fields are `cluster`, `kubernetes.pod_namespace`,
-  `kubernetes.pod_labels.app.kubernetes.io/name`, and
-  `kubernetes.container_name`; other Kubernetes metadata remains searchable.
-- VMSingle, VictoriaLogs, and Grafana data are included in Restic backup and
-  restore. The collector's node-local queue is transient and excluded.
-- Talos host-service logs, external Victoria endpoints, log-derived alerts, and
-  object storage are out of scope.
+  annotations to routed apps; Gatus does not use route discovery.
+- Gatus uses memory storage without a PVC. There is no metrics or searchable log
+  backend. A complete outage of this single node cannot trigger an alert.
 
 ### Storage
 - `nfs-fast`: `/mnt/spool/appdata` (default)
@@ -120,7 +107,7 @@ Store: `external-secrets-store`
   - CI runs the focused targets as separate pull-request jobs and uses `Quality Gate` as the required aggregate check
   - Prefer policy or lint checks when the assertion is about repository content
   - Assert operational invariants and cross-file relationships, not duplicated dependency versions, task names, comments, dashboard prose, or exact equivalent query strings
-  - `scripts/check_ansible_contracts.py` checks parsed safety logic; `scripts/check_observability.py` evaluates dashboard and alert queries against synthetic MetricsQL fixtures
+  - `scripts/check_ansible_contracts.py` checks parsed safety logic; `scripts/check_uptime.py` compares Gatus app checks with rendered routes
 - Metadata policy lives under `policy/metadata/` and is enforced via Conftest
 - Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
 - `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`

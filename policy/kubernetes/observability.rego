@@ -2,132 +2,46 @@ package main
 
 import rego.v1
 
-forbidden_observability_workloads := {
+legacy_observability_api_groups := {
+  "monitoring.coreos.com",
+  "operator.victoriametrics.com",
+}
+
+legacy_observability_workload_prefixes := {
   "alertmanager-kube-prometheus-stack-alertmanager",
   "alloy",
+  "gatus-sidecar",
   "kube-prometheus-stack-grafana",
   "loki",
+  "prometheus-blackbox-exporter",
   "prometheus-kube-prometheus-stack-prometheus",
-}
-
-allowed_victoria_crds := {
-  "vmagents.operator.victoriametrics.com",
-  "vmalertmanagerconfigs.operator.victoriametrics.com",
-  "vmanomalyconfigs.operator.victoriametrics.com",
-  "vmnodescrapes.operator.victoriametrics.com",
-  "vmpodscrapes.operator.victoriametrics.com",
-  "vmprobes.operator.victoriametrics.com",
-  "vmrules.operator.victoriametrics.com",
-  "vmscrapeconfigs.operator.victoriametrics.com",
-  "vmservicescrapes.operator.victoriametrics.com",
-  "vmsingles.operator.victoriametrics.com",
-  "vmstaticscrapes.operator.victoriametrics.com",
-  "vmusers.operator.victoriametrics.com",
-}
-
-required_operator_disabled_controllers := {"AlertmanagerConfig", "PodMonitor", "Probe", "PrometheusRule", "ScrapeConfig", "ServiceMonitor", "VLAgent", "VLCluster", "VLDistributed", "VLogs", "VLSingle", "VMAlert", "VMAlertmanager", "VMAlertmanagerConfig", "VMAnomaly", "VMAnomalyConfig", "VMAuth", "VMCluster", "VMDistributed", "VMRule", "VMScrapeConfig", "VMStaticScrape", "VTSingle", "VTCluster", "VMUser"}
-
-indexer_only_victoria_kinds := {
-  "VMAlertmanagerConfig",
-  "VMAnomalyConfig",
-  "VMRule",
-  "VMScrapeConfig",
-  "VMStaticScrape",
-  "VMUser",
+  "victoria-logs-",
+  "victoria-metrics-k8s-stack-",
+  "vmagent-victoria-metrics-k8s-stack",
+  "vmsingle-victoria-metrics-k8s-stack",
 }
 
 deny contains msg if {
-  input.kind == "ValidatingWebhookConfiguration"
-  input.metadata.name == "victoria-metrics-k8s-stack-victoria-metrics-operator-admission"
-  annotations := object.get(input.metadata, "annotations", {})
-  object.get(annotations, "cert-manager.io/inject-ca-from", "") == ""
-  msg := "ValidatingWebhookConfiguration/victoria-metrics-k8s-stack-victoria-metrics-operator-admission must use cert-manager CA injection"
-}
-
-deny contains msg if {
-  input.kind == "ValidatingWebhookConfiguration"
-  input.metadata.name == "victoria-metrics-k8s-stack-victoria-metrics-operator-admission"
-  some webhook in input.webhooks
-  object.get(webhook, "failurePolicy", "Fail") != "Fail"
-  msg := sprintf("ValidatingWebhookConfiguration/victoria-metrics-k8s-stack-victoria-metrics-operator-admission must fail closed for %s", [webhook.name])
-}
-
-deny contains msg if {
-  startswith(object.get(input, "apiVersion", ""), "monitoring.coreos.com/")
-  msg := sprintf("%s/%s must not use Prometheus Operator APIs", [input.kind, input.metadata.name])
+  group := split(object.get(input, "apiVersion", ""), "/")[0]
+  group in legacy_observability_api_groups
+  msg := sprintf("%s/%s uses a retired observability API", [input.kind, input.metadata.name])
 }
 
 deny contains msg if {
   input.kind == "CustomResourceDefinition"
-  object.get(input.spec, "group", "") == "monitoring.coreos.com"
-  msg := sprintf("CustomResourceDefinition/%s must not install Prometheus Operator APIs", [input.metadata.name])
-}
-
-deny contains msg if {
-  input.kind == "CustomResourceDefinition"
-  input.metadata.name in {
-    "vmalertmanagers.operator.victoriametrics.com",
-    "vmalerts.operator.victoriametrics.com",
-  }
-  msg := sprintf("CustomResourceDefinition/%s is forbidden; Grafana owns alerting", [input.metadata.name])
-}
-
-deny contains msg if {
-  input.kind == "Deployment"
-  input.metadata.name == "victoria-metrics-k8s-stack-victoria-metrics-operator"
-  operator := [container | some container in input.spec.template.spec.containers; container.name == "operator"][0]
-  args := object.get(operator, "args", [])
-  not has_required_disabled_controllers(args)
-  msg := "Deployment/victoria-metrics-k8s-stack-victoria-metrics-operator must disable every controller whose CRD is not installed"
-}
-
-has_required_disabled_controllers(args) if {
-  some arg in args
-  startswith(arg, "--controller.disableReconcileFor=")
-  value := trim_prefix(arg, "--controller.disableReconcileFor=")
-  actual := {trim_space(controller) | some controller in split(value, ",")}
-  actual == required_operator_disabled_controllers
-}
-
-deny contains msg if {
-  input.kind == "CustomResourceDefinition"
-  object.get(input.spec, "group", "") == "operator.victoriametrics.com"
-  not allowed_victoria_crds[input.metadata.name]
-  msg := sprintf("CustomResourceDefinition/%s is outside the minimal Victoria observability API set", [input.metadata.name])
-}
-
-deny contains msg if {
-  input.kind == "VMAlert"
-  msg := sprintf("VMAlert/%s is forbidden; Grafana owns alert and recording rules", [input.metadata.name])
-}
-
-deny contains msg if {
-  startswith(object.get(input, "apiVersion", ""), "operator.victoriametrics.com/")
-  input.kind in indexer_only_victoria_kinds
-  msg := sprintf("%s/%s is forbidden; its CRD is installed only for operator startup compatibility", [input.kind, input.metadata.name])
-}
-
-deny contains msg if {
-  input.kind in {"Alertmanager", "VMAlertmanager"}
-  msg := sprintf("%s/%s is forbidden; Grafana owns notification routing", [input.kind, input.metadata.name])
-}
-
-deny contains msg if {
-  input.kind == "Prometheus"
-  msg := sprintf("Prometheus/%s is forbidden; VMSingle stores metrics", [input.metadata.name])
+  object.get(input.spec, "group", "") in legacy_observability_api_groups
+  msg := sprintf("CustomResourceDefinition/%s installs a retired observability API", [input.metadata.name])
 }
 
 deny contains msg if {
   input.kind in {"Deployment", "StatefulSet", "DaemonSet"}
-  forbidden_observability_workloads[input.metadata.name]
-  msg := sprintf("%s/%s is forbidden by the Victoria observability architecture", [input.kind, input.metadata.name])
+  some prefix in legacy_observability_workload_prefixes
+  startswith(input.metadata.name, prefix)
+  msg := sprintf("%s/%s is a retired observability workload", [input.kind, input.metadata.name])
 }
 
 deny contains msg if {
-  startswith(object.get(input, "apiVersion", ""), "operator.victoriametrics.com/")
-  input.kind in {"VMAgent", "VMSingle"}
-  spec := object.get(input, "spec", {})
-  scrape := object.get(spec, "serviceScrapeSpec", {})
-  count(object.get(scrape, "endpoints", [])) == 0
-  msg := sprintf("%s/%s must configure a Victoria-native self-scrape", [input.kind, input.metadata.name])
+  annotations := object.get(input.metadata, "annotations", {})
+  object.get(annotations, "gatus.home-operations.com/endpoint", null) != null
+  msg := sprintf("%s/%s must use explicit Gatus checks", [input.kind, input.metadata.name])
 }

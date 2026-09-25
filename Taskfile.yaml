@@ -53,7 +53,6 @@ tasks:
       - '"{{.VENV_PYTHON}}" -m pip uninstall -y ansible || true'
       - '"{{.VENV_PYTHON}}" -m pip install -r ansible/requirements.txt'
       - '"{{.ANSIBLE_GALAXY}}" collection install -r ansible/requirements.yml -p "{{.ANSIBLE_COLLECTIONS_PATH}}"'
-      - bash scripts/install-vmalert-tool.sh "{{.VENV_DIR}}/bin"
 
   ansible:check:
     internal: true
@@ -127,7 +126,6 @@ tasks:
       - '"{{.ANSIBLE_LINT}}" ansible'
       - '"{{.VENV_PYTHON}}" -m unittest discover -s scripts/tests'
       - '"{{.VENV_PYTHON}}" scripts/check_ansible_contracts.py'
-      - '"{{.VENV_PYTHON}}" scripts/check_observability.py'
       - for test in ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" "$test"; done
 
   lint:kubernetes:
