@@ -2,19 +2,30 @@
 """Keep Gatus HTTP targets aligned with rendered Gateway routes."""
 
 import argparse
+import json
 from pathlib import Path
+import subprocess
 import sys
 from urllib.parse import urlsplit
 
-import yaml
+
+def load_documents(paths):
+    if not paths:
+        return []
+    result = subprocess.run(
+        ["yq", "eval-all", "-o=json", "-I=0", "[.]", *(str(path) for path in paths)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(result.stdout)
 
 
 def route_hosts(paths):
     hosts = set()
-    for path in paths:
-        for document in yaml.safe_load_all(path.read_text()):
-            if isinstance(document, dict) and document.get("kind") == "HTTPRoute":
-                hosts.update(document.get("spec", {}).get("hostnames", []))
+    for document in load_documents(paths):
+        if isinstance(document, dict) and document.get("kind") == "HTTPRoute":
+            hosts.update(document.get("spec", {}).get("hostnames", []))
     return hosts
 
 
@@ -26,7 +37,7 @@ def main():
     args = parser.parse_args()
 
     values_path = args.apps_root / "platform-system/gatus/values.yaml"
-    values = yaml.safe_load(values_path.read_text())
+    values = load_documents((values_path,))[0]
     chart_routes = args.rendered_root.rglob("*.yaml")
     raw_routes = args.apps_root.rglob("*.httproute.yaml")
     expected = route_hosts((*chart_routes, *raw_routes))

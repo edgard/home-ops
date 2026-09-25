@@ -561,7 +561,7 @@ validate_rendered_apps() {
   fi
 
   log_step "Uptime route coverage"
-  if ! "${repo_root}/.venv/bin/python" "${repo_root}/scripts/check_uptime.py" \
+  if ! python3 "${repo_root}/scripts/check_uptime.py" \
     "$rendered_root" "${repo_root}/apps" --exclude-host grafana.edgard.org; then
     failed=1
   fi
