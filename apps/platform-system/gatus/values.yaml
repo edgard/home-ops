@@ -1,0 +1,315 @@
+---
+deployment:
+  strategy: Recreate
+
+annotations:
+  reloader.stakater.com/auto: "true"
+
+image:
+  repository: ghcr.io/twin/gatus
+  tag: v5.34.0
+
+serviceAccount:
+  create: false
+  autoMount: false
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 100Mi
+
+gateway:
+  route:
+    enabled: true
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hosts:
+      - status.edgard.org
+
+envFrom:
+  - secretRef:
+      name: gatus-credentials
+
+persistence:
+  enabled: false
+
+config:
+  storage:
+    type: memory
+  metrics: false
+  alerting:
+    telegram:
+      token: "$TELEGRAM_BOT_TOKEN"
+      id: "$TELEGRAM_CHAT_ID"
+      default-alert:
+        failure-threshold: 5
+        success-threshold: 2
+        send-on-resolved: true
+  endpoints:
+    - name: argocd
+      group: apps
+      url: https://argocd.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: homeassistant
+      group: apps
+      url: https://homeassistant.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: scrypted
+      group: apps
+      url: https://scrypted.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: bazarr
+      group: apps
+      url: https://bazarr.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: plex
+      group: apps
+      url: https://plex.edgard.org/identity
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: prowlarr
+      group: apps
+      url: https://prowlarr.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: qbittorrent
+      group: apps
+      url: https://qbittorrent.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: radarr
+      group: apps
+      url: https://radarr.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: sonarr
+      group: apps
+      url: https://sonarr.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: atuin
+      group: apps
+      url: https://atuin.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: bambuddy
+      group: apps
+      url: https://bambuddy.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: bentopdf
+      group: apps
+      url: https://bentopdf.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: changedetection
+      group: apps
+      url: https://changedetection.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: crosswatch
+      group: apps
+      url: https://crosswatch.edgard.org/healthz
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: echo
+      group: apps
+      url: https://echo.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: karakeep
+      group: apps
+      url: https://karakeep.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: paperless
+      group: apps
+      url: https://paperless.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: twitch-drops-miner
+      group: apps
+      url: https://twitchdrops.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
+    - name: dns-google
+      group: network
+      url: 8.8.8.8
+      interval: 1m
+      dns:
+        query-name: edgard.org
+        query-type: A
+      conditions:
+        - "[DNS_RCODE] == NOERROR"
+      alerts:
+        - type: telegram
+    - name: dns-cloudflare
+      group: network
+      url: 1.1.1.1
+      interval: 1m
+      dns:
+        query-name: edgard.org
+        query-type: A
+      conditions:
+        - "[DNS_RCODE] == NOERROR"
+      alerts:
+        - type: telegram
+    - name: dns-quad9
+      group: network
+      url: 9.9.9.9
+      interval: 1m
+      dns:
+        query-name: edgard.org
+        query-type: A
+      conditions:
+        - "[DNS_RCODE] == NOERROR"
+      alerts:
+        - type: telegram
+    - name: internet-amazon
+      group: network
+      url: icmp://www.amazon.com
+      client:
+        network: ip4
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+      alerts:
+        - type: telegram
+    - name: internet-google
+      group: network
+      url: icmp://www.google.com
+      client:
+        network: ip4
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+      alerts:
+        - type: telegram
+    - name: internet-microsoft
+      group: network
+      url: icmp://www.microsoft.com
+      client:
+        network: ip4
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+      alerts:
+        - type: telegram
+    - name: internet-cloudflare
+      group: network
+      url: icmp://www.cloudflare.com
+      client:
+        network: ip4
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+      alerts:
+        - type: telegram
+    - name: internet-akamai
+      group: network
+      url: icmp://www.akamai.com
+      client:
+        network: ip4
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+      alerts:
+        - type: telegram
+    - name: internet-fastly
+      group: network
+      url: icmp://www.fastly.com
+      client:
+        network: ip4
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+      alerts:
+        - type: telegram

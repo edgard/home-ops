@@ -560,6 +560,12 @@ validate_rendered_apps() {
     return "$failed"
   fi
 
+  log_step "Uptime route coverage"
+  if ! python3 "${repo_root}/scripts/check_uptime.py" \
+    "$rendered_root" "${repo_root}/apps" --exclude-host grafana.edgard.org; then
+    failed=1
+  fi
+
   log_step "Rendered manifest policy"
   if ! conftest test --no-color --parser yaml --policy "${repo_root}/policy/kubernetes" "${rendered_paths[@]}"; then
     echo "Rendered policy validation failed in ${rendered_root}"

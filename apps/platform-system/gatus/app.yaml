@@ -1,0 +1,7 @@
+---
+chart:
+  repo: https://twin.github.io/helm-charts
+  name: gatus
+  version: 1.5.0
+sync:
+  wave: "0"
