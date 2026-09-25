@@ -90,20 +90,6 @@ task tf:clean                        # Remove local Terraform cache and plan fil
 
 Taskfile is the operator interface; Ansible remains the orchestration implementation underneath.
 
-## Observability
-
-Gatus checks 18 routed applications, 3 public DNS resolvers, and 6 ICMP targets
-every minute. It sends Telegram alerts after five failures and recovery notices
-after two successes. The status page is at `status.edgard.org`.
-The status page groups these checks under `apps`, `dns`, and `internet`.
-
-Checks are listed explicitly in `apps/platform-system/gatus/values.yaml`. Kubernetes
-validation compares routed hostnames with Gatus targets so a new route needs a
-check and a deleted route cannot silently remove one. Plex uses `/identity` and
-CrossWatch uses `/healthz`. Gatus stores only short-term status in memory and has
-no persistent volume, metrics dashboard, or searchable log store. Because it runs
-in this single-node cluster, a complete node outage cannot send an alert.
-
 ## Repository Layout
 
 ```
