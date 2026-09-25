@@ -9,7 +9,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 - Argo CD
 - Istio Gateway API
 - External Secrets with Bitwarden
-- VictoriaMetrics, VictoriaLogs, VLAgent, Grafana, and Blackbox Exporter
+- Gatus uptime checks and Telegram alerts
 - Helm
 - Ansible
 - Terraform
@@ -92,16 +92,16 @@ Taskfile is the operator interface; Ansible remains the orchestration implementa
 
 ## Observability
 
-VMAgent scrapes metrics into VMSingle, while VictoriaLogs receives Kubernetes
-container logs from the node collector. Grafana is the sole alert evaluator and
-notification router; alerting, Telegram routing, and dashboards are provisioned
-from Git. There are no recording rules or standalone Alertmanager.
+Gatus checks 18 routed applications, 3 public DNS resolvers, and 6 ICMP targets
+every minute. It sends Telegram alerts after five failures and recovery notices
+after two successes. The status page is at `status.edgard.org`.
 
-Blackbox checks and in-cluster scrapes use VictoriaMetrics Operator resources. The
-chart CRD bundle is disabled in favor of the selectively vendored schemas required
-by this deployment, with compatibility-only resources and controllers prohibited.
-VMSingle, VictoriaLogs, and Grafana are covered by Restic; the collector's
-node-local queue is transient and excluded from restore.
+Checks are listed explicitly in `apps/platform-system/gatus/values.yaml`. Kubernetes
+validation compares routed hostnames with Gatus targets so a new route needs a
+check and a deleted route cannot silently remove one. Plex uses `/identity` and
+CrossWatch uses `/healthz`. Gatus stores only short-term status in memory and has
+no persistent volume, metrics dashboard, or searchable log store. Because it runs
+in this single-node cluster, a complete node outage cannot send an alert.
 
 ## Repository Layout
 
@@ -132,6 +132,6 @@ Detailed contributor and agent guidance, including the validation model, testing
 
 Validation gates protect operational behavior and relationships. Dependency versions
 belong in their source manifests rather than duplicate test assertions. Safety checks
-inspect parsed Ansible tasks, and Grafana queries run against synthetic healthy,
-failing, and missing data with VictoriaMetrics' test-only `vmalert-tool`. Dashboard
-wording, task names, comments, and equivalent query spellings may change freely.
+inspect parsed Ansible tasks and compare Gatus HTTP targets with rendered
+HTTPRoutes. Task names, comments, and equivalent configuration spellings may
+change freely.
