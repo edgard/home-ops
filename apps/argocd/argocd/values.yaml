@@ -28,10 +28,6 @@ applicationSet:
 controller:
   statefulsetAnnotations:
     reloader.stakater.com/auto: "true"
-  metrics:
-    enabled: true
-    serviceMonitor:
-      enabled: false
 
 server:
   deploymentAnnotations:

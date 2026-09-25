@@ -221,7 +221,7 @@ config:
       alerts:
         - type: telegram
     - name: dns-google
-      group: network
+      group: dns
       url: 8.8.8.8
       interval: 1m
       dns:
@@ -232,7 +232,7 @@ config:
       alerts:
         - type: telegram
     - name: dns-cloudflare
-      group: network
+      group: dns
       url: 1.1.1.1
       interval: 1m
       dns:
@@ -243,7 +243,7 @@ config:
       alerts:
         - type: telegram
     - name: dns-quad9
-      group: network
+      group: dns
       url: 9.9.9.9
       interval: 1m
       dns:
@@ -254,7 +254,7 @@ config:
       alerts:
         - type: telegram
     - name: internet-amazon
-      group: network
+      group: internet
       url: icmp://www.amazon.com
       client:
         network: ip4
@@ -264,7 +264,7 @@ config:
       alerts:
         - type: telegram
     - name: internet-google
-      group: network
+      group: internet
       url: icmp://www.google.com
       client:
         network: ip4
@@ -274,7 +274,7 @@ config:
       alerts:
         - type: telegram
     - name: internet-microsoft
-      group: network
+      group: internet
       url: icmp://www.microsoft.com
       client:
         network: ip4
@@ -284,7 +284,7 @@ config:
       alerts:
         - type: telegram
     - name: internet-cloudflare
-      group: network
+      group: internet
       url: icmp://www.cloudflare.com
       client:
         network: ip4
@@ -294,7 +294,7 @@ config:
       alerts:
         - type: telegram
     - name: internet-akamai
-      group: network
+      group: internet
       url: icmp://www.akamai.com
       client:
         network: ip4
@@ -304,7 +304,7 @@ config:
       alerts:
         - type: telegram
     - name: internet-fastly
-      group: network
+      group: internet
       url: icmp://www.fastly.com
       client:
         network: ip4
