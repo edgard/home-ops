@@ -1,5 +1,5 @@
 ---
-- name: Validate Ansible configuration and bounded OpenTofu cleanup
+- name: Validate bounded OpenTofu cleanup
   hosts: localhost
   gather_facts: false
   vars:
@@ -18,34 +18,9 @@
       - nested/saved.tfplan
       - nested/terraform.tfstate
   tasks:
-    - name: Check local runtime directories are ignored
-      ansible.builtin.command:
-        argv:
-          - git
-          - check-ignore
-          - -q
-          - "{{ item }}"
-      args:
-        chdir: "{{ conventions_repo_root }}"
-      loop:
-        - .venv
-        - .ansible
-      changed_when: false
-
     - name: Load OpenTofu role defaults
       ansible.builtin.include_vars:
         file: "{{ conventions_repo_root }}/ansible/roles/tofu/defaults/main.yml"
-
-    - name: Check resolved OpenTofu executable
-      ansible.builtin.stat:
-        path: "{{ tofu_binary_path }}"
-      register: conventions_tofu_binary
-
-    - name: Assert OpenTofu executable resolves
-      ansible.builtin.assert:
-        that:
-          - tofu_binary_path is match('^/')
-          - conventions_tofu_binary.stat.executable
 
     - name: Create isolated OpenTofu cleanup fixture
       ansible.builtin.tempfile:

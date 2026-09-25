@@ -2,12 +2,10 @@
 - name: Reset Argo CD refresh targets
   ansible.builtin.set_fact:
     argocd_refresh_targets: []
-    argocd_refresh_requested_app: "{{ app | default(argocd_refresh_app | default('')) }}"
+    argocd_refresh_requested_app: "{{ app | default('') }}"
 
 - name: Read Argo CD applications
-  when:
-    - argocd_refresh_requested_app | length == 0
-    - argocd_refresh_application_names is not defined
+  when: argocd_refresh_requested_app | length == 0
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -21,16 +19,11 @@
     argocd_refresh_target_names: >-
       {{
         [argocd_refresh_requested_app] if argocd_refresh_requested_app | length > 0
-        else (
-          argocd_refresh_application_names
-          | default(argocd_refresh_applications.resources | default([]) | map(attribute='metadata.name') | list)
-        )
+        else (argocd_refresh_applications.resources | map(attribute='metadata.name') | list)
       }}
 
 - name: Read requested Argo CD application
-  when:
-    - argocd_refresh_requested_app | length > 0
-    - not (argocd_refresh_test_mode | default(false))
+  when: argocd_refresh_requested_app | length > 0
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -41,9 +34,7 @@
   register: argocd_refresh_requested_application
 
 - name: Assert requested Argo CD application exists
-  when:
-    - argocd_refresh_requested_app | length > 0
-    - not (argocd_refresh_test_mode | default(false))
+  when: argocd_refresh_requested_app | length > 0
   ansible.builtin.assert:
     that:
       - argocd_refresh_requested_application.resources | length == 1
@@ -64,7 +55,6 @@
   loop: "{{ argocd_refresh_target_names }}"
 
 - name: Apply Argo CD refresh patches
-  when: not (argocd_refresh_test_mode | default(false))
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
