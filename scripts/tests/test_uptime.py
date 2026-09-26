@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "check_uptime.py"
 
 
 class UptimeCoverageTests(unittest.TestCase):
-    def run_check(self, routes: str, endpoints: str, *extra_args: str, raw_route: str = ""):
+    def run_check(self, routes: str, endpoints: str, raw_route: str = ""):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             rendered = root / "rendered"
@@ -29,7 +29,7 @@ class UptimeCoverageTests(unittest.TestCase):
                 manifests.mkdir(parents=True)
                 (manifests / "manual.httproute.yaml").write_text(raw_route)
             return subprocess.run(
-                [sys.executable, str(SCRIPT), str(rendered), str(apps), *extra_args],
+                [sys.executable, str(SCRIPT), str(rendered), str(apps)],
                 capture_output=True,
                 text=True,
                 check=False,

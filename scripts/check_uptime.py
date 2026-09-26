@@ -33,7 +33,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("rendered_root", type=Path)
     parser.add_argument("apps_root", type=Path)
-    parser.add_argument("--exclude-host", action="append", default=[])
     args = parser.parse_args()
 
     values_path = args.apps_root / "platform-system/gatus/values.yaml"
@@ -42,7 +41,6 @@ def main():
     raw_routes = args.apps_root.rglob("*.httproute.yaml")
     expected = route_hosts((*chart_routes, *raw_routes))
     expected.difference_update(values.get("gateway", {}).get("route", {}).get("hosts", []))
-    expected.difference_update(args.exclude_host)
 
     actual = set()
     duplicate_hosts = set()

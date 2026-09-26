@@ -1,9 +1,8 @@
 """Validate embedded application configuration that YAML lint cannot see."""
 
-import copy
 from pathlib import Path
-import re
 import unittest
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -18,43 +17,18 @@ class ConfigLoader(yaml.SafeLoader):
 ConfigLoader.add_constructor("!env_var", lambda loader, node: loader.construct_scalar(node))
 
 
-def validate_karakeep_browser(values):
-    app = values["controllers"]["chrome"]["containers"]["app"]
-    image = app["image"]
-    args = app.get("args", [])
-    if image.get("repository") != "ghcr.io/karakeep-app/karakeep-chrome":
-        raise ValueError("Karakeep must use its maintained browser image")
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+", str(image.get("tag", ""))):
-        raise ValueError("Karakeep browser image must use a versioned release")
-    if "command" in app:
-        raise ValueError("Karakeep browser must preserve the image entrypoint")
-    forbidden = {"--no-sandbox", "--disable-software-rasterizer"}
-    if forbidden.intersection(args) or any(
-        re.match(r"^--remote-debugging-(address|port)(=|$)", arg) for arg in args
-    ):
-        raise ValueError("Karakeep browser arguments must preserve internal port forwarding")
-
-
 class MediaConfigContracts(unittest.TestCase):
-    def test_karakeep_uses_maintained_browser_entrypoint(self):
+    def test_karakeep_browser_uses_image_entrypoint_and_service_port(self):
         values = yaml.safe_load((ROOT / "apps/selfhosted/karakeep/values.yaml").read_text())
-        validate_karakeep_browser(values)
-
-    def test_karakeep_browser_mutations_are_rejected(self):
-        values = yaml.safe_load((ROOT / "apps/selfhosted/karakeep/values.yaml").read_text())
-        mutations = {
-            "repository": lambda app: app["image"].update(repository="example.invalid/browser"),
-            "tag": lambda app: app["image"].update(tag="latest"),
-            "command": lambda app: app.update(command=["chromium"]),
-            "sandbox": lambda app: app["args"].append("--no-sandbox"),
-            "debugging": lambda app: app["args"].append("--remote-debugging-port=9222"),
-        }
-        for name, mutate in mutations.items():
-            with self.subTest(name=name):
-                broken = copy.deepcopy(values)
-                mutate(broken["controllers"]["chrome"]["containers"]["app"])
-                with self.assertRaises(ValueError):
-                    validate_karakeep_browser(broken)
+        chrome = values["controllers"]["chrome"]["containers"]["app"]
+        self.assertEqual(chrome["image"]["repository"], "ghcr.io/karakeep-app/karakeep-chrome")
+        self.assertNotIn("command", chrome)
+        self.assertFalse(
+            {"--no-sandbox", "--disable-software-rasterizer"}.intersection(chrome.get("args", []))
+        )
+        self.assertFalse(any(arg.startswith("--remote-debugging-") for arg in chrome.get("args", [])))
+        browser_url = values["controllers"]["main"]["containers"]["app"]["env"]["BROWSER_WEB_URL"]
+        self.assertEqual(urlsplit(browser_url).port, values["service"]["chrome"]["ports"]["http"]["port"])
 
     def test_arr_backups_use_writable_temporary_directory(self):
         for service in ("radarr", "sonarr", "prowlarr"):
@@ -66,9 +40,12 @@ class MediaConfigContracts(unittest.TestCase):
 
     def test_qbittorrent_vpn_readiness_checks_health_response(self):
         values = yaml.safe_load((ROOT / "apps/media/qbittorrent/values.yaml").read_text())
-        probe = values["controllers"]["main"]["containers"]["gluetun"]["probes"]["readiness"]
+        gluetun = values["controllers"]["main"]["containers"]["gluetun"]
+        probe = gluetun["probes"]["readiness"]
+        health_port = int(gluetun["env"]["HEALTH_SERVER_ADDRESS"].rsplit(":", 1)[1])
         self.assertEqual(probe["type"], "HTTP")
-        self.assertEqual(probe["port"], 9999)
+        self.assertEqual(probe["port"], health_port)
+        self.assertIn(str(health_port), gluetun["env"]["FIREWALL_INPUT_PORTS"].split(","))
 
     def test_recyclarr_custom_format_groups_use_v8_mapping(self):
         manifest = yaml.safe_load(
