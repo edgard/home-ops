@@ -53,8 +53,9 @@ deny contains msg if {
   is_supported_app_template(app)
   has_default_pod_options(app)
   not is_canonical_non_root_profile(app)
+  not is_shared_media_non_root_profile(app)
   not is_canonical_root_profile(app)
-  msg := sprintf("defaultPodOptions.securityContext must use either the canonical non-root profile or the explicit root-required profile in %s", [app.values_file])
+  msg := sprintf("defaultPodOptions.securityContext must use a supported non-root or explicit root-required profile in %s", [app.values_file])
 }
 
 deny contains msg if {
@@ -134,12 +135,28 @@ has_default_pod_options(app) if {
 }
 
 is_canonical_non_root_profile(app) if {
+  not is_shared_media_app(app)
   sc := object.get(app, "default_pod_security_context", {})
   object.get(sc, "fsGroup", "") == "1000"
   object.get(sc, "fsGroupChangePolicy", "") == "OnRootMismatch"
   object.get(sc, "runAsGroup", "") == "1000"
   object.get(sc, "runAsNonRoot", "") == "true"
   object.get(sc, "runAsUser", "") == "1000"
+}
+
+is_shared_media_non_root_profile(app) if {
+  is_shared_media_app(app)
+  sc := object.get(app, "default_pod_security_context", {})
+  object.get(sc, "fsGroup", "") == "0"
+  object.get(sc, "fsGroupChangePolicy", "") == "OnRootMismatch"
+  object.get(sc, "runAsGroup", "") == "1000"
+  object.get(sc, "runAsNonRoot", "") == "true"
+  object.get(sc, "runAsUser", "") == "1000"
+}
+
+is_shared_media_app(app) if {
+  regex.match(`/apps/media/[^/]+/values\.yaml$`, app.values_file)
+  object.get(app, "uses_shared_media_claim", false)
 }
 
 is_canonical_root_profile(app) if {

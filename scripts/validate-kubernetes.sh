@@ -338,6 +338,11 @@ write_source_app_inventory() {
   printf '      runAsGroup: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsGroup')")"
   printf '      runAsNonRoot: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsNonRoot')")"
   printf '      runAsUser: %s\n' "$(yaml_quote "$(string_value "$values_file" '.defaultPodOptions.securityContext.runAsUser')")"
+  if yq -r '.persistence[]?.existingClaim' "$values_file" 2>/dev/null | grep -qx 'media'; then
+    printf '    uses_shared_media_claim: true\n'
+  else
+    printf '    uses_shared_media_claim: false\n'
+  fi
   printf '    service_main_controller: %s\n' "$(yaml_quote "$(string_value "$values_file" '.service.main.controller')")"
   write_yaml_list '    route_main_hostnames' ${route_main_hostnames[@]+"${route_main_hostnames[@]}"}
   write_yaml_list '    route_main_backend_identifiers' ${route_main_backend_identifiers[@]+"${route_main_backend_identifiers[@]}"}

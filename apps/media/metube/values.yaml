@@ -1,7 +1,7 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 1000
+    fsGroup: 0
     fsGroupChangePolicy: OnRootMismatch
     runAsGroup: 1000
     runAsNonRoot: true
