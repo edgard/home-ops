@@ -1,0 +1,86 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      app:
+        image:
+          repository: ghcr.io/alexta69/metube
+          tag: 2026.09.25
+        env:
+          CHOWN_DIRS: "false"
+          DOWNLOAD_DIR: /media/downloads/metube
+          STATE_DIR: /state
+          TEMP_DIR: /media/downloads/metube
+          TZ: Europe/Warsaw
+        ports:
+          - name: http
+            containerPort: 8081
+        probes:
+          startup:
+            enabled: true
+            type: HTTP
+            path: /
+            port: http
+          liveness:
+            enabled: true
+            type: HTTP
+            path: /
+            port: http
+          readiness:
+            enabled: true
+            type: HTTP
+            path: /
+            port: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8081
+        protocol: TCP
+        targetPort: http
+
+route:
+  main:
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - metube.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8081
+
+persistence:
+  state:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 2Gi
+    globalMounts:
+      - path: /state
+  media:
+    type: persistentVolumeClaim
+    existingClaim: media
+    globalMounts:
+      - path: /media

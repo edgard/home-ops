@@ -103,6 +103,15 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
+    - name: metube
+      group: apps
+      url: https://metube.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
     - name: prowlarr
       group: apps
       url: https://prowlarr.edgard.org
