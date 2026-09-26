@@ -25,6 +25,34 @@ test_valid_app_template_values_pass if {
   count(results) == 0
 }
 
+test_shared_media_claim_accepts_non_root_with_group_zero if {
+  app := object.union(valid_app_template, {
+    "values_file": "/repo/apps/media/demo/values.yaml",
+    "uses_shared_media_claim": true,
+    "default_pod_security_context": object.union(valid_app_template.default_pod_security_context, {"fsGroup": "0"}),
+  })
+  results := deny with input as {"apps": [app]}
+  count(results) == 0
+}
+
+test_shared_media_claim_rejects_group_1000 if {
+  app := object.union(valid_app_template, {
+    "values_file": "/repo/apps/media/demo/values.yaml",
+    "uses_shared_media_claim": true,
+  })
+  results := deny with input as {"apps": [app]}
+  count(results) > 0
+}
+
+test_other_namespaces_cannot_use_shared_media_profile if {
+  app := object.union(valid_app_template, {
+    "uses_shared_media_claim": true,
+    "default_pod_security_context": object.union(valid_app_template.default_pod_security_context, {"fsGroup": "0"}),
+  })
+  results := deny with input as {"apps": [app]}
+  count(results) > 0
+}
+
 test_requires_main_primary_controller if {
   app := object.union(valid_app_template, {
     "controller_keys": ["demo"],

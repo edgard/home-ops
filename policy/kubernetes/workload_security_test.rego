@@ -72,3 +72,14 @@ test_gluetun_liveness_must_check_http_health if {
   }]}}})})
   "Deployment/demo container gluetun must use an HTTP liveness probe" in deny with input as doc
 }
+
+test_shared_media_claim_requires_group_zero if {
+  pod_spec := object.union(base_deployment.spec.template.spec, {
+    "securityContext": {"runAsNonRoot": true, "fsGroup": 1000},
+    "volumes": [{"name": "media", "persistentVolumeClaim": {"claimName": "media"}}],
+  })
+  doc := object.union(base_deployment, {
+    "spec": object.union(base_deployment.spec, {"template": {"spec": pod_spec}}),
+  })
+  "Deployment/demo mounting the shared media claim must use fsGroup 0" in deny with input as doc
+}

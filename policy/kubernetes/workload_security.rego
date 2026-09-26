@@ -85,6 +85,15 @@ deny contains msg if {
   msg := sprintf("%s/%s container %s must use an HTTP liveness probe", [input.kind, input.metadata.name, container.name])
 }
 
+deny contains msg if {
+  is_app_template_workload
+  pod_spec := input.spec.template.spec
+  some volume in object.get(pod_spec, "volumes", [])
+  object.get(object.get(volume, "persistentVolumeClaim", {}), "claimName", "") == "media"
+  object.get(object.get(pod_spec, "securityContext", {}), "fsGroup", null) != 0
+  msg := sprintf("%s/%s mounting the shared media claim must use fsGroup 0", [input.kind, input.metadata.name])
+}
+
 is_app_template_workload if {
   input.kind in {"Deployment", "StatefulSet"}
   startswith(object.get(object.get(input.metadata, "labels", {}), "helm.sh/chart", ""), "app-template-")
