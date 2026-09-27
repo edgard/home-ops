@@ -62,6 +62,24 @@
       loop_control:
         label: "{{ item.task.name | default('unnamed') }}"
 
+    - name: Keep destructive failures visible
+      ansible.builtin.assert:
+        that:
+          - item.task.failed_when is not defined
+          - not (item.task.ignore_errors | default(false) | bool)
+        fail_msg: "Failure masking in {{ item.source }}: {{ item.task.name | default('unnamed') }}"
+      loop: "{{ role_contract_flat }}"
+      loop_control:
+        label: "{{ item.task.name | default('unnamed') }}"
+      when: >-
+        item.source in [
+          'platform/tasks/wait_condition.yml', 'platform/tasks/destroy.yml',
+          'restic/tasks/execute.yml', 'restic/tasks/execute_prepare_app.yml',
+          'restic/tasks/execute_resume_app.yml'
+        ] and item.task.keys() | intersect([
+          'kubernetes.core.k8s', 'kubernetes.core.k8s_info', 'kubernetes.core.k8s_scale'
+        ]) | length > 0
+
     - name: Require check mode guards on Talos mutations
       ansible.builtin.assert:
         that: "item.guards | to_json is search('not ansible_check_mode')"
@@ -113,6 +131,8 @@
           - role_contract_platform_wait[0]['kubernetes.core.k8s_info'].wait | bool
           - role_contract_platform_wait[0]['kubernetes.core.k8s_info'].wait_condition.type is defined
           - role_contract_platform_wait[0]['kubernetes.core.k8s_info'].wait_timeout is defined
+          - role_contract_platform_wait[0]['kubernetes.core.k8s_info'].wait_sleep is defined
+          - role_contract_platform_wait[0].until is not defined
           - role_contract_platform_wait[0].failed_when is not defined
           - role_contract_platform_destroy[0]['kubernetes.core.k8s'].state == 'absent'
           - role_contract_platform_destroy[0]['kubernetes.core.k8s'].wait | bool
@@ -153,8 +173,9 @@
         that:
           - role_contract_restore[-1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.include_tasks') | map(attribute='value') | list == ['execute_prepare_app.yml', 'execute_restore_app.yml', 'execute_resume_app.yml']
           - role_contract_restore[-1].rescue | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.fail') | list | length == 1
-          - role_contract_restore[-1].rescue | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.include_tasks') | list | length == 0
-          - role_contract_restore[-1].always | default([]) | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.include_tasks') | list | length == 0
+          - role_contract_restore[-1].rescue | length == 1
+          - role_contract_restore[-1].rescue[0].keys() | difference(['name', 'ansible.builtin.fail', 'ansible.builtin.debug']) | length == 0
+          - role_contract_restore[-1].always | default([]) | length == 0
           - role_contract_restore[1]['kubernetes.core.k8s'].state == 'absent'
           - role_contract_restore[1]['kubernetes.core.k8s'].wait | bool
           - "role_contract_restore[2]['kubernetes.core.k8s_info'].label_selectors | length == 1"
@@ -178,6 +199,15 @@
           - role_contract_restore[-1].block[-1]['kubernetes.core.k8s'].wait | bool
           - role_contract_restore[-1].block[-1].failed_when is not defined
 
+    - name: Keep each restore phase on the recorded plan
+      ansible.builtin.assert:
+        that:
+          - item.loop is match('^[{][{] restic_restore_plan [}][}]$')
+          - item.loop_control.loop_var == 'restic_restore_app_plan'
+      loop: "{{ role_contract_restore[-1].block[7:10] }}"
+      loop_control:
+        label: "{{ item.name }}"
+
     - name: Validate restore delete guards and original state restoration
       ansible.builtin.assert:
         that:
@@ -185,11 +215,33 @@
           - role_contract_prepare[1]['kubernetes.core.k8s_scale'].replicas == 0
           - role_contract_prepare[1]['kubernetes.core.k8s_scale'].wait | bool
           - role_contract_prepare[2].loop == role_contract_prepare[3].loop
-          - "role_contract_prepare[3]['kubernetes.core.k8s_exec'].command is search('find')"
-          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('restic.*restore')"
+          - role_contract_prepare[2].loop is match('^[{][{] restic_restore_app_plan.restore_paths [}][}]$')
+          - role_contract_prepare[3].loop is match('^[{][{] restic_restore_app_plan.restore_paths [}][}]$')
+          - "role_contract_prepare[3]['kubernetes.core.k8s_exec'].command is search('^sh -ceu')"
+          - "role_contract_prepare[3]['kubernetes.core.k8s_exec'].command is search('find .* -mindepth 1 -maxdepth 1 -exec rm -rf -- [{][}] [+];')"
+          - "role_contract_prepare[3]['kubernetes.core.k8s_exec'].command is search('mkdir -p')"
+          - "role_contract_prepare[3]['kubernetes.core.k8s_exec'].command is not search('rm -rf --? [^ ]*item')"
+          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('--host [{][{] restic_restore_snapshot_host [}][}]')"
+          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('--tag [{][{] restic_restore_snapshot_tag [}][}]')"
+          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('--path [{][{] restic_restore_snapshot_path [}][}]')"
           - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('restic_restore_app_plan.pvc_paths')"
-          - "role_contract_resume[0]['kubernetes.core.k8s_scale'].replicas is search('item.replicas')"
+          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('--target [{][{] restic_restore_target_root [}][}]')"
+          - role_contract_prepare[1].loop is match('^[{][{] restic_restore_app_plan.workloads [}][}]$')
+          - role_contract_resume[0].loop is match('^[{][{] restic_restore_app_plan.workloads [}][}]$')
+          - role_contract_resume[0]['kubernetes.core.k8s_scale'].wait | bool
+          - role_contract_resume[0]['kubernetes.core.k8s_scale'].replicas is match('^[{][{] item.replicas [}][}]$')
           - "role_contract_resume[1]['kubernetes.core.k8s'].definition.spec.syncPolicy is search('restic_restore_app_plan.sync_policy')"
+
+    - name: Keep workload scaling on the recorded identity
+      ansible.builtin.assert:
+        that:
+          - item.args.api_version is match('^[{][{] item.api_version [}][}]$')
+          - item.args.kind is match('^[{][{] item.kind [}][}]$')
+          - item.args.namespace is match('^[{][{] item.namespace [}][}]$')
+          - item.args.name is match('^[{][{] item.name [}][}]$')
+      loop:
+        - args: "{{ role_contract_prepare[1]['kubernetes.core.k8s_scale'] }}"
+        - args: "{{ role_contract_resume[0]['kubernetes.core.k8s_scale'] }}"
 
     - name: Validate restore path guard against unsafe roots
       ansible.builtin.assert:
@@ -205,6 +257,103 @@
       vars:
         role_contract_delete_rule: "{{ role_contract_prepare[2]['ansible.builtin.assert'].that[0] }}"
         role_contract_delete_pattern: '{{ role_contract_delete_rule.split("''")[1] }}'
+
+    - name: Create isolated role assertion fixtures
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: role-contracts
+      register: role_contract_fixture
+
+    - name: Exercise role assertions with inert credentials and check mode
+      block:
+        - name: Write Talos guard fixture
+          ansible.builtin.template:
+            src: ../validation/talos-guards.yml.j2
+            dest: "{{ role_contract_fixture.path }}/talos-guards.yml"
+            mode: "0600"
+
+        - name: Require Talos guards to allow normal mode and reject check mode
+          ansible.builtin.command:
+            argv: >-
+              {{ [role_contract_root ~ '/.venv/bin/ansible-playbook', role_contract_fixture.path ~ '/talos-guards.yml']
+                 + (['--check'] if item else []) }}
+            chdir: "{{ role_contract_root }}"
+          loop:
+            - false
+            - true
+          changed_when: false
+
+        - name: Write Talos cleanup fixture
+          ansible.builtin.template:
+            src: ../validation/talos-cleanup.yml.j2
+            dest: "{{ role_contract_fixture.path }}/talos-cleanup.yml"
+            mode: "0600"
+
+        - name: Verify Talos cleanup paths and missing registrations
+          ansible.builtin.command:
+            argv:
+              - "{{ role_contract_root }}/.venv/bin/ansible-playbook"
+              - "{{ role_contract_fixture.path }}/talos-cleanup.yml"
+            chdir: "{{ role_contract_root }}"
+          changed_when: false
+
+        - name: Write Terraform credential fixtures
+          ansible.builtin.template:
+            src: ../validation/terraform-credentials.yml.j2
+            dest: "{{ role_contract_fixture.path }}/tofu-{{ item.name }}.yml"
+            mode: "0600"
+          loop:
+            - {name: plan, tasks: "{{ role_contract_tofu_plan }}"}
+            - {name: apply, tasks: "{{ role_contract_tofu_apply }}"}
+          vars:
+            role_contract_tofu_tasks: "{{ item.tasks }}"
+
+        - name: Exercise Terraform credentials and reject each empty input
+          ansible.builtin.command:
+            argv:
+              - "{{ role_contract_root }}/.venv/bin/ansible-playbook"
+              - "{{ role_contract_fixture.path }}/tofu-{{ item.0 }}.yml"
+              - -e
+              - "tofu_aws_access_key_id={{ item.1.aws }}"
+              - -e
+              - "tofu_aws_secret_access_key={{ item.1.secret }}"
+              - -e
+              - "tofu_bws_access_token={{ item.1.bws }}"
+            chdir: "{{ role_contract_root }}"
+          loop: "{{ ['plan', 'apply'] | product(role_contract_credential_cases) | list }}"
+          vars:
+            role_contract_credential_cases:
+              - {aws: fixture-key, secret: fixture-secret, bws: fixture-token, reject: false}
+              - {aws: "", secret: fixture-secret, bws: fixture-token, reject: true}
+              - {aws: fixture-key, secret: "", bws: fixture-token, reject: true}
+              - {aws: fixture-key, secret: fixture-secret, bws: "", reject: true}
+          register: role_contract_credential_result
+          failed_when: >-
+            (role_contract_credential_result.rc == 0) == item.1.reject
+          changed_when: false
+          loop_control:
+            label: "{{ item.0 }} missing={{ 'aws' if not item.1.aws else 'secret' if not item.1.secret else 'bws' if not item.1.bws else 'none' }}"
+
+        - name: Write Bitwarden credential fixture
+          ansible.builtin.template:
+            src: ../validation/bitwarden-credential.yml.j2
+            dest: "{{ role_contract_fixture.path }}/bitwarden-credential.yml"
+            mode: "0600"
+          vars:
+            role_contract_external_secret: "{{ role_contract_documents['platform/tasks/external_secrets.yml'][0] }}"
+
+        - name: Verify Bitwarden Secret receives the protected token
+          ansible.builtin.command:
+            argv:
+              - "{{ role_contract_root }}/.venv/bin/ansible-playbook"
+              - "{{ role_contract_fixture.path }}/bitwarden-credential.yml"
+            chdir: "{{ role_contract_root }}"
+          changed_when: false
+      always:
+        - name: Remove role assertion fixtures
+          ansible.builtin.file:
+            path: "{{ role_contract_fixture.path }}"
+            state: absent
 
     - name: Read encrypted Talos secrets without decrypting
       ansible.builtin.slurp:

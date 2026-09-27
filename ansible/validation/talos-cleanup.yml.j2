@@ -1,0 +1,37 @@
+---
+- name: Validate registered Talos cleanup paths
+  hosts: localhost
+  gather_facts: false
+  vars:
+    talos_generate_secrets_temp: {path: /tmp/fixture-secrets}
+    talos_generate_output: {path: /tmp/fixture-output}
+    role_contract_secrets_path: {{ role_contract_talos_generate[1].always[0]['ansible.builtin.file'].path | to_json }}
+    role_contract_output_path: {{ role_contract_talos_generate[1].always[1]['ansible.builtin.file'].path | to_json }}
+  tasks:
+    - name: Keep cleanup on registered paths
+      ansible.builtin.assert:
+        that:
+          - role_contract_secrets_path == talos_generate_secrets_temp.path
+          - role_contract_output_path == talos_generate_output.path
+
+- name: Validate cleanup skips absent registrations
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Probe missing secrets registration
+      ansible.builtin.debug:
+        msg: should be skipped
+      when: {{ role_contract_talos_generate[1].always[0].when | to_json }}
+      register: role_contract_secrets_probe
+
+    - name: Probe missing output registration
+      ansible.builtin.debug:
+        msg: should be skipped
+      when: {{ role_contract_talos_generate[1].always[1].when | to_json }}
+      register: role_contract_output_probe
+
+    - name: Require missing registrations to skip cleanup
+      ansible.builtin.assert:
+        that:
+          - role_contract_secrets_probe.skipped | bool
+          - role_contract_output_probe.skipped | bool
