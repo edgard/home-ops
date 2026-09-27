@@ -1,0 +1,10 @@
+{%- macro flatten(tasks, protected=false, guards=[]) -%}
+{%- for task in tasks -%}
+{{- {'source': validation_source, 'task': task, 'protected': task.get('no_log', protected), 'guards': guards + ([task.when] if task.when is defined else [])} | to_json -}}
+{{- '\n' -}}
+{{- flatten(task.get('block', []), task.get('no_log', protected), guards + ([task.when] if task.when is defined else [])) -}}
+{{- flatten(task.get('rescue', []), task.get('no_log', protected), guards + ([task.when] if task.when is defined else [])) -}}
+{{- flatten(task.get('always', []), task.get('no_log', protected), guards + ([task.when] if task.when is defined else [])) -}}
+{%- endfor -%}
+{%- endmacro -%}
+{{- flatten(validation_tasks) -}}

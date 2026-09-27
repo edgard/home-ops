@@ -1,0 +1,97 @@
+{%- set result = namespace(apps=[], manifests=[]) -%}
+{%- for app_dir in validation_app_dirs -%}
+  {%- set app_file = app_dir ~ '/app.yaml' -%}
+  {%- set values_file = app_dir ~ '/values.yaml' -%}
+  {%- set app = (lookup('ansible.builtin.file', app_file) | from_yaml) if app_file is file else {} -%}
+  {%- set values = (lookup('ansible.builtin.file', values_file) | from_yaml) if values_file is file else {} -%}
+  {%- set chart = app.get('chart', {}) -%}
+  {%- set app_name = app_dir | basename -%}
+  {%- set category = app_dir | dirname | basename -%}
+  {%- set ignore = app.get('ignoreDifferences', []) -%}
+  {%- set ignore_items = [] -%}
+  {%- if ignore is sequence and ignore is not string -%}
+    {%- for entry in ignore -%}
+      {%- set _ = ignore_items.append({'index': loop.index0, 'has_group': 'group' in entry, 'has_kind': 'kind' in entry}) -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {%- set sc = values.get('defaultPodOptions', {}).get('securityContext', {}) -%}
+  {%- set sc_strings = {} -%}
+  {%- for key in ['fsGroup', 'fsGroupChangePolicy', 'runAsGroup', 'runAsNonRoot', 'runAsUser'] -%}
+    {%- set value = sc.get(key, '') -%}
+    {%- set _ = sc_strings.update({key: (value | string | lower) if value is boolean else (value | string)}) -%}
+  {%- endfor -%}
+  {%- set persistence = values.get('persistence', {}) -%}
+  {%- set shared_media = namespace(found=false) -%}
+  {%- if persistence is mapping -%}
+    {%- for claim in persistence.values() -%}
+      {%- if claim is mapping and claim.get('existingClaim') == 'media' -%}
+        {%- set shared_media.found = true -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {%- set route_main = values.get('route', {}).get('main', {}) -%}
+  {%- set backend_identifiers = [] -%}
+  {%- for rule in route_main.get('rules', []) -%}
+    {%- for backend in rule.get('backendRefs', []) -%}
+      {%- set _ = backend_identifiers.append(backend.get('identifier', '')) -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {%- set raw_routes = [] -%}
+  {%- for path in validation_manifest_files -%}
+    {%- if path.startswith(app_dir ~ '/manifests/') and path.endswith('.httproute.yaml') -%}
+      {%- set _ = raw_routes.append(path) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- set app_record = {
+    'path': app_dir,
+    'category': category,
+    'app_name': app_name,
+    'generated_name': category ~ '-' ~ app_name,
+    'app_file': app_file,
+    'values_file': values_file,
+    'has_app_file': app_file is file,
+    'has_values_file': values_file is file,
+    'has_nonempty_values_file': (values_file is file and (lookup('ansible.builtin.file', values_file) | length > 0)),
+    'chart_repo': chart.get('repo', '') | string,
+    'chart_version': chart.get('version', '') | string,
+    'chart_name': chart.get('name', '') | string,
+    'sync_wave': app.get('sync', {}).get('wave', '') | string,
+    'has_ignore_differences': 'ignoreDifferences' in app,
+    'ignore_differences_type': '!!seq' if ignore is sequence and ignore is not string else '!!map',
+    'ignore_differences': ignore_items,
+    'values_top_level_keys': values.keys() | list,
+    'controller_keys': values.get('controllers', {}).keys() | list,
+    'service_keys': values.get('service', {}).keys() | list,
+    'route_keys': values.get('route', {}).keys() | list,
+    'default_pod_security_context': sc_strings,
+    'uses_shared_media_claim': shared_media.found,
+    'service_main_controller': values.get('service', {}).get('main', {}).get('controller', '') | string,
+    'route_main_hostnames': route_main.get('hostnames', []),
+    'route_main_backend_identifiers': backend_identifiers,
+    'raw_httproute_manifest_paths': raw_routes
+  } -%}
+  {%- set _ = result.apps.append(app_record) -%}
+{%- endfor -%}
+{%- for path in validation_manifest_files -%}
+  {%- set raw = lookup('ansible.builtin.file', path) -%}
+  {%- set metadata = raw | regex_search('(?ms)^metadata:\n(.*?)(?=^[^ \t\r\n]|\Z)') | default('', true) -%}
+  {%- set _ = result.manifests.append({
+    'path': path,
+    'relative_path': path[validation_repo_root | length + 1:],
+    'basename': path | basename,
+    'top_level_keys': raw | regex_findall('(?m)^([A-Za-z0-9_-]+):'),
+    'metadata_keys': metadata | regex_findall('(?m)^  ([A-Za-z0-9_-]+):')
+  }) -%}
+{%- endfor -%}
+{%- set gateway_dir = validation_repo_root ~ '/apps/platform-system/istio/manifests' -%}
+{%- set gateway = lookup('ansible.builtin.file', gateway_dir ~ '/istio-gateway.gateway.yaml') | from_yaml -%}
+{%- set gateway_params = lookup('ansible.builtin.file', gateway_dir ~ '/istio-gateway-parameters.configmap.yaml') | from_yaml -%}
+{%- set gateway_deployment = gateway_params.data.deployment | from_yaml -%}
+{%- set gateway_networks = gateway_deployment.spec.template.metadata.annotations['k8s.v1.cni.cncf.io/networks'] | from_json -%}
+{%- set lan_cidrs = [] -%}
+{%- for network in gateway_networks -%}
+  {%- if network.name == 'multus-lan-bridge' and network.namespace == 'kube-system' -%}
+    {%- set _ = lan_cidrs.extend(network.ips) -%}
+  {%- endif -%}
+{%- endfor -%}
+{{- {'apps': result.apps, 'manifests': result.manifests, 'gateway': {'dns_target': gateway.metadata.annotations['external-dns.kubernetes.io/target'], 'lan_cidrs': lan_cidrs}} | to_json -}}

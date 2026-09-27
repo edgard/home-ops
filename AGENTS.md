@@ -9,7 +9,7 @@ Gatus • Helm • Ansible • Terraform
 - Format: `task fmt`
 - Format check: `task fmt:check`
 - Dependencies: `task deps` installs pinned Python dependencies and Ansible collections in `.venv`
-- Lint: `task lint` (offline validation: formatting, shellcheck, yamllint, GitHub Actions workflow lint, Ansible lint/contracts/integration tests, metadata policy, raw and rendered manifest policy/schema/deprecation checks, `tofu validate`)
+- Lint: `task lint` (offline validation: formatting, yamllint, GitHub Actions workflow lint, Ansible lint/contracts/integration tests, metadata policy, raw and rendered manifest policy/schema/deprecation checks, `tofu validate`)
 - Focused checks: `task lint:static`, `task lint:workflows`, `task lint:ansible`, `task lint:kubernetes`, `task lint:terraform`
 - Policy layers:
   - `policy/metadata/` validates app metadata structure and required sync waves
@@ -73,7 +73,7 @@ controllers:
 ### Monitoring
 - Gatus is the only uptime checker and Telegram alert engine. Its 18 routed app,
   3 DNS, and 6 ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
-- The parsed route coverage check in `scripts/check_uptime.py` runs during
+- The parsed route coverage check in `ansible/validation/check-uptime.yml` runs during
   `task lint:kubernetes`. Keep Plex `/identity` and CrossWatch `/healthz` checks.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
   annotations to routed apps; Gatus does not use route discovery.
@@ -107,14 +107,14 @@ Store: `external-secrets-store`
   - CI runs the focused targets as separate pull-request jobs and uses `Quality Gate` as the required aggregate check
   - Prefer policy or lint checks when the assertion is about repository content
   - Assert operational invariants and cross-file relationships, not duplicated dependency versions, task names, comments, dashboard prose, or exact equivalent query strings
-  - `scripts/check_ansible_contracts.py` checks parsed safety logic; `scripts/check_uptime.py` compares Gatus app checks with rendered routes
+  - `ansible/tests/role-contracts.yml` checks parsed safety logic; `ansible/validation/check-uptime.yml` compares Gatus targets with rendered routes
 - Metadata policy lives under `policy/metadata/` and is enforced via Conftest
 - Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
 - `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`
 - Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
-- Validation script:
-  - `scripts/validate-kubernetes.sh` runs source, metadata, raw manifest, rendered manifest, schema, and deprecation checks
-  - `scripts/validate-kubernetes.sh` resolves the Kubernetes target version from Tuppr, builds the Conftest metadata inventory, caches chart pulls for the current validation run, and batches rendered output into a temp tree so policy, schema, and deprecation checks each run once across the rendered set
+- Kubernetes validation playbook:
+  - `ansible/playbooks/validate-kubernetes.yml` runs source, metadata, raw manifest, rendered manifest, schema, and deprecation checks
+  - The playbook resolves the Kubernetes target version from Tuppr, builds the Conftest inventory, caches chart pulls for the current run, and validates rendered output in a temporary tree
 - Ansible roles:
   - Role-owned defaults live in `ansible/roles/*/defaults/main.yml`; inventory vars stay limited to local/site inputs.
   - Kubernetes operations use `kubernetes.core` modules with `kube_context`; avoid adding `kubectl` tasks.

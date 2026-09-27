@@ -1,0 +1,237 @@
+---
+- name: Validate Kubernetes source and rendered applications
+  hosts: localhost
+  gather_facts: false
+  vars:
+    validation_repo_root: "{{ playbook_dir | dirname | dirname }}"
+    validation_apps_root: "{{ validation_repo_root }}/apps"
+    validation_schema_catalog: https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/
+  tasks:
+    - name: Read Kubernetes target version
+      ansible.builtin.set_fact:
+        validation_k8s_version: >-
+          {{ (lookup('ansible.builtin.file', validation_apps_root ~ '/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml') | from_yaml).spec.kubernetes.version }}
+
+    - name: Require Kubernetes target version
+      ansible.builtin.assert:
+        that: validation_k8s_version | length > 0
+
+    - name: Find application directories
+      ansible.builtin.find:
+        paths: "{{ validation_apps_root }}"
+        recurse: true
+        depth: 2
+        file_type: directory
+      register: validation_found_app_dirs
+
+    - name: Find application source manifests
+      ansible.builtin.find:
+        paths: "{{ validation_apps_root }}"
+        recurse: true
+        patterns: "*.yaml"
+        file_type: file
+      register: validation_found_app_yaml
+
+    - name: Find Argo CD source manifests
+      ansible.builtin.find:
+        paths: "{{ validation_repo_root }}/argocd"
+        recurse: true
+        patterns: "*.yaml"
+        file_type: file
+      register: validation_found_argocd_yaml
+
+    - name: Build source path lists
+      ansible.builtin.set_fact:
+        validation_app_dirs: >-
+          {{ validation_found_app_dirs.files | map(attribute='path')
+             | select('match', '^' ~ validation_apps_root ~ '/[^/]+/[^/]+$') | sort | list }}
+        validation_manifest_files: >-
+          {{ (validation_found_app_yaml.files | map(attribute='path')
+              | select('search', '/manifests/[^/]+\.yaml$') | list)
+             + (validation_found_argocd_yaml.files | map(attribute='path') | list) | sort }}
+
+    - name: Require application discovery
+      ansible.builtin.assert:
+        that:
+          - validation_app_dirs | length > 0
+          - validation_manifest_files | length > 0
+          - >-
+            validation_manifest_files | select('search', '/apps/') | list | length
+            == validation_found_app_yaml.files | selectattr('path', 'search', '/manifests/') | list | length
+
+    - name: Create temporary validation workspace
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: homeops-validation
+      register: validation_workdir
+
+    - name: Validate repository
+      block:
+        - name: Build metadata and source policy inventory
+          ansible.builtin.template:
+            src: ../validation/inventory.json.j2
+            dest: "{{ validation_workdir.path }}/inventory.json"
+            mode: "0600"
+
+        - name: Validate metadata and source policies
+          ansible.builtin.command:
+            argv:
+              - conftest
+              - test
+              - --no-color
+              - --policy
+              - "{{ validation_repo_root }}/policy/{{ item }}"
+              - "{{ validation_workdir.path }}/inventory.json"
+          loop:
+            - metadata
+            - source
+          changed_when: false
+
+        - name: Verify policy regression tests
+          ansible.builtin.command:
+            argv:
+              - conftest
+              - verify
+              - --no-color
+              - --policy
+              - "{{ validation_repo_root }}/policy/{{ item }}"
+          loop:
+            - metadata
+            - source
+            - kubernetes
+          changed_when: false
+
+        - name: Set raw validation paths
+          ansible.builtin.set_fact:
+            validation_raw_paths: >-
+              {{ ([validation_repo_root ~ '/argocd']
+                  + (validation_manifest_files | select('search', '/apps/') | map('dirname') | unique | list)) | sort }}
+            validation_rendered_paths: []
+            validation_helm_env:
+              HELM_CONFIG_HOME: "{{ validation_workdir.path }}/helm/config"
+              HELM_CACHE_HOME: "{{ validation_workdir.path }}/helm/cache"
+              HELM_DATA_HOME: "{{ validation_workdir.path }}/helm/data"
+              HELM_REPOSITORY_CONFIG: "{{ validation_workdir.path }}/helm/config/repositories.yaml"
+              HELM_REPOSITORY_CACHE: "{{ validation_workdir.path }}/helm/cache/repository"
+              HELM_REGISTRY_CONFIG: "{{ validation_workdir.path }}/helm/config/registry/config.json"
+              HELM_CONTENT_CACHE: "{{ validation_workdir.path }}/helm/cache/content"
+
+        - name: Create temporary tool directories
+          ansible.builtin.file:
+            path: "{{ validation_workdir.path }}/{{ item }}"
+            state: directory
+            mode: "0700"
+          loop:
+            - helm/config/registry
+            - helm/cache/content
+            - helm/cache/repository
+            - helm/data
+            - charts
+            - rendered
+            - schemas
+
+        - name: Validate raw manifest policy
+          ansible.builtin.command:
+            argv: "{{ ['conftest', 'test', '--no-color', '--policy', validation_repo_root ~ '/policy/kubernetes'] + validation_raw_paths }}"
+          changed_when: false
+
+        - name: Parse local Gateway API CRD schemas
+          ansible.builtin.set_fact:
+            validation_gateway_crds: >-
+              {{ lookup('ansible.builtin.file', validation_apps_root ~ '/platform-system/gateway-api/manifests/gateway-api-crds.yaml')
+                 | from_yaml_all | selectattr('kind', 'defined')
+                 | selectattr('kind', 'equalto', 'CustomResourceDefinition') | list }}
+
+        - name: Create local schema group directories
+          ansible.builtin.file:
+            path: "{{ validation_workdir.path }}/schemas/{{ item }}"
+            state: directory
+            mode: "0700"
+          loop: "{{ validation_gateway_crds | map(attribute='spec.group') | unique | list }}"
+
+        - name: Export served Gateway API schemas
+          ansible.builtin.copy:
+            dest: >-
+              {{ validation_workdir.path }}/schemas/{{ item.0.spec.group }}/{{ item.0.spec.names.kind | lower }}_{{ item.1.name }}.json
+            content: "{{ item.1.schema.openAPIV3Schema | to_json }}"
+            mode: "0600"
+          loop: "{{ validation_gateway_crds | subelements('spec.versions') }}"
+          loop_control:
+            label: "{{ item.0.metadata.name }} {{ item.1.name }}"
+          when:
+            - item.1.served | bool
+            - item.1.schema.openAPIV3Schema is defined
+
+        - name: Validate raw manifest schemas
+          ansible.builtin.command:
+            argv: >-
+              {{ ['kubeconform', '-kubernetes-version', validation_k8s_version | regex_replace('^v', ''),
+                  '-schema-location', validation_workdir.path ~ '/schemas/' ~ '{' ~ '{' ~ '.Group' ~ '}' ~ '}' ~ '/' ~ '{' ~ '{' ~ '.ResourceKind' ~ '}' ~ '}' ~ '_' ~ '{' ~ '{' ~ '.ResourceAPIVersion' ~ '}' ~ '}' ~ '.json',
+                  '-schema-location', 'default',
+                  '-schema-location', validation_schema_catalog ~ '{' ~ '{' ~ '.Group' ~ '}' ~ '}' ~ '/' ~ '{' ~ '{' ~ '.ResourceKind' ~ '}' ~ '}' ~ '_' ~ '{' ~ '{' ~ '.ResourceAPIVersion' ~ '}' ~ '}' ~ '.json',
+                  '-skip', 'CustomResourceDefinition,renovate-operator.mogenius.com/v1alpha1/RenovateJob']
+                 + validation_raw_paths }}
+          changed_when: false
+
+        - name: Validate raw manifest deprecations
+          ansible.builtin.command:
+            argv:
+              - pluto
+              - detect-files
+              - -d
+              - "{{ item }}"
+              - --target-versions
+              - "k8s={{ validation_k8s_version }}"
+              - -o
+              - wide
+          loop: "{{ validation_raw_paths }}"
+          changed_when: false
+
+        - name: Render all declared Helm applications
+          ansible.builtin.include_tasks: ../validation/render-app.yml
+          loop: "{{ (lookup('ansible.builtin.file', validation_workdir.path ~ '/inventory.json') | from_json).apps }}"
+          loop_control:
+            loop_var: validation_app
+            label: "{{ validation_app.category }}/{{ validation_app.app_name }}"
+          when:
+            - validation_app.has_app_file
+            - validation_app.has_values_file
+
+        - name: Validate Gatus route coverage
+          ansible.builtin.include_tasks: ../validation/check-uptime.yml
+          vars:
+            validation_rendered_root: "{{ validation_workdir.path }}/rendered"
+
+        - name: Validate rendered manifest policy
+          ansible.builtin.command:
+            argv: "{{ ['conftest', 'test', '--no-color', '--parser', 'yaml', '--policy', validation_repo_root ~ '/policy/kubernetes'] + validation_rendered_paths }}"
+          changed_when: false
+
+        - name: Validate rendered manifest schemas
+          ansible.builtin.command:
+            argv: >-
+              {{ ['kubeconform', '-kubernetes-version', validation_k8s_version | regex_replace('^v', ''),
+                  '-schema-location', validation_workdir.path ~ '/schemas/' ~ '{' ~ '{' ~ '.Group' ~ '}' ~ '}' ~ '/' ~ '{' ~ '{' ~ '.ResourceKind' ~ '}' ~ '}' ~ '_' ~ '{' ~ '{' ~ '.ResourceAPIVersion' ~ '}' ~ '}' ~ '.json',
+                  '-schema-location', 'default',
+                  '-schema-location', validation_schema_catalog ~ '{' ~ '{' ~ '.Group' ~ '}' ~ '}' ~ '/' ~ '{' ~ '{' ~ '.ResourceKind' ~ '}' ~ '}' ~ '_' ~ '{' ~ '{' ~ '.ResourceAPIVersion' ~ '}' ~ '}' ~ '.json',
+                  '-skip', 'CustomResourceDefinition']
+                 + validation_rendered_paths }}
+          changed_when: false
+
+        - name: Validate rendered manifest deprecations
+          ansible.builtin.command:
+            argv:
+              - pluto
+              - detect-files
+              - -d
+              - "{{ validation_workdir.path }}/rendered"
+              - --target-versions
+              - "k8s={{ validation_k8s_version }}"
+              - -o
+              - wide
+          changed_when: false
+      always:
+        - name: Remove temporary validation workspace
+          ansible.builtin.file:
+            path: "{{ validation_workdir.path }}"
+            state: absent

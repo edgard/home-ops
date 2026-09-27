@@ -30,7 +30,7 @@ runs:
         max-retries: 5
 
     - name: Set Up Python
-      if: ${{ inputs.profile == 'ansible' }}
+      if: ${{ inputs.profile == 'ansible' || inputs.profile == 'kubernetes' }}
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: "3.14"
@@ -58,13 +58,6 @@ runs:
         tofu_version: 1.12.6
         tofu_wrapper: false
 
-    - name: Set Up yq
-      if: ${{ inputs.profile == 'kubernetes' }}
-      uses: dcarbone/install-yq-action@4075b4dca348d74bd83f2bf82d30f25d7c54539b # v1.3.1
-      with:
-        # renovate: datasource=github-tags depName=mikefarah/yq
-        version: v4.53.6
-
     - name: Set Up pluto
       if: ${{ inputs.profile == 'kubernetes' }}
       uses: FairwindsOps/pluto/github-action@ac2c42d55d5ff46a1af0f4b15faf3555119eea23 # v5.24.4
@@ -91,7 +84,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y shellcheck yamllint
+        sudo apt-get install -y yamllint
 
     - name: Install Prettier
       if: ${{ inputs.profile == 'format' }}

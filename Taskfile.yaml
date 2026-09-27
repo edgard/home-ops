@@ -105,10 +105,9 @@ tasks:
       - task: lint:terraform
 
   lint:static:
-    desc: Run static shell and YAML checks
+    desc: Run static YAML checks
     dir: "{{.TASKFILE_DIR}}"
     cmds:
-      - shellcheck --severity=warning scripts/*.sh
       - yamllint -c .yamllint .
 
   lint:workflows:
@@ -124,15 +123,15 @@ tasks:
       - task: ansible:check
     cmds:
       - '"{{.ANSIBLE_LINT}}" ansible'
-      - '"{{.VENV_PYTHON}}" -m unittest discover -s scripts/tests'
-      - '"{{.VENV_PYTHON}}" scripts/check_ansible_contracts.py'
       - for test in ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" "$test"; done
 
   lint:kubernetes:
     desc: Run Kubernetes source, policy, schema, and deprecation checks
     dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
     cmds:
-      - '"{{.TASKFILE_DIR}}/scripts/validate-kubernetes.sh"'
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/validate-kubernetes.yml'
 
   lint:terraform:
     desc: Run backendless OpenTofu validation
