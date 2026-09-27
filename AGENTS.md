@@ -73,7 +73,7 @@ controllers:
 ### Monitoring
 - Gatus is the only uptime checker and Telegram alert engine. Its 18 routed app,
   3 DNS, and 6 ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
-- The parsed route coverage check in `ansible/validation/check-uptime.yml` runs during
+- The parsed route coverage check in `ansible/playbooks/tasks/check-uptime.yml` runs during
   `task lint:kubernetes`. Keep Plex `/identity` and CrossWatch `/healthz` checks.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
   annotations to routed apps; Gatus does not use route discovery.
@@ -107,7 +107,7 @@ Store: `external-secrets-store`
   - CI runs the focused targets as separate pull-request jobs and uses `Quality Gate` as the required aggregate check
   - Prefer policy or lint checks when the assertion is about repository content
   - Assert operational invariants and cross-file relationships, not duplicated dependency versions, task names, comments, dashboard prose, or exact equivalent query strings
-  - `ansible/tests/role-contracts.yml` checks parsed safety logic; `ansible/validation/check-uptime.yml` compares Gatus targets with rendered routes
+  - `ansible/tests/role-contracts.yml` checks parsed safety logic; `ansible/playbooks/tasks/check-uptime.yml` compares Gatus targets with rendered routes
 - Metadata policy lives under `policy/metadata/` and is enforced via Conftest
 - Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
 - `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`

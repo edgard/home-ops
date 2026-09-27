@@ -31,7 +31,7 @@
       ansible.builtin.set_fact:
         role_contract_flat: >-
           {{ role_contract_flat | default([]) +
-             (lookup('ansible.builtin.template', '../validation/flatten-tasks.j2').splitlines()
+             (lookup('ansible.builtin.template', 'templates/flatten-tasks.j2').splitlines()
               | reject('equalto', '') | map('from_json') | list) }}
       vars:
         validation_tasks: "{{ item.value }}"
@@ -268,7 +268,7 @@
       block:
         - name: Write Talos guard fixture
           ansible.builtin.template:
-            src: ../validation/talos-guards.yml.j2
+            src: templates/talos-guards.yml.j2
             dest: "{{ role_contract_fixture.path }}/talos-guards.yml"
             mode: "0600"
 
@@ -285,7 +285,7 @@
 
         - name: Write Talos cleanup fixture
           ansible.builtin.template:
-            src: ../validation/talos-cleanup.yml.j2
+            src: templates/talos-cleanup.yml.j2
             dest: "{{ role_contract_fixture.path }}/talos-cleanup.yml"
             mode: "0600"
 
@@ -299,7 +299,7 @@
 
         - name: Write Terraform credential fixtures
           ansible.builtin.template:
-            src: ../validation/terraform-credentials.yml.j2
+            src: templates/terraform-credentials.yml.j2
             dest: "{{ role_contract_fixture.path }}/tofu-{{ item.name }}.yml"
             mode: "0600"
           loop:
@@ -336,7 +336,7 @@
 
         - name: Write Bitwarden credential fixture
           ansible.builtin.template:
-            src: ../validation/bitwarden-credential.yml.j2
+            src: templates/bitwarden-credential.yml.j2
             dest: "{{ role_contract_fixture.path }}/bitwarden-credential.yml"
             mode: "0600"
           vars:

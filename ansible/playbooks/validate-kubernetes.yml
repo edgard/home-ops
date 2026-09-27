@@ -69,7 +69,7 @@
       block:
         - name: Build metadata and source policy inventory
           ansible.builtin.template:
-            src: ../validation/inventory.json.j2
+            src: templates/inventory.json.j2
             dest: "{{ validation_workdir.path }}/inventory.json"
             mode: "0600"
 
@@ -188,7 +188,7 @@
           changed_when: false
 
         - name: Render all declared Helm applications
-          ansible.builtin.include_tasks: ../validation/render-app.yml
+          ansible.builtin.include_tasks: tasks/render-app.yml
           loop: "{{ (lookup('ansible.builtin.file', validation_workdir.path ~ '/inventory.json') | from_json).apps }}"
           loop_control:
             loop_var: validation_app
@@ -198,7 +198,7 @@
             - validation_app.has_values_file
 
         - name: Validate Gatus route coverage
-          ansible.builtin.include_tasks: ../validation/check-uptime.yml
+          ansible.builtin.include_tasks: tasks/check-uptime.yml
           vars:
             validation_rendered_root: "{{ validation_workdir.path }}/rendered"
 
