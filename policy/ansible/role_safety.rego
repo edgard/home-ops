@@ -70,8 +70,23 @@ required_credential_check(checks, credential) if {
 
 deny contains msg if {
   some action in {"plan", "apply"}
+  tasks := object.get(input.documents, sprintf("tofu/tasks/%s.yml", [action]), [])
+  count(tasks) != 2
+  msg := sprintf("Terraform %s must define a credential assertion and Terraform action", [action])
+}
+
+deny contains msg if {
+  some action in {"plan", "apply"}
+  tasks := object.get(input.documents, sprintf("tofu/tasks/%s.yml", [action]), [])
+  count(tasks) >= 2
+  object.get(tasks[1], "community.general.terraform", null) == null
+  msg := sprintf("Terraform %s must invoke community.general.terraform", [action])
+}
+
+deny contains msg if {
+  some action in {"plan", "apply"}
   tasks := input.documents[sprintf("tofu/tasks/%s.yml", [action])]
-  checks := tasks[0]["ansible.builtin.assert"].that
+  checks := object.get(object.get(tasks[0], "ansible.builtin.assert", {}), "that", [])
   required := {"tofu_aws_access_key_id", "tofu_aws_secret_access_key", "tofu_bws_access_token"}
   some credential in required
   not required_credential_check(checks, credential)
@@ -81,7 +96,7 @@ deny contains msg if {
 deny contains msg if {
   some action in {"plan", "apply"}
   tasks := input.documents[sprintf("tofu/tasks/%s.yml", [action])]
-  env := tasks[1].environment
+  env := object.get(tasks[1], "environment", {})
   expected := {"AWS_ACCESS_KEY_ID": "tofu_aws_access_key_id", "AWS_SECRET_ACCESS_KEY": "tofu_aws_secret_access_key", "BWS_ACCESS_TOKEN": "tofu_bws_access_token", "BW_ACCESS_TOKEN": "tofu_bws_access_token"}
   some key, variable in expected
   object.get(env, key, "") != sprintf("{{ %s }}", [variable])

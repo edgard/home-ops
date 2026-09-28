@@ -31,3 +31,15 @@ test_missing_terraform_credential_is_denied if {
   result := deny with input as inventory
   "Terraform plan must require tofu_bws_access_token" in result
 }
+
+test_missing_terraform_action_is_denied if {
+  inventory := {"flat": [], "documents": {}}
+  result := deny with input as inventory
+  "Terraform plan must define a credential assertion and Terraform action" in result
+}
+
+test_missing_terraform_module_is_denied if {
+  inventory := {"flat": [], "documents": {"tofu/tasks/plan.yml": [{"ansible.builtin.assert": {"that": []}}, {"ansible.builtin.debug": {"msg": "fixture"}}]}}
+  result := deny with input as inventory
+  "Terraform plan must invoke community.general.terraform" in result
+}
