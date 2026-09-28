@@ -3,7 +3,6 @@
   hosts: localhost
   gather_facts: false
   vars:
-    conventions_repo_root: "{{ playbook_dir }}/../.."
     conventions_generated_files:
       - saved.tfplan
       - terraform.tfstate
@@ -18,10 +17,6 @@
       - nested/saved.tfplan
       - nested/terraform.tfstate
   tasks:
-    - name: Load OpenTofu role defaults
-      ansible.builtin.include_vars:
-        file: "{{ conventions_repo_root }}/ansible/roles/tofu/defaults/main.yml"
-
     - name: Create isolated OpenTofu cleanup fixture
       ansible.builtin.tempfile:
         state: directory
@@ -47,8 +42,9 @@
           loop: "{{ conventions_generated_files + conventions_preserved_files }}"
 
         - name: Preview real cleanup in check mode
-          ansible.builtin.include_tasks:
-            file: ../roles/tofu/tasks/clean.yml
+          ansible.builtin.include_role:
+            name: tofu
+            tasks_from: clean
             apply:
               check_mode: true
           vars:
@@ -68,7 +64,9 @@
             label: "{{ item.item }}"
 
         - name: Execute real cleanup
-          ansible.builtin.include_tasks: ../roles/tofu/tasks/clean.yml
+          ansible.builtin.include_role:
+            name: tofu
+            tasks_from: clean
           vars:
             tofu_project_path: "{{ conventions_tofu_fixture.path }}"
 

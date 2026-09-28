@@ -1,5 +1,5 @@
 ---
-repo_root: "{{ lookup('env', 'REPO_ROOT') | default(playbook_dir + '/../..', true) }}"
+repo_root: "{{ lookup('env', 'REPO_ROOT') | default(inventory_dir | dirname | dirname, true) }}"
 home_dir: "{{ lookup('env', 'HOME') }}"
 ansible_python_interpreter: "{{ lookup('env', 'ANSIBLE_PYTHON_INTERPRETER') | default(repo_root + '/.venv/bin/python', true) }}"
 kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default(home_dir + '/.kube/config', true) }}"

@@ -1,0 +1,65 @@
+---
+- name: Set chart cache paths
+  ansible.builtin.set_fact:
+    kubernetes_validation_chart_repo: "{{ kubernetes_validation_app.chart_repo }}"
+    kubernetes_validation_chart_name: "{{ kubernetes_validation_app.chart_name if kubernetes_validation_app.chart_name else kubernetes_validation_app.chart_repo.split('/')[-1] }}"
+    kubernetes_validation_chart_key: "{{ (kubernetes_validation_app.chart_repo ~ '|' ~ kubernetes_validation_app.chart_name ~ '|' ~ kubernetes_validation_app.chart_version) | hash('sha256') }}"
+
+- name: Create chart cache directory
+  ansible.builtin.file:
+    path: "{{ kubernetes_validation_workdir.path }}/charts/{{ kubernetes_validation_chart_key }}"
+    state: directory
+    mode: "0700"
+
+- name: Check chart cache
+  ansible.builtin.stat:
+    path: "{{ kubernetes_validation_workdir.path }}/charts/{{ kubernetes_validation_chart_key }}/{{ kubernetes_validation_chart_name }}"
+  register: kubernetes_validation_chart_stat
+
+- name: Pull chart once per repository and version
+  ansible.builtin.command:
+    argv: >-
+      {{ ['helm', 'pull', kubernetes_validation_chart_repo if kubernetes_validation_chart_repo.startswith('oci://') else kubernetes_validation_chart_name,
+          '--version', kubernetes_validation_app.chart_version, '--untar', '--untardir',
+          kubernetes_validation_workdir.path ~ '/charts/' ~ kubernetes_validation_chart_key]
+         + ([] if kubernetes_validation_chart_repo.startswith('oci://') else ['--repo', kubernetes_validation_chart_repo]) }}
+  environment: "{{ kubernetes_validation_helm_env }}"
+  register: kubernetes_validation_chart_pull
+  retries: 3
+  delay: 3
+  until: kubernetes_validation_chart_pull is succeeded
+  changed_when: true
+  when: not kubernetes_validation_chart_stat.stat.exists
+
+- name: Render application chart
+  ansible.builtin.command:
+    argv:
+      - helm
+      - template
+      - test
+      - "{{ kubernetes_validation_workdir.path }}/charts/{{ kubernetes_validation_chart_key }}/{{ kubernetes_validation_chart_name }}"
+      - --values
+      - "{{ kubernetes_validation_app.values_file }}"
+      - --kube-version
+      - "{{ kubernetes_validation_k8s_version | regex_replace('^v', '') }}"
+      - --api-versions
+      - gateway.networking.k8s.io/v1/HTTPRoute
+  environment: "{{ kubernetes_validation_helm_env }}"
+  register: kubernetes_validation_rendered_app
+  changed_when: false
+
+- name: Save rendered application
+  ansible.builtin.file:
+    path: "{{ kubernetes_validation_workdir.path }}/rendered/{{ kubernetes_validation_app.category }}"
+    state: directory
+    mode: "0700"
+
+- name: Write rendered application
+  ansible.builtin.copy:
+    dest: "{{ kubernetes_validation_workdir.path }}/rendered/{{ kubernetes_validation_app.category }}/{{ kubernetes_validation_app.app_name }}.yaml"
+    content: "{{ kubernetes_validation_rendered_app.stdout }}\n"
+    mode: "0600"
+
+- name: Track rendered application
+  ansible.builtin.set_fact:
+    kubernetes_validation_rendered_paths: "{{ kubernetes_validation_rendered_paths + [kubernetes_validation_workdir.path ~ '/rendered/' ~ kubernetes_validation_app.category ~ '/' ~ kubernetes_validation_app.app_name ~ '.yaml'] }}"

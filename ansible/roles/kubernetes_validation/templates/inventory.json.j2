@@ -1,5 +1,5 @@
 {%- set result = namespace(apps=[], manifests=[]) -%}
-{%- for app_dir in validation_app_dirs -%}
+{%- for app_dir in kubernetes_validation_app_dirs -%}
   {%- set app_file = app_dir ~ '/app.yaml' -%}
   {%- set values_file = app_dir ~ '/values.yaml' -%}
   {%- set app = (lookup('ansible.builtin.file', app_file) | from_yaml) if app_file is file else {} -%}
@@ -37,7 +37,7 @@
     {%- endfor -%}
   {%- endfor -%}
   {%- set raw_routes = [] -%}
-  {%- for path in validation_manifest_files -%}
+  {%- for path in kubernetes_validation_manifest_files -%}
     {%- if path.startswith(app_dir ~ '/manifests/') and path.endswith('.httproute.yaml') -%}
       {%- set _ = raw_routes.append(path) -%}
     {%- endif -%}
@@ -72,18 +72,18 @@
   } -%}
   {%- set _ = result.apps.append(app_record) -%}
 {%- endfor -%}
-{%- for path in validation_manifest_files -%}
+{%- for path in kubernetes_validation_manifest_files -%}
   {%- set raw = lookup('ansible.builtin.file', path) -%}
   {%- set metadata = raw | regex_search('(?ms)^metadata:\n(.*?)(?=^[^ \t\r\n]|\Z)') | default('', true) -%}
   {%- set _ = result.manifests.append({
     'path': path,
-    'relative_path': path[validation_repo_root | length + 1:],
+    'relative_path': path[kubernetes_validation_repo_root | length + 1:],
     'basename': path | basename,
     'top_level_keys': raw | regex_findall('(?m)^([A-Za-z0-9_-]+):'),
     'metadata_keys': metadata | regex_findall('(?m)^  ([A-Za-z0-9_-]+):')
   }) -%}
 {%- endfor -%}
-{%- set gateway_dir = validation_repo_root ~ '/apps/platform-system/istio/manifests' -%}
+{%- set gateway_dir = kubernetes_validation_repo_root ~ '/apps/platform-system/istio/manifests' -%}
 {%- set gateway = lookup('ansible.builtin.file', gateway_dir ~ '/istio-gateway.gateway.yaml') | from_yaml -%}
 {%- set gateway_params = lookup('ansible.builtin.file', gateway_dir ~ '/istio-gateway-parameters.configmap.yaml') | from_yaml -%}
 {%- set gateway_deployment = gateway_params.data.deployment | from_yaml -%}

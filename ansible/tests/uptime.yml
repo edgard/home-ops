@@ -56,10 +56,12 @@
                   - url: https://argocd.edgard.org
 
         - name: Accept covered raw and rendered routes
-          ansible.builtin.include_tasks: ../playbooks/tasks/check-uptime.yml
+          ansible.builtin.include_role:
+            name: kubernetes_validation
+            tasks_from: check-uptime
           vars:
-            validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
-            validation_apps_root: "{{ uptime_fixture.path }}/apps"
+            kubernetes_validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
+            kubernetes_validation_apps_root: "{{ uptime_fixture.path }}/apps"
 
         - name: Write uncovered Gatus fixture
           ansible.builtin.copy:
@@ -77,10 +79,12 @@
         - name: Reject missing route coverage
           block:
             - name: Run uncovered route check
-              ansible.builtin.include_tasks: ../playbooks/tasks/check-uptime.yml
+              ansible.builtin.include_role:
+                name: kubernetes_validation
+                tasks_from: check-uptime
               vars:
-                validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
-                validation_apps_root: "{{ uptime_fixture.path }}/apps"
+                kubernetes_validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
+                kubernetes_validation_apps_root: "{{ uptime_fixture.path }}/apps"
           rescue:
             - name: Record missing route rejection
               ansible.builtin.set_fact:
@@ -108,10 +112,12 @@
         - name: Reject duplicate targets
           block:
             - name: Run duplicate target check
-              ansible.builtin.include_tasks: ../playbooks/tasks/check-uptime.yml
+              ansible.builtin.include_role:
+                name: kubernetes_validation
+                tasks_from: check-uptime
               vars:
-                validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
-                validation_apps_root: "{{ uptime_fixture.path }}/apps"
+                kubernetes_validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
+                kubernetes_validation_apps_root: "{{ uptime_fixture.path }}/apps"
           rescue:
             - name: Record duplicate target rejection
               ansible.builtin.set_fact:

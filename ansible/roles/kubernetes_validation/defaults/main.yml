@@ -1,0 +1,4 @@
+---
+kubernetes_validation_repo_root: "{{ repo_root }}"
+kubernetes_validation_apps_root: "{{ kubernetes_validation_repo_root }}/apps"
+kubernetes_validation_schema_catalog: https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/
