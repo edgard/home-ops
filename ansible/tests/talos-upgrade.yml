@@ -10,7 +10,7 @@
   tasks:
     - name: Load default Talos upgrade vars
       ansible.builtin.include_vars:
-        file: "{{ talos_upgrade_repo_root }}/ansible/roles/talos/vars/main.yml"
+        file: "{{ talos_upgrade_repo_root }}/ansible/roles/talos/defaults/main.yml"
         name: talos_upgrade_defaults
 
     - name: Read Talos control plane patch

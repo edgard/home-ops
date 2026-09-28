@@ -20,7 +20,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install python helm talosctl go-task opentofu yq yamllint shellcheck prettier yamlfmt pluto kubeconform conftest actionlint
+brew install python helm talosctl go-task opentofu yamllint prettier yamlfmt pluto kubeconform conftest actionlint
 task deps                         # Install pinned validation dependencies
 
 # Set local operator inputs
@@ -74,7 +74,7 @@ task vault:edit-talos                # Edit encrypted Talos bootstrap secrets
 task deps                          # Install pinned validation dependencies
 task fmt                           # Format all code (YAML, Terraform)
 task fmt:check                     # Check formatting without modifying files
-task lint:static                   # Run shellcheck and yamllint
+task lint:static                   # Run yamllint
 task lint:workflows                # Validate GitHub Actions workflows
 task lint:ansible                  # Run Ansible lint, contract, and integration checks
 task lint:kubernetes               # Run Kubernetes source, policy, schema, and deprecation checks

@@ -1,0 +1,133 @@
+---
+- name: Validate routed application coverage
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create route fixture
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: uptime-test
+      register: uptime_fixture
+
+    - name: Exercise route coverage
+      block:
+        - name: Create fixture directories
+          ansible.builtin.file:
+            path: "{{ uptime_fixture.path }}/{{ item }}"
+            state: directory
+            mode: "0700"
+          loop:
+            - rendered
+            - apps/platform-system/gatus
+            - apps/platform-system/manual/manifests
+
+        - name: Write rendered route fixture
+          ansible.builtin.copy:
+            dest: "{{ uptime_fixture.path }}/rendered/apps.yaml"
+            mode: "0600"
+            content: |
+              ---
+              kind: HTTPRoute
+              spec:
+                hostnames: [plex.edgard.org, status.edgard.org]
+
+        - name: Write raw route fixture
+          ansible.builtin.copy:
+            dest: "{{ uptime_fixture.path }}/apps/platform-system/manual/manifests/manual.httproute.yaml"
+            mode: "0600"
+            content: |
+              ---
+              kind: HTTPRoute
+              spec:
+                hostnames: [argocd.edgard.org]
+
+        - name: Write covered Gatus fixture
+          ansible.builtin.copy:
+            dest: "{{ uptime_fixture.path }}/apps/platform-system/gatus/values.yaml"
+            mode: "0600"
+            content: |
+              ---
+              gateway:
+                route:
+                  hosts: [status.edgard.org]
+              config:
+                endpoints:
+                  - url: https://plex.edgard.org/identity
+                  - url: https://argocd.edgard.org
+
+        - name: Accept covered raw and rendered routes
+          ansible.builtin.include_role:
+            name: kubernetes_validation
+            tasks_from: check-uptime
+          vars:
+            kubernetes_validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
+            kubernetes_validation_apps_root: "{{ uptime_fixture.path }}/apps"
+
+        - name: Write uncovered Gatus fixture
+          ansible.builtin.copy:
+            dest: "{{ uptime_fixture.path }}/apps/platform-system/gatus/values.yaml"
+            mode: "0600"
+            content: |
+              ---
+              gateway:
+                route:
+                  hosts: [status.edgard.org]
+              config:
+                endpoints:
+                  - url: https://plex.edgard.org/identity
+
+        - name: Reject missing route coverage
+          block:
+            - name: Run uncovered route check
+              ansible.builtin.include_role:
+                name: kubernetes_validation
+                tasks_from: check-uptime
+              vars:
+                kubernetes_validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
+                kubernetes_validation_apps_root: "{{ uptime_fixture.path }}/apps"
+          rescue:
+            - name: Record missing route rejection
+              ansible.builtin.set_fact:
+                uptime_missing_rejected: true
+
+        - name: Assert missing route was rejected
+          ansible.builtin.assert:
+            that: uptime_missing_rejected | default(false)
+
+        - name: Write duplicate Gatus fixture
+          ansible.builtin.copy:
+            dest: "{{ uptime_fixture.path }}/apps/platform-system/gatus/values.yaml"
+            mode: "0600"
+            content: |
+              ---
+              gateway:
+                route:
+                  hosts: [status.edgard.org]
+              config:
+                endpoints:
+                  - url: https://plex.edgard.org/identity
+                  - url: https://plex.edgard.org/identity
+                  - url: https://argocd.edgard.org
+
+        - name: Reject duplicate targets
+          block:
+            - name: Run duplicate target check
+              ansible.builtin.include_role:
+                name: kubernetes_validation
+                tasks_from: check-uptime
+              vars:
+                kubernetes_validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
+                kubernetes_validation_apps_root: "{{ uptime_fixture.path }}/apps"
+          rescue:
+            - name: Record duplicate target rejection
+              ansible.builtin.set_fact:
+                uptime_duplicate_rejected: true
+
+        - name: Assert duplicate target was rejected
+          ansible.builtin.assert:
+            that: uptime_duplicate_rejected | default(false)
+      always:
+        - name: Remove route fixture
+          ansible.builtin.file:
+            path: "{{ uptime_fixture.path }}"
+            state: absent

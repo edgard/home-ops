@@ -1,0 +1,6 @@
+---
+- name: Validate Kubernetes source and rendered applications
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - kubernetes_validation

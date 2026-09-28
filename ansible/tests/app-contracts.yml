@@ -1,0 +1,94 @@
+---
+- name: Validate application configuration contracts
+  hosts: localhost
+  gather_facts: false
+  vars:
+    app_contract_root: "{{ playbook_dir }}/../.."
+  tasks:
+    - name: Load application configuration
+      ansible.builtin.set_fact:
+        app_contract_karakeep: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/selfhosted/karakeep/values.yaml') | from_yaml }}"
+        app_contract_qbittorrent: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/media/qbittorrent/values.yaml') | from_yaml }}"
+        app_contract_changedetection: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/selfhosted/changedetection/values.yaml') | from_yaml }}"
+        app_contract_changedetection_secret: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/selfhosted/changedetection/manifests/changedetection-credentials.externalsecret.yaml') | from_yaml }}"
+        app_contract_recyclarr_manifest: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/media/recyclarr/manifests/recyclarr-config.configmap.yaml') | from_yaml }}"
+        app_contract_gatus: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/platform-system/gatus/values.yaml') | from_yaml }}"
+
+    - name: Validate Karakeep browser wiring
+      ansible.builtin.assert:
+        that:
+          - app_contract_karakeep.controllers.chrome.containers.app.image.repository == 'ghcr.io/karakeep-app/karakeep-chrome'
+          - app_contract_karakeep.controllers.chrome.containers.app.command is not defined
+          - "'--no-sandbox' not in (app_contract_karakeep.controllers.chrome.containers.app.args | default([]))"
+          - "'--disable-software-rasterizer' not in (app_contract_karakeep.controllers.chrome.containers.app.args | default([]))"
+          - >-
+            app_contract_karakeep.controllers.chrome.containers.app.args | default([])
+            | select('match', '^--remote-debugging-') | list | length == 0
+          - >-
+            app_contract_karakeep.controllers.main.containers.app.env.BROWSER_WEB_URL | urlsplit('port')
+            == app_contract_karakeep.service.chrome.ports.http.port
+
+    - name: Validate Arr backup temporary directory
+      ansible.builtin.assert:
+        that:
+          - app_contract_arr.controllers.main.containers.app.env.TMPDIR == '/tmp'
+          - "'CHOWN' not in app_contract_arr.controllers.main.containers.app.securityContext.capabilities.add"
+      vars:
+        app_contract_arr: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/media/' ~ item ~ '/values.yaml') | from_yaml }}"
+      loop:
+        - radarr
+        - sonarr
+        - prowlarr
+
+    - name: Validate qBittorrent VPN readiness and firewall
+      ansible.builtin.assert:
+        that:
+          - app_contract_gluetun.probes.readiness.type == 'HTTP'
+          - app_contract_gluetun.probes.readiness.port | int == app_contract_health_port | int
+          - app_contract_health_port in app_contract_gluetun.env.FIREWALL_INPUT_PORTS.split(',')
+      vars:
+        app_contract_gluetun: "{{ app_contract_qbittorrent.controllers.main.containers.gluetun }}"
+        app_contract_health_port: "{{ app_contract_qbittorrent.controllers.main.containers.gluetun.env.HEALTH_SERVER_ADDRESS.split(':')[-1] }}"
+
+    - name: Parse embedded Recyclarr configuration
+      ansible.builtin.set_fact:
+        app_contract_recyclarr: >-
+          {{ app_contract_recyclarr_manifest.data['recyclarr.yml']
+             | regex_replace('!env_var[ ]+', '') | from_yaml }}
+
+    - name: Validate Recyclarr custom format groups
+      ansible.builtin.assert:
+        that:
+          - app_contract_instance.custom_format_groups is mapping
+          - app_contract_instance.custom_format_groups.add is sequence
+          - app_contract_instance.custom_format_groups.add | selectattr('trash_id', 'defined') | list | length == app_contract_instance.custom_format_groups.add | length
+      vars:
+        app_contract_instance: "{{ item.value }}"
+      loop: "{{ app_contract_recyclarr.sonarr | dict2items | union(app_contract_recyclarr.radarr | dict2items) }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Validate Changedetection model and shared credential
+      ansible.builtin.assert:
+        that:
+          - app_contract_changedetection_env.LLM_MODEL is string
+          - app_contract_changedetection_env.LLM_MODEL | trim | length > 0
+          - app_contract_changedetection_env.LLM_MAX_INPUT_CHARS | int > 0
+          - app_contract_changedetection_env.LLM_API_BASE is not defined
+          - app_contract_changedetection_env.LLM_FEATURES_DISABLED is not defined
+          - app_contract_changedetection_secret.spec.target.name in (app_contract_changedetection_app.envFrom | map(attribute='secretRef.name') | list)
+          - "app_contract_changedetection_secret.spec.secretStoreRef == {'name': 'external-secrets-store', 'kind': 'ClusterSecretStore'}"
+          - "app_contract_changedetection_secret.spec.target.template.data.LLM_API_KEY is match('^[{][{] .openai_api_key [}][}]$')"
+          - >-
+            app_contract_changedetection_secret.spec.data
+            | selectattr('secretKey', 'equalto', 'openai_api_key')
+            | map(attribute='remoteRef.key') | list == ['openai_api_key']
+      vars:
+        app_contract_changedetection_app: "{{ app_contract_changedetection.controllers.main.containers.app }}"
+        app_contract_changedetection_env: "{{ app_contract_changedetection.controllers.main.containers.app.env }}"
+
+    - name: Keep Gatus application health paths
+      ansible.builtin.assert:
+        that:
+          - "'https://plex.edgard.org/identity' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"
+          - "'https://crosswatch.edgard.org/healthz' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"

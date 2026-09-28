@@ -8,3 +8,12 @@ talos_api_wait_retries: 30
 talos_api_wait_delay: 5
 talos_health_wait_timeout: 5m
 talos_upgrade_test_mode: false
+
+talos_upgrade:
+  installer:
+    repository: factory.talos.dev/metal-installer/135cb2840c3e39194d5d5d20ead2d6bdcade91a6c06eb5b8ad6939e1e1e55ddf
+    # renovate: datasource=github-releases depName=siderolabs/talos
+    version: v1.13.10
+  upgrade:
+    rebootMode: default
+    timeout: 30m

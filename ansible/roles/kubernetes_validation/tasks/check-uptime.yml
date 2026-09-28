@@ -1,0 +1,60 @@
+---
+- name: Find rendered routes
+  ansible.builtin.find:
+    paths: "{{ kubernetes_validation_rendered_root }}"
+    recurse: true
+    patterns: "*.yaml"
+    file_type: file
+  register: kubernetes_validation_rendered_files
+
+- name: Find raw routes
+  ansible.builtin.find:
+    paths: "{{ kubernetes_validation_apps_root }}"
+    recurse: true
+    patterns: "*.httproute.yaml"
+    file_type: file
+  register: kubernetes_validation_raw_routes
+
+- name: Read Gatus configuration
+  ansible.builtin.set_fact:
+    kubernetes_validation_gatus: "{{ lookup('ansible.builtin.file', kubernetes_validation_apps_root ~ '/platform-system/gatus/values.yaml') | from_yaml }}"
+    kubernetes_validation_route_docs: []
+    kubernetes_validation_actual_hosts: []
+
+- name: Parse raw and rendered route documents
+  ansible.builtin.set_fact:
+    kubernetes_validation_route_docs: "{{ kubernetes_validation_route_docs + (lookup('ansible.builtin.file', item.path) | from_yaml_all | list) }}"
+  loop: "{{ kubernetes_validation_rendered_files.files + kubernetes_validation_raw_routes.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Collect routed application hosts
+  ansible.builtin.set_fact:
+    kubernetes_validation_expected_hosts: >-
+      {{ kubernetes_validation_route_docs
+         | selectattr('kind', 'defined')
+         | selectattr('kind', 'equalto', 'HTTPRoute')
+         | map(attribute='spec.hostnames')
+         | flatten
+         | unique
+         | difference(kubernetes_validation_gatus.gateway.route.hosts | default([]))
+         | sort }}
+
+- name: Collect Gatus HTTP targets
+  ansible.builtin.set_fact:
+    kubernetes_validation_actual_hosts: "{{ kubernetes_validation_actual_hosts + [item.url | urlsplit('hostname')] }}"
+  loop: "{{ kubernetes_validation_gatus.config.endpoints }}"
+  loop_control:
+    label: "{{ item.url }}"
+  when: item.url | urlsplit('scheme') in ['http', 'https']
+
+- name: Assert Gatus matches routed applications
+  ansible.builtin.assert:
+    that:
+      - kubernetes_validation_actual_hosts | length == kubernetes_validation_actual_hosts | unique | length
+      - kubernetes_validation_expected_hosts | difference(kubernetes_validation_actual_hosts) | length == 0
+      - kubernetes_validation_actual_hosts | difference(kubernetes_validation_expected_hosts) | length == 0
+    fail_msg: >-
+      Gatus coverage mismatch: missing={{ kubernetes_validation_expected_hosts | difference(kubernetes_validation_actual_hosts) }},
+      obsolete={{ kubernetes_validation_actual_hosts | difference(kubernetes_validation_expected_hosts) }},
+      duplicate={{ kubernetes_validation_actual_hosts | length != kubernetes_validation_actual_hosts | unique | length }}

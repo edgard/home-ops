@@ -83,6 +83,9 @@ jobs:
         with:
           profile: kubernetes
 
+      - name: Set Up Ansible
+        run: task deps
+
       - name: Run Kubernetes Validation
         run: task lint:kubernetes
 
