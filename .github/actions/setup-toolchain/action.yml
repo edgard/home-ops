@@ -73,7 +73,7 @@ runs:
         kubeconform-version: "0.8.0"
 
     - name: Set Up Conftest
-      if: ${{ inputs.profile == 'kubernetes' }}
+      if: ${{ inputs.profile == 'ansible' || inputs.profile == 'kubernetes' }}
       uses: princespaghetti/setup-conftest@417586a9b2e806fc5a95c72dfe98e296ef092b6f # v1.2.0
       with:
         # renovate: datasource=github-releases depName=open-policy-agent/conftest
