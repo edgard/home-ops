@@ -134,6 +134,7 @@ controllers:
           PAPERLESS_PUBLIC_URL: https://paperless.edgard.org
           LLM_PROVIDER: openai
           LLM_MODEL: gpt-5.6-luna
+          AUTO_TAG_COMPLETE: ""
           VISION_LLM_PROVIDER: openai
           VISION_LLM_MODEL: gpt-5.6-terra
           OCR_PROVIDER: "llm"
