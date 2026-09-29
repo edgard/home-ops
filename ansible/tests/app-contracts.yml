@@ -12,6 +12,7 @@
         app_contract_changedetection: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/selfhosted/changedetection/values.yaml') | from_yaml }}"
         app_contract_changedetection_secret: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/selfhosted/changedetection/manifests/changedetection-credentials.externalsecret.yaml') | from_yaml }}"
         app_contract_recyclarr_manifest: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/media/recyclarr/manifests/recyclarr-config.configmap.yaml') | from_yaml }}"
+        app_contract_jellyfin: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/media/jellyfin/values.yaml') | from_yaml }}"
         app_contract_gatus: "{{ lookup('ansible.builtin.file', app_contract_root ~ '/apps/platform-system/gatus/values.yaml') | from_yaml }}"
 
     - name: Validate Karakeep browser wiring
@@ -74,6 +75,12 @@
           - app_contract_recyclarr.sonarr['web-2160p-v4'].media_naming.series == 'jellyfin-tvdb'
           - app_contract_recyclarr.radarr['uhd-bluray-web'].media_naming.folder == 'jellyfin-tmdb'
           - app_contract_recyclarr.radarr['uhd-bluray-web'].media_naming.movie.standard == 'jellyfin-tmdb'
+
+    - name: Keep Jellyfin library scans from triggering liveness restarts
+      ansible.builtin.assert:
+        that:
+          - app_contract_jellyfin.controllers.main.containers.app.probes.liveness.spec.tcpSocket.port == 'http'
+          - app_contract_jellyfin.controllers.main.containers.app.probes.readiness.spec.httpGet.path == '/health'
 
     - name: Validate Changedetection model and shared credential
       ansible.builtin.assert:
