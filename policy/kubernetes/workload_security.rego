@@ -13,7 +13,6 @@ root_run_image_prefixes := [
   "restic/restic:",
   "ghcr.io/tailscale/tailscale:",
   "lscr.io/linuxserver/",
-  "plexinc/pms-docker:",
 ]
 
 security_context_exempt_image_prefixes := [

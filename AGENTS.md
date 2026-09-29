@@ -75,7 +75,7 @@ controllers:
 - Gatus is the only uptime checker and Telegram alert engine. Its 18 routed app,
   3 DNS, and 6 ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
 - The parsed route coverage check in `ansible/roles/kubernetes_validation/tasks/check-uptime.yml` runs during
-  `task lint:kubernetes`. Keep Plex `/identity` and CrossWatch `/healthz` checks.
+  `task lint:kubernetes`. Keep Jellyfin `/health` and CrossWatch `/healthz` checks.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
   annotations to routed apps; Gatus does not use route discovery.
 - Gatus uses memory storage without a PVC. There is no metrics or searchable log
