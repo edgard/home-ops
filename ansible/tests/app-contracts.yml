@@ -82,7 +82,7 @@
           - app_contract_jellyfin.controllers.main.containers.app.probes.liveness.spec.tcpSocket.port == 'http'
           - app_contract_jellyfin.controllers.main.containers.app.probes.readiness.spec.httpGet.path == '/health'
 
-    - name: Keep Jellyfin LAN discovery on the former Plex address
+    - name: Keep Jellyfin LAN discovery on its dedicated address
       ansible.builtin.assert:
         that:
           - "'192.168.1.245/24' in app_contract_jellyfin.controllers.main.pod.annotations['k8s.v1.cni.cncf.io/networks']"
@@ -114,6 +114,5 @@
     - name: Keep Gatus application health paths
       ansible.builtin.assert:
         that:
-          - "'https://plex.edgard.org/identity' not in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"
           - "'https://jellyfin.edgard.org/health' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"
           - "'https://crosswatch.edgard.org/healthz' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"
