@@ -38,10 +38,11 @@ controllers:
             enabled: true
             custom: true
             spec:
-              httpGet:
-                path: /health
+              # A library scan can delay /health while the HTTP listener stays live.
+              tcpSocket:
                 port: http
               periodSeconds: 30
+              failureThreshold: 5
               timeoutSeconds: 5
           readiness:
             enabled: true
@@ -51,7 +52,8 @@ controllers:
                 path: /health
                 port: http
               periodSeconds: 10
-              timeoutSeconds: 5
+              failureThreshold: 6
+              timeoutSeconds: 10
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
