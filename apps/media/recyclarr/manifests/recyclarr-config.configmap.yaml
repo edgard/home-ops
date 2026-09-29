@@ -14,7 +14,7 @@ data:
         api_key: !env_var SONARR_MAIN_API_KEY
         delete_old_custom_formats: true
         media_naming:
-          series: plex-tvdb
+          series: jellyfin-tvdb
           season: default
           episodes:
             rename: true
@@ -38,10 +38,10 @@ data:
         api_key: !env_var RADARR_MAIN_API_KEY
         delete_old_custom_formats: true
         media_naming:
-          folder: plex-tmdb
+          folder: jellyfin-tmdb
           movie:
             rename: true
-            standard: plex-tmdb
+            standard: jellyfin-tmdb
         quality_definition:
           type: movie
         quality_profiles:

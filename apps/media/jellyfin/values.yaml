@@ -1,0 +1,105 @@
+---
+defaultPodOptions:
+  securityContext:
+    fsGroup: 0
+    fsGroupChangePolicy: OnRootMismatch
+    runAsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    containers:
+      app:
+        image:
+          repository: jellyfin/jellyfin
+          tag: 12.1
+        env:
+          JELLYFIN_PublishedServerUrl: https://jellyfin.edgard.org
+          TZ: Europe/Warsaw
+        ports:
+          - name: http
+            containerPort: 8096
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: http
+              periodSeconds: 10
+              failureThreshold: 60
+              timeoutSeconds: 5
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: http
+              periodSeconds: 30
+              timeoutSeconds: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /health
+                port: http
+              periodSeconds: 10
+              timeoutSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+
+service:
+  main:
+    controller: main
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8096
+        targetPort: http
+
+route:
+  main:
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - jellyfin.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8096
+
+persistence:
+  config:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    size: 20Gi
+    globalMounts:
+      - path: /config
+  cache:
+    type: emptyDir
+    sizeLimit: 10Gi
+    globalMounts:
+      - path: /cache
+  media:
+    type: persistentVolumeClaim
+    existingClaim: media
+    globalMounts:
+      - path: /media
+        readOnly: true
