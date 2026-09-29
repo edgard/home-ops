@@ -12,17 +12,32 @@ controllers:
     type: deployment
     replicas: 1
     strategy: Recreate
+    pod:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: |-
+          [
+            {
+              "name": "multus-lan-bridge",
+              "namespace": "kube-system",
+              "ips": ["192.168.1.245/24"],
+              "gateway": ["192.168.1.1"],
+              "mac": "02:42:c0:a8:01:f5"
+            }
+          ]
     containers:
       app:
         image:
           repository: jellyfin/jellyfin
           tag: 12.1
         env:
-          JELLYFIN_PublishedServerUrl: https://jellyfin.edgard.org
+          JELLYFIN_PublishedServerUrl: http://192.168.1.245:8096
           TZ: Europe/Warsaw
         ports:
           - name: http
             containerPort: 8096
+          - name: discovery
+            containerPort: 7359
+            protocol: UDP
         probes:
           startup:
             enabled: true

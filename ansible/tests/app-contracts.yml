@@ -82,6 +82,16 @@
           - app_contract_jellyfin.controllers.main.containers.app.probes.liveness.spec.tcpSocket.port == 'http'
           - app_contract_jellyfin.controllers.main.containers.app.probes.readiness.spec.httpGet.path == '/health'
 
+    - name: Keep Jellyfin LAN discovery on the former Plex address
+      ansible.builtin.assert:
+        that:
+          - "'192.168.1.245/24' in app_contract_jellyfin.controllers.main.pod.annotations['k8s.v1.cni.cncf.io/networks']"
+          - app_contract_jellyfin.controllers.main.containers.app.env.JELLYFIN_PublishedServerUrl == 'http://192.168.1.245:8096'
+          - >-
+            app_contract_jellyfin.controllers.main.containers.app.ports
+            | selectattr('containerPort', 'equalto', 7359)
+            | selectattr('protocol', 'equalto', 'UDP') | list | length == 1
+
     - name: Validate Changedetection model and shared credential
       ansible.builtin.assert:
         that:
