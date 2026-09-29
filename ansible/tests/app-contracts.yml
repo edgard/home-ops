@@ -68,6 +68,13 @@
       loop_control:
         label: "{{ item.key }}"
 
+    - name: Keep Arr naming compatible with Jellyfin identification
+      ansible.builtin.assert:
+        that:
+          - app_contract_recyclarr.sonarr['web-2160p-v4'].media_naming.series == 'jellyfin-tvdb'
+          - app_contract_recyclarr.radarr['uhd-bluray-web'].media_naming.folder == 'jellyfin-tmdb'
+          - app_contract_recyclarr.radarr['uhd-bluray-web'].media_naming.movie.standard == 'jellyfin-tmdb'
+
     - name: Validate Changedetection model and shared credential
       ansible.builtin.assert:
         that:
@@ -91,4 +98,5 @@
       ansible.builtin.assert:
         that:
           - "'https://plex.edgard.org/identity' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"
+          - "'https://jellyfin.edgard.org/health' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"
           - "'https://crosswatch.edgard.org/healthz' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"

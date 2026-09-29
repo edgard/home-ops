@@ -103,6 +103,15 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
+    - name: jellyfin
+      group: apps
+      url: https://jellyfin.edgard.org/health
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
     - name: metube
       group: apps
       url: https://metube.edgard.org
