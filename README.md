@@ -65,7 +65,7 @@ task platform:destroy                # Uninstall platform bootstrap components
 
 # Argo CD
 task argo:sync                       # Refresh every Argo CD application
-task argo:sync app=plex              # Refresh one Argo CD application
+task argo:sync app=jellyfin          # Refresh one Argo CD application
 
 # Vault
 task vault:edit-talos                # Edit encrypted Talos bootstrap secrets

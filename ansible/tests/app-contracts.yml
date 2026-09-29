@@ -104,6 +104,6 @@
     - name: Keep Gatus application health paths
       ansible.builtin.assert:
         that:
-          - "'https://plex.edgard.org/identity' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"
+          - "'https://plex.edgard.org/identity' not in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"
           - "'https://jellyfin.edgard.org/health' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"
           - "'https://crosswatch.edgard.org/healthz' in (app_contract_gatus.config.endpoints | map(attribute='url') | list)"

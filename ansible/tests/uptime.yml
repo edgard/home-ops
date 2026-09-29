@@ -29,7 +29,7 @@
               ---
               kind: HTTPRoute
               spec:
-                hostnames: [plex.edgard.org, status.edgard.org]
+                hostnames: [jellyfin.edgard.org, status.edgard.org]
 
         - name: Write raw route fixture
           ansible.builtin.copy:
@@ -52,7 +52,7 @@
                   hosts: [status.edgard.org]
               config:
                 endpoints:
-                  - url: https://plex.edgard.org/identity
+                  - url: https://jellyfin.edgard.org/health
                   - url: https://argocd.edgard.org
 
         - name: Accept covered raw and rendered routes
@@ -74,7 +74,7 @@
                   hosts: [status.edgard.org]
               config:
                 endpoints:
-                  - url: https://plex.edgard.org/identity
+                  - url: https://jellyfin.edgard.org/health
 
         - name: Reject missing route coverage
           block:
@@ -105,8 +105,8 @@
                   hosts: [status.edgard.org]
               config:
                 endpoints:
-                  - url: https://plex.edgard.org/identity
-                  - url: https://plex.edgard.org/identity
+                  - url: https://jellyfin.edgard.org/health
+                  - url: https://jellyfin.edgard.org/health
                   - url: https://argocd.edgard.org
 
         - name: Reject duplicate targets

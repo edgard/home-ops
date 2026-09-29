@@ -94,15 +94,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-    - name: plex
-      group: apps
-      url: https://plex.edgard.org/identity
-      interval: 1m
-      conditions:
-        - "[STATUS] >= 200"
-        - "[STATUS] < 300"
-      alerts:
-        - type: telegram
     - name: jellyfin
       group: apps
       url: https://jellyfin.edgard.org/health
