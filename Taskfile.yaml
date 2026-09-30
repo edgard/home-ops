@@ -99,6 +99,7 @@ tasks:
     cmds:
       - task: fmt:check
       - task: lint:static
+      - task: lint:wiki
       - task: lint:workflows
       - task: lint:ansible
       - task: lint:kubernetes
@@ -109,6 +110,14 @@ tasks:
     dir: "{{.TASKFILE_DIR}}"
     cmds:
       - yamllint -c .yamllint .
+
+  lint:wiki:
+    desc: Check wiki links, sources, and app coverage
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/validate-wiki.yml'
 
   lint:workflows:
     desc: Validate GitHub Actions workflows

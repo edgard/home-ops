@@ -70,6 +70,9 @@ jobs:
       - name: Run Ansible Validation
         run: task lint:ansible
 
+      - name: Run Wiki Validation
+        run: task lint:wiki
+
   kubernetes:
     name: Kubernetes
     runs-on: ubuntu-latest

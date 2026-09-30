@@ -1,0 +1,258 @@
+---
+- name: Validate wiki structure contracts
+  hosts: localhost
+  gather_facts: false
+  vars:
+    wiki_fixture_page: |
+      # Demo
+
+      Purpose: example.
+      Status: current. Reviewed against: `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`.
+
+      ## Sources
+
+      - [Values](../../../../apps/media/demo/values.yaml)
+
+      ## Related pages
+
+      None.
+    wiki_fixture_index: |
+      # Index
+
+      - [Demo](apps/media/demo.md)
+      - [Rules](AGENTS.md)
+      - [Sources](sources.md)
+      - [Log](log.md)
+  tasks:
+    - name: Create wiki fixture root
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: wiki-test
+      register: wiki_fixture
+
+    - name: Exercise wiki contracts
+      block:
+        - name: Create fixture directories
+          ansible.builtin.file:
+            path: "{{ wiki_fixture.path }}/{{ item }}"
+            state: directory
+            mode: "0700"
+          loop:
+            - apps/media/demo
+            - docs/wiki/apps/media
+
+        - name: Write fixture files
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/{{ item.path }}"
+            content: "{{ item.content }}"
+            mode: "0600"
+          loop:
+            - path: README.md
+              content: "# Demo repo\n[Wiki](docs/wiki/index.md)\n"
+            - path: AGENTS.md
+              content: "# Rules\n[Wiki workflow](docs/wiki/AGENTS.md)\n"
+            - path: apps/media/demo/app.yaml
+              content: "---\n"
+            - path: apps/media/demo/values.yaml
+              content: "---\n"
+            - path: docs/wiki/index.md
+              content: "{{ wiki_fixture_index }}"
+            - path: docs/wiki/AGENTS.md
+              content: "# Rules\n"
+            - path: docs/wiki/sources.md
+              content: "# Sources\n"
+            - path: docs/wiki/log.md
+              content: "# Log\n"
+            - path: docs/wiki/apps/media/demo.md
+              content: "{{ wiki_fixture_page }}"
+          loop_control:
+            label: "{{ item.path }}"
+
+        - name: Accept complete indexed app
+          ansible.builtin.include_role:
+            name: wiki_validation
+          vars:
+            wiki_validation_root: "{{ wiki_fixture.path }}"
+
+        - name: Break a local source link
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/docs/wiki/apps/media/demo.md"
+            content: "{{ wiki_fixture_page | replace('values.yaml', 'missing.yaml') }}"
+            mode: "0600"
+
+        - name: Reject broken local link
+          block:
+            - name: Validate broken link fixture
+              ansible.builtin.include_role:
+                name: wiki_validation
+              vars:
+                wiki_validation_root: "{{ wiki_fixture.path }}"
+          rescue:
+            - name: Confirm link rejection reason
+              ansible.builtin.assert:
+                that: wiki_validation_errors | select('search', 'broken local link') | list | length > 0
+            - name: Record link rejection
+              ansible.builtin.set_fact:
+                wiki_link_rejected: true
+
+        - name: Restore valid page
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/docs/wiki/apps/media/demo.md"
+            content: "{{ wiki_fixture_page }}"
+            mode: "0600"
+
+        - name: Remove app from index
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/docs/wiki/index.md"
+            content: "{{ wiki_fixture_index | replace('- [Demo](apps/media/demo.md)\n', '') }}"
+            mode: "0600"
+
+        - name: Reject orphan page
+          block:
+            - name: Validate orphan fixture
+              ansible.builtin.include_role:
+                name: wiki_validation
+              vars:
+                wiki_validation_root: "{{ wiki_fixture.path }}"
+          rescue:
+            - name: Confirm orphan rejection reason
+              ansible.builtin.assert:
+                that: wiki_validation_errors | select('search', 'not indexed') | list | length > 0
+            - name: Record orphan rejection
+              ansible.builtin.set_fact:
+                wiki_orphan_rejected: true
+
+        - name: Restore valid index
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/docs/wiki/index.md"
+            content: "{{ wiki_fixture_index }}"
+            mode: "0600"
+
+        - name: Duplicate app entry in index
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/docs/wiki/index.md"
+            content: "{{ wiki_fixture_index }}- [Demo again](apps/media/demo.md)\n"
+            mode: "0600"
+
+        - name: Reject duplicate app entry
+          block:
+            - name: Validate duplicate app fixture
+              ansible.builtin.include_role:
+                name: wiki_validation
+              vars:
+                wiki_validation_root: "{{ wiki_fixture.path }}"
+          rescue:
+            - name: Confirm duplicate rejection reason
+              ansible.builtin.assert:
+                that: wiki_validation_errors | select('search', 'duplicate app page') | list | length > 0
+            - name: Record duplicate rejection
+              ansible.builtin.set_fact:
+                wiki_duplicate_rejected: true
+
+        - name: Restore index after duplicate check
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/docs/wiki/index.md"
+            content: "{{ wiki_fixture_index }}"
+            mode: "0600"
+
+        - name: Remove page sources
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/docs/wiki/apps/media/demo.md"
+            content: "{{ wiki_fixture_page | regex_replace('(?ms)^## Sources.*?(?=^## Related pages)', '') }}"
+            mode: "0600"
+
+        - name: Reject page without sources
+          block:
+            - name: Validate missing source fixture
+              ansible.builtin.include_role:
+                name: wiki_validation
+              vars:
+                wiki_validation_root: "{{ wiki_fixture.path }}"
+          rescue:
+            - name: Confirm source rejection reason
+              ansible.builtin.assert:
+                that: wiki_validation_errors | select('search', 'missing source link') | list | length > 0
+            - name: Record source rejection
+              ansible.builtin.set_fact:
+                wiki_source_rejected: true
+
+        - name: Replace reviewed commit with placeholder
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/docs/wiki/apps/media/demo.md"
+            content: "{{ wiki_fixture_page | replace('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'unknown') }}"
+            mode: "0600"
+
+        - name: Reject page without reviewed commit
+          block:
+            - name: Validate missing commit fixture
+              ansible.builtin.include_role:
+                name: wiki_validation
+              vars:
+                wiki_validation_root: "{{ wiki_fixture.path }}"
+          rescue:
+            - name: Confirm commit rejection reason
+              ansible.builtin.assert:
+                that: wiki_validation_errors | select('search', 'missing status or reviewed commit') | list | length > 0
+            - name: Record commit rejection
+              ansible.builtin.set_fact:
+                wiki_commit_rejected: true
+
+        - name: Remove app page
+          ansible.builtin.file:
+            path: "{{ wiki_fixture.path }}/docs/wiki/apps/media/demo.md"
+            state: absent
+
+        - name: Reject missing app page
+          block:
+            - name: Validate missing app fixture
+              ansible.builtin.include_role:
+                name: wiki_validation
+              vars:
+                wiki_validation_root: "{{ wiki_fixture.path }}"
+          rescue:
+            - name: Confirm missing app rejection reason
+              ansible.builtin.assert:
+                that: wiki_validation_errors | select('search', 'missing app page') | list | length > 0
+            - name: Record missing app rejection
+              ansible.builtin.set_fact:
+                wiki_app_rejected: true
+
+        - name: Restore app page and add an extra page
+          ansible.builtin.copy:
+            dest: "{{ wiki_fixture.path }}/docs/wiki/apps/media/{{ item }}.md"
+            content: "{{ wiki_fixture_page }}"
+            mode: "0600"
+          loop:
+            - demo
+            - unused
+
+        - name: Reject app page without metadata
+          block:
+            - name: Validate extra app fixture
+              ansible.builtin.include_role:
+                name: wiki_validation
+              vars:
+                wiki_validation_root: "{{ wiki_fixture.path }}"
+          rescue:
+            - name: Confirm extra app rejection reason
+              ansible.builtin.assert:
+                that: wiki_validation_errors | select('search', 'app page without app metadata') | list | length > 0
+            - name: Record extra app rejection
+              ansible.builtin.set_fact:
+                wiki_extra_rejected: true
+
+        - name: Confirm every invalid fixture was rejected
+          ansible.builtin.assert:
+            that:
+              - wiki_link_rejected | default(false)
+              - wiki_orphan_rejected | default(false)
+              - wiki_duplicate_rejected | default(false)
+              - wiki_source_rejected | default(false)
+              - wiki_commit_rejected | default(false)
+              - wiki_app_rejected | default(false)
+              - wiki_extra_rejected | default(false)
+      always:
+        - name: Remove wiki fixture
+          ansible.builtin.file:
+            path: "{{ wiki_fixture.path }}"
+            state: absent

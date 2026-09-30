@@ -1,0 +1,101 @@
+---
+- name: Set wiki paths and clear previous results
+  ansible.builtin.set_fact:
+    wiki_validation_repo: "{{ wiki_validation_root | default(playbook_dir ~ '/../..') | realpath }}"
+    wiki_validation_errors: []
+
+- name: Find wiki pages
+  ansible.builtin.find:
+    paths: "{{ wiki_validation_repo }}/docs/wiki"
+    recurse: true
+    patterns: "*.md"
+    file_type: file
+  register: wiki_validation_pages
+
+- name: Find app metadata
+  ansible.builtin.find:
+    paths: "{{ wiki_validation_repo }}/apps"
+    recurse: true
+    patterns: app.yaml
+    file_type: file
+  register: wiki_validation_app_files
+
+- name: Collect page paths and expected app pages
+  ansible.builtin.set_fact:
+    wiki_validation_page_paths: "{{ wiki_validation_pages.files | map(attribute='path') | list }}"
+    wiki_validation_app_pages: "{{ wiki_validation_pages.files | map(attribute='path') | select('match', '^' ~ (wiki_validation_repo | regex_escape) ~ '/docs/wiki/apps/[^/]+/[^/]+\\.md$') | list }}"
+    wiki_validation_expected_apps: []
+
+- name: Map app metadata to wiki pages
+  ansible.builtin.set_fact:
+    wiki_validation_expected_apps: >-
+      {{ wiki_validation_expected_apps +
+         [wiki_validation_repo ~ '/docs/wiki/apps/' ~
+          (item.path | dirname | dirname | basename) ~ '/' ~
+          (item.path | dirname | basename) ~ '.md'] }}
+  loop: "{{ wiki_validation_app_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: item.path is match('^' ~ (wiki_validation_repo | regex_escape) ~ '/apps/[^/]+/[^/]+/app\\.yaml$')
+
+- name: Record app page coverage errors
+  ansible.builtin.set_fact:
+    wiki_validation_errors: >-
+      {{ wiki_validation_errors +
+         (wiki_validation_expected_apps | difference(wiki_validation_app_pages) | map('regex_replace', '^', 'missing app page: ') | list) +
+         (wiki_validation_app_pages | difference(wiki_validation_expected_apps) | map('regex_replace', '^', 'app page without app metadata: ') | list) }}
+
+- name: Read wiki index
+  ansible.builtin.set_fact:
+    wiki_validation_index: "{{ lookup('ansible.builtin.file', wiki_validation_repo ~ '/docs/wiki/index.md') }}"
+
+- name: Collect indexed local pages
+  ansible.builtin.set_fact:
+    wiki_validation_indexed: []
+
+- name: Resolve indexed local pages
+  ansible.builtin.set_fact:
+    wiki_validation_indexed: >-
+      {{ wiki_validation_indexed +
+         [(wiki_validation_repo ~ '/docs/wiki/' ~ ((item | urldecode).split('#')[0].split('?')[0])) | realpath] }}
+  loop: "{{ wiki_validation_index | regex_findall('(?<!\\!)\\[[^\\]]+\\]\\(([^)]+)\\)') }}"
+  when:
+    - item is not match('^[a-zA-Z][a-zA-Z0-9+.-]*:')
+    - item is not match('^#')
+
+- name: Record pages absent from index
+  ansible.builtin.set_fact:
+    wiki_validation_errors: >-
+      {{ wiki_validation_errors +
+         (wiki_validation_page_paths | difference([wiki_validation_repo ~ '/docs/wiki/index.md'] + wiki_validation_indexed)
+          | map('regex_replace', '^', 'not indexed: ') | list) }}
+
+- name: Reject duplicate app entries in index
+  ansible.builtin.set_fact:
+    wiki_validation_errors: "{{ wiki_validation_errors + ['duplicate app page in index'] }}"
+  when: >-
+    (wiki_validation_indexed | select('match', '^' ~ (wiki_validation_repo | regex_escape) ~ '/docs/wiki/apps/') | list | length) !=
+    (wiki_validation_indexed | select('match', '^' ~ (wiki_validation_repo | regex_escape) ~ '/docs/wiki/apps/') | unique | list | length)
+
+- name: Check each wiki page
+  ansible.builtin.include_tasks: check-page.yml
+  loop: "{{ wiki_validation_pages.files }}"
+  loop_control:
+    loop_var: wiki_validation_page
+    label: "{{ wiki_validation_page.path }}"
+
+- name: Check root documentation links
+  ansible.builtin.include_tasks: check-links.yml
+  vars:
+    wiki_validation_link_file: "{{ wiki_validation_repo }}/{{ wiki_validation_root_doc }}"
+    wiki_validation_link_text: "{{ lookup('ansible.builtin.file', wiki_validation_link_file) }}"
+  loop:
+    - README.md
+    - AGENTS.md
+  loop_control:
+    loop_var: wiki_validation_root_doc
+
+- name: Assert wiki contracts
+  ansible.builtin.assert:
+    that: wiki_validation_errors | length == 0
+    fail_msg: "Wiki validation failed: {{ wiki_validation_errors | join('; ') }}"

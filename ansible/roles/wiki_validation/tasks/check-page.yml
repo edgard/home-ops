@@ -1,0 +1,26 @@
+---
+- name: Read page
+  ansible.builtin.set_fact:
+    wiki_validation_page_text: "{{ lookup('ansible.builtin.file', wiki_validation_page.path) }}"
+
+- name: Extract source section
+  ansible.builtin.set_fact:
+    wiki_validation_source_section: >-
+      {{ (wiki_validation_page_text.split('## Sources', 1)[1].split('## ', 1)[0])
+         if '## Sources' in wiki_validation_page_text else '' }}
+
+- name: Check required page sections
+  ansible.builtin.set_fact:
+    wiki_validation_errors: >-
+      {{ wiki_validation_errors +
+         ([wiki_validation_page.path ~ ': missing purpose'] if wiki_validation_page_text is not search('(?m)^Purpose: .+') else []) +
+         ([wiki_validation_page.path ~ ': missing status or reviewed commit'] if wiki_validation_page_text is not search('(?m)^Status: (current|historical)[.] Reviewed against: .*([0-9a-f]{40}).*$') else []) +
+         ([wiki_validation_page.path ~ ': missing source link'] if '](' not in wiki_validation_source_section or '[' not in wiki_validation_source_section else []) +
+         ([wiki_validation_page.path ~ ': missing related pages'] if '## Related pages' not in wiki_validation_page_text else []) }}
+  when: wiki_validation_page.path | basename not in ['index.md', 'log.md', 'sources.md', 'AGENTS.md']
+
+- name: Check page links
+  ansible.builtin.include_tasks: check-links.yml
+  vars:
+    wiki_validation_link_file: "{{ wiki_validation_page.path }}"
+    wiki_validation_link_text: "{{ wiki_validation_page_text }}"
