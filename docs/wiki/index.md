@@ -1,9 +1,11 @@
 # Home Ops knowledge wiki
 
 This wiki connects the repository's configuration, policies, operational
-procedures, and decision history. Begin with the [source catalog](sources.md)
-for evidence and [wiki rules](AGENTS.md) for maintenance. Current manifests
-and tasks remain authoritative; verify the running system separately.
+procedures, and decision history. For a repository question, start here, follow
+the relevant pages, and verify their claims against the linked current sources.
+The [source catalog](sources.md) maps the broader evidence, and the
+[wiki rules](AGENTS.md) describe maintenance. Current manifests and tasks
+remain authoritative; verify the running system separately.
 
 ## Workflows and operations
 
