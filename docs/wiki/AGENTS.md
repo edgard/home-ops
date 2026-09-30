@@ -29,18 +29,50 @@ recovery implications, networking and monitoring, and any special constraint.
 State `Unknown` where the sources do not support a conclusion. An app page is
 not a generated dump of Helm values.
 
-## Ingest, query, and review
+## Query
 
-1. Read [the source catalog](sources.md) and the relevant current files first.
-   For historical reasoning, inspect the linked merged PR or commit.
-2. Update affected pages, their links in [the index](index.md), and
-   [the log](log.md) when an ingest or substantive revision occurs. A useful
-   query result becomes a page only through a PR; ordinary questions do not
-   create log entries.
-3. Run `task lint:wiki` and `task lint`. Review prose against sources in the PR.
-   The checker covers structure and links, not semantic truth.
-4. Periodically review changed sources, contradictions, orphan pages, and
-   evidence gaps. Propose corrections by PR.
+1. Start at [the index](index.md), then read the relevant wiki pages and their
+   cross-references. Use [the source catalog](sources.md) when locating broader
+   evidence.
+2. Follow source links to current configuration and policy for current facts.
+   Check a cited merged PR or commit for historical reasoning. If sources
+   disagree with the wiki, report the discrepancy instead of repeating the
+   stale claim.
+3. Answer with source links and mark unsupported conclusions as `Unknown` or
+   `Inference`. File a reusable finding or new connection through a PR when it
+   would improve future answers. Log the filed result, not every chat question.
+
+## Ingest
+
+1. For a new tracked source, substantive repository change, or relevant merged
+   PR, read the source and compare it with the affected wiki pages. Git commits
+   and merged PRs preserve immutable snapshots of otherwise changing repo files.
+2. Update all affected explanations and cross-references, including
+   contradictions and unknowns. Update the index for new or renamed pages, the
+   source catalog for new evidence areas, and the log for the ingest or
+   substantive revision. Keep current settings linked to their owning files.
+3. Review the page evidence, then run `task lint:wiki` and `task lint` before
+   committing. Make the wiki revision part of the same PR as a substantive
+   source change. A routine version bump needs no wiki edit if no claim changes;
+   state which pages were checked in the PR.
+
+## Review
+
+Beginning the calendar month after the initial migration, the agent preparing
+the first substantive repository PR each month owns a semantic wiki review.
+Check [the log](log.md) first; if it already records a review for that month,
+do not repeat it. If no substantive PR occurs, perform the review during the
+next one rather than creating a PR solely for a calendar reminder.
+
+Compare page claims with sources changed since their reviewed commits. Look
+for contradictions, stale explanations, orphan pages, missing cross-references,
+important topics without pages, and evidence gaps. Propose corrections in the
+same PR and record the review and its findings in the log, including a
+no-change conclusion. Running structural lint alone does not count as a
+semantic review.
+
+The checker covers structure and local links, not the truth of prose. PR
+review decides whether the source still supports an explanation.
 
 Never ingest private chats, agent memory, ignored operator files, decrypted
 Vault contents, credentials, or unsanitized runtime logs. Live checks can

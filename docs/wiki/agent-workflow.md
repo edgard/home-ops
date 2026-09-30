@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `5a68ed733437f0c5e3e94a22661c7ac2f3e42483`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -27,11 +27,20 @@ Gatus • Helm • Ansible • Terraform
 
 ## Developer Loop
 
-1. Make a small change
-2. If behavior changes, write or update the failing policy or contract check first
-3. Use `task lint` while iterating when changing Ansible behavior or Helm/app compatibility
-4. Run `task fmt`
-5. Run `task lint` before commit or PR update
+1. Read the relevant pages from [the wiki index](index.md) and follow their
+   source links before changing a repository contract.
+2. Make a small change. If behavior changes, write or update the failing
+   policy or contract check first.
+3. Recheck affected wiki explanations. Update them in the same PR when the
+   change alters their meaning; a version-only bump does not require prose
+   churn. Record which pages were checked in the PR.
+4. Use `task lint` while iterating when changing Ansible behavior or Helm/app
+   compatibility. Run `task fmt` and `task lint` before commit or PR update.
+
+For repository questions and durable source ingests, follow the
+[wiki query, ingest, and review workflow](AGENTS.md). A query starts at the
+index; wiki pages guide navigation, while current configuration and policy
+settle current facts.
 
 ## Project Layout
 
@@ -161,6 +170,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 - [Taskfile](../../Taskfile.yaml) defines the operator commands and local gates.
 - [Pull request workflow](../../.github/workflows/ci.yml) defines the CI jobs.
+- [Pull request template](../../.github/pull_request_template.md) prompts for wiki impact.
 - [ApplicationSet](../../argocd/appsets/apps.appset.yaml) defines app discovery.
 - [Gatus values](../../apps/platform-system/gatus/values.yaml) and [route coverage check](../../ansible/roles/kubernetes_validation/tasks/check-uptime.yml) define uptime coverage.
 
