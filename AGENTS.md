@@ -1,150 +1,16 @@
 # Home Ops
 
-GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
-**Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) •
-Gatus • Helm • Ansible • Terraform
+This is a single-node Talos and Argo CD GitOps repository. Make changes on a
+branch through a pull request; never commit directly to `master`.
 
-## Build & Test
+Before changing the repository, read [the detailed workflow](docs/wiki/agent-workflow.md).
+For wiki edits, also read [the wiki conventions](docs/wiki/AGENTS.md).
 
-- Format: `task fmt`
-- Format check: `task fmt:check`
-- Dependencies: `task deps` installs pinned Python dependencies and Ansible collections in `.venv`
-- Lint: `task lint` (offline validation: formatting, yamllint, GitHub Actions workflow lint, Ansible lint/contracts/integration tests, metadata policy, raw and rendered manifest policy/schema/deprecation checks, `tofu validate`)
-- Focused checks: `task lint:static`, `task lint:workflows`, `task lint:ansible`, `task lint:kubernetes`, `task lint:terraform`
-- Policy layers:
-  - `policy/metadata/` validates app metadata structure and required sync waves
-  - `policy/ansible/` validates role task safety and credential wiring
-  - `policy/kubernetes/` validates manifest and rendered-workload guardrails
-- Policy semantics are regression-tested in `policy/{ansible,metadata,kubernetes}/*_test.rego`
-- CI gate: GitHub `Quality Gate` job, backed by the same focused local `task lint:*` targets aggregated by `task lint`
-- Pre-commit gate: `task precommit` (`task fmt` + `task lint`)
-- Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
-
-## Developer Loop
-
-1. Make a small change
-2. If behavior changes, write or update the failing policy or contract check first
-3. Use `task lint` while iterating when changing Ansible behavior or Helm/app compatibility
-4. Run `task fmt`
-5. Run `task lint` before commit or PR update
-
-## Project Layout
-
-```
-apps/<category>/<app>/{app.yaml,values.yaml,manifests/}
-argocd/appsets/          # Auto-discovers apps/*/*/app.yaml
-ansible/                 # Local orchestration, inventory, roles, role defaults, and Talos bootstrap inputs
-terraform/               # Cloudflare/Tailscale infra
-```
-
-## Conventions
-
-### App-Template v5 Structure
-Order: `defaultPodOptions → controllers → service → route → persistence → configMaps`
-
-```yaml
-defaultPodOptions:
-  securityContext:
-    fsGroup: 1000
-    fsGroupChangePolicy: OnRootMismatch
-    runAsGroup: 1000
-    runAsNonRoot: true
-    runAsUser: 1000
-controllers:
-  main:
-    annotations:
-      reloader.stakater.com/auto: "true"
-    replicas: 1
-    strategy: Recreate
-    containers:
-      app:
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop: [ALL]
-```
-
-### Common Annotations
-- Reloader (controllers): `reloader.stakater.com/auto: "true"`
-
-### Networking
-- HTTPRoute → `gateway.platform-system.https`, hostname: `<app>.edgard.org`
-- Multus LAN IP (media apps): `k8s.v1.cni.cncf.io/networks: [{"name":"multus-lan-bridge","namespace":"kube-system","ips":["192.168.1.X/24"]}]`
-
-### Monitoring
-- Gatus is the only uptime checker and Telegram alert engine. Its 18 routed app,
-  3 DNS, and 6 ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
-- The parsed route coverage check in `ansible/roles/kubernetes_validation/tasks/check-uptime.yml` runs during
-  `task lint:kubernetes`. Keep Jellyfin `/health` and CrossWatch `/healthz` checks.
-- Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
-  annotations to routed apps; Gatus does not use route discovery.
-- Gatus uses memory storage without a PVC. There is no metrics or searchable log
-  backend. A complete outage of this single node cannot trigger an alert.
-
-### Storage
-- `nfs-fast`: `/mnt/spool/appdata` (default)
-- `nfs-media`: `/mnt/dpool/media` (use `existingClaim: media`)
-- `nfs-restic`: `/mnt/dpool/restic`
-
-### ArgoCD Sync Waves
-`-4` CRDs → `-3` Controllers/DNS → `-2` Mesh/PVCs → `-1` k8tz → `0` Apps
-
-### ExternalSecret Pattern
-`refreshInterval → secretStoreRef (name, kind) → target → data`
-Store: `external-secrets-store`
-
-### Resource Naming
-- Manifest: `{app}-{descriptor}.{kind}.yaml`
-- ExternalSecret: `{app}-[{descriptor}-]credentials`
-- HTTPRoute: `{app}`
-- PVC: `{app}-{suffix}` or `existingClaim: media`
-
-### Code Standards
-- YAML: 2 spaces, `---` on line 1
-- Field order: `apiVersion → kind → metadata → spec`
-- Metadata order: `name → namespace → labels → annotations`
-- Validation split:
-  - `task lint` covers direct repo validation and aggregates the focused `lint:*` targets
-  - CI runs the focused targets as separate pull-request jobs and uses `Quality Gate` as the required aggregate check
-  - Prefer policy or lint checks when the assertion is about repository content
-  - Assert operational invariants and cross-file relationships, not duplicated dependency versions, task names, comments, dashboard prose, or exact equivalent query strings
-  - `ansible/tests/role-contracts.yml` builds the role policy inventory and checks restore contracts; `ansible/roles/kubernetes_validation/tasks/check-uptime.yml` compares Gatus targets with rendered routes
-- Metadata policy lives under `policy/metadata/` and is enforced via Conftest
-- Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
-- `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`
-- Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
-- Kubernetes validation playbook:
-  - `ansible/playbooks/validate-kubernetes.yml` runs source, metadata, raw manifest, rendered manifest, schema, and deprecation checks
-  - The `kubernetes_validation` role resolves the Kubernetes target version from Tuppr, builds the Conftest inventory, caches chart pulls for the current run, and validates rendered output in a temporary tree
-- Ansible roles:
-  - Role-owned defaults live in `ansible/roles/*/defaults/main.yml`; inventory vars stay limited to local/site inputs.
-  - Kubernetes operations use `kubernetes.core` modules with `kube_context`; avoid adding `kubectl` tasks.
-  - Local runtime credentials (`BWS_ACCESS_TOKEN`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) come from git-ignored `.envrc` or the operator environment.
-  - Talos bootstrap secrets live in committed Ansible Vault file `ansible/roles/talos/files/secrets.vault.yml`.
-  - Legacy plaintext Talos secrets at `ansible/roles/talos/files/secrets.yaml` remain git-ignored and must not be reintroduced.
-
-## Architecture Overview
-
-GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discovered from `apps/*/*/app.yaml` metadata files. Platform services bootstrap via Ansible-managed Helm installs that read the same app metadata, infrastructure is managed through Terraform (Cloudflare DNS, Tailscale networking). Single-node cluster with local-only access via Tailscale VPN.
-
-## External Services
-
-- Bitwarden: Secret management (`BWS_ACCESS_TOKEN` required for bootstrap and Terraform plan/apply)
-- AWS S3: Terraform backend storage (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
-- Cloudflare: DNS management
-- Tailscale: VPN networking (192.168.1.0/24)
-
-## Gotchas
-
-- Local + Tailscale only (192.168.1.0/24)
-- Single-node → `replicas: 1`, `strategy: Recreate`
-- s6-overlay: run as root + SETUID/SETGID; ports <1024: +NET_BIND_SERVICE
-- Never commit directly to `master`
-
-## Git Workflow
-
-1. Branch from `master` with descriptive name
-2. For behavior changes, write the failing policy or repo contract check first
-3. Run `task lint` before committing
-4. All changes via PR only
-5. Force pushes allowed only on feature branches using `--force-with-lease`
+- Configuration and policy are the source of truth; verify wiki claims against
+  the current files and, when relevant, the running system.
+- For behavior changes, write or update a failing policy or contract check first.
+- Run `task fmt` and `task lint` before committing or updating a PR.
+- Argo CD sync follows a committed and pushed GitOps change; do not sync local
+  uncommitted configuration.
+- Keep credentials in the existing ignored operator environment or encrypted
+  Vault file. Never copy secrets into the wiki.

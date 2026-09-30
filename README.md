@@ -75,6 +75,7 @@ task deps                          # Install pinned validation dependencies
 task fmt                           # Format all code (YAML, Terraform)
 task fmt:check                     # Check formatting without modifying files
 task lint:static                   # Run yamllint
+task lint:wiki                     # Check wiki links, sources, and app coverage
 task lint:workflows                # Validate GitHub Actions workflows
 task lint:ansible                  # Run Ansible lint, contract, and integration checks
 task lint:kubernetes               # Run Kubernetes source, policy, schema, and deprecation checks
@@ -115,7 +116,9 @@ Taskfile is the operator interface; Ansible remains the orchestration implementa
 
 Changes go through pull requests only.
 
-Detailed contributor and agent guidance, including the validation model, testing expectations, repo conventions, and Git workflow, lives in [AGENTS.md](AGENTS.md).
+Start with the [knowledge wiki](docs/wiki/index.md) for system relationships and
+decision history. The [Restic restore runbook](docs/wiki/operations/restic-backup-restore.md)
+covers recovery. Agent and contributor guidance starts in [AGENTS.md](AGENTS.md).
 
 Validation gates protect operational behavior and relationships. Dependency versions
 belong in their source manifests rather than duplicate test assertions. Safety checks

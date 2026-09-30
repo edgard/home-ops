@@ -1,6 +1,9 @@
 ---
 # Kubernetes Restic Restore Runbook
 
+Purpose: operator procedure for a Kubernetes appdata restore.
+Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+
 The `restic` app backs up Kubernetes appdata and serves the same repository used
 by the macOS and Windows workstation backups. Kubernetes owns repository
 maintenance; workstations only create backup snapshots.
@@ -29,8 +32,14 @@ and paths:
 | `edgards-mini` | `/Users/edgard/Documents` | `documents` |
 | `edgard-desktop` | `C:\Users\Edgard\Documents` | `documents` |
 
-Backups run daily at `0 3 * * *`. Maintenance runs weekly at `0 4 * * 1` with
-daily 14, weekly 8, monthly 12, and yearly 3 retention.
+The workstation entries come from the
+[pre-migration runbook](https://github.com/edgard/home-ops/blob/2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b/docs/restic-backup-restore-runbook.md).
+This repository does not manage those clients; verify actual snapshots before
+using a workstation entry.
+
+The backup and maintenance schedules and retention are defined in
+[Restic values](../../../apps/selfhosted/restic/values.yaml); consult that file
+before relying on a schedule.
 
 ## Rules
 
@@ -108,3 +117,16 @@ these constraints:
 - Delete only contents under `/restore/data/appdata/<namespace>/<pvc-name>`.
 - Use `--exclude-xattr '*'` for NFS-backed appdata.
 - Filter `latest` with `--host homelab --tag appdata --path /data/appdata`.
+
+## Sources
+
+- [Restic deployment](../../../apps/selfhosted/restic/values.yaml)
+- [Restore task entry points](../../../Taskfile.yaml)
+- [Restore role](../../../ansible/roles/restic/tasks/execute.yml)
+- [Restore planning role](../../../ansible/roles/restic/tasks/plan.yml)
+- [Restore automation PR](https://github.com/edgard/home-ops/pull/261)
+
+## Related pages
+
+- [Backup and recovery architecture](../architecture/backup-recovery.md)
+- [Storage](../architecture/storage.md)

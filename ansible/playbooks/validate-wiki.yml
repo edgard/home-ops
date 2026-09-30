@@ -1,0 +1,6 @@
+---
+- name: Validate repository wiki
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - wiki_validation

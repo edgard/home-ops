@@ -1,0 +1,24 @@
+---
+- name: Resolve local links
+  ansible.builtin.stat:
+    path: "{{ ((wiki_validation_link_file | dirname) ~ '/' ~ ((item | urldecode).split('#')[0].split('?')[0])) | realpath }}"
+  loop: "{{ wiki_validation_link_text | regex_findall('(?<!\\!)\\[[^\\]]+\\]\\(([^)]+)\\)') }}"
+  loop_control:
+    label: "{{ wiki_validation_link_file }} -> {{ item }}"
+  when:
+    - item is not match('^[a-zA-Z][a-zA-Z0-9+.-]*:')
+    - item is not match('^#')
+  register: wiki_validation_link_stats
+
+- name: Record broken or escaping links
+  ansible.builtin.set_fact:
+    wiki_validation_errors: >-
+      {{ wiki_validation_errors +
+         [wiki_validation_link_file ~ ': broken local link: ' ~ wiki_validation_checked_link.item] }}
+  loop: "{{ wiki_validation_link_stats.results }}"
+  loop_control:
+    loop_var: wiki_validation_checked_link
+    label: "{{ wiki_validation_checked_link.item }}"
+  when:
+    - not (wiki_validation_checked_link.skipped | default(false))
+    - not (wiki_validation_checked_link.stat.exists | default(false)) or not (wiki_validation_checked_link.stat.path | default('') is match('^' ~ (wiki_validation_repo | regex_escape) ~ '(/|$)'))
