@@ -1,5 +1,5 @@
 terraform {
-  # OpenTofu version - manually managed (Renovate disabled for terraform-version)
+  # OpenTofu version - manually managed (Renovate excludes Terraform CLI versions)
   required_version = ">= 1.10.0"
 
   required_providers {

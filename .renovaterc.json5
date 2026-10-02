@@ -60,7 +60,7 @@
       description: "Upgrade target versions",
       managerFilePatterns: [
         "/^apps\\/platform-system\\/tuppr\\/manifests\\/.*\\.kubernetesupgrade\\.ya?ml$/",
-        "/^ansible\\/roles\\/talos\\/vars\\/main\\.ya?ml$/",
+        "/^ansible\\/roles\\/talos\\/defaults\\/main\\.ya?ml$/",
       ],
       matchStrings: [
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
@@ -210,10 +210,11 @@
       automergeType: "pr",
     },
 
-    // Disabled: Terraform version manager (using OpenTofu)
+    // OpenTofu's required_version is manually managed; keep provider updates enabled.
     {
-      description: "Disable Terraform version manager (using OpenTofu)",
-      matchManagers: ["terraform-version"],
+      description: "Disable Terraform CLI version updates (using OpenTofu)",
+      matchManagers: ["terraform", "terraform-version"],
+      matchPackageNames: ["hashicorp/terraform"],
       enabled: false,
     },
   ],

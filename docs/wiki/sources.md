@@ -18,6 +18,7 @@ catalog is a guide to it, not a copy of all tracked files.
 | Bootstrap and operations | [Ansible](../../ansible) and [Taskfile](../../Taskfile.yaml) | [Talos](architecture/talos-bootstrap.md), [recovery](architecture/backup-recovery.md) |
 | External infrastructure | [Terraform](../../terraform) | [Terraform](architecture/terraform.md) |
 | Enforced contracts | [Policy](../../policy) and [CI](../../.github/workflows/ci.yml) | [Validation](architecture/validation.md) |
+| Dependency maintenance | [Renovate configuration](../../.renovaterc.json5) and [RenovateJob](../../apps/selfhosted/renovate-operator/manifests/renovate-operator-home-ops.renovatejob.yaml) | [Renovate Operator](apps/selfhosted/renovate-operator.md), [Talos installer](decisions/talos-image-factory.md) |
 
 ## Decision evidence
 
