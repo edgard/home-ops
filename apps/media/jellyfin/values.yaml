@@ -28,7 +28,7 @@ controllers:
       app:
         image:
           repository: jellyfin/jellyfin
-          tag: 12.1
+          tag: 12.2
         env:
           JELLYFIN_PublishedServerUrl: http://192.168.1.245:8096
           TZ: Europe/Warsaw
