@@ -1,7 +1,7 @@
-# Secrets maintenance and migration
+# Secrets maintenance and recovery
 
 Purpose: provision and operate the unified Bitwarden delivery paths.
-Status: current. Reviewed against: `d9a1261970b4d6607056507421a71ad52b5d07ce`.
+Status: current. Reviewed against: `d9f31a0b9442ba41d4d8de9600b064fc89a0080d`.
 
 ## Setup without cluster access
 
@@ -84,68 +84,36 @@ restores the previous cluster token if reconciliation fails; restore the old
 operator-project value and Keychain credential too when rolling back the whole
 rotation. Project permissions remain the same.
 
-## One-time migration and retirement
+## Migration history and protected state recovery
 
-This branch's runtime paths no longer use Vault or globally exported secrets.
-The encrypted Talos file and its linter exclusions remain as a temporary recovery
-input until real migration checks pass. Do not retire them on mocked evidence.
+The unified delivery refactor retired the active Vault workflow, global secret
+exports, and Terraform's Bitwarden data sources. The original round-trip and
+retirement procedure is preserved in the
+[immutable migration runbook](https://github.com/edgard/home-ops/blob/8a41b43d2b9ec1d0eaa815500132e42ef9b5abe1/docs/wiki/operations/secrets-maintenance.md).
+Current operation uses the Bitwarden items declared in the manifest; the old
+Vault file, verification command, and formatter/linter exceptions are retired.
+Keep legacy plaintext, backup, state, plan, and crash-artifact ignores.
 
-1. Provision the operator project and give the existing machine account read-only
-   access to both projects, then import existing Talos YAML and backend
-   values, zone ID, and Tailscale OAuth client ID through the Bitwarden UI. Store
-   the existing shared token in the operator project. Retain the original
-   operator-only application-project items during round-trip verification;
-   the one-time verifier compares their original IDs. Keep the previous inputs
-   and token available for rollback.
-2. Load the existing ignored operator environment only for migration. Run
-   `task secrets:verify-migration`. It decrypts Vault using a temporary `0600`
-   password file, compares Talos/backend/infrastructure values in memory, and
-   reports pass/fail without printing them. New values resolve through SecretSpec;
-   the legacy token is used only to verify the original infrastructure item IDs.
-3. Generate Talos config into an isolated directory, then remove that directory:
+For an older infrastructure state still containing the four retired Bitwarden
+data entries, stop concurrent writers and run `task tf:migrate-secret-state`.
+It pulls state, writes and verifies a `0600` backup in a `0700` directory under
+`~/.local/state/home-ops/state-recovery`, checks a private temporary plan for
+managed-resource changes before any remote state write, removes only the four
+retired data addresses, checks managed state is unchanged, and requires a
+zero-change plan. The command also safely handles an already migrated state.
+Retain the printed backup path. On failure, inspect the redacted stage and
+investigate before further state writes; restore with `tofu state push` from
+the verified backup if needed. Do not force overwrite newer concurrent state.
+Historical B2 state versions may still contain old data values; retention and
+native state encryption are separate work.
 
-   ```bash
-   generation_dir=$(mktemp -d)
-   TALOSCONFIG="$generation_dir/talosconfig" \
-     TALOS_CONTROLPLANE_CONFIG_PATH="$generation_dir/controlplane.yaml" \
-     task talos:gen
-   # Inspect only versions and installer; never print the whole config.
-   rm -r -- "$generation_dir"
-   ```
-
-   Inspect versions and installer without printing credential fields. This
-   validates generation without applying to the production node.
-4. Stop concurrent infrastructure writers. Run `task tf:migrate-secret-state`.
-   It pulls state, writes and verifies a `0600` backup in a `0700` directory under
-   `~/.local/state/home-ops/state-recovery`, checks a private temporary plan for
-   managed-resource changes before any remote state write, removes only the four
-   retired data addresses, checks managed state is unchanged, and requires a
-   zero-change plan.
-   Retain the printed backup path. On failure, inspect the redacted stage and
-   investigate before further state writes; restore with `tofu state push` from
-   the verified backup if needed. Do not force overwrite newer concurrent state.
-   Historical B2 state versions may still contain old data values; retention and
-   native state encryption are separate work.
-5. After the PR is merged, use the clean merged checkout for platform bootstrap
-   or Argo reconciliation. Run `task secrets:sync-cluster-token` to patch only
-   ESO's bootstrap Secret. It validates the replacement token's project access first,
-   waits for fresh application-secret refreshes and target keys, and restores the
-   previous token if reconciliation fails. An invalid token fails before patch.
-   A restore failure is reported distinctly. The command does not reinstall Helm
-   or apply the root Application.
-6. Independently check affected application endpoints, controller events/logs,
-   and consumers. Ready/Synced and target keys alone do not prove application
-   behavior. Keep existing values stable throughout this migration.
-7. Only after round-trip, generation, infrastructure, and live acceptance pass,
-   delete the tracked encrypted Talos recovery file and its old exclusions/tests
-   in a follow-up PR. Remove secret assignments from the ignored `.envrc` while
-   preserving its nonsecret settings. Keep the shared token active; revoke only
-   superseded tokens after rollback is no longer needed. Clean obsolete local
-   provider artifacts. Retire the two
-   original operator-only application-project items after their operator-project
-   copies have passed round-trip and infrastructure checks, so each value has
-   one maintained item. Retain ignores
-   for old plaintext, credential files, plans, state, and crash artifacts.
+For operator recovery, sign in through the human Bitwarden account, verify
+machine-account read access to the two configured projects, and run setup and
+login on the new Mac. Restore nonsecret node/disk/path settings, then use
+`task talos:gen` with the existing Talos identity to regenerate restricted client
+and machine configuration. Do not generate a new identity for an existing
+cluster. Verify client access before applying node configuration. Kubernetes
+Secrets remain ESO delivery artifacts; maintain their values in Bitwarden.
 
 A full cold bootstrap is proved only on a disposable Talos environment with the
 external NAS/storage/network prerequisites. Do not rebuild production to validate
@@ -161,7 +129,7 @@ ApplicationSet children, followed by fresh ExternalSecret reconciliation.
 - [Read-only BWS adapter](../../../scripts/bws_readonly.py)
 - [Bootstrap preflight](../../../scripts/bootstrap.py)
 - [Cluster checks and token replacement](../../../scripts/cluster_secrets.py)
-- [Migration verification](../../../scripts/verify_migration.py)
+- [Original secrets refactor, PR #433](https://github.com/edgard/home-ops/pull/433)
 - [State retirement](../../../scripts/migrate_state.py)
 - [Tool installation](../../../scripts/install_secrets_tools.py)
 - [Task interface](../../../Taskfile.yaml)

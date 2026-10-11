@@ -137,7 +137,7 @@ Store: `external-secrets-store`
   - Role-owned defaults live in `ansible/roles/*/defaults/main.yml`; inventory vars stay limited to local/site inputs.
   - Kubernetes operations use `kubernetes.core` modules with `kube_context`; avoid adding `kubectl` tasks.
   - Runtime credentials resolve from Bitwarden through scoped SecretSpec Task commands; the operator machine token lives in Keychain. Keep only nonsecret settings in ignored `.envrc`.
-  - The encrypted Talos Vault file is a temporary migration recovery input; normal generation uses `TALOS_SECRETS_YAML` from SecretSpec. Follow the [secrets migration runbook](operations/secrets-maintenance.md) before retiring it.
+  - Talos generation uses the existing `TALOS_SECRETS_YAML` identity from SecretSpec. Recovery requires Bitwarden access; the retired Vault workflow is preserved only in history.
   - Legacy plaintext Talos secrets at `ansible/roles/talos/files/secrets.yaml` remain git-ignored and must not be reintroduced.
 
 ## Architecture Overview

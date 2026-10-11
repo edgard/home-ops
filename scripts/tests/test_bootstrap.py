@@ -73,7 +73,9 @@ class RepositoryAuthTests(unittest.TestCase):
         import urllib.error
         bootstrap = module('bootstrap')
         self.assertTrue(hasattr(bootstrap, 'authenticate_repository'), 'An anonymous Git fetch cannot prove repository credentials are valid')
-        with patch.object(bootstrap.urllib.request, 'urlopen', side_effect=urllib.error.HTTPError('url', 401, 'PRIVATE', {}, None)):
+        error = urllib.error.HTTPError('url', 401, 'PRIVATE', {}, None)
+        self.addCleanup(error.close)
+        with patch.object(bootstrap.urllib.request, 'urlopen', side_effect=error):
             with self.assertRaisesRegex(bootstrap.PreflightError, '^repository-authentication-failed$'):
                 bootstrap.authenticate_repository({'argocd_repo_username': 'fixture', 'argocd_repo_password': 'PRIVATE'})
 

@@ -11,7 +11,7 @@ remain authoritative; verify the running system separately.
 
 - [Agent and contributor workflow](agent-workflow.md) — change, validation, and repository conventions.
 - [Restic backup and restore runbook](operations/restic-backup-restore.md) — operator recovery procedure.
-- [Secrets maintenance and migration](operations/secrets-maintenance.md) — provisioning, scoped commands, rotation, and recovery.
+- [Secrets maintenance and recovery](operations/secrets-maintenance.md) — provisioning, scoped commands, rotation, and recovery.
 - [Wiki log](log.md) — substantial ingests and revisions.
 
 ## Architecture

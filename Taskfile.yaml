@@ -63,12 +63,6 @@ tasks:
     cmds:
       - python3 scripts/install_secrets_tools.py
 
-  secrets:verify-migration:
-    desc: Compare legacy inputs with Bitwarden in memory, without printing values
-    dir: "{{.TASKFILE_DIR}}"
-    cmds:
-      - '"{{.VENV_PYTHON}}" scripts/verify_migration.py'
-
   tf:migrate-secret-state:
     desc: Back up state and retire only former Bitwarden data-source entries
     dir: "{{.TASKFILE_DIR}}"
