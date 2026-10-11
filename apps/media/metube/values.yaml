@@ -16,7 +16,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/alexta69/metube
-          tag: 2026.09.29
+          tag: 2026.10.09
         env:
           CHOWN_DIRS: "false"
           DOWNLOAD_DIR: /media/downloads/metube
