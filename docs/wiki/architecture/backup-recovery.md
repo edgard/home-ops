@@ -16,6 +16,10 @@ The transaction and failure behavior are documented in the
 backup configuration does not prove a recent successful backup or a usable
 snapshot; validate those separately before recovery work.
 
+Cluster recovery also requires Bitwarden availability and an operator token;
+see [secret recovery and migration](../operations/secrets-maintenance.md). The
+temporary encrypted Talos input is retained until real migration verification.
+
 ## Sources
 
 - [Restic values](../../../apps/selfhosted/restic/values.yaml)

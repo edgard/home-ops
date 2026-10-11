@@ -40,3 +40,13 @@ updates. Extended the exclusion to that dependency in Terraform configuration
 while preserving provider and CI OpenTofu updates. No additional moved-path gaps
 were found; unchanged pages retain their prior reviewed commits. Structural
 validation remains separate from this review.
+
+## [2026-10-11] revision | Unified Bitwarden secret delivery
+
+Updated secret ownership, scoped Task commands, deterministic Talos generation,
+preflight and ESO/Argo handoff, Terraform variables/state retirement, and token
+replacement. Added the provisioning/migration runbook and marked the former
+operator-environment decision historical with immutable links. Reviewed related
+bootstrap, GitOps, backup, validation, Terraform, and External Secrets pages.
+The October semantic review is already recorded above. Real cloud migration and
+retirement of the encrypted recovery input require the runbook's acceptance steps.

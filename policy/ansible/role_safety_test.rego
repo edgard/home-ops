@@ -29,7 +29,7 @@ test_missing_talos_check_guard_is_denied if {
 test_missing_terraform_credential_is_denied if {
   inventory := {"flat": [], "documents": {"tofu/tasks/plan.yml": [{"ansible.builtin.assert": {"that": ["tofu_aws_access_key_id | length > 0", "tofu_aws_secret_access_key | length > 0"]}}, {"environment": {"AWS_ACCESS_KEY_ID": "{{ tofu_aws_access_key_id }}", "AWS_SECRET_ACCESS_KEY": "{{ tofu_aws_secret_access_key }}", "BWS_ACCESS_TOKEN": "{{ tofu_bws_access_token }}", "BW_ACCESS_TOKEN": "{{ tofu_bws_access_token }}"}}]}}
   result := deny with input as inventory
-  "Terraform plan must require tofu_bws_access_token" in result
+  "Terraform plan must require tofu_cloudflare_api_token" in result
 }
 
 test_missing_terraform_action_is_denied if {

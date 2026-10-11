@@ -12,6 +12,10 @@
   ansible.builtin.command:
     argv:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - -n
       - "{{ talos_node }}"
       - upgrade-k8s

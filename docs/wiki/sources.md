@@ -16,6 +16,7 @@ catalog is a guide to it, not a copy of all tracked files.
 | App discovery and reconciliation | [ApplicationSet](../../argocd/appsets/apps.appset.yaml) | [GitOps delivery](architecture/gitops-delivery.md) |
 | App definitions | [Apps](../../apps) | [App catalog](index.md#applications) |
 | Bootstrap and operations | [Ansible](../../ansible) and [Taskfile](../../Taskfile.yaml) | [Talos](architecture/talos-bootstrap.md), [recovery](architecture/backup-recovery.md) |
+| Secrets and operator inputs | [SecretSpec](../../secretspec.toml), [operator helpers](../../scripts) | [Secrets](architecture/secrets.md), [maintenance](operations/secrets-maintenance.md) |
 | External infrastructure | [Terraform](../../terraform) | [Terraform](architecture/terraform.md) |
 | Enforced contracts | [Policy](../../policy) and [CI](../../.github/workflows/ci.yml) | [Validation](architecture/validation.md) |
 | Dependency maintenance | [Renovate configuration](../../.renovaterc.json5) and [RenovateJob](../../apps/selfhosted/renovate-operator/manifests/renovate-operator-home-ops.renovatejob.yaml) | [Renovate Operator](apps/selfhosted/renovate-operator.md), [Talos installer](decisions/talos-image-factory.md) |

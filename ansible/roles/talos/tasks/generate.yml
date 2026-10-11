@@ -7,10 +7,25 @@
       - talos_install_disk | length > 0
     fail_msg: TALOS_NODE, TALOS_CLUSTER_NAME, and TALOS_INSTALL_DISK are required.
 
-- name: Generate Talos config from vaulted secrets
+- name: Generate Talos config from Bitwarden material
   when: not ansible_check_mode
   no_log: true
   block:
+    - name: Validate Talos material and repository generation targets
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_python_interpreter }}"
+          - "{{ repo_root }}/scripts/bootstrap.py"
+          - targets
+      environment:
+        TALOS_SECRETS_YAML: "{{ talos_secrets_yaml }}"
+      register: talos_targets_result
+      changed_when: false
+
+    - name: Record repository generation targets
+      ansible.builtin.set_fact:
+        talos_generation_targets: "{{ talos_targets_result.stdout | from_json }}"
+
     - name: Create temporary Talos output directory
       ansible.builtin.tempfile:
         state: directory
@@ -23,9 +38,9 @@
         suffix: talos-secrets
       register: talos_generate_secrets_temp
 
-    - name: Decrypt Talos secrets into temporary file
+    - name: Write Talos secrets into temporary file
       ansible.builtin.copy:
-        content: "{{ lookup('ansible.builtin.file', talos_secrets_file) }}"
+        content: "{{ talos_secrets_yaml }}"
         dest: "{{ talos_generate_secrets_temp.path }}"
         mode: "0600"
 
@@ -37,6 +52,12 @@
           - config
           - "{{ talos_cluster_name }}"
           - "https://{{ talos_node }}:6443"
+          - --talos-version
+          - "{{ talos_generation_targets.talos }}"
+          - --kubernetes-version
+          - "{{ talos_generation_targets.kubernetes }}"
+          - --install-image
+          - "{{ talos_generation_targets.installer }}"
           - --install-disk
           - "{{ talos_install_disk }}"
           - --config-patch-control-plane
@@ -48,11 +69,23 @@
           - --force
       changed_when: true
 
+    - name: Validate generated control plane configuration
+      ansible.builtin.command:
+        argv:
+          - talosctl
+          - validate
+          - --config
+          - "{{ talos_generate_output.path }}/controlplane.yaml"
+          - --mode
+          - metal
+      changed_when: false
+
     - name: Ensure local Talos config directory exists
       ansible.builtin.file:
-        path: "{{ talos_config_dir }}"
+        path: "{{ item }}"
         state: directory
         mode: "0700"
+      loop: "{{ [talos_config_path | dirname, talos_controlplane_config_path | dirname] | unique }}"
 
     - name: Install generated talosconfig
       ansible.builtin.copy:

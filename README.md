@@ -20,7 +20,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install python helm talosctl go-task opentofu yamllint prettier yamlfmt pluto kubeconform conftest actionlint
+brew install python@3.14 helm talosctl go-task opentofu yamllint prettier yamlfmt pluto kubeconform conftest actionlint
 task deps                         # Install pinned validation dependencies
 
 # Set local operator inputs
@@ -28,15 +28,24 @@ export TALOS_NODE="192.168.1.253"
 export TALOS_CLUSTER_NAME="homelab"
 export TALOS_INSTALL_DISK="/dev/vda"
 export KUBE_CONTEXT="admin@homelab"
-export ANSIBLE_VAULT_PASSWORD="your-local-vault-password"
-export BWS_ACCESS_TOKEN="your-bitwarden-secrets-manager-token"
-export AWS_ACCESS_KEY_ID="your-terraform-backend-access-key"
-export AWS_SECRET_ACCESS_KEY="your-terraform-backend-secret-key"
 ```
 
-Keep `.envrc` for local-only operator inputs and runtime credentials; it is intentionally git-ignored.
-Talos bootstrap secrets live in `ansible/roles/talos/files/secrets.vault.yml`, encrypted with Ansible Vault.
-`ANSIBLE_VAULT_PASSWORD` is only needed for Talos secret generation and Vault maintenance tasks.
+Install the pinned operator binaries and store the operator machine token once:
+
+```bash
+task secrets:setup
+task secrets:login
+task secrets:check scope=cluster
+task secrets:check scope=terraform
+```
+
+First provision the operator Bitwarden project and separate machine accounts as
+specified in the [secrets setup and migration runbook](docs/wiki/operations/secrets-maintenance.md).
+Set its public project UUID in `secretspec.toml`; the nil UUID deliberately blocks
+commands until provisioned. Maintain values in Bitwarden's UI. ESO delivers app
+secrets; scoped SecretSpec commands deliver Talos and Terraform inputs.
+Keep only nonsecret settings in ignored `.envrc`. The encrypted Talos file is a
+temporary migration recovery input, unused by normal bootstrap commands.
 
 ### Bootstrap Cluster
 
@@ -67,8 +76,11 @@ task platform:destroy                # Uninstall platform bootstrap components
 task argo:sync                       # Refresh every Argo CD application
 task argo:sync app=jellyfin          # Refresh one Argo CD application
 
-# Vault
-task vault:edit-talos                # Edit encrypted Talos bootstrap secrets
+# Secrets
+task secrets:check scope=cluster     # Check scoped resolution without values
+task secrets:sync-cluster-token      # Update only ESO bootstrap token and verify
+task secrets:verify-migration        # One-time in-memory round-trip comparison
+task tf:migrate-secret-state         # Protected backup, data retirement, zero-change plan
 
 # Development
 task deps                          # Install pinned validation dependencies

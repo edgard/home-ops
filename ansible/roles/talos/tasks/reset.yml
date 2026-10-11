@@ -10,6 +10,10 @@
   ansible.builtin.command:
     argv:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - reset
       - --nodes
       - "{{ talos_node }}"

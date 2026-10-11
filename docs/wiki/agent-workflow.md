@@ -12,7 +12,7 @@ Gatus • Helm • Ansible • Terraform
 
 - Format: `task fmt`
 - Format check: `task fmt:check`
-- Dependencies: `task deps` installs pinned Python dependencies and Ansible collections in `.venv`
+- Dependencies: `task deps` uses Python 3.14 by default (`PYTHON_BIN` override) and installs pinned Python dependencies and Ansible collections in `.venv`
 - Lint: `task lint` (offline validation: formatting, yamllint, GitHub Actions workflow lint, Ansible lint/contracts/integration tests, metadata policy, raw and rendered manifest policy/schema/deprecation checks, `tofu validate`)
 - Focused checks: `task lint:static`, `task lint:wiki`, `task lint:workflows`, `task lint:ansible`, `task lint:kubernetes`, `task lint:terraform`
 - Wiki check: `task lint:wiki` runs the Ansible structural contract for links, source sections, index reachability, and app-page coverage
@@ -136,8 +136,8 @@ Store: `external-secrets-store`
 - Ansible roles:
   - Role-owned defaults live in `ansible/roles/*/defaults/main.yml`; inventory vars stay limited to local/site inputs.
   - Kubernetes operations use `kubernetes.core` modules with `kube_context`; avoid adding `kubectl` tasks.
-  - Local runtime credentials (`BWS_ACCESS_TOKEN`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) come from git-ignored `.envrc` or the operator environment.
-  - Talos bootstrap secrets live in committed Ansible Vault file `ansible/roles/talos/files/secrets.vault.yml`.
+  - Runtime credentials resolve from Bitwarden through scoped SecretSpec Task commands; the operator machine token lives in Keychain. Keep only nonsecret settings in ignored `.envrc`.
+  - The encrypted Talos Vault file is a temporary migration recovery input; normal generation uses `TALOS_SECRETS_YAML` from SecretSpec. Follow the [secrets migration runbook](operations/secrets-maintenance.md) before retiring it.
   - Legacy plaintext Talos secrets at `ansible/roles/talos/files/secrets.yaml` remain git-ignored and must not be reintroduced.
 
 ## Architecture Overview
@@ -146,8 +146,8 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 ## External Services
 
-- Bitwarden: Secret management (`BWS_ACCESS_TOKEN` required for bootstrap and Terraform plan/apply)
-- AWS S3: Terraform backend storage (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+- Bitwarden: authoritative values, with separate ESO and operator machine accounts; scoped SecretSpec supplies bootstrap and Terraform commands.
+- Backblaze B2 S3-compatible backend: credentials supplied through the SecretSpec Terraform scope.
 - Cloudflare: DNS management
 - Tailscale: VPN networking (192.168.1.0/24)
 

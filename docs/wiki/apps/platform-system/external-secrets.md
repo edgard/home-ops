@@ -17,7 +17,11 @@ No routed HTTP endpoint is declared in this app values file; inspect raw manifes
 
 ## Operational note
 
-The shared store is a security boundary; review consumers and credential scope together.
+ESO uses an application-only machine account, separate from the operator account.
+The shared store restricts consumers to the namespaces in its conditions; those
+namespaces are not isolated from each other. Bootstrap waits for store readiness
+before Argo handoff. [Token replacement](../../operations/secrets-maintenance.md)
+validates access and waits for fresh reconciliation with rollback on failure.
 
 ## Sources
 

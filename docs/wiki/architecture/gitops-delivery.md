@@ -14,6 +14,10 @@ The per-app page records dependencies and operational context; the app metadata,
 values, manifests, and generated Application remain the deployment definition.
 The [agent workflow](../agent-workflow.md) gives the change and validation loop.
 
+Bootstrap preflight requires a clean checkout matching remote `master`, then
+verifies root reconciliation to that captured revision and expected ApplicationSet
+children. ESO/store and Argo repository access must be ready before root handoff.
+
 ## Sources
 
 - [Platform bootstrap](../../../ansible/roles/platform/tasks/bootstrap.yml)

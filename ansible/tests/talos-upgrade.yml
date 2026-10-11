@@ -54,5 +54,5 @@
     - name: Preserve the configured Image Factory installer during upgrades
       ansible.builtin.assert:
         that:
-          - talos_upgrade_command[5] == talos_upgrade_controlplane_config.machine.install.image
+          - talos_upgrade_command[talos_upgrade_command.index('--image') + 1] == talos_upgrade_controlplane_config.machine.install.image
         fail_msg: "Talos upgrades must use the installer image from the control plane patch."

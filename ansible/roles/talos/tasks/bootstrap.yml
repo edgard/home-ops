@@ -11,6 +11,10 @@
   ansible.builtin.command:
     argv:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - version
       - --nodes
       - "{{ talos_node }}"
@@ -25,6 +29,10 @@
   ansible.builtin.command:
     argv:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - bootstrap
       - --nodes
       - "{{ talos_node }}"
@@ -39,6 +47,10 @@
   ansible.builtin.command:
     argv:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - health
       - --nodes
       - "{{ talos_node }}"
@@ -46,15 +58,33 @@
       - "{{ talos_health_wait_timeout }}"
   changed_when: false
 
+- name: Ensure kubeconfig parent exists
+  when: not ansible_check_mode
+  ansible.builtin.file:
+    path: "{{ kubeconfig_path | dirname }}"
+    state: directory
+    mode: "0700"
+
 - name: Fetch kubeconfig
   when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - kubeconfig
+      - "{{ kubeconfig_path }}"
       - --nodes
       - "{{ talos_node }}"
       - --force-context-name
       - "{{ kube_context }}"
       - --force
   changed_when: true
+
+- name: Restrict kubeconfig permissions
+  when: not ansible_check_mode
+  ansible.builtin.file:
+    path: "{{ kubeconfig_path }}"
+    mode: "0600"

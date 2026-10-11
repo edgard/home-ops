@@ -10,16 +10,12 @@ set:
 shell: bash -c
 
 vars:
-  ANSIBLE_VAULT_PASSWORD: '{{.ANSIBLE_VAULT_PASSWORD | default ""}}'
-  ANSIBLE_VAULT_ARGS: '{{if .ANSIBLE_VAULT_PASSWORD}}--vault-password-file <(printf "%s\n" "$ANSIBLE_VAULT_PASSWORD"){{end}}'
-  AWS_ACCESS_KEY_ID: '{{.AWS_ACCESS_KEY_ID | default ""}}'
-  AWS_SECRET_ACCESS_KEY: '{{.AWS_SECRET_ACCESS_KEY | default ""}}'
-  BWS_ACCESS_TOKEN: '{{.BWS_ACCESS_TOKEN | default ""}}'
   K8S_VERSION: '{{.K8S_VERSION | default ""}}'
   TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
   TALOS_CLUSTER_NAME: '{{.TALOS_CLUSTER_NAME | default "homelab"}}'
   TALOS_INSTALL_DISK: '{{.TALOS_INSTALL_DISK | default ""}}'
   TALOS_NODE: '{{.TALOS_NODE | default ""}}'
+  PYTHON_BIN: '{{.PYTHON_BIN | default "python3.14"}}'
   VENV_DIR: "{{.TASKFILE_DIR}}/.venv"
   VENV_PYTHON: "{{.VENV_DIR}}/bin/python"
   ANSIBLE_GALAXY: "{{.VENV_DIR}}/bin/ansible-galaxy"
@@ -28,10 +24,6 @@ vars:
   ANSIBLE_COLLECTIONS_PATH: "{{.TASKFILE_DIR}}/.ansible/collections"
 
 env:
-  ANSIBLE_VAULT_PASSWORD: "{{.ANSIBLE_VAULT_PASSWORD}}"
-  AWS_ACCESS_KEY_ID: "{{.AWS_ACCESS_KEY_ID}}"
-  AWS_SECRET_ACCESS_KEY: "{{.AWS_SECRET_ACCESS_KEY}}"
-  BWS_ACCESS_TOKEN: "{{.BWS_ACCESS_TOKEN}}"
   TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME}}"
   TALOS_INSTALL_DISK: "{{.TALOS_INSTALL_DISK}}"
   TALOS_NODE: "{{.TALOS_NODE}}"
@@ -48,7 +40,7 @@ tasks:
     desc: Install pinned validation dependencies
     dir: "{{.TASKFILE_DIR}}"
     cmds:
-      - python3 -m venv "{{.VENV_DIR}}"
+      - '"{{.PYTHON_BIN}}" -m venv "{{.VENV_DIR}}"'
       - '"{{.VENV_PYTHON}}" -m pip install --upgrade pip'
       - '"{{.VENV_PYTHON}}" -m pip uninstall -y ansible || true'
       - '"{{.VENV_PYTHON}}" -m pip install -r ansible/requirements.txt'
@@ -65,17 +57,45 @@ tasks:
     cmds:
       - true
 
-  # Vault maintenance
-  vault:edit-talos:
-    desc: Edit encrypted Talos bootstrap secrets
+  secrets:setup:
+    desc: Install checksum-verified SecretSpec and official bws in ~/.local/bin
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - python3 scripts/install_secrets_tools.py
+
+  secrets:verify-migration:
+    desc: Compare legacy inputs with Bitwarden in memory, without printing values
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - '"{{.VENV_PYTHON}}" scripts/verify_migration.py'
+
+  tf:migrate-secret-state:
+    desc: Back up state and retire only former Bitwarden data-source entries
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run terraform -- "{{.VENV_PYTHON}}" scripts/migrate_state.py'
+
+  secrets:login:
+    desc: Store the operator machine token once in Keychain
+    dir: "{{.TASKFILE_DIR}}"
+    cmds:
+      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py login'
+
+  secrets:check:
+    desc: Check scoped Bitwarden resolution without printing values
+    dir: "{{.TASKFILE_DIR}}"
+    vars:
+      scope: '{{.scope | default "cluster"}}'
+    cmds:
+      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py check "{{.scope}}"'
+
+  secrets:sync-cluster-token:
+    desc: Replace ESO bootstrap token and verify fresh reconciliation
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
-    requires:
-      vars:
-        - ANSIBLE_VAULT_PASSWORD
     cmds:
-      - '"{{.VENV_DIR}}/bin/ansible-vault" edit {{.ANSIBLE_VAULT_ARGS}} ansible/roles/talos/files/secrets.vault.yml'
+      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run platform -- "{{.VENV_PYTHON}}" scripts/cluster_secrets.py sync-token'
 
   # Quality gate and local development
   fmt:
@@ -131,6 +151,7 @@ tasks:
     deps:
       - task: ansible:check
     cmds:
+      - '"{{.VENV_PYTHON}}" -m unittest discover -s scripts/tests -v'
       - '"{{.ANSIBLE_LINT}}" ansible'
       - for test in ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" "$test"; done
 
@@ -166,10 +187,8 @@ tasks:
         - TALOS_NODE
         - TALOS_CLUSTER_NAME
         - TALOS_INSTALL_DISK
-        - ANSIBLE_VAULT_PASSWORD
-        - BWS_ACCESS_TOKEN
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" {{.ANSIBLE_VAULT_ARGS}} ansible/playbooks/cluster-create.yml'
+      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run cluster -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/cluster-create.yml'
 
   cluster:destroy:
     desc: Destroy platform and reset Talos node
@@ -185,7 +204,7 @@ tasks:
 
   # Talos operations
   talos:gen:
-    desc: Generate Talos config into ~/.talos
+    desc: Generate Talos config using configured client paths
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
@@ -194,9 +213,8 @@ tasks:
         - TALOS_NODE
         - TALOS_CLUSTER_NAME
         - TALOS_INSTALL_DISK
-        - ANSIBLE_VAULT_PASSWORD
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" {{.ANSIBLE_VAULT_ARGS}} ansible/playbooks/talos-generate.yml'
+      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run talos -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-generate.yml'
 
   talos:apply:
     desc: Apply Talos config to control plane
@@ -250,11 +268,8 @@ tasks:
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
-    requires:
-      vars:
-        - BWS_ACCESS_TOKEN
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/platform-bootstrap.yml'
+      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run platform -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/platform-bootstrap.yml'
 
   platform:destroy:
     desc: Destroy platform components via Ansible
@@ -309,26 +324,16 @@ tasks:
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
-    requires:
-      vars:
-        - AWS_ACCESS_KEY_ID
-        - AWS_SECRET_ACCESS_KEY
-        - BWS_ACCESS_TOKEN
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-plan.yml'
+      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run terraform -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-plan.yml'
 
   tf:apply:
     desc: Terraform apply
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
-    requires:
-      vars:
-        - AWS_ACCESS_KEY_ID
-        - AWS_SECRET_ACCESS_KEY
-        - BWS_ACCESS_TOKEN
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-apply.yml'
+      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run terraform -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-apply.yml'
 
   tf:clean:
     desc: Clean terraform state/cache

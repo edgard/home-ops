@@ -6,7 +6,9 @@ Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
 `task lint` aggregates formatting, static analysis, wiki, workflow, Ansible,
 Kubernetes, and Terraform validation. Source, metadata, raw manifest, and
 rendered workload policy check repository contracts; Ansible tests exercise
-role behavior and fixtures. CI runs focused targets as separate pull-request
+role behavior and fixtures. The Ansible gate also runs synthetic Python secret,
+bootstrap, token rollback, and pinned SecretSpec integration tests. CI has no
+cloud credentials; these tests do not prove a fresh-cluster bootstrap. CI runs focused targets as separate pull-request
 jobs and collects their results in `Quality Gate`.
 
 The [validation architecture decision](../decisions/validation-architecture.md)

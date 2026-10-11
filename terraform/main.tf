@@ -15,10 +15,6 @@ terraform {
       source  = "tailscale/tailscale"
       version = "0.29.2"
     }
-    bitwarden-secrets = {
-      source  = "bitwarden/bitwarden-secrets"
-      version = "1.0.1"
-    }
   }
 
   backend "s3" {
@@ -38,30 +34,8 @@ terraform {
   }
 }
 
-provider "bitwarden-secrets" {
-  api_url         = "https://api.bitwarden.com"
-  identity_url    = "https://identity.bitwarden.com"
-  organization_id = var.bitwarden_org_id
-}
-
-data "bitwarden-secrets_secret" "cloudflare_token" {
-  id = var.bw_secret_ids["cloudflare_token"]
-}
-
-data "bitwarden-secrets_secret" "cloudflare_zone_id" {
-  id = var.bw_secret_ids["cloudflare_zone_id"]
-}
-
-data "bitwarden-secrets_secret" "tailscale_client_id" {
-  id = var.bw_secret_ids["tailscale_client_id"]
-}
-
-data "bitwarden-secrets_secret" "tailscale_client_secret" {
-  id = var.bw_secret_ids["tailscale_client_secret"]
-}
-
 provider "cloudflare" {
-  api_token = data.bitwarden-secrets_secret.cloudflare_token.value
+  api_token = var.cloudflare_api_token
 }
 
 provider "kubernetes" {
@@ -71,5 +45,5 @@ provider "kubernetes" {
 module "cloudflare" {
   source = "./cloudflare"
 
-  zone_id = data.bitwarden-secrets_secret.cloudflare_zone_id.value
+  zone_id = var.cloudflare_zone_id
 }

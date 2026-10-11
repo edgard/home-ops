@@ -58,3 +58,30 @@ test_latest_image_tags_are_rejected if {
   }
   "Deployment/demo must not use latest image tags" in deny with input as pod
 }
+
+test_external_secret_requires_store_kind if {
+  secret := {"kind": "ExternalSecret", "metadata": {"name": "demo"}, "spec": {"secretStoreRef": {"name": "external-secrets-store", "kind": "SecretStore"}}}
+  "ExternalSecret/demo must use ClusterSecretStore" in deny with input as secret
+}
+
+test_populated_secret_denied if {
+  secret := {"kind": "Secret", "metadata": {"name": "demo"}, "stringData": {"password": "synthetic"}}
+  "Secret/demo must obtain values from a controller or operator bootstrap" in deny with input as secret
+}
+
+test_empty_controller_secret_allowed if {
+  secret := {"kind": "Secret", "metadata": {"name": "demo"}, "data": {"password": ""}}
+  result := deny with input as secret
+  count(result) == 0
+}
+
+test_store_namespace_restrictions_required if {
+  store := {"kind": "ClusterSecretStore", "metadata": {"name": "external-secrets-store"}, "spec": {}}
+  "ClusterSecretStore/external-secrets-store must restrict consumer namespaces" in deny with input as store
+}
+
+test_namespace_order_is_not_a_security_difference if {
+  store := {"kind": "ClusterSecretStore", "metadata": {"name": "external-secrets-store"}, "spec": {"conditions": [{"namespaces": ["selfhosted", "media", "platform-system", "argocd"]}]}}
+  result := deny with input as store
+  count(result) == 0
+}
