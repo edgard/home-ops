@@ -11,6 +11,13 @@ Local `task lint` runs the same focused checks. Keep new assertions with the
 source layer they protect, and check operational invariants instead of pinning
 test expectations to names or dependency versions without a behavioral reason.
 
+The Kubernetes role renders pinned charts before raw schema validation, exporting
+served CRD schemas alongside repository-owned CRDs. The exporter traverses schema
+keywords separately from property-name maps, so a field named `properties` cannot
+corrupt its containing schema. Strict validation stays enabled; no resource is
+exempted because a remote catalog conversion is malformed. The external catalog
+remains a fallback for APIs without a repository or chart schema.
+
 ## Sources
 
 - [CI workflow](../../../.github/workflows/ci.yml)

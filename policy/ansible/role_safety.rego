@@ -3,7 +3,7 @@ package main
 import rego.v1
 
 sensitive(task) if {
-  regex.match(`\b(tofu_(aws_access_key_id|aws_secret_access_key|bws_access_token)|platform_bitwarden_access_token|talos_(secrets_file|generate_secrets_temp|generate_output))\b`, json.marshal(task))
+  regex.match(`\b(tofu_(aws_access_key_id|aws_secret_access_key|cloudflare_api_token|cloudflare_zone_id|tailscale_client_id|tailscale_client_secret)|platform_bitwarden_access_token|talos_(secrets_yaml|generate_secrets_temp|generate_output))\b`, json.marshal(task))
 }
 
 sensitive(task) if { object.get(task, "community.general.terraform", null) != null }
@@ -87,7 +87,7 @@ deny contains msg if {
   some action in {"plan", "apply"}
   tasks := input.documents[sprintf("tofu/tasks/%s.yml", [action])]
   checks := object.get(object.get(tasks[0], "ansible.builtin.assert", {}), "that", [])
-  required := {"tofu_aws_access_key_id", "tofu_aws_secret_access_key", "tofu_bws_access_token"}
+  required := {"tofu_aws_access_key_id", "tofu_aws_secret_access_key", "tofu_cloudflare_api_token", "tofu_cloudflare_zone_id", "tofu_tailscale_client_id", "tofu_tailscale_client_secret"}
   some credential in required
   not required_credential_check(checks, credential)
   msg := sprintf("Terraform %s must require %s", [action, credential])
@@ -97,7 +97,7 @@ deny contains msg if {
   some action in {"plan", "apply"}
   tasks := input.documents[sprintf("tofu/tasks/%s.yml", [action])]
   env := object.get(tasks[1], "environment", {})
-  expected := {"AWS_ACCESS_KEY_ID": "tofu_aws_access_key_id", "AWS_SECRET_ACCESS_KEY": "tofu_aws_secret_access_key", "BWS_ACCESS_TOKEN": "tofu_bws_access_token", "BW_ACCESS_TOKEN": "tofu_bws_access_token"}
+  expected := {"AWS_ACCESS_KEY_ID": "tofu_aws_access_key_id", "AWS_SECRET_ACCESS_KEY": "tofu_aws_secret_access_key", "TF_VAR_cloudflare_api_token": "tofu_cloudflare_api_token", "TF_VAR_cloudflare_zone_id": "tofu_cloudflare_zone_id", "TF_VAR_tailscale_client_id": "tofu_tailscale_client_id", "TF_VAR_tailscale_client_secret": "tofu_tailscale_client_secret"}
   some key, variable in expected
   object.get(env, key, "") != sprintf("{{ %s }}", [variable])
   msg := sprintf("Terraform %s lost %s credential mapping", [action, key])

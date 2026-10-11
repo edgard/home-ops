@@ -40,3 +40,46 @@ updates. Extended the exclusion to that dependency in Terraform configuration
 while preserving provider and CI OpenTofu updates. No additional moved-path gaps
 were found; unchanged pages retain their prior reviewed commits. Structural
 validation remains separate from this review.
+
+## [2026-10-11] revision | Unified Bitwarden secret delivery
+
+Updated secret ownership, scoped Task commands, deterministic Talos generation,
+preflight and ESO/Argo handoff, Terraform variables/state retirement, and token
+replacement. Added the provisioning/migration runbook and marked the former
+operator-environment decision historical with immutable links. Reviewed related
+bootstrap, GitOps, backup, validation, Terraform, and External Secrets pages.
+The October semantic review is already recorded above. Real cloud migration and
+retirement of the encrypted recovery input require the runbook's acceptance steps.
+
+## [2026-10-11] revision | Verify infrastructure item names and ownership
+
+Checked existing Bitwarden item metadata without exposing values. Corrected
+SecretSpec's Tailscale references to match the deployed ESO item name and moved
+operator-exclusive zone/OAuth client identifiers to the operator alias. The
+migration runbook retains originals for round-trip verification, then requires
+their retirement so values do not remain duplicated between projects.
+
+## [2026-10-11] revision | Gate state retirement on infrastructure preflight
+
+The state migration helper now checks a private temporary plan before remote
+state writes and rejects managed-resource changes. It still verifies the recovery
+backup, removes only the known retired data entries, checks managed state equality,
+and requires a zero-change final plan. Updated the migration runbook accordingly.
+
+## [2026-10-11] revision | Reuse the shared read-only machine account
+
+Configured the operator project's public UUID and reused the existing machine
+account for both project reads. Updated preflight to enforce the configured
+project set, and documented that command scopes control injection while ESO's
+credential can read operator secrets too. Reviewed setup, rotation, retirement,
+the architecture pages, External Secrets, the README, and contributor guidance.
+
+## [2026-10-11] revision | Preserve zero-change infrastructure migration
+
+Preserved legacy resource-state zone-ID sensitivity while keeping the operator
+input nonsensitive. Added a Cloudflare provider compatibility pin and Renovate
+limit for the query-parameter regression. The isolated official-provider plan
+has no managed-resource changes; DNS attributes, addresses, and backend remain
+unchanged. Reviewed the Terraform architecture and state-retirement runbook.
+
+- 2026-10-11: Revised Kubernetes validation to use served CRD schemas from pinned charts and tracked manifests before catalog fallback; retained strict field checks and added malformed, conflicting, and invalid-resource regression coverage.

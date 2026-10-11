@@ -38,6 +38,7 @@
       - template
       - test
       - "{{ kubernetes_validation_workdir.path }}/charts/{{ kubernetes_validation_chart_key }}/{{ kubernetes_validation_chart_name }}"
+      - --include-crds
       - --values
       - "{{ kubernetes_validation_app.values_file }}"
       - --kube-version

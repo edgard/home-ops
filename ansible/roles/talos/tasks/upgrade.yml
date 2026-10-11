@@ -9,6 +9,10 @@
   ansible.builtin.set_fact:
     talos_upgrade_command:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - --nodes
       - "{{ talos_node }}"
       - upgrade
@@ -81,6 +85,10 @@
   ansible.builtin.command:
     argv:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - --nodes
       - "{{ talos_node }}"
       - version

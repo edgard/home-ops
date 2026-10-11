@@ -4,8 +4,11 @@
     that:
       - tofu_aws_access_key_id | length > 0
       - tofu_aws_secret_access_key | length > 0
-      - tofu_bws_access_token | length > 0
-    fail_msg: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and BWS_ACCESS_TOKEN are required for Terraform apply.
+      - tofu_cloudflare_api_token | length > 0
+      - tofu_cloudflare_zone_id | length > 0
+      - tofu_tailscale_client_id | length > 0
+      - tofu_tailscale_client_secret | length > 0
+    fail_msg: Run tf:apply through the scoped SecretSpec command.
   no_log: true
 
 - name: Apply Terraform infrastructure
@@ -17,6 +20,8 @@
   environment:
     AWS_ACCESS_KEY_ID: "{{ tofu_aws_access_key_id }}"
     AWS_SECRET_ACCESS_KEY: "{{ tofu_aws_secret_access_key }}"
-    BWS_ACCESS_TOKEN: "{{ tofu_bws_access_token }}"
-    BW_ACCESS_TOKEN: "{{ tofu_bws_access_token }}"
+    TF_VAR_cloudflare_api_token: "{{ tofu_cloudflare_api_token }}"
+    TF_VAR_cloudflare_zone_id: "{{ tofu_cloudflare_zone_id }}"
+    TF_VAR_tailscale_client_id: "{{ tofu_tailscale_client_id }}"
+    TF_VAR_tailscale_client_secret: "{{ tofu_tailscale_client_secret }}"
   no_log: true

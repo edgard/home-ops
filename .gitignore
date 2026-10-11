@@ -10,3 +10,9 @@
 /terraform/**/.bw-provider-state
 /ansible/roles/talos/files/secrets.yaml
 __pycache__/
+/terraform/**/crash.log
+/terraform/**/crash.*.log
+/terraform/**/terraform.tfstate.*
+/terraform/**/*.tfplan.*
+/.secrets-migration/
+/.superpowers/

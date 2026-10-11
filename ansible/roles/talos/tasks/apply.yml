@@ -10,6 +10,10 @@
   ansible.builtin.command:
     argv:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - config
       - endpoints
       - "{{ talos_node }}"
@@ -20,6 +24,10 @@
   ansible.builtin.command:
     argv:
       - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
       - version
       - --nodes
       - "{{ talos_node }}"
@@ -33,7 +41,7 @@
   ansible.builtin.command:
     argv: >-
       {{
-        ['talosctl', 'apply-config']
+        ['talosctl', '--talosconfig', talos_config_path, '--endpoints', talos_node, 'apply-config']
         + (['--insecure'] if talos_apply_version_check.rc != 0 else [])
         + [
           '--nodes',

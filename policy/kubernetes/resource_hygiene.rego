@@ -39,3 +39,30 @@ deny contains msg if {
   lower(image) == sprintf("%s:latest", [trim_suffix(image, ":latest")])
   msg := sprintf("%s/%s must not use latest image tags", [input.kind, input.metadata.name])
 }
+
+deny contains msg if {
+  input.kind == "ExternalSecret"
+  object.get(object.get(input.spec, "secretStoreRef", {}), "kind", "") != "ClusterSecretStore"
+  msg := sprintf("ExternalSecret/%s must use ClusterSecretStore", [input.metadata.name])
+}
+
+deny contains msg if {
+  input.kind == "Secret"
+  some field in {"data", "stringData"}
+  some value in object.get(input, field, {})
+  value != ""
+  msg := sprintf("Secret/%s must obtain values from a controller or operator bootstrap", [input.metadata.name])
+}
+
+valid_store_conditions if {
+  count(input.spec.conditions) == 1
+  condition := input.spec.conditions[0]
+  object.keys(condition) == {"namespaces"}
+  {namespace | some namespace in condition.namespaces} == {"argocd", "media", "platform-system", "selfhosted"}
+}
+
+deny contains "ClusterSecretStore/external-secrets-store must restrict consumer namespaces" if {
+  input.kind == "ClusterSecretStore"
+  input.metadata.name == "external-secrets-store"
+  not valid_store_conditions
+}

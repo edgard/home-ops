@@ -1,6 +1,6 @@
 provider "tailscale" {
-  oauth_client_id     = data.bitwarden-secrets_secret.tailscale_client_id.value
-  oauth_client_secret = data.bitwarden-secrets_secret.tailscale_client_secret.value
+  oauth_client_id     = var.tailscale_client_id
+  oauth_client_secret = var.tailscale_client_secret
   tailnet             = "-"
 }
 

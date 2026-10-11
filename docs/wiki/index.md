@@ -11,6 +11,7 @@ remain authoritative; verify the running system separately.
 
 - [Agent and contributor workflow](agent-workflow.md) — change, validation, and repository conventions.
 - [Restic backup and restore runbook](operations/restic-backup-restore.md) — operator recovery procedure.
+- [Secrets maintenance and migration](operations/secrets-maintenance.md) — provisioning, scoped commands, rotation, and recovery.
 - [Wiki log](log.md) — substantial ingests and revisions.
 
 ## Architecture
@@ -18,7 +19,7 @@ remain authoritative; verify the running system separately.
 - [GitOps delivery](architecture/gitops-delivery.md) — bootstrap, ApplicationSet, and reconciliation.
 - [Talos and platform bootstrap](architecture/talos-bootstrap.md) — node and foundational services.
 - [Networking and ingress](architecture/networking.md) — Gateway, DNS, Tailscale, and Multus.
-- [Secrets and credentials](architecture/secrets.md) — Bitwarden, External Secrets, Vault, and operator inputs.
+- [Secrets and credentials](architecture/secrets.md) — Bitwarden, External Secrets, and scoped operator inputs.
 - [Storage and shared media](architecture/storage.md) — NFS appdata, media, and repository boundaries.
 - [Backup and recovery](architecture/backup-recovery.md) — Restic and restore transaction.
 - [Uptime monitoring](architecture/uptime.md) — Gatus targets and alerting limit.

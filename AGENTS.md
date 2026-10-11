@@ -20,5 +20,7 @@ each calendar month also performs a semantic wiki review if
 - Run `task fmt` and `task lint` before committing or updating a PR.
 - Argo CD sync follows a committed and pushed GitOps change; do not sync local
   uncommitted configuration.
-- Keep credentials in the existing ignored operator environment or encrypted
-  Vault file. Never copy secrets into the wiki.
+- Maintain values in Bitwarden, resolve operator inputs through scoped SecretSpec,
+  and keep the operator machine token in Keychain. Retain legacy ignored inputs
+  and encrypted recovery material only until migration acceptance passes. Never
+  copy secrets into the wiki.

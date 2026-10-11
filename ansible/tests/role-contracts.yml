@@ -96,7 +96,7 @@
           - role_contract_talos_generate[1].no_log | bool
           - "'not ansible_check_mode' in role_contract_talos_generate[1].when"
           - role_contract_talos_generate[1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.tempfile') | list | length == 2
-          - role_contract_talos_generate[1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.command') | list | length == 1
+          - role_contract_talos_generate[1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.command') | list | length == 3
           - role_contract_talos_generate[1].always | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.file') | list | length == 2
           - role_contract_talos_generate[1].always[0]['ansible.builtin.file'].state == 'absent'
           - role_contract_talos_generate[1].always[1]['ansible.builtin.file'].state == 'absent'
@@ -247,7 +247,7 @@
         src: "{{ role_contract_root }}/ansible/roles/talos/files/secrets.vault.yml"
       register: role_contract_vault
 
-    - name: Validate encrypted Talos secrets and ignored legacy file
+    - name: Validate retained encrypted recovery input and ignored legacy file
       ansible.builtin.assert:
         that:
           - "(role_contract_vault.content | b64decode) is match('^\\$ANSIBLE_VAULT;')"

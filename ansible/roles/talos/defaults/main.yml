@@ -1,9 +1,9 @@
 ---
-talos_config_dir: "{{ home_dir }}/.talos"
-talos_config_path: "{{ talos_config_dir }}/config"
-talos_controlplane_config_path: "{{ talos_config_dir }}/controlplane.yaml"
+talos_config_dir: "{{ lookup('env', 'TALOS_CONFIG_DIR') | default(home_dir + '/.talos', true) }}"
+talos_config_path: "{{ lookup('env', 'TALOSCONFIG') | default(talos_config_dir + '/config', true) }}"
+talos_controlplane_config_path: "{{ lookup('env', 'TALOS_CONTROLPLANE_CONFIG_PATH') | default(talos_config_dir + '/controlplane.yaml', true) }}"
 talos_controlplane_patch_file: "{{ role_path }}/files/controlplane-patch.yaml"
-talos_secrets_file: "{{ role_path }}/files/secrets.vault.yml"
+talos_secrets_yaml: "{{ lookup('env', 'TALOS_SECRETS_YAML') }}"
 talos_api_wait_retries: 30
 talos_api_wait_delay: 5
 talos_health_wait_timeout: 5m

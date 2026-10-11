@@ -6,3 +6,4 @@ kubernetes==36.0.3
 jsonpatch==1.33
 PyYAML==6.0.3
 requests-oauthlib==2.0.0
+jsonschema==4.26.0

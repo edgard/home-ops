@@ -1,7 +1,32 @@
 ---
-- name: Require Bitwarden access token
+- name: Require scoped ESO credential
   ansible.builtin.assert:
     that:
       - platform_bitwarden_access_token | length > 0
-    fail_msg: BWS_ACCESS_TOKEN is required for platform bootstrap.
+    fail_msg: Run platform or cluster bootstrap through the scoped SecretSpec command.
   no_log: true
+
+- name: Validate bootstrap access before mutation
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python_interpreter }}"
+      - "{{ repo_root }}/scripts/bootstrap.py"
+      - "{{ 'cluster' if platform_preflight_cluster | bool else 'platform' }}"
+  environment:
+    ESO_BWS_ACCESS_TOKEN: "{{ platform_bitwarden_access_token }}"
+    TALOS_NODE: "{{ talos_node }}"
+    TALOS_CLUSTER_NAME: "{{ talos_cluster_name }}"
+    TALOS_INSTALL_DISK: "{{ talos_install_disk }}"
+  register: platform_preflight_result
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Reject failed bootstrap preflight
+  ansible.builtin.fail:
+    msg: "Bootstrap preflight failed: {{ platform_preflight_result.stdout | default('preflight-command-failed', true) }}"
+  when: platform_preflight_result.rc != 0
+
+- name: Record verified deployment revision
+  ansible.builtin.set_fact:
+    platform_bootstrap_revision: "{{ platform_preflight_result.stdout }}"

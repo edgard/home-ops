@@ -3,6 +3,13 @@
   hosts: localhost
   gather_facts: false
   tasks:
+    - name: Preflight all bootstrap inputs before node mutation
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: preflight
+      vars:
+        platform_preflight_cluster: true
+
     - name: Generate Talos configuration
       ansible.builtin.include_role:
         name: talos

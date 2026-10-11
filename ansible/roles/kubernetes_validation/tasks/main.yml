@@ -127,32 +127,22 @@
         argv: "{{ ['conftest', 'test', '--no-color', '--policy', kubernetes_validation_repo_root ~ '/policy/kubernetes'] + kubernetes_validation_raw_paths }}"
       changed_when: false
 
-    - name: Parse local Gateway API CRD schemas
-      ansible.builtin.set_fact:
-        kubernetes_validation_gateway_crds: >-
-          {{ lookup('ansible.builtin.file', kubernetes_validation_apps_root ~ '/platform-system/gateway-api/manifests/gateway-api-crds.yaml')
-             | from_yaml_all | selectattr('kind', 'defined')
-             | selectattr('kind', 'equalto', 'CustomResourceDefinition') | list }}
-
-    - name: Create local schema group directories
-      ansible.builtin.file:
-        path: "{{ kubernetes_validation_workdir.path }}/schemas/{{ item }}"
-        state: directory
-        mode: "0700"
-      loop: "{{ kubernetes_validation_gateway_crds | map(attribute='spec.group') | unique | list }}"
-
-    - name: Export served Gateway API schemas
-      ansible.builtin.copy:
-        dest: >-
-          {{ kubernetes_validation_workdir.path }}/schemas/{{ item.0.spec.group }}/{{ item.0.spec.names.kind | lower }}_{{ item.1.name }}.json
-        content: "{{ item.1.schema.openAPIV3Schema | to_json }}"
-        mode: "0600"
-      loop: "{{ kubernetes_validation_gateway_crds | subelements('spec.versions') }}"
+    - name: Render all declared Helm applications
+      ansible.builtin.include_tasks: render-app.yml
+      loop: "{{ (lookup('ansible.builtin.file', kubernetes_validation_workdir.path ~ '/inventory.json') | from_json).apps }}"
       loop_control:
-        label: "{{ item.0.metadata.name }} {{ item.1.name }}"
+        loop_var: kubernetes_validation_app
+        label: "{{ kubernetes_validation_app.category }}/{{ kubernetes_validation_app.app_name }}"
       when:
-        - item.1.served | bool
-        - item.1.schema.openAPIV3Schema is defined
+        - kubernetes_validation_app.has_app_file
+        - kubernetes_validation_app.has_values_file
+
+    - name: Export served repository and chart CRD schemas
+      ansible.builtin.command:
+        argv: >-
+          {{ [ansible_playbook_python, role_path ~ '/files/export_schemas.py', kubernetes_validation_workdir.path ~ '/schemas']
+             + kubernetes_validation_manifest_files + kubernetes_validation_rendered_paths }}
+      changed_when: false
 
     - name: Validate raw manifest schemas
       ansible.builtin.command:
@@ -178,16 +168,6 @@
           - wide
       loop: "{{ kubernetes_validation_raw_paths }}"
       changed_when: false
-
-    - name: Render all declared Helm applications
-      ansible.builtin.include_tasks: render-app.yml
-      loop: "{{ (lookup('ansible.builtin.file', kubernetes_validation_workdir.path ~ '/inventory.json') | from_json).apps }}"
-      loop_control:
-        loop_var: kubernetes_validation_app
-        label: "{{ kubernetes_validation_app.category }}/{{ kubernetes_validation_app.app_name }}"
-      when:
-        - kubernetes_validation_app.has_app_file
-        - kubernetes_validation_app.has_values_file
 
     - name: Validate Gatus route coverage
       ansible.builtin.include_tasks: check-uptime.yml

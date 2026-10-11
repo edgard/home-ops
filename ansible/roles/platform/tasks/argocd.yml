@@ -24,3 +24,17 @@
     state: present
     apply: true
     src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
+
+- name: Verify committed GitOps handoff and fresh application secrets
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python_interpreter }}"
+      - "{{ repo_root }}/scripts/cluster_secrets.py"
+      - handoff
+      - --revision
+      - "{{ platform_bootstrap_revision }}"
+      - --kubeconfig
+      - "{{ kubeconfig_path }}"
+      - --context
+      - "{{ kube_context }}"
+  changed_when: false
