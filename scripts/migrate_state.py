@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 RETIRED = {'cloudflare_token', 'cloudflare_zone_id', 'tailscale_client_id', 'tailscale_client_secret'}
@@ -36,6 +37,17 @@ def checked(args):
     return result.stdout
 
 
+def preflight_plan():
+    with tempfile.TemporaryDirectory(prefix='home-ops-state-plan-') as directory:
+        plan = Path(directory) / 'migration.tfplan'
+        plan.touch(mode=0o600)
+        checked(['plan', '-input=false', '-lock-timeout=60s', '-out=' + str(plan)])
+        result = json.loads(checked(['show', '-json', str(plan)]))
+        for resource in result.get('resource_changes', []):
+            if resource.get('mode') == 'managed' and resource['change']['actions'] != ['no-op']:
+                raise MigrationError('managed-resource-changes-block-state-migration')
+
+
 def main():
     try:
         checked(['init', '-input=false'])
@@ -54,6 +66,8 @@ def main():
         if json.loads(backup.read_text()) != state:
             raise MigrationError('state-backup-verification-failed')
         print(f'Protected, verified recovery state: {backup}')
+        # Data retirement may appear in this plan; managed changes must not.
+        preflight_plan()
         if addresses:
             checked(['state', 'rm', '-lock-timeout=60s', *addresses])
         remaining = json.loads(checked(['state', 'pull']))

@@ -58,3 +58,10 @@ SecretSpec's Tailscale references to match the deployed ESO item name and moved
 operator-exclusive zone/OAuth client identifiers to the operator alias. The
 migration runbook retains originals for round-trip verification, then requires
 their retirement so values do not remain duplicated between projects.
+
+## [2026-10-11] revision | Gate state retirement on infrastructure preflight
+
+The state migration helper now checks a private temporary plan before remote
+state writes and rejects managed-resource changes. It still verifies the recovery
+backup, removes only the known retired data entries, checks managed state equality,
+and requires a zero-change final plan. Updated the migration runbook accordingly.

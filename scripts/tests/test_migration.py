@@ -1,10 +1,52 @@
 import subprocess
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from test_secrets import module
 
 
 class MigrationTests(unittest.TestCase):
+    def test_managed_plan_change_prevents_remote_state_writes(self):
+        migration = module('migrate_state')
+        state = {'resources': [{'mode': 'data', 'type': 'bitwarden-secrets_secret', 'name': 'cloudflare_token'}]}
+        commands = []
+
+        def checked(args):
+            commands.append(args)
+            if args[:2] == ['state', 'pull']:
+                return json.dumps(state)
+            if args[:2] == ['show', '-json']:
+                return json.dumps({'resource_changes': [{'mode': 'managed', 'change': {'actions': ['update']}}]})
+            return ''
+
+        with tempfile.TemporaryDirectory() as home:
+            with patch.object(migration.Path, 'home', return_value=Path(home)), patch.object(migration, 'checked', side_effect=checked):
+                self.assertEqual(migration.main(), 1)
+        self.assertFalse(any(args[:2] == ['state', 'rm'] for args in commands))
+
+    def test_preflight_allows_data_retirement_and_cleans_private_plan(self):
+        migration = module('migrate_state')
+        plan_paths = []
+
+        def checked(args):
+            if args[0] == 'plan':
+                plan = Path(args[-1].removeprefix('-out='))
+                plan_paths.append(plan)
+                self.assertEqual(plan.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(plan.parent.stat().st_mode & 0o777, 0o700)
+                return ''
+            return json.dumps({'resource_changes': [
+                {'mode': 'data', 'change': {'actions': ['delete']}},
+                {'mode': 'managed', 'change': {'actions': ['no-op']}}
+            ]})
+
+        with patch.object(migration, 'checked', side_effect=checked):
+            migration.preflight_plan()
+        self.assertTrue(plan_paths)
+        self.assertTrue(all(not path.parent.exists() for path in plan_paths))
+
     def test_retire_only_known_data_addresses(self):
         migration = module('migrate_state')
         state = {'resources': [{'mode': 'data', 'type': 'bitwarden-secrets_secret', 'name': 'cloudflare_token'}, {'mode': 'managed', 'type': 'cloudflare_dns_record', 'name': 'example'}]}

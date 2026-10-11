@@ -103,8 +103,10 @@ input until real migration checks pass. Do not retire them on mocked evidence.
    validates generation without applying to the production node.
 4. Stop concurrent infrastructure writers. Run `task tf:migrate-secret-state`.
    It pulls state, writes and verifies a `0600` backup in a `0700` directory under
-   `~/.local/state/home-ops/state-recovery`, removes only the four retired data
-   addresses, checks managed state is unchanged, and requires a zero-change plan.
+   `~/.local/state/home-ops/state-recovery`, checks a private temporary plan for
+   managed-resource changes before any remote state write, removes only the four
+   retired data addresses, checks managed state is unchanged, and requires a
+   zero-change plan.
    Retain the printed backup path. On failure, inspect the redacted stage and
    investigate before further state writes; restore with `tofu state push` from
    the verified backup if needed. Do not force overwrite newer concurrent state.
