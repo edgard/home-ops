@@ -2,6 +2,7 @@
 """Read-only cloud and local bootstrap preflight; never contacts the node."""
 import base64
 import json
+import importlib.util
 import os
 from pathlib import Path
 import shutil
@@ -45,6 +46,36 @@ def generation_targets(root):
         raise PreflightError('repository-generation-targets-invalid') from None
 
 
+def validate_required_inputs(root):
+    defaults_path = root / 'ansible/roles/platform/defaults/main.yml'
+    try:
+        defaults = yaml.safe_load(defaults_path.read_text())
+        files = [root / 'ansible/roles/talos/files/controlplane-patch.yaml']
+        for release in defaults['platform_bootstrap_releases']:
+            files.extend(root / release[key] for key in ('app_metadata', 'values_file'))
+            if release.get('manifests_dir') and not (root / release['manifests_dir']).is_dir():
+                raise PreflightError('required-bootstrap-directory-missing')
+        files += [root / defaults[key] for key in ('platform_k8tz_app_metadata', 'platform_external_secrets_store_manifest', 'platform_argocd_repo_credentials_manifest', 'platform_argocd_root_application_manifest')]
+        files += [root / path for path in defaults['platform_external_secrets_bootstrap_manifests']]
+        collection = root / '.ansible/collections/ansible_collections/kubernetes/core/plugins/modules'
+        files += [collection / name for name in ('k8s.py', 'k8s_info.py', 'helm.py')]
+        if any(not path.is_file() for path in files):
+            raise PreflightError('required-bootstrap-file-missing')
+        for path in files:
+            if path.suffix in ('.yaml', '.yml'):
+                list(yaml.safe_load_all(path.read_text()))
+        if not importlib.util.find_spec('kubernetes'):
+            raise PreflightError('bootstrap-python-dependency-missing')
+    except (OSError, KeyError, TypeError, yaml.YAMLError):
+        raise PreflightError('required-bootstrap-input-invalid') from None
+
+
+def source_manifest_paths():
+    # Ignored/untracked editor copies must never become bootstrap inputs.
+    paths = checked(['git', 'ls-files', '-z', '--', 'apps'], 'tracked-manifest-inventory-failed').split('\0')
+    return [ROOT / name for name in paths if Path(name).match('apps/*/*/manifests/*.yaml')]
+
+
 def checked(argv, category, env=None):
     try:
         result = subprocess.run(argv, env=env, cwd=ROOT, capture_output=True, text=True, timeout=30, check=False)
@@ -80,7 +111,7 @@ def application_access(token):
         else:
             os.environ['BWS_ACCESS_TOKEN'] = with_token
     values = {item['key']: item['value'] for item in data}
-    for manifest in ROOT.glob('apps/*/*/manifests/*.yaml'):
+    for manifest in source_manifest_paths():
         for document in yaml.safe_load_all(manifest.read_text()):
             if isinstance(document, dict) and document.get('kind') == 'ExternalSecret':
                 if any(entry['remoteRef']['key'] not in values for entry in document['spec']['data']):
@@ -127,6 +158,7 @@ def preflight(stage):
         if not shutil.which(tool):
             raise PreflightError(f'missing-{tool}')
     generation_targets(ROOT)
+    validate_required_inputs(ROOT)
     if stage == 'cluster':
         if any(not os.environ.get(key) for key in ('TALOS_NODE', 'TALOS_CLUSTER_NAME', 'TALOS_INSTALL_DISK')):
             raise PreflightError('missing-node-cluster-or-disk-input')

@@ -10,7 +10,7 @@ import time
 import yaml
 from kubernetes import client, config
 
-from bootstrap import PreflightError, application_access
+from bootstrap import PreflightError, application_access, source_manifest_paths
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,7 +37,7 @@ def secret_ready(resource, after):
 
 def inventory():
     result = []
-    for path in sorted(ROOT.glob('apps/*/*/manifests/*.yaml')):
+    for path in source_manifest_paths():
         for document in yaml.safe_load_all(path.read_text()):
             if isinstance(document, dict) and document.get('kind') == 'ExternalSecret':
                 result.append(document)

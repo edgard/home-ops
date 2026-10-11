@@ -65,3 +65,14 @@ class MigrationPathTests(unittest.TestCase):
     def test_machine_config_path_accepts_nonsecret_environment_override(self):
         defaults = yaml.safe_load((ROOT / 'ansible/roles/talos/defaults/main.yml').read_text())
         self.assertIn("lookup('env', 'TALOS_CONTROLPLANE_CONFIG_PATH')", defaults['talos_controlplane_config_path'])
+
+class RequiredInputTests(unittest.TestCase):
+    def test_missing_bootstrap_values_is_rejected_before_cloud_access(self):
+        bootstrap = module('bootstrap')
+        self.assertTrue(hasattr(bootstrap, 'validate_required_inputs'), 'Required platform files must be checked before node mutation')
+        original = type(ROOT).is_file
+        def present(path):
+            return False if str(path).endswith('apps/platform-system/cert-manager/values.yaml') else original(path)
+        with patch.object(type(ROOT), 'is_file', present):
+            with self.assertRaisesRegex(bootstrap.PreflightError, '^required-bootstrap-file-missing$'):
+                bootstrap.validate_required_inputs(ROOT)
