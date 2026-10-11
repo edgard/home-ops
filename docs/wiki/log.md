@@ -50,3 +50,11 @@ operator-environment decision historical with immutable links. Reviewed related
 bootstrap, GitOps, backup, validation, Terraform, and External Secrets pages.
 The October semantic review is already recorded above. Real cloud migration and
 retirement of the encrypted recovery input require the runbook's acceptance steps.
+
+## [2026-10-11] revision | Verify infrastructure item names and ownership
+
+Checked existing Bitwarden item metadata without exposing values. Corrected
+SecretSpec's Tailscale references to match the deployed ESO item name and moved
+operator-exclusive zone/OAuth client identifiers to the operator alias. The
+migration runbook retains originals for round-trip verification, then requires
+their retirement so values do not remain duplicated between projects.

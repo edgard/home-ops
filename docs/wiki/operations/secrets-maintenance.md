@@ -41,9 +41,11 @@ cloud access.
 
 The manifest owns the exact key references and scope membership. Put existing
 Talos YAML, backend access/secret keys, and the application-only ESO token into
-the operator project using the manifest's item names. Infrastructure credentials
-remain single application-project items, shared with ESO where needed; verify
-that their current names match the manifest. Do not duplicate shared values.
+the operator project using the manifest's item names. Cloudflare's API token and the Tailscale OAuth client secret remain single
+application-project items shared with ESO. The Cloudflare zone ID and Tailscale
+OAuth client ID are operator-only inputs and belong in the operator project.
+The manifest preserves the existing Bitwarden item names, including the
+`tailscale_oauth_` names. Do not duplicate shared values.
 
 `talos:gen`, `platform:create`, `cluster:create`, `tf:plan`, and `tf:apply` resolve
 only their named scopes through the checked-in manifest. They clear inherited
@@ -76,8 +78,11 @@ The encrypted Talos file and its linter exclusions remain as a temporary recover
 input until real migration checks pass. Do not retire them on mocked evidence.
 
 1. Provision the projects/accounts, then import existing Talos YAML and backend
-   values through the Bitwarden UI. Store the new ESO account token in the
-   operator project. Keep the previous inputs and token available for rollback.
+   values, zone ID, and Tailscale OAuth client ID through the Bitwarden UI. Store
+   the new ESO account token in the operator project. Retain the original
+   operator-only application-project items during round-trip verification;
+   the one-time verifier compares their original IDs. Keep the previous inputs
+   and token available for rollback.
 2. Load the existing ignored operator environment only for migration. Run
    `task secrets:verify-migration`. It decrypts Vault using a temporary `0600`
    password file, compares Talos/backend/infrastructure values in memory, and
@@ -119,7 +124,10 @@ input until real migration checks pass. Do not retire them on mocked evidence.
    delete the tracked encrypted Talos recovery file and its old exclusions/tests
    in a follow-up PR. Remove secret assignments from the ignored `.envrc` while
    preserving its nonsecret settings. Retire old machine tokens and obsolete
-   local provider artifacts after rollback is no longer needed. Retain ignores
+   local provider artifacts after rollback is no longer needed. Retire the two
+   original operator-only application-project items after their operator-project
+   copies have passed round-trip and infrastructure checks, so each value has
+   one maintained item. Retain ignores
    for old plaintext, credential files, plans, state, and crash artifacts.
 
 A full cold bootstrap is proved only on a disposable Talos environment with the

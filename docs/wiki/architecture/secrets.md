@@ -5,7 +5,9 @@ Status: current. Reviewed against: `d9a1261970b4d6607056507421a71ad52b5d07ce`.
 
 Bitwarden Secrets Manager owns values. ESO supplies Kubernetes workloads from
 the application project; SecretSpec supplies scoped local operator commands.
-Separate machine accounts isolate operator access from ESO. One Keychain token
+Separate machine accounts isolate operator access from ESO. Operator-exclusive
+zone and OAuth client identifiers belong in the operator project; shared API
+tokens remain existing application-project items. One Keychain token
 feeds both SecretSpec aliases, and ESO's token is stored in the operator project.
 The [maintenance runbook](../operations/secrets-maintenance.md) covers provisioning,
 rotation, migration, and the temporary encrypted recovery input. Application
