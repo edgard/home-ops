@@ -33,13 +33,13 @@ runs:
       if: ${{ inputs.profile == 'ansible' || inputs.profile == 'kubernetes' }}
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
-        python-version: "3.14"
+        python-version: "3.15"
         cache: pip
         cache-dependency-path: ansible/requirements.txt
 
     - name: Set Up Node
       if: ${{ inputs.profile == 'format' }}
-      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: 24
 
@@ -55,7 +55,7 @@ runs:
       uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
         # renovate: datasource=github-releases depName=opentofu/opentofu
-        tofu_version: v1.13.0
+        tofu_version: v1.13.1
         tofu_wrapper: false
 
     - name: Set Up pluto
@@ -91,7 +91,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=npm depName=prettier
-        PRETTIER_VERSION: 3.9.9
+        PRETTIER_VERSION: 3.9.10
       run: npm install --global "prettier@${PRETTIER_VERSION}"
 
     - name: Install yamlfmt

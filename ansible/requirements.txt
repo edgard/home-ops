@@ -3,6 +3,6 @@ ansible-core==2.21.5
 ansible-lint==26.9.0
 ansible-compat==26.9.0
 kubernetes==36.0.3
-jsonpatch==1.33
+jsonpatch==1.35
 PyYAML==6.0.3
 requests-oauthlib==2.0.0
