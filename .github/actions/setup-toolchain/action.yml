@@ -37,13 +37,6 @@ runs:
         cache: pip
         cache-dependency-path: ansible/requirements.txt
 
-    - name: Install pinned SecretSpec
-      if: ${{ inputs.profile == 'ansible' }}
-      shell: bash
-      run: |
-        python3 scripts/install_secrets_tools.py --only secretspec
-        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
     - name: Set Up Node
       if: ${{ inputs.profile == 'format' }}
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

@@ -41,6 +41,7 @@ if args[:2] == ['gen','config']:
                 env.pop(key, None)
             result = subprocess.run([str(ROOT / '.venv/bin/ansible-playbook'), str(playbook)], env=env, cwd=ROOT, capture_output=True, text=True, timeout=60)
             self.assertNotIn('PRIVATE_FAILURE_MATERIAL', result.stdout + result.stderr)
+            self.assertTrue(record.exists(), result.stdout + result.stderr)
             generated = json.loads(record.read_text())
             self.assertFalse(Path(generated['secrets_path']).exists())
             self.assertFalse(Path(generated['output_dir']).exists())
@@ -53,8 +54,10 @@ if args[:2] == ['gen','config']:
                 self.assertEqual(config.stat().st_mode & 0o777, 0o600)
                 self.assertEqual(plane.stat().st_mode & 0o777, 0o600)
                 self.assertEqual(config.parent.stat().st_mode & 0o777, 0o700)
-                from bootstrap import generation_targets
-                targets = generation_targets(ROOT)
+                defaults = yaml.safe_load((ROOT / 'ansible/roles/talos/defaults/main.yml').read_text())
+                upgrade = yaml.safe_load((ROOT / 'apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml').read_text())
+                installer = defaults['talos_upgrade']['installer']
+                targets = {'talos': installer['version'], 'kubernetes': upgrade['spec']['kubernetes']['version'], 'installer': installer['repository'] + ':' + installer['version']}
                 for flag, expected in (('--talos-version', targets['talos']), ('--kubernetes-version', targets['kubernetes']), ('--install-image', targets['installer'])):
                     self.assertEqual(generated['args'][generated['args'].index(flag) + 1], expected)
 
@@ -69,7 +72,7 @@ if args[:2] == ['gen','config']:
             fixture = Path(directory)
             for name in ('bws', 'talosctl', 'helm'):
                 binary = fixture / name
-                binary.write_text('#!/bin/sh\necho PRIVATE_PROVIDER_ERROR >&2\nexit 1\n' if name == 'bws' else '#!/bin/sh\ntouch "$FIXTURE_NODE_CONTACT"\nexit 0\n')
+                binary.write_text('#!/bin/sh\nif [ "$1" = "--version" ]; then echo "bws 2.1.0"; exit 0; fi\necho PRIVATE_PROVIDER_ERROR >&2\nexit 1\n' if name == 'bws' else '#!/bin/sh\nif [ "$1" = "--version" ] || [ "$1" = "version" ]; then echo "fixture 1.0.0"; exit 0; fi\ntouch "$FIXTURE_NODE_CONTACT"\nexit 0\n')
                 binary.chmod(0o755)
             marker = fixture / 'node-contact'
             env = dict(os.environ, PATH=str(fixture) + os.pathsep + os.environ['PATH'], TALOS_NODE='192.0.2.10', TALOS_CLUSTER_NAME='fixture', TALOS_INSTALL_DISK='/dev/fixture', TALOS_SECRETS_YAML=MATERIAL, ESO_BWS_ACCESS_TOKEN='synthetic', FIXTURE_NODE_CONTACT=str(marker))
@@ -77,4 +80,21 @@ if args[:2] == ['gen','config']:
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse(marker.exists())
             self.assertNotIn('PRIVATE_PROVIDER_ERROR', result.stdout + result.stderr)
-            self.assertIn('eso-project-access-failed', result.stdout)
+            self.assertIn('Application credential validation failed', result.stdout)
+
+
+class MaterialFailureIntegration(unittest.TestCase):
+    def test_malformed_material_is_redacted_and_generation_never_runs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory)
+            marker = fixture / 'generation-contact'
+            binary = fixture / 'talosctl'
+            binary.write_text('#!/bin/sh\ntouch "$FIXTURE_NODE_CONTACT"\nexit 0\n')
+            binary.chmod(0o755)
+            playbook = fixture / 'generate.yml'
+            playbook.write_text(yaml.safe_dump([{'name': 'Validate invalid identity', 'hosts': 'localhost', 'gather_facts': False, 'vars': {'repo_root': str(ROOT), 'ansible_python_interpreter': str(ROOT / '.venv/bin/python'), 'talos_node': '192.0.2.10', 'talos_cluster_name': 'fixture', 'talos_install_disk': '/dev/fixture'}, 'tasks': [{'name': 'Generate', 'ansible.builtin.include_role': {'name': 'talos', 'tasks_from': 'generate'}}]}]))
+            env = dict(os.environ, PATH=str(fixture)+os.pathsep+os.environ['PATH'], TALOS_SECRETS_YAML='!PRIVATE_MALFORMED_MATERIAL', FIXTURE_NODE_CONTACT=str(marker))
+            result = subprocess.run([str(ROOT/'.venv/bin/ansible-playbook'), str(playbook)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(marker.exists())
+            self.assertNotIn('PRIVATE_MALFORMED_MATERIAL', result.stdout+result.stderr)

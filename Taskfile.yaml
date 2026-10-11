@@ -58,38 +58,85 @@ tasks:
       - true
 
   secrets:setup:
-    desc: Install checksum-verified SecretSpec and official bws in ~/.local/bin
-    dir: "{{.TASKFILE_DIR}}"
-    cmds:
-      - python3 scripts/install_secrets_tools.py
-
-  tf:migrate-secret-state:
-    desc: Back up state and retire only former Bitwarden data-source entries
-    dir: "{{.TASKFILE_DIR}}"
-    cmds:
-      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run terraform -- "{{.VENV_PYTHON}}" scripts/migrate_state.py'
-
-  secrets:login:
-    desc: Store the operator machine token once in Keychain
-    dir: "{{.TASKFILE_DIR}}"
-    cmds:
-      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py login'
-
-  secrets:check:
-    desc: Check scoped Bitwarden resolution without printing values
-    dir: "{{.TASKFILE_DIR}}"
-    vars:
-      scope: '{{.scope | default "cluster"}}'
-    cmds:
-      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py check "{{.scope}}"'
-
-  secrets:sync-cluster-token:
-    desc: Replace ESO bootstrap token and verify fresh reconciliation
+    desc: Install checksum-verified operator tools through Ansible
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run platform -- "{{.VENV_PYTHON}}" scripts/cluster_secrets.py sync-token'
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/secrets-setup.yml'
+
+  secrets:invoke:
+    internal: true
+    dir: "{{.TASKFILE_DIR}}"
+    vars:
+      action: '{{.action | default "run"}}'
+      scope: '{{.scope | default "cluster"}}'
+      playbook: '{{.playbook | default ""}}'
+    env:
+      HOME_OPS_SECRET_ACTION: "{{.action}}"
+      HOME_OPS_SECRET_SCOPE: "{{.scope}}"
+      HOME_OPS_SECRET_PLAYBOOK: "{{.playbook}}"
+      HOME_OPS_SECRET_ROOT: "{{.TASKFILE_DIR}}"
+      HOME_OPS_ANSIBLE_PLAYBOOK: "{{.ANSIBLE_PLAYBOOK}}"
+    cmds:
+      - |
+        bash -c '
+        set -euo pipefail
+        for name in $(compgen -e); do
+          case "$name" in
+            BWS_ACCESS_TOKEN|BW_ACCESS_TOKEN|ANSIBLE_VAULT_*|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|AWS_PROFILE|AWS_DEFAULT_PROFILE|AWS_SHARED_CREDENTIALS_FILE|AWS_CONFIG_FILE|SECRETSPEC_*|TF_VAR_*|TF_CLI_ARGS*|TALOS_SECRETS_YAML|ESO_BWS_ACCESS_TOKEN)
+              unset "$name"
+              ;;
+          esac
+        done
+        export PATH="$HOME/.local/bin:$PATH"
+        "$HOME_OPS_ANSIBLE_PLAYBOOK" ansible/playbooks/secrets-validate.yml
+        export SECRETSPEC_BWS_CLI_PATH="$HOME_OPS_SECRET_ROOT/ansible/roles/operator_secrets/files/bws_readonly.py"
+        case "$HOME_OPS_SECRET_ACTION" in
+          login)
+            exec secretspec config provider --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --reason "home-ops operator machine-account login" login operator
+            ;;
+          check)
+            exec secretspec check --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --profile default --scope "$HOME_OPS_SECRET_SCOPE" --reason "home-ops $HOME_OPS_SECRET_SCOPE operator command" --no-prompt
+            ;;
+          run)
+            exec secretspec run --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --profile default --scope "$HOME_OPS_SECRET_SCOPE" --reason "home-ops $HOME_OPS_SECRET_SCOPE operator command" -- "$HOME_OPS_ANSIBLE_PLAYBOOK" "$HOME_OPS_SECRET_ROOT/ansible/playbooks/$HOME_OPS_SECRET_PLAYBOOK"
+            ;;
+          *) exit 1 ;;
+        esac
+        '
+
+  secrets:login:
+    desc: Store the operator machine token once in Keychain
+    interactive: true
+    deps:
+      - task: ansible:check
+    cmds:
+      - task: secrets:invoke
+        vars:
+          action: login
+
+  secrets:check:
+    desc: Check scoped Bitwarden resolution without printing values
+    vars:
+      scope: '{{.scope | default "cluster"}}'
+    deps:
+      - task: ansible:check
+    cmds:
+      - task: secrets:invoke
+        vars:
+          action: check
+          scope: "{{.scope}}"
+
+  secrets:sync-cluster-token:
+    desc: Replace ESO bootstrap token and verify fresh reconciliation
+    deps:
+      - task: ansible:check
+    cmds:
+      - task: secrets:invoke
+        vars:
+          scope: platform
+          playbook: secrets-sync-cluster-token.yml
 
   # Quality gate and local development
   fmt:
@@ -145,7 +192,6 @@ tasks:
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.VENV_PYTHON}}" -m unittest discover -s scripts/tests -v'
       - '"{{.ANSIBLE_LINT}}" ansible'
       - for test in ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" "$test"; done
 
@@ -182,7 +228,10 @@ tasks:
         - TALOS_CLUSTER_NAME
         - TALOS_INSTALL_DISK
     cmds:
-      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run cluster -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/cluster-create.yml'
+      - task: secrets:invoke
+        vars:
+          scope: cluster
+          playbook: cluster-create.yml
 
   cluster:destroy:
     desc: Destroy platform and reset Talos node
@@ -208,7 +257,10 @@ tasks:
         - TALOS_CLUSTER_NAME
         - TALOS_INSTALL_DISK
     cmds:
-      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run talos -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-generate.yml'
+      - task: secrets:invoke
+        vars:
+          scope: talos
+          playbook: talos-generate.yml
 
   talos:apply:
     desc: Apply Talos config to control plane
@@ -263,7 +315,10 @@ tasks:
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run platform -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/platform-bootstrap.yml'
+      - task: secrets:invoke
+        vars:
+          scope: platform
+          playbook: platform-bootstrap.yml
 
   platform:destroy:
     desc: Destroy platform components via Ansible
@@ -319,7 +374,10 @@ tasks:
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run terraform -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-plan.yml'
+      - task: secrets:invoke
+        vars:
+          scope: terraform
+          playbook: terraform-plan.yml
 
   tf:apply:
     desc: Terraform apply
@@ -327,7 +385,10 @@ tasks:
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.VENV_PYTHON}}" scripts/operator_secrets.py run terraform -- "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-apply.yml'
+      - task: secrets:invoke
+        vars:
+          scope: terraform
+          playbook: terraform-apply.yml
 
   tf:clean:
     desc: Clean terraform state/cache

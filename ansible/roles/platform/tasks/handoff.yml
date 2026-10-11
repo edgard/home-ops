@@ -1,0 +1,137 @@
+---
+- name: Record bounded GitOps handoff start
+  ansible.builtin.set_fact:
+    platform_secret_after: "{{ now().timestamp() | float }}"
+    platform_handoff_deadline: "{{ now().timestamp() | float + platform_handoff_timeout | default(300) | int }}"
+
+- name: Require a bounded GitOps handoff timeout
+  ansible.builtin.assert:
+    that:
+      - platform_handoff_timeout | default(300) | int > 0
+      - platform_handoff_timeout | default(300) | int <= 300
+
+- name: Verify committed root and owned ApplicationSet children
+  no_log: true
+  block:
+    - name: Wait for root to sync every source to the verified revision
+      timeout: 15
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        namespace: argocd
+        name: root
+      register: platform_root_result
+      failed_when: platform_root_result.resources is not defined
+      until: >-
+        (platform_root_result.resources | default([]) | length == 1 and (platform_root_result.resources[0] | platform_root_ready(platform_bootstrap_revision))) or now().timestamp() >= platform_handoff_deadline | float
+      retries: "{{ [1, ((platform_handoff_deadline | float - now().timestamp()) / 5) | int] | max }}"
+      delay: 5
+
+    - name: Require committed root within the handoff deadline
+      ansible.builtin.assert:
+        that:
+          - now().timestamp() < platform_handoff_deadline | float
+          - platform_root_result.resources | default([]) | length == 1
+          - platform_root_result.resources[0] | platform_root_ready(platform_bootstrap_revision)
+
+    - name: Wait for the root-managed ApplicationSet
+      timeout: 15
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: argoproj.io/v1alpha1
+        kind: ApplicationSet
+        namespace: argocd
+        name: apps
+      register: platform_appset_result
+      failed_when: platform_appset_result.resources is not defined
+      until: >-
+        (platform_appset_result.resources | default([]) | length == 1 and platform_appset_result.resources[0].metadata.uid | default("") | length > 0) or now().timestamp() >= platform_handoff_deadline | float
+      retries: "{{ [1, ((platform_handoff_deadline | float - now().timestamp()) / 5) | int] | max }}"
+      delay: 5
+
+    - name: Require ApplicationSet ownership within the handoff deadline
+      ansible.builtin.assert:
+        that:
+          - now().timestamp() < platform_handoff_deadline | float
+          - platform_appset_result.resources | default([]) | length == 1
+          - platform_appset_result.resources[0].metadata.uid | default('') | length > 0
+
+    - name: Wait for all tracked applications owned by the ApplicationSet
+      timeout: 15
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        namespace: argocd
+      register: platform_children_result
+      failed_when: platform_children_result.resources is not defined
+      until: >-
+        (platform_expected_applications | difference( platform_children_result.resources | default([]) | platform_owned_applications(platform_appset_result.resources[0].metadata.uid)) | length == 0) or now().timestamp() >= platform_handoff_deadline | float
+      retries: "{{ [1, ((platform_handoff_deadline | float - now().timestamp()) / 5) | int] | max }}"
+      delay: 5
+
+    - name: Require generated applications within the handoff deadline
+      ansible.builtin.assert:
+        that:
+          - now().timestamp() < platform_handoff_deadline | float
+          - platform_expected_applications | difference(platform_children_result.resources | platform_owned_applications(platform_appset_result.resources[0].metadata.uid)) | length == 0
+
+    - name: Re-read committed root before accepting the generated applications
+      timeout: 15
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        namespace: argocd
+        name: root
+      register: platform_handoff_final_root
+      failed_when: platform_handoff_final_root.resources is not defined
+
+    - name: Re-read ApplicationSet ownership before accepting handoff
+      timeout: 15
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: argoproj.io/v1alpha1
+        kind: ApplicationSet
+        namespace: argocd
+        name: apps
+      register: platform_handoff_final_appset
+      failed_when: platform_handoff_final_appset.resources is not defined
+
+    - name: Re-read all generated applications before accepting handoff
+      timeout: 15
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        namespace: argocd
+      register: platform_handoff_final_children
+      failed_when: platform_handoff_final_children.resources is not defined
+
+    - name: Require committed revision and consistent ApplicationSet ownership
+      ansible.builtin.assert:
+        that:
+          - platform_handoff_final_root.resources | default([]) | length == 1
+          - platform_handoff_final_root.resources[0] | platform_root_ready(platform_bootstrap_revision)
+          - platform_handoff_final_appset.resources | default([]) | length == 1
+          - platform_handoff_final_appset.resources[0].metadata.uid == platform_appset_result.resources[0].metadata.uid
+          - platform_expected_applications | difference(platform_handoff_final_children.resources | platform_owned_applications(platform_handoff_final_appset.resources[0].metadata.uid)) | length == 0
+
+    - name: Require handoff within deadline
+      ansible.builtin.assert:
+        that: now().timestamp() <= platform_handoff_deadline | float
+  rescue:
+    - name: Reject failed GitOps handoff
+      ansible.builtin.fail:
+        msg: GitOps handoff failed or timed out before all committed applications were generated.
+      no_log: false
+
+- name: Verify fresh application secrets after GitOps handoff
+  ansible.builtin.include_tasks: verify_secrets.yml

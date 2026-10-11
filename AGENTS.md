@@ -14,6 +14,9 @@ Starting the month after the initial wiki migration, the first substantive PR
 each calendar month also performs a semantic wiki review if
 [the log](docs/wiki/log.md) has no review entry for that month.
 
+- Keep operator orchestration in Ansible playbooks and roles. Use role-owned
+  adapters or plugins for focused functionality; do not add a top-level scripts
+  workflow.
 - Configuration and policy are the source of truth; verify wiki claims against
   the current files and, when relevant, the running system.
 - For behavior changes, write or update a failing policy or contract check first.

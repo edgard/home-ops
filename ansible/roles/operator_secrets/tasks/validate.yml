@@ -1,0 +1,35 @@
+---
+- name: Check operator CLI versions
+  ansible.builtin.command:
+    argv:
+      - "{{ item }}"
+      - --version
+  loop:
+    - secretspec
+    - bws
+  register: operator_secrets_cli_versions
+  changed_when: false
+  failed_when: false
+  no_log: true
+  timeout: 10
+
+- name: Require pinned SecretSpec and supported official BWS
+  ansible.builtin.assert:
+    that:
+      - operator_secrets_cli_versions.results | selectattr('rc', 'ne', 0) | list | length == 0
+      - operator_secrets_cli_versions.results[0].stdout is match('^secretspec 0[.]21[.]1$')
+      - (operator_secrets_cli_versions.results[1].stdout | regex_search('[0-9]+[.][0-9]+[.][0-9]+')) is version('0.3.0', '>=')
+    fail_msg: Run task secrets:setup to install the supported operator tools.
+
+- name: Read the authoritative secret contract
+  ansible.builtin.set_fact:
+    operator_secrets_manifest: "{{ lookup('ansible.builtin.file', repo_root + '/secretspec.toml') | from_toml }}"
+
+- name: Require provisioned distinct provider projects and a declared scope
+  ansible.builtin.assert:
+    that:
+      - operator_secrets_manifest.providers | length == 2
+      - (operator_secrets_manifest.providers.values() | map(attribute='uri') | list | unique | length) == 2
+      - "'00000000-0000-0000-0000-000000000000' not in (operator_secrets_manifest.providers | to_json)"
+      - lookup('ansible.builtin.env', 'HOME_OPS_SECRET_SCOPE') | default('cluster', true) in operator_secrets_manifest.scopes
+    fail_msg: Provision distinct application/operator projects and use a declared SecretSpec scope.

@@ -6,6 +6,28 @@ test_sensitive_task_requires_no_log if {
   sensitive({"community.general.terraform": {}})
 }
 
+test_secret_read_requires_no_log if {
+  inventory := {"flat": [{"source": "platform/tasks/verify_secret.yml", "task": {"name": "Read target Secret", "kubernetes.core.k8s_info": {"kind": "Secret"}}, "protected": false, "guards": []}], "documents": {}}
+  result := deny with input as inventory
+  "Sensitive task lost effective no_log: Read target Secret" in result
+}
+
+test_resolved_application_credentials_require_no_log if {
+  sensitive({"ansible.builtin.uri": {"url_password": "{{ platform_application_values.argocd_repo_password }}"}})
+}
+
+test_retained_token_requires_no_log if {
+  sensitive({"ansible.builtin.assert": {"that": "platform_previous_token_secret.resources[0].data.token is string"}})
+}
+
+
+
+test_protected_secret_read_is_allowed if {
+  inventory := {"flat": [{"source": "platform/tasks/verify_secret.yml", "task": {"name": "Read target Secret", "kubernetes.core.k8s_info": {"kind": "Secret"}}, "protected": true, "guards": []}], "documents": {}}
+  result := deny with input as inventory
+  not "Sensitive task lost effective no_log: Read target Secret" in result
+}
+
 test_talos_check_guard_rejects_weakened_guard if {
   not has_check_guard(["ansible_check_mode or true"])
 }

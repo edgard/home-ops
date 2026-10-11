@@ -3,6 +3,16 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## 2026-10-11 — Restore Ansible ownership of secret workflows
+
+Corrected the unified-secret implementation to follow the existing playbook/role
+pattern: native setup, preflight, generation, handoff and token rollback; direct
+native SecretSpec launch with inherited-credential cleanup; role-owned adapter
+and focused Ansible fixtures. Retired the completed state-migration helper and
+its exclusive tests, retaining protected backups and immutable recovery history.
+Reviewed the secrets runbook, bootstrap, validation architecture, contributor
+workflow and README against the implementation.
+
 ## [2026-09-30] ingest | Initial repository migration
 
 Recorded the `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b` source baseline,

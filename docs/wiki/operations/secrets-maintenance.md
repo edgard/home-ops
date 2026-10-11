@@ -1,7 +1,7 @@
 # Secrets maintenance and recovery
 
 Purpose: provision and operate the unified Bitwarden delivery paths.
-Status: current. Reviewed against: `d9f31a0b9442ba41d4d8de9600b064fc89a0080d`.
+Status: current. Reviewed against: `2fe88a7bb0b8bde1fc9857626c53bf17d5379295`.
 
 ## Setup without cluster access
 
@@ -56,12 +56,11 @@ never CLI arguments. Scopes minimize delivery; machine-account project
 permissions are the access boundary. Bootstrap and token replacement validate
 access to exactly the two configured projects, rejecting unconfigured projects.
 
-Direct playbook execution requires the same wrapper, for example:
-
-```bash
-.venv/bin/python scripts/operator_secrets.py run talos -- \
-  .venv/bin/ansible-playbook ansible/playbooks/talos-generate.yml
-```
+Task launches the native SecretSpec CLI and then the selected Ansible playbook.
+Ansible roles own tool installation, version checks, bootstrap preflight,
+Talos generation, GitOps handoff, and token replacement. The role-owned BWS
+adapter remains a small read-only CLI boundary required by SecretSpec's provider;
+it does not orchestrate workflows or maintain values.
 
 Keep only nonsecret node, disk, context, and path settings in ignored `.envrc`.
 `KUBECONFIG` is a single destination file, not a colon-separated list;
@@ -94,18 +93,12 @@ Current operation uses the Bitwarden items declared in the manifest; the old
 Vault file, verification command, and formatter/linter exceptions are retired.
 Keep legacy plaintext, backup, state, plan, and crash-artifact ignores.
 
-For an older infrastructure state still containing the four retired Bitwarden
-data entries, stop concurrent writers and run `task tf:migrate-secret-state`.
-It pulls state, writes and verifies a `0600` backup in a `0700` directory under
-`~/.local/state/home-ops/state-recovery`, checks a private temporary plan for
-managed-resource changes before any remote state write, removes only the four
-retired data addresses, checks managed state is unchanged, and requires a
-zero-change plan. The command also safely handles an already migrated state.
-Retain the printed backup path. On failure, inspect the redacted stage and
-investigate before further state writes; restore with `tofu state push` from
-the verified backup if needed. Do not force overwrite newer concurrent state.
-Historical B2 state versions may still contain old data values; retention and
-native state encryption are separate work.
+The one-time Terraform data-source retirement command and its migration-only
+tests are retired after successful migration. Preserve the protected state
+recovery backup and historical B2 versions. If restoring a pre-migration state,
+consult the immutable migration procedure before retiring its data entries;
+do not force overwrite newer concurrent state. Historical state retention and
+native state encryption remain separate work.
 
 For operator recovery, sign in through the human Bitwarden account, verify
 machine-account read access to the two configured projects, and run setup and
@@ -125,13 +118,12 @@ ApplicationSet children, followed by fresh ExternalSecret reconciliation.
 ## Sources
 
 - [SecretSpec manifest](../../../secretspec.toml)
-- [Operator wrapper](../../../scripts/operator_secrets.py)
-- [Read-only BWS adapter](../../../scripts/bws_readonly.py)
-- [Bootstrap preflight](../../../scripts/bootstrap.py)
-- [Cluster checks and token replacement](../../../scripts/cluster_secrets.py)
+- [Operator delivery role](../../../ansible/roles/operator_secrets/tasks/validate.yml)
+- [Read-only BWS adapter](../../../ansible/roles/operator_secrets/files/bws_readonly.py)
+- [Bootstrap preflight](../../../ansible/roles/platform/tasks/preflight.yml)
+- [Cluster checks and token replacement](../../../ansible/roles/platform/tasks/sync_token.yml)
 - [Original secrets refactor, PR #433](https://github.com/edgard/home-ops/pull/433)
-- [State retirement](../../../scripts/migrate_state.py)
-- [Tool installation](../../../scripts/install_secrets_tools.py)
+- [Tool installation](../../../ansible/roles/operator_secrets/tasks/setup.yml)
 - [Task interface](../../../Taskfile.yaml)
 - [SecretSpec credentials](https://secretspec.dev/reference/provider-credentials/) — credential precedence and keyring sources.
 - [SecretSpec BWS implementation](https://github.com/cachix/secretspec/blob/v0.21.1/secretspec/src/provider/bws.rs) — native project reads and process-memory caching.

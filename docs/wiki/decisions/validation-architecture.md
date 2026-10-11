@@ -1,12 +1,15 @@
 # Keep validation close to its contracts
 
 Purpose: record the current validation layout and its reason.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `2fe88a7bb0b8bde1fc9857626c53bf17d5379295`.
 
 [PR #258](https://github.com/edgard/home-ops/pull/258) split CI into focused
 jobs with a required aggregate gate. [PR #409](https://github.com/edgard/home-ops/pull/409)
 retired the former scripts directory while retaining deployment, credential,
 restore, route, and manifest checks in Ansible roles/tests and Conftest policy.
+Secret workflows also follow this layout: Task launches native SecretSpec,
+Ansible roles own orchestration, and focused adapters and unit fixtures remain
+under Ansible. The completed state-migration helper is retained only in Git history.
 Local `task lint` runs the same focused checks. Keep new assertions with the
 source layer they protect, and check operational invariants instead of pinning
 test expectations to names or dependency versions without a behavioral reason.

@@ -1,0 +1,37 @@
+---
+- name: Initialize isolated GitOps fixture state
+  ansible.builtin.copy:
+    dest: "{{ cluster_fixture_dir.path }}/api-state.json"
+    content: "{{ {'scenario': cluster_handoff_case.name, 'token': 'c3ludGhldGljLXByZXZpb3VzLXRva2Vu', 'patches': [], 'reads': [], 'applications': platform_expected_applications, 'target_keys': cluster_fixture_target_keys} | to_json }}"
+    mode: "0600"
+
+- name: Reset observed GitOps handoff rejection
+  ansible.builtin.set_fact:
+    cluster_handoff_rejected: false
+
+- name: Exercise native GitOps handoff and final ownership snapshot
+  block:
+    - name: Run committed GitOps handoff
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: handoff
+  rescue:
+    - name: Record categorized handoff rejection
+      ansible.builtin.set_fact:
+        cluster_handoff_rejected: true
+
+    - name: Require safe GitOps handoff failure
+      ansible.builtin.assert:
+        that: ansible_failed_result.msg == 'GitOps handoff failed or timed out before all committed applications were generated.'
+
+- name: Inspect synthetic handoff API results
+  ansible.builtin.set_fact:
+    cluster_fixture_handoff_api_result: "{{ lookup('file', cluster_fixture_dir.path ~ '/api-state.json') | from_json }}"
+
+- name: Require final revision and owner rechecks without mutations
+  ansible.builtin.assert:
+    that:
+      - cluster_handoff_rejected == cluster_handoff_case.rejected
+      - cluster_fixture_handoff_api_result.patches | length == 0
+      - cluster_fixture_handoff_api_result.root_reads == 2
+      - cluster_fixture_handoff_api_result.appset_reads == 2
