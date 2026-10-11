@@ -1,0 +1,23 @@
+---
+operator_secrets_install_tools:
+  - secretspec
+  - bws
+operator_secrets_tools_directory: "{{ lookup('ansible.builtin.env', 'HOME') }}/.local/bin"
+# renovate: datasource=github-releases depName=cachix/secretspec
+operator_secrets_secretspec_version: "0.21.1"
+# renovate: datasource=github-releases depName=bitwarden/sdk-sm
+operator_secrets_bws_version: "2.1.0"
+operator_secrets_tools_system: "{{ {'Darwin': 'apple-darwin', 'Linux': 'unknown-linux-gnu'}.get(ansible_facts.system, '') }}"
+operator_secrets_tools_architecture: "{{ {'arm64': 'aarch64', 'aarch64': 'aarch64', 'x86_64': 'x86_64', 'AMD64': 'x86_64'}.get(ansible_facts.architecture, '') }}"
+operator_secrets_tools_platform: "{{ operator_secrets_tools_architecture }}-{{ operator_secrets_tools_system }}"
+operator_secrets_secretspec_release: "https://github.com/cachix/secretspec/releases/download/v{{ operator_secrets_secretspec_version }}"
+operator_secrets_secretspec_archive: "secretspec-{{ operator_secrets_tools_platform }}.tar.xz"
+operator_secrets_bws_release: "https://github.com/bitwarden/sdk-sm/releases/download/bws-v{{ operator_secrets_bws_version }}"
+operator_secrets_bws_archive: "bws-{{ operator_secrets_tools_platform }}-{{ operator_secrets_bws_version }}.zip"
+operator_secrets_tools_catalog:
+  secretspec:
+    url: "{{ operator_secrets_secretspec_release }}/{{ operator_secrets_secretspec_archive }}"
+    checksum: "{{ operator_secrets_secretspec_release }}/{{ operator_secrets_secretspec_archive }}.sha256"
+  bws:
+    url: "{{ operator_secrets_bws_release }}/{{ operator_secrets_bws_archive }}"
+    checksum: "{{ operator_secrets_bws_release }}/bws-sha256-checksums-{{ operator_secrets_bws_version }}.txt"

@@ -1,0 +1,27 @@
+---
+- name: Read repository Kubernetes target and control plane patch
+  ansible.builtin.set_fact:
+    talos_generation_upgrade: "{{ lookup('ansible.builtin.file', repo_root + '/apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml') | from_yaml }}"
+    talos_generation_patch: "{{ lookup('ansible.builtin.file', talos_controlplane_patch_file) | from_yaml_all | first }}"
+
+- name: Record explicit repository generation targets
+  ansible.builtin.set_fact:
+    talos_generation_targets:
+      talos: "{{ talos_upgrade.installer.version }}"
+      installer: "{{ talos_upgrade.installer.repository }}:{{ talos_upgrade.installer.version }}"
+      kubernetes: "{{ talos_generation_upgrade.spec.kubernetes.version }}"
+
+- name: Require consistent repository installer and nonempty versions
+  ansible.builtin.assert:
+    that:
+      - talos_generation_targets.talos | length > 0
+      - talos_generation_targets.kubernetes | length > 0
+      - talos_generation_patch.machine.install.image == talos_generation_targets.installer
+    fail_msg: repository-generation-targets-invalid
+
+- name: Require valid existing Talos identity without parser diagnostics
+  ansible.builtin.assert:
+    that: talos_secrets_yaml | valid_talos_material
+    fail_msg: invalid-talos-material
+  when: talos_validate_material | default(true) | bool
+  no_log: true

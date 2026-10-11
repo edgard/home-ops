@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `5a68ed733437f0c5e3e94a22661c7ac2f3e42483`.
+Status: current. Reviewed against: `2fe88a7bb0b8bde1fc9857626c53bf17d5379295`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -134,6 +134,9 @@ Store: `external-secrets-store`
   - `ansible/playbooks/validate-kubernetes.yml` runs source, metadata, raw manifest, rendered manifest, schema, and deprecation checks
   - The `kubernetes_validation` role resolves the Kubernetes target version from Tuppr, builds the Conftest inventory, caches chart pulls for the current run, and validates rendered output in a temporary tree
 - Ansible roles:
+  - Keep operator orchestration in playbooks and roles. Task may launch native
+    CLIs such as SecretSpec; role-owned adapters/plugins handle focused gaps.
+    Do not reintroduce a top-level scripts workflow.
   - Role-owned defaults live in `ansible/roles/*/defaults/main.yml`; inventory vars stay limited to local/site inputs.
   - Kubernetes operations use `kubernetes.core` modules with `kube_context`; avoid adding `kubectl` tasks.
   - Runtime credentials resolve from Bitwarden through scoped SecretSpec Task commands; the operator machine token lives in Keychain. Keep only nonsecret settings in ignored `.envrc`.

@@ -1,13 +1,15 @@
 # Validation and PR gate
 
 Purpose: distinguish local checks, repository policy, and deployment evidence.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `2fe88a7bb0b8bde1fc9857626c53bf17d5379295`.
 
 `task lint` aggregates formatting, static analysis, wiki, workflow, Ansible,
 Kubernetes, and Terraform validation. Source, metadata, raw manifest, and
 rendered workload policy check repository contracts; Ansible tests exercise
-role behavior and fixtures. The Ansible gate also runs synthetic Python secret,
-bootstrap, token rollback, and pinned SecretSpec integration tests. CI has no
+role behavior and fixtures. The Ansible gate runs native role contracts and disposable setup, preflight,
+bootstrap, and token rollback fixtures. Focused Python tests under `ansible/tests/unit`
+cover the provider adapter, pure readiness/schema predicates, isolated Talos
+generation, and pinned SecretSpec integration. CI has no
 cloud credentials; these tests do not prove a fresh-cluster bootstrap. CI runs focused targets as separate pull-request
 jobs and collects their results in `Quality Gate`.
 
@@ -17,6 +19,11 @@ external catalog. The exporter validates schema structure and adds strict unknow
 field checks while respecting composition branches, explicit map schemas, nullable
 fields, integer/string fields, and preserved unknown fields. A shared safe YAML
 parser handles chart scalar defaults for both schema export and route coverage.
+Sensitive YAML/JSON parsing emits safe categories instead of source excerpts.
+Native API failures use explicit result-shape checks to suppress raw provider
+diagnostics; a captured fixture-playbook run enforces output redaction alongside
+transaction and rollback behavior.
+
 Missing served schemas, malformed definitions, conflicting versions, invalid
 resource fields, and unknown resource kinds remain errors. This uses the deployed
 API definitions and avoids depending on a separately converted catalog entry

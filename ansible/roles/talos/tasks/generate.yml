@@ -12,19 +12,7 @@
   no_log: true
   block:
     - name: Validate Talos material and repository generation targets
-      ansible.builtin.command:
-        argv:
-          - "{{ ansible_python_interpreter }}"
-          - "{{ repo_root }}/scripts/bootstrap.py"
-          - targets
-      environment:
-        TALOS_SECRETS_YAML: "{{ talos_secrets_yaml }}"
-      register: talos_targets_result
-      changed_when: false
-
-    - name: Record repository generation targets
-      ansible.builtin.set_fact:
-        talos_generation_targets: "{{ talos_targets_result.stdout | from_json }}"
+      ansible.builtin.include_tasks: validate_generation.yml
 
     - name: Create temporary Talos output directory
       ansible.builtin.tempfile:

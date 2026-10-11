@@ -3,12 +3,14 @@ package main
 import rego.v1
 
 sensitive(task) if {
-  regex.match(`\b(tofu_(aws_access_key_id|aws_secret_access_key|cloudflare_api_token|cloudflare_zone_id|tailscale_client_id|tailscale_client_secret)|platform_bitwarden_access_token|talos_(secrets_yaml|generate_secrets_temp|generate_output))\b`, json.marshal(task))
+  regex.match(`\b(tofu_(aws_access_key_id|aws_secret_access_key|cloudflare_api_token|cloudflare_zone_id|tailscale_client_id|tailscale_client_secret)|platform_(bitwarden_access_token|application_values|application_values_result|previous_token_secret|restored_token_secret|secret_target)|talos_(secrets_yaml|generate_secrets_temp|generate_output))\b`, json.marshal(task))
 }
 
 sensitive(task) if { object.get(task, "community.general.terraform", null) != null }
 
 sensitive(task) if { object.get(object.get(task, "kubernetes.core.k8s", {}), "definition", {}).kind == "Secret" }
+
+sensitive(task) if { object.get(task, "kubernetes.core.k8s_info", {}).kind == "Secret" }
 
 talos_mutation(task) if {
   some module in {"ansible.builtin.command", "ansible.builtin.shell", "ansible.builtin.copy", "ansible.builtin.file", "ansible.builtin.tempfile", "kubernetes.core.k8s"}

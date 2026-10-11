@@ -1,0 +1,40 @@
+---
+- name: Reset valid synthetic provider responses
+  ansible.builtin.copy:
+    dest: "{{ cluster_fixture_dir.path }}/{{ item.name }}.json"
+    content: "{{ item.value | to_json }}"
+    mode: "0600"
+  loop:
+    - name: projects
+      value: "{{ cluster_fixture_project_rows }}"
+    - name: secrets
+      value: "{{ cluster_fixture_value_rows }}"
+
+- name: Write the malformed synthetic provider case
+  ansible.builtin.copy:
+    dest: "{{ cluster_fixture_dir.path }}/{{ cluster_access_case.file }}.json"
+    content: "{{ cluster_access_case.raw | default(cluster_access_case.value | to_json) }}"
+    mode: "0600"
+
+- name: Reset observed rejection
+  ansible.builtin.set_fact:
+    cluster_access_rejected: false
+
+- name: Require safe native application access failure
+  block:
+    - name: Reject malformed or excessive provider access
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: application_access
+  rescue:
+    - name: Record categorized application access failure
+      ansible.builtin.set_fact:
+        cluster_access_rejected: true
+
+    - name: Verify no provider diagnostics escaped
+      ansible.builtin.assert:
+        that: ansible_failed_result.msg == 'Application credential validation failed.'
+
+- name: Require fail-closed behavior
+  ansible.builtin.assert:
+    that: cluster_access_rejected | bool

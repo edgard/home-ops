@@ -78,7 +78,6 @@ task argo:sync app=jellyfin          # Refresh one Argo CD application
 # Secrets
 task secrets:check scope=cluster     # Check scoped resolution without values
 task secrets:sync-cluster-token      # Update only ESO bootstrap token and verify
-task tf:migrate-secret-state         # Protected backup, data retirement, zero-change plan
 
 # Development
 task deps                          # Install pinned validation dependencies

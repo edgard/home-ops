@@ -1,32 +1,126 @@
 ---
-- name: Require scoped ESO credential
-  ansible.builtin.assert:
-    that:
-      - platform_bitwarden_access_token | length > 0
-    fail_msg: Run platform or cluster bootstrap through the scoped SecretSpec command.
-  no_log: true
+- name: Load and validate native operator secret tooling
+  ansible.builtin.include_role:
+    name: operator_secrets
+    tasks_from: validate
+    public: true
 
-- name: Validate bootstrap access before mutation
-  ansible.builtin.command:
-    argv:
-      - "{{ ansible_python_interpreter }}"
-      - "{{ repo_root }}/scripts/bootstrap.py"
-      - "{{ 'cluster' if platform_preflight_cluster | bool else 'platform' }}"
-  environment:
-    ESO_BWS_ACCESS_TOKEN: "{{ platform_bitwarden_access_token }}"
-    TALOS_NODE: "{{ talos_node }}"
-    TALOS_CLUSTER_NAME: "{{ talos_cluster_name }}"
-    TALOS_INSTALL_DISK: "{{ talos_install_disk }}"
-  register: platform_preflight_result
-  changed_when: false
-  failed_when: false
-  no_log: true
+- name: Validate local bootstrap inputs before mutation
+  ansible.builtin.include_tasks: preflight_inputs.yml
 
-- name: Reject failed bootstrap preflight
-  ansible.builtin.fail:
-    msg: "Bootstrap preflight failed: {{ platform_preflight_result.stdout | default('preflight-command-failed', true) }}"
-  when: platform_preflight_result.rc != 0
+- name: Validate scoped application access before mutation
+  ansible.builtin.include_tasks: application_access.yml
+
+- name: Validate authenticated merged repository before mutation
+  no_log: true
+  block:
+    - name: Authenticate repository credential against GitHub
+      ansible.builtin.uri:
+        url: https://api.github.com/user
+        url_username: "{{ platform_application_values.argocd_repo_username }}"
+        url_password: "{{ platform_application_values.argocd_repo_password }}"
+        force_basic_auth: true
+        headers:
+          Accept: application/vnd.github+json
+          User-Agent: home-ops-bootstrap
+        return_content: true
+        timeout: 30
+      register: platform_repository_user
+      failed_when: platform_repository_user.status | default(0) != 200
+
+    - name: Require authenticated GitHub identity
+      ansible.builtin.assert:
+        that:
+          - platform_repository_user.json.login is string
+          - platform_repository_user.json.login | length > 0
+
+    - name: Read local repository head
+      timeout: 30
+      ansible.builtin.command:
+        argv:
+          - git
+          - rev-parse
+          - HEAD
+        chdir: "{{ repo_root }}"
+      register: platform_repository_head
+      failed_when: platform_repository_head.rc != 0
+      changed_when: false
+
+    - name: Check tracked checkout cleanliness
+      timeout: 30
+      ansible.builtin.command:
+        argv:
+          - git
+          - status
+          - --porcelain
+          - --untracked-files=no
+        chdir: "{{ repo_root }}"
+      register: platform_repository_status
+      failed_when: platform_repository_status.rc != 0
+      changed_when: false
+
+    - name: Require clean tracked checkout
+      ansible.builtin.assert:
+        that: platform_repository_status.stdout | length == 0
+
+    - name: Create temporary Git credential prompt adapter
+      ansible.builtin.tempfile:
+        state: file
+        suffix: home-ops-askpass
+      register: platform_repository_askpass
+
+    - name: Install environment-only Git credential prompt adapter
+      ansible.builtin.copy:
+        dest: "{{ platform_repository_askpass.path }}"
+        mode: "0700"
+        content: |
+          #!/bin/sh
+          case "$1" in
+            *[Uu]sername*) printf '%s\n' "$HOME_OPS_GIT_USERNAME" ;;
+            *) printf '%s\n' "$HOME_OPS_GIT_PASSWORD" ;;
+          esac
+
+    - name: Read authenticated remote master revision
+      timeout: 30
+      ansible.builtin.command:
+        argv:
+          - git
+          - -c
+          - credential.helper=
+          - -c
+          - http.extraHeader=
+          - ls-remote
+          - --exit-code
+          - "{{ (lookup('ansible.builtin.file', repo_root ~ '/' ~ platform_argocd_root_application_manifest) | from_yaml).spec.sources[0].repoURL }}"
+          - refs/heads/master
+        chdir: "{{ repo_root }}"
+      environment:
+        HOME_OPS_GIT_USERNAME: "{{ platform_application_values.argocd_repo_username }}"
+        HOME_OPS_GIT_PASSWORD: "{{ platform_application_values.argocd_repo_password }}"
+        GIT_TERMINAL_PROMPT: "0"
+        GIT_ASKPASS: "{{ platform_repository_askpass.path }}"
+        GIT_CONFIG_COUNT: "0"
+      register: platform_repository_remote
+      failed_when: platform_repository_remote.rc != 0
+      changed_when: false
+
+    - name: Require checkout to match merged remote master
+      ansible.builtin.assert:
+        that:
+          - platform_repository_head.stdout is match('^[0-9a-f]{40}$')
+          - platform_repository_remote.stdout.split()[0] == platform_repository_head.stdout
+  rescue:
+    - name: Reject failed repository preflight
+      ansible.builtin.fail:
+        msg: Bootstrap requires authenticated access and a clean checkout matching remote master.
+      no_log: false
+  always:
+    - name: Remove temporary Git credential prompt adapter
+      ansible.builtin.file:
+        path: "{{ platform_repository_askpass.path }}"
+        state: absent
+      when: platform_repository_askpass is defined
 
 - name: Record verified deployment revision
   ansible.builtin.set_fact:
-    platform_bootstrap_revision: "{{ platform_preflight_result.stdout }}"
+    platform_bootstrap_revision: "{{ platform_repository_head.stdout }}"

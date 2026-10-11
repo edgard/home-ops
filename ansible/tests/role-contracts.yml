@@ -96,7 +96,10 @@
           - role_contract_talos_generate[1].no_log | bool
           - "'not ansible_check_mode' in role_contract_talos_generate[1].when"
           - role_contract_talos_generate[1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.tempfile') | list | length == 2
-          - role_contract_talos_generate[1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.command') | list | length == 3
+          - role_contract_talos_generate[1].block[0]['ansible.builtin.include_tasks'] == 'validate_generation.yml'
+          - role_contract_talos_gen_argv[:3] == ['talosctl', 'gen', 'config']
+          - role_contract_talos_validate_argv[:2] == ['talosctl', 'validate']
+          - "'--mode' in role_contract_talos_validate_argv and 'metal' in role_contract_talos_validate_argv"
           - role_contract_talos_generate[1].always | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.file') | list | length == 2
           - role_contract_talos_generate[1].always[0]['ansible.builtin.file'].state == 'absent'
           - role_contract_talos_generate[1].always[1]['ansible.builtin.file'].state == 'absent'
@@ -113,6 +116,11 @@
           - role_contract_platform_warmup[-1].always[0]['kubernetes.core.k8s'].wait | bool
           - role_contract_platform_warmup[-1].always[0]['kubernetes.core.k8s'].name == role_contract_platform_warmup[-1].block[0]['kubernetes.core.k8s'].definition.metadata.name
           - role_contract_platform_warmup[-1].always[0]['kubernetes.core.k8s'].namespace == role_contract_platform_warmup[-1].block[0]['kubernetes.core.k8s'].definition.metadata.namespace
+
+      vars:
+        role_contract_talos_commands: "{{ role_contract_talos_generate[1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.command') | map(attribute='value.argv') | list }}"
+        role_contract_talos_gen_argv: "{{ role_contract_talos_commands | select('contains', 'gen') | first | default([]) }}"
+        role_contract_talos_validate_argv: "{{ role_contract_talos_commands | select('contains', 'validate') | first | default([]) }}"
 
     - name: Validate native platform waits and deletion failures
       ansible.builtin.assert:
@@ -247,7 +255,7 @@
         that:
           - "(role_contract_root ~ '/ansible/roles/talos/files/secrets.vault.yml') is not file"
           - "(role_contract_root ~ '/ansible/vault/operator.yml') is not file"
-          - "(role_contract_root ~ '/scripts/verify_migration.py') is not file"
+          - "(role_contract_root ~ '/scripts') is not directory"
 
     - name: Verify legacy Talos secret is ignored
       ansible.builtin.command:

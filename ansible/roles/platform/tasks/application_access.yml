@@ -1,0 +1,92 @@
+---
+- name: Validate application credential access without exposing provider output
+  no_log: true
+  block:
+    - name: Load scoped providers and application store
+      ansible.builtin.set_fact:
+        platform_secret_providers: "{{ (lookup('ansible.builtin.file', repo_root ~ '/secretspec.toml') | from_toml).providers }}"
+        platform_secret_store: "{{ lookup('ansible.builtin.file', repo_root ~ '/' ~ platform_external_secrets_store_manifest) | from_yaml }}"
+
+    - name: Require configured application credential
+      ansible.builtin.assert:
+        that:
+          - platform_bitwarden_access_token | length > 0
+          - platform_secret_providers | length == 2
+
+    - name: Record configured Bitwarden project IDs
+      ansible.builtin.set_fact:
+        platform_application_project: "{{ platform_secret_store.spec.provider.bitwardensecretsmanager.projectID }}"
+        platform_expected_projects: "{{ platform_secret_providers.values() | map(attribute='uri') | map('urlsplit', 'netloc') | unique | list }}"
+
+    - name: List token-accessible Bitwarden projects
+      timeout: 30
+      no_log: true
+      ansible.builtin.command:
+        argv:
+          - bws
+          - --color
+          - "no"
+          - --server-url
+          - "https://vault.bitwarden.com"
+          - project
+          - list
+          - --output
+          - json
+      environment:
+        BWS_ACCESS_TOKEN: "{{ platform_bitwarden_access_token }}"
+        BW_ACCESS_TOKEN: ""
+      register: platform_projects_result
+      failed_when: platform_projects_result.rc != 0
+      changed_when: false
+
+    - name: Validate exact project access
+      ansible.builtin.assert:
+        that:
+          - platform_expected_projects | length == 2
+          - platform_application_project in platform_expected_projects
+          - (platform_projects_result.stdout | safe_from_json | type_debug) == 'list'
+          - platform_projects_result.stdout | safe_from_json | map(attribute='id') | unique | sort == platform_expected_projects | sort
+
+    - name: Read application secrets through guarded read-only provider
+      timeout: 30
+      no_log: true
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_python_interpreter }}"
+          - "{{ repo_root }}/ansible/roles/operator_secrets/files/bws_readonly.py"
+          - --color
+          - "no"
+          - --server-url
+          - https://vault.bitwarden.com
+          - secret
+          - list
+          - "{{ platform_application_project }}"
+          - --output
+          - json
+      environment:
+        BWS_ACCESS_TOKEN: "{{ platform_bitwarden_access_token }}"
+        BW_ACCESS_TOKEN: ""
+      register: platform_application_values_result
+      failed_when: platform_application_values_result.rc != 0
+      changed_when: false
+
+    - name: Record application values in memory
+      ansible.builtin.set_fact:
+        platform_application_values: >-
+          {{ dict((platform_application_values_result.stdout | safe_from_json | map(attribute='key'))
+                  | zip(platform_application_values_result.stdout | safe_from_json | map(attribute='value'))) }}
+
+    - name: Build tracked application secret inventory
+      ansible.builtin.include_tasks: secret_inventory.yml
+
+    - name: Require every remote application key and repository credential
+      ansible.builtin.assert:
+        that:
+          - platform_secret_manifests | map(attribute='spec.data') | flatten | map(attribute='remoteRef.key') | difference(platform_application_values.keys() | list) | length == 0
+          - platform_application_values.argocd_repo_username | default("") | length > 0
+          - platform_application_values.argocd_repo_password | default("") | length > 0
+  rescue:
+    - name: Reject failed application credential validation
+      ansible.builtin.fail:
+        msg: Application credential validation failed.
+      no_log: false

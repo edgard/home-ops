@@ -1,0 +1,69 @@
+---
+- name: Validate bootstrap tools
+  timeout: 30
+  ansible.builtin.command:
+    argv: "{{ item }}"
+  loop:
+    - - git
+      - --version
+    - - helm
+      - version
+      - --short
+    - - talosctl
+      - version
+      - --client
+      - --short
+    - - "{{ ansible_python_interpreter }}"
+      - -c
+      - "import kubernetes"
+  changed_when: false
+
+- name: Validate repository generation targets and scoped cluster material
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: validate_generation
+    public: true
+  vars:
+    talos_validate_material: "{{ platform_preflight_cluster | bool }}"
+
+- name: Require cluster node inputs before mutation
+  ansible.builtin.assert:
+    that:
+      - talos_node | length > 0
+      - talos_cluster_name | length > 0
+      - talos_install_disk | length > 0
+    fail_msg: TALOS_NODE, TALOS_CLUSTER_NAME, and TALOS_INSTALL_DISK are required.
+  when: platform_preflight_cluster | bool
+
+- name: Record required bootstrap input paths
+  ansible.builtin.set_fact:
+    platform_required_yaml_paths: >-
+      {{ platform_bootstrap_releases | map(attribute='app_metadata') | list
+         + platform_bootstrap_releases | map(attribute='values_file') | list
+         + platform_external_secrets_bootstrap_manifests
+         + [platform_k8tz_app_metadata, platform_external_secrets_store_manifest,
+            platform_argocd_repo_credentials_manifest, platform_argocd_root_application_manifest,
+            'ansible/roles/talos/files/controlplane-patch.yaml'] }}
+
+- name: Require bootstrap files and installed Kubernetes modules
+  ansible.builtin.assert:
+    that: (repo_root ~ '/' ~ item) is file
+    fail_msg: Required bootstrap file or Kubernetes module is missing.
+  loop: >-
+    {{ platform_required_yaml_paths +
+       ['.ansible/collections/ansible_collections/kubernetes/core/plugins/modules/k8s.py',
+        '.ansible/collections/ansible_collections/kubernetes/core/plugins/modules/k8s_info.py',
+        '.ansible/collections/ansible_collections/kubernetes/core/plugins/modules/helm.py'] }}
+
+- name: Parse all required bootstrap YAML before mutation
+  ansible.builtin.set_fact:
+    platform_validated_yaml: "{{ lookup('ansible.builtin.file', repo_root ~ '/' ~ item) | from_yaml_all | list }}"
+  loop: "{{ platform_required_yaml_paths }}"
+
+- name: Require bootstrap manifest directories
+  ansible.builtin.assert:
+    that: (repo_root ~ '/' ~ item.manifests_dir) is directory
+    fail_msg: Required bootstrap manifest directory is missing.
+  loop: "{{ platform_bootstrap_releases | selectattr('manifests_dir', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.manifests_dir }}"

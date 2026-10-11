@@ -1,0 +1,108 @@
+---
+- name: Validate replacement credential before cluster mutation
+  ansible.builtin.include_tasks: application_access.yml
+
+- name: Replace ESO token with rollback on ambiguity or failed reconciliation
+  no_log: true
+  block:
+    - name: Read the previous ESO credential
+      timeout: 15
+      no_log: true
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: Secret
+        namespace: platform-system
+        name: bitwarden-credentials
+      register: platform_previous_token_secret
+      failed_when: platform_previous_token_secret.resources is not defined
+
+    - name: Require recoverable previous token before replacement
+      ansible.builtin.assert:
+        that:
+          - platform_previous_token_secret.resources | length == 1
+          - platform_previous_token_secret.resources[0].data.token is string
+          - platform_previous_token_secret.resources[0].data.token | length > 0
+          - platform_previous_token_secret.resources[0].data.token | b64decode | length > 0
+          - platform_previous_token_secret.resources[0].data.token | b64decode | b64encode == platform_previous_token_secret.resources[0].data.token
+
+    - name: Record reconciliation start before replacement
+      ansible.builtin.set_fact:
+        platform_secret_after: "{{ now().timestamp() | float }}"
+
+    - name: Apply replacement and verify fresh reconciliation
+      block:
+        - name: Update only the ESO token key
+          timeout: 15
+          no_log: true
+          kubernetes.core.k8s:
+            kubeconfig: "{{ kubeconfig_path }}"
+            context: "{{ kube_context }}"
+            state: patched
+            merge_type: merge
+            definition:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: bitwarden-credentials
+                namespace: platform-system
+              stringData:
+                token: "{{ platform_bitwarden_access_token }}"
+
+          register: platform_token_patch
+          failed_when: platform_token_patch.result.kind | default('') != 'Secret' or platform_token_patch.result.data.token | default('') != platform_bitwarden_access_token | b64encode
+
+        - name: Verify application reconciliation after token replacement
+          ansible.builtin.include_tasks: verify_secrets.yml
+      rescue:
+        - name: Restore previous token after an ambiguous patch or reconciliation failure
+          block:
+            - name: Restore only the previous ESO token key
+              timeout: 15
+              no_log: true
+              kubernetes.core.k8s:
+                kubeconfig: "{{ kubeconfig_path }}"
+                context: "{{ kube_context }}"
+                state: patched
+                merge_type: merge
+                definition:
+                  apiVersion: v1
+                  kind: Secret
+                  metadata:
+                    name: bitwarden-credentials
+                    namespace: platform-system
+                  data:
+                    token: "{{ platform_previous_token_secret.resources[0].data.token }}"
+
+              register: platform_token_restore
+              failed_when: platform_token_restore.result.kind | default('') != 'Secret' or platform_token_restore.result.data.token | default('') != platform_previous_token_secret.resources[0].data.token
+
+            - name: Read restored ESO token
+              timeout: 15
+              no_log: true
+              kubernetes.core.k8s_info:
+                kubeconfig: "{{ kubeconfig_path }}"
+                context: "{{ kube_context }}"
+                api_version: v1
+                kind: Secret
+                namespace: platform-system
+                name: bitwarden-credentials
+              register: platform_restored_token_secret
+              failed_when: platform_restored_token_secret.resources is not defined
+
+            - name: Require previous token to be restored
+              ansible.builtin.assert:
+                that:
+                  - platform_restored_token_secret.resources | length == 1
+                  - platform_restored_token_secret.resources[0].data.token == platform_previous_token_secret.resources[0].data.token
+          rescue:
+            - name: Report unrecoverable token replacement
+              ansible.builtin.fail:
+                msg: ESO token reconciliation failed; previous token restoration failed.
+              no_log: false
+
+        - name: Report successful previous token restoration
+          ansible.builtin.fail:
+            msg: ESO token reconciliation failed; previous token restored.
+          no_log: false
