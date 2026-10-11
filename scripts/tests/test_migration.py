@@ -61,12 +61,6 @@ class MigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(migration.MigrationError, '^unexpected-bitwarden-state-address$'):
             migration.retired_addresses(state)
 
-    def test_round_trip_comparison_never_displays_values(self):
-        migration = module('verify_migration')
-        with patch.dict('os.environ', {'TALOS_SECRETS_YAML': 'new PRIVATE'}):
-            with self.assertRaisesRegex(migration.VerificationError, '^migration-round-trip-mismatch:TALOS_SECRETS_YAML$'):
-                migration.compare({'TALOS_SECRETS_YAML': 'old PRIVATE'})
-
 class InfrastructureOwnershipTests(unittest.TestCase):
     def test_tailscale_shared_secret_uses_existing_eso_item_name(self):
         import tomllib

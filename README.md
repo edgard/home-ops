@@ -40,11 +40,11 @@ task secrets:check scope=terraform
 ```
 
 Use the existing read-only Bitwarden machine account for both projects as
-specified in the [secrets setup and migration runbook](docs/wiki/operations/secrets-maintenance.md).
+specified in the [secrets maintenance and recovery runbook](docs/wiki/operations/secrets-maintenance.md).
 The project UUIDs are configured in `secretspec.toml`. Maintain values in Bitwarden's UI. ESO delivers app
 secrets; scoped SecretSpec commands deliver Talos and Terraform inputs.
-Keep only nonsecret settings in ignored `.envrc`. The encrypted Talos file is a
-temporary migration recovery input, unused by normal bootstrap commands.
+Keep only nonsecret settings in ignored `.envrc`. Recovery uses the existing
+Talos identity and infrastructure values in Bitwarden.
 
 ### Bootstrap Cluster
 
@@ -78,7 +78,6 @@ task argo:sync app=jellyfin          # Refresh one Argo CD application
 # Secrets
 task secrets:check scope=cluster     # Check scoped resolution without values
 task secrets:sync-cluster-token      # Update only ESO bootstrap token and verify
-task secrets:verify-migration        # One-time in-memory round-trip comparison
 task tf:migrate-secret-state         # Protected backup, data retirement, zero-change plan
 
 # Development

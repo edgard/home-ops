@@ -1,4 +1,2 @@
 ---
 profile: production
-exclude_paths:
-  - ansible/roles/talos/files/secrets.vault.yml

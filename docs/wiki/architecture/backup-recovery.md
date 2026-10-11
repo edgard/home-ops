@@ -1,7 +1,7 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `d9f31a0b9442ba41d4d8de9600b064fc89a0080d`.
 
 The Restic application serves a repository and runs appdata backup and
 maintenance workloads. Restore commands enter the Ansible role in plan-only
@@ -17,8 +17,10 @@ backup configuration does not prove a recent successful backup or a usable
 snapshot; validate those separately before recovery work.
 
 Cluster recovery also requires Bitwarden availability and an operator token;
-see [secret recovery and migration](../operations/secrets-maintenance.md). The
-temporary encrypted Talos input is retained until real migration verification.
+see [secret recovery](../operations/secrets-maintenance.md). The existing Talos
+identity and infrastructure values resolve from Bitwarden through scoped
+SecretSpec. Protected infrastructure-state backups have a separate recovery
+procedure; they do not replace Bitwarden availability.
 
 ## Sources
 

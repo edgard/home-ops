@@ -242,16 +242,12 @@
         role_contract_delete_rule: "{{ role_contract_prepare[2]['ansible.builtin.assert'].that[0] }}"
         role_contract_delete_pattern: '{{ role_contract_delete_rule.split("''")[1] }}'
 
-    - name: Read encrypted Talos secrets without decrypting
-      ansible.builtin.slurp:
-        src: "{{ role_contract_root }}/ansible/roles/talos/files/secrets.vault.yml"
-      register: role_contract_vault
-
-    - name: Validate retained encrypted recovery input and ignored legacy file
+    - name: Reject retired local secret-maintenance inputs
       ansible.builtin.assert:
         that:
-          - "(role_contract_vault.content | b64decode) is match('^\\$ANSIBLE_VAULT;')"
+          - "(role_contract_root ~ '/ansible/roles/talos/files/secrets.vault.yml') is not file"
           - "(role_contract_root ~ '/ansible/vault/operator.yml') is not file"
+          - "(role_contract_root ~ '/scripts/verify_migration.py') is not file"
 
     - name: Verify legacy Talos secret is ignored
       ansible.builtin.command:
@@ -271,6 +267,7 @@
           - --
           - ansible/roles/talos/files/secrets.yaml
           - ansible/vault/operator.yml
+          - ansible/roles/talos/files/secrets.vault.yml
         chdir: "{{ role_contract_root }}"
       register: role_contract_tracked_secrets
       changed_when: false

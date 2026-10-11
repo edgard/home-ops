@@ -83,3 +83,11 @@ has no managed-resource changes; DNS attributes, addresses, and backend remain
 unchanged. Reviewed the Terraform architecture and state-retirement runbook.
 
 - 2026-10-11: Revised Kubernetes validation to use served CRD schemas from pinned charts and tracked manifests before catalog fallback; retained strict field checks and added malformed, conflicting, and invalid-resource regression coverage.
+
+## [2026-10-11] revision | Retire legacy secret maintenance
+
+Retired the encrypted Talos Vault file, one-time migration verifier, Vault-only
+formatter/linter exceptions, and retained-Vault contract. Added regression checks
+that reject active legacy maintenance and protect credential backups. Updated
+contributor guidance, README, architecture, and maintenance/recovery instructions;
+preserved the migration procedure and historical decision with immutable links.

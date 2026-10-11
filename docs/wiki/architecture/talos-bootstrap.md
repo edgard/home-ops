@@ -11,7 +11,7 @@ temporary secrets. Platform bootstrap preserves storage, networking, image
 warmup, and cert-manager ordering, then waits for ESO CRDs, SDK, controller, and
 store readiness before Argo access/root handoff. The handoff verifies the merged
 revision and ApplicationSet children within 300 seconds and fresh application
-secrets within 600 seconds. See the [migration runbook](../operations/secrets-maintenance.md)
+secrets within 600 seconds. See the [maintenance and recovery runbook](../operations/secrets-maintenance.md)
 for external prerequisites and the limits of disposable versus production tests.
 
 The [Image Factory installer decision](../decisions/talos-image-factory.md)
