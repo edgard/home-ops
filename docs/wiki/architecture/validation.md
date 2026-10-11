@@ -11,6 +11,17 @@ bootstrap, token rollback, and pinned SecretSpec integration tests. CI has no
 cloud credentials; these tests do not prove a fresh-cluster bootstrap. CI runs focused targets as separate pull-request
 jobs and collects their results in `Quality Gate`.
 
+Kubernetes schema validation renders the pinned charts with their CRDs first.
+Served schemas from both tracked CRDs and those charts take precedence over the
+external catalog. The exporter validates schema structure and adds strict unknown
+field checks while respecting composition branches, explicit map schemas, nullable
+fields, integer/string fields, and preserved unknown fields. A shared safe YAML
+parser handles chart scalar defaults for both schema export and route coverage.
+Missing served schemas, malformed definitions, conflicting versions, invalid
+resource fields, and unknown resource kinds remain errors. This uses the deployed
+API definitions and avoids depending on a separately converted catalog entry
+when the authoritative schema is available.
+
 The [validation architecture decision](../decisions/validation-architecture.md)
 explains the replacement of the former scripts directory. These checks prove
 the committed configuration satisfies the tested contracts, not that a synced
@@ -21,6 +32,7 @@ targeted runtime checks.
 
 - [Taskfile](../../../Taskfile.yaml)
 - [CI workflow](../../../.github/workflows/ci.yml)
+- [CRD schema exporter](../../../ansible/roles/kubernetes_validation/files/export_schemas.py)
 - [Kubernetes validation playbook](../../../ansible/playbooks/validate-kubernetes.yml)
 - [Wiki validation playbook](../../../ansible/playbooks/validate-wiki.yml)
 - [Policy tree](../../../policy)

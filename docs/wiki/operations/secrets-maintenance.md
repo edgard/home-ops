@@ -7,14 +7,14 @@ Status: current. Reviewed against: `d9a1261970b4d6607056507421a71ad52b5d07ce`.
 
 Bitwarden Secrets Manager is the value maintenance home. Maintain values in its
 UI. Use two projects: the existing application project and `home-ops-operator`.
-First check the human account's project and machine-account capacity. Create an
-operator machine account with read access to both projects and an ESO machine
-account with read access only to the application project. Generate separate
-tokens; preserve existing application values, shared items, and Talos identity.
+First check the human account's project capacity. Reuse the existing machine
+account with read access to both configured projects. Operator commands and ESO
+share this account and its token; ESO can therefore read operator secrets too.
+Preserve existing application values, shared items, the token, and Talos identity.
 
 Set the operator project's public UUID in the `operator` alias in
-[secretspec.toml](../../../secretspec.toml). A nil UUID deliberately fails setup
-instead of silently reusing the application project. The application alias
+[secretspec.toml](../../../secretspec.toml) when provisioning a new environment.
+The configured projects must be distinct and nonempty. The application alias
 remains tied to the existing project. Both aliases read one
 `home-ops/_provider/access_token` Keychain credential through SecretSpec.
 
@@ -40,7 +40,7 @@ cloud access.
 ## Value inventory and ordinary use
 
 The manifest owns the exact key references and scope membership. Put existing
-Talos YAML, backend access/secret keys, and the application-only ESO token into
+Talos YAML, backend access/secret keys, and the shared machine-account token into
 the operator project using the manifest's item names. Cloudflare's API token and the Tailscale OAuth client secret remain single
 application-project items shared with ESO. The Cloudflare zone ID and Tailscale
 OAuth client ID are operator-only inputs and belong in the operator project.
@@ -53,7 +53,8 @@ legacy credentials and SecretSpec overrides. The native BWS provider reads
 through a read-only adapter that rejects duplicates, malformed data, writes,
 and unredacted provider diagnostics. Authentication is in subprocess environment,
 never CLI arguments. Scopes minimize delivery; machine-account project
-permissions are the access boundary.
+permissions are the access boundary. Bootstrap and token replacement validate
+access to exactly the two configured projects, rejecting unconfigured projects.
 
 Direct playbook execution requires the same wrapper, for example:
 
@@ -71,15 +72,28 @@ client files and cleans its temporary YAML/output directory even on failure.
 Upgrades, Argo refresh, cleanup, formatting, and lint use existing clients and
 do not resolve cloud secrets.
 
+## Shared token rotation
+
+Create a replacement token on the existing read-only machine account and retain
+the current token until verification passes. Update `eso_bws_access_token` in
+the operator project through the Bitwarden UI, then run `task secrets:login`
+with the replacement token to update the single Keychain credential. Run both
+scope checks and `task secrets:sync-cluster-token`, then verify the consumers.
+Revoke the old token only after success. The synchronization command retains and
+restores the previous cluster token if reconciliation fails; restore the old
+operator-project value and Keychain credential too when rolling back the whole
+rotation. Project permissions remain the same.
+
 ## One-time migration and retirement
 
 This branch's runtime paths no longer use Vault or globally exported secrets.
 The encrypted Talos file and its linter exclusions remain as a temporary recovery
 input until real migration checks pass. Do not retire them on mocked evidence.
 
-1. Provision the projects/accounts, then import existing Talos YAML and backend
+1. Provision the operator project and give the existing machine account read-only
+   access to both projects, then import existing Talos YAML and backend
    values, zone ID, and Tailscale OAuth client ID through the Bitwarden UI. Store
-   the new ESO account token in the operator project. Retain the original
+   the existing shared token in the operator project. Retain the original
    operator-only application-project items during round-trip verification;
    the one-time verifier compares their original IDs. Keep the previous inputs
    and token available for rollback.
@@ -114,7 +128,7 @@ input until real migration checks pass. Do not retire them on mocked evidence.
    native state encryption are separate work.
 5. After the PR is merged, use the clean merged checkout for platform bootstrap
    or Argo reconciliation. Run `task secrets:sync-cluster-token` to patch only
-   ESO's bootstrap Secret. It validates the new account's project access first,
+   ESO's bootstrap Secret. It validates the replacement token's project access first,
    waits for fresh application-secret refreshes and target keys, and restores the
    previous token if reconciliation fails. An invalid token fails before patch.
    A restore failure is reported distinctly. The command does not reinstall Helm
@@ -125,8 +139,9 @@ input until real migration checks pass. Do not retire them on mocked evidence.
 7. Only after round-trip, generation, infrastructure, and live acceptance pass,
    delete the tracked encrypted Talos recovery file and its old exclusions/tests
    in a follow-up PR. Remove secret assignments from the ignored `.envrc` while
-   preserving its nonsecret settings. Retire old machine tokens and obsolete
-   local provider artifacts after rollback is no longer needed. Retire the two
+   preserving its nonsecret settings. Keep the shared token active; revoke only
+   superseded tokens after rollback is no longer needed. Clean obsolete local
+   provider artifacts. Retire the two
    original operator-only application-project items after their operator-project
    copies have passed round-trip and infrastructure checks, so each value has
    one maintained item. Retain ignores

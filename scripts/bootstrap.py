@@ -9,6 +9,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
+import urllib.parse
 import urllib.request
 import yaml
 
@@ -94,11 +96,13 @@ def application_access(token):
     # Validate machine account access, not merely its ability to read one project.
     projects_text = checked(['bws', '--color', 'no', '--server-url', 'https://vault.bitwarden.com', 'project', 'list', '--output', 'json'], 'eso-project-access-failed', env)
     try:
+        providers = tomllib.loads((ROOT / 'secretspec.toml').read_text())['providers']
+        expected = {urllib.parse.urlparse(provider['uri']).netloc for provider in providers.values()}
         projects = json.loads(projects_text)
-        if not isinstance(projects, list) or {item['id'] for item in projects} != {project}:
+        if project not in expected or not isinstance(projects, list) or {item['id'] for item in projects} != expected:
             raise ValueError
     except (ValueError, TypeError, KeyError):
-        raise PreflightError('eso-must-access-only-application-project') from None
+        raise PreflightError('eso-project-access-mismatch') from None
     try:
         with_token = os.environ.get('BWS_ACCESS_TOKEN')
         os.environ['BWS_ACCESS_TOKEN'] = token

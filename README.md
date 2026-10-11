@@ -39,10 +39,9 @@ task secrets:check scope=cluster
 task secrets:check scope=terraform
 ```
 
-First provision the operator Bitwarden project and separate machine accounts as
+Use the existing read-only Bitwarden machine account for both projects as
 specified in the [secrets setup and migration runbook](docs/wiki/operations/secrets-maintenance.md).
-Set its public project UUID in `secretspec.toml`; the nil UUID deliberately blocks
-commands until provisioned. Maintain values in Bitwarden's UI. ESO delivers app
+The project UUIDs are configured in `secretspec.toml`. Maintain values in Bitwarden's UI. ESO delivers app
 secrets; scoped SecretSpec commands deliver Talos and Terraform inputs.
 Keep only nonsecret settings in ignored `.envrc`. The encrypted Talos file is a
 temporary migration recovery input, unused by normal bootstrap commands.

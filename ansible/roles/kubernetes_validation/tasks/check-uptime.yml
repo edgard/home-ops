@@ -23,7 +23,7 @@
 
 - name: Parse raw and rendered route documents
   ansible.builtin.set_fact:
-    kubernetes_validation_route_docs: "{{ kubernetes_validation_route_docs + (lookup('ansible.builtin.file', item.path) | from_yaml_all | list) }}"
+    kubernetes_validation_route_docs: "{{ kubernetes_validation_route_docs + (lookup('ansible.builtin.file', item.path) | from_kubernetes_yaml_all) }}"
   loop: "{{ kubernetes_validation_rendered_files.files + kubernetes_validation_raw_routes.files }}"
   loop_control:
     label: "{{ item.path }}"

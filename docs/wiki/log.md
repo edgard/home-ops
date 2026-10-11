@@ -65,3 +65,21 @@ The state migration helper now checks a private temporary plan before remote
 state writes and rejects managed-resource changes. It still verifies the recovery
 backup, removes only the known retired data entries, checks managed state equality,
 and requires a zero-change final plan. Updated the migration runbook accordingly.
+
+## [2026-10-11] revision | Reuse the shared read-only machine account
+
+Configured the operator project's public UUID and reused the existing machine
+account for both project reads. Updated preflight to enforce the configured
+project set, and documented that command scopes control injection while ESO's
+credential can read operator secrets too. Reviewed setup, rotation, retirement,
+the architecture pages, External Secrets, the README, and contributor guidance.
+
+## [2026-10-11] revision | Preserve zero-change infrastructure migration
+
+Preserved legacy resource-state zone-ID sensitivity while keeping the operator
+input nonsensitive. Added a Cloudflare provider compatibility pin and Renovate
+limit for the query-parameter regression. The isolated official-provider plan
+has no managed-resource changes; DNS attributes, addresses, and backend remain
+unchanged. Reviewed the Terraform architecture and state-retirement runbook.
+
+- 2026-10-11: Revised Kubernetes validation to use served CRD schemas from pinned charts and tracked manifests before catalog fallback; retained strict field checks and added malformed, conflicting, and invalid-resource regression coverage.

@@ -7,6 +7,22 @@ from test_secrets import ROOT, module
 
 
 class BootstrapContracts(unittest.TestCase):
+    def test_shared_account_accepts_only_configured_projects(self):
+        import json
+        import tomllib
+        from urllib.parse import urlparse
+        bootstrap = module('bootstrap')
+        providers = tomllib.loads((ROOT / 'secretspec.toml').read_text())['providers']
+        projects = [{'id': urlparse(provider['uri']).netloc} for provider in providers.values()]
+        values = [{'key': 'argocd_repo_username', 'value': 'fixture'}, {'key': 'argocd_repo_password', 'value': 'PRIVATE'}]
+        with patch.object(bootstrap, 'checked', return_value=json.dumps(projects)), patch.object(bootstrap, 'read_project', return_value=values), patch.object(bootstrap, 'source_manifest_paths', return_value=[]):
+            self.assertEqual(bootstrap.application_access('synthetic')['argocd_repo_username'], 'fixture')
+
+        with patch.object(bootstrap, 'checked', return_value=json.dumps(projects + [{'id': 'unconfigured'}])), patch.object(bootstrap, 'read_project') as read:
+            with self.assertRaisesRegex(bootstrap.PreflightError, '^eso-project-access-mismatch$'):
+                bootstrap.application_access('synthetic')
+            read.assert_not_called()
+
     def test_cluster_cloud_preflight_precedes_all_node_mutation(self):
         tasks = yaml.safe_load((ROOT / 'ansible/playbooks/cluster-create.yml').read_text())[0]['tasks']
         self.assertEqual(tasks[0].get('ansible.builtin.include_role', {}).get('tasks_from'), 'preflight')

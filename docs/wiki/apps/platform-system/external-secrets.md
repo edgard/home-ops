@@ -17,7 +17,9 @@ No routed HTTP endpoint is declared in this app values file; inspect raw manifes
 
 ## Operational note
 
-ESO uses an application-only machine account, separate from the operator account.
+ESO and operator commands share the existing read-only machine account. The store
+fetches from the application project, while the account can read both configured
+projects. SecretSpec scopes control command injection, not account permissions.
 The shared store restricts consumers to the namespaces in its conditions; those
 namespaces are not isolated from each other. Bootstrap waits for store readiness
 before Argo handoff. [Token replacement](../../operations/secrets-maintenance.md)

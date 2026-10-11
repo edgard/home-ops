@@ -127,6 +127,14 @@
 
   // === Package Rules ===
   packageRules: [
+    // Query-only include_shadow_metadata forces DNS PUTs; lift after a no-change plan proves the upstream fix.
+    {
+      description: "Keep Cloudflare below the DNS query-parameter regression",
+      matchDatasources: ["terraform-provider"],
+      matchPackageNames: ["cloudflare/cloudflare"],
+      allowedVersions: "<5.26.0",
+    },
+
     // Resolve Talos updates from upstream installer tags while keeping factory path in file
     {
       description: "Override Talos installer package name",

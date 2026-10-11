@@ -66,6 +66,15 @@ class GuardTests(unittest.TestCase):
 
 
 class OperatorTests(unittest.TestCase):
+    def test_provider_projects_are_provisioned_and_distinct(self):
+        import tomllib
+        from urllib.parse import urlparse
+        from uuid import UUID
+        providers = tomllib.loads((ROOT / 'secretspec.toml').read_text())['providers']
+        projects = [UUID(urlparse(provider['uri']).netloc) for provider in providers.values()]
+        self.assertEqual(len(set(projects)), len(projects))
+        self.assertTrue(all(project.int for project in projects))
+
     def test_environment_removes_stale_secrets_and_overrides(self):
         operator = module('operator_secrets')
         env = operator.clean_environment({'BWS_ACCESS_TOKEN': 'PRIVATE', 'BW_ACCESS_TOKEN': 'PRIVATE', 'ANSIBLE_VAULT_PASSWORD': 'PRIVATE', 'AWS_SESSION_TOKEN': 'PRIVATE', 'TF_VAR_cloudflare_api_token': 'PRIVATE', 'SECRETSPEC_PROVIDER': 'env', 'SECRETSPEC_SCOPE': 'terraform', 'TALOS_NODE': 'node', 'PATH': '/bin'})

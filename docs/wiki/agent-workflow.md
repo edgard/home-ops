@@ -146,7 +146,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 ## External Services
 
-- Bitwarden: authoritative values, with separate ESO and operator machine accounts; scoped SecretSpec supplies bootstrap and Terraform commands.
+- Bitwarden: authoritative values, with one shared read-only machine account for ESO and operator commands; scoped SecretSpec supplies bootstrap and Terraform commands.
 - Backblaze B2 S3-compatible backend: credentials supplied through the SecretSpec Terraform scope.
 - Cloudflare: DNS management
 - Tailscale: VPN networking (192.168.1.0/24)

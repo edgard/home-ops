@@ -5,7 +5,7 @@ terraform {
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "5.27.0"
+      version = "5.25.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
@@ -45,5 +45,6 @@ provider "kubernetes" {
 module "cloudflare" {
   source = "./cloudflare"
 
-  zone_id = var.cloudflare_zone_id
+  # Preserve the existing resource-state sensitivity flag during secret migration.
+  zone_id = sensitive(var.cloudflare_zone_id)
 }
