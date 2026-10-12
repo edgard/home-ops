@@ -1,0 +1,125 @@
+---
+applications:
+  - metadata:
+      name: cert-data
+    spec:
+      destination:
+        namespace: platform-system
+    status:
+      resources:
+        - kind: PersistentVolumeClaim
+          namespace: platform-system
+          name: cert-data
+        - kind: Deployment
+          namespace: platform-system
+          name: cert-data
+  - metadata:
+      name: paperless
+    spec:
+      destination:
+        namespace: selfhosted
+    status:
+      resources:
+        - kind: PersistentVolumeClaim
+          namespace: selfhosted
+          name: paperless
+        - kind: Deployment
+          namespace: selfhosted
+          name: paperless-main
+        - kind: Deployment
+          namespace: selfhosted
+          name: paperless-gpt
+  - metadata:
+      name: restic
+    spec:
+      destination:
+        namespace: selfhosted
+    status:
+      resources:
+        - kind: PersistentVolumeClaim
+          namespace: selfhosted
+          name: restic-repo
+  - metadata:
+      name: gatus
+    spec:
+      destination:
+        namespace: platform-system
+    status:
+      resources:
+        - kind: Deployment
+          namespace: platform-system
+          name: gatus
+  - metadata:
+      name: nfs-provisioner
+    spec:
+      destination:
+        namespace: kube-system
+    status:
+      resources:
+        - kind: PersistentVolumeClaim
+          namespace: media
+          name: media
+pvcs:
+  - metadata:
+      namespace: platform-system
+      name: cert-data
+    spec:
+      storageClassName: nfs-fast
+  - metadata:
+      namespace: selfhosted
+      name: paperless
+    spec:
+      storageClassName: nfs-fast
+  - metadata:
+      namespace: selfhosted
+      name: restic-repo
+    spec:
+      storageClassName: ""
+  - metadata:
+      namespace: media
+      name: media
+    spec:
+      storageClassName: ""
+workloads:
+  - kind: Deployment
+    metadata:
+      namespace: platform-system
+      name: cert-data
+    spec:
+      replicas: 1
+      template:
+        spec:
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: cert-data
+  - kind: Deployment
+    metadata:
+      namespace: selfhosted
+      name: paperless-main
+    spec:
+      replicas: 1
+      template:
+        spec:
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: paperless
+  - kind: Deployment
+    metadata:
+      namespace: selfhosted
+      name: paperless-gpt
+    spec:
+      replicas: 1
+      template:
+        spec:
+          volumes: []
+  - kind: Deployment
+    metadata:
+      namespace: platform-system
+      name: gatus
+    spec:
+      replicas: 1
+      template:
+        spec:
+          volumes: []

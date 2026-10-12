@@ -20,7 +20,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install python@3.14 helm talosctl go-task opentofu yamllint prettier yamlfmt pluto kubeconform conftest actionlint
+brew install python@3.14 helm talosctl go-task opentofu yamllint prettier yamlfmt pluto kubeconform actionlint node@24
 task deps                         # Install pinned validation dependencies
 
 # Set local operator inputs
@@ -86,10 +86,11 @@ task fmt:check                     # Check formatting without modifying files
 task lint:static                   # Run yamllint
 task lint:wiki                     # Check wiki links, sources, and app coverage
 task lint:workflows                # Validate GitHub Actions workflows
-task lint:repository               # Check repository configuration policy and credential artifacts
-task lint:ansible                  # Run Ansible lint, role policy, and behavior fixtures
-task lint:kubernetes               # Run Kubernetes source, policy, schema, and deprecation checks
+task lint:repository               # Check repository assertions and credential artifacts
+task lint:ansible                  # Run Ansible lint plus pytest units and integration scenarios
+task lint:kubernetes               # Run Kubernetes assertions and native schema/deprecation checks
 task lint:terraform                # Run backendless OpenTofu validation
+task test                          # Run all pytest configuration/unit/integration cases
 task lint                          # Run the full offline validation gate
 task precommit                     # Format code, then run lint
 
@@ -113,6 +114,7 @@ Taskfile is the operator interface; Ansible remains the orchestration implementa
 │   └── selfhosted/
 ├── argocd/                 # Argo CD bootstrap (root app, appsets, projects)
 ├── ansible/                # Local orchestration for Talos, platform, Argo, Terraform
+├── tests/                  # Unified pytest configuration, unit, and integration suite
 └── terraform/              # External infrastructure (Cloudflare, Tailscale)
 ```
 

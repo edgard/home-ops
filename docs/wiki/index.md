@@ -24,7 +24,7 @@ remain authoritative; verify the running system separately.
 - [Backup and recovery](architecture/backup-recovery.md) — Restic and restore transaction.
 - [Uptime monitoring](architecture/uptime.md) — Gatus targets and alerting limit.
 - [Terraform](architecture/terraform.md) — Cloudflare, Tailscale, and backend.
-- [Validation and PR gate](architecture/validation.md) — local checks, policy, and CI.
+- [Validation and PR gate](architecture/validation.md) — native checks, pytest, and CI.
 
 ## Decisions
 

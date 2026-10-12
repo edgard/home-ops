@@ -15,7 +15,9 @@
     release_namespace: "{{ item.namespace }}"
     release_state: absent
     wait: true
-    timeout: "{{ platform_helm_timeout }}"
+    # The pinned collection forwards only wait_timeout to Helm uninstall.
+    # The native CLI fixture checks this boundary during collection updates.
+    wait_timeout: "{{ platform_helm_timeout }}"
   loop: "{{ platform_bootstrap_releases | reverse | list }}"
   loop_control:
     label: "{{ item.namespace }}/{{ item.name }}"

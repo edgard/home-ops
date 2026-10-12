@@ -75,7 +75,7 @@ jobs:
       - name: Run Ansible Validation
         run: task lint:ansible
 
-      - name: Run Repository Policy
+      - name: Run Repository Configuration Checks
         run: task lint:repository
 
       - name: Run Wiki Validation

@@ -1,7 +1,7 @@
 # Plan and guard appdata restores
 
 Purpose: explain the restore transaction's safety boundary.
-Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
+Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
 
 [PR #260](https://github.com/edgard/home-ops/pull/260) retained the shared
 Restic repository as the recovery source. [PR #261](https://github.com/edgard/home-ops/pull/261)
@@ -20,8 +20,8 @@ restoring.
 - [Restore PR #261](https://github.com/edgard/home-ops/pull/261)
 - [Restore planning tasks](../../../ansible/roles/restic/tasks/plan.yml)
 - [Restore execution tasks](../../../ansible/roles/restic/tasks/execute.yml)
-- [Static restore policy](../../../policy/ansible)
-- [Restore behavior fixture](../../../ansible/tests/restic-restore.yml)
+- [Restore transaction scenarios](../../../tests/integration/test_restore.py)
+- [Restore behavior fixture](../../../tests/integration/test_restore.py)
 
 ## Related pages
 

@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
+Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -13,17 +13,14 @@ Gatus • Helm • Ansible • Terraform
 - Format: `task fmt`
 - Format check: `task fmt:check`
 - Dependencies: `task deps` uses Python 3.14 by default (`PYTHON_BIN` override) and installs pinned Python dependencies and Ansible collections in `.venv`
-- Lint: `task lint` (offline validation: formatting, yamllint, GitHub Actions workflow lint, Ansible lint/contracts/integration tests, metadata policy, raw and rendered manifest policy/schema/deprecation checks, `tofu validate`)
-- Focused checks: `task lint:static`, `task lint:wiki`, `task lint:workflows`, `task lint:repository`, `task lint:ansible`, `task lint:kubernetes`, `task lint:terraform`
-- Wiki check: `task lint:wiki` runs the Ansible structural contract for links, source sections, index reachability, and app-page coverage
-- Policy layers:
-  - `policy/repository/` validates Task interfaces, SecretSpec ownership, infrastructure inputs, Talos compatibility, and validation wiring
-  - `policy/source/` validates Helm values, conventions, and cross-file application configuration
-  - `policy/metadata/` validates app metadata structure and required sync waves
-  - `policy/ansible/` validates static role task safety, credential wiring, ordering, cleanup, and restore invariants
-  - `policy/kubernetes/` validates manifest and rendered-workload guardrails, plus aggregate Gatus route coverage
-- Policy semantics are regression-tested in `policy/{repository,ansible,source,metadata,kubernetes}/*_test.rego`
-- CI gate: GitHub `Quality Gate` job, backed by the same focused local `task lint:*` targets aggregated by `task lint`
+- Tests: `task test` runs all pytest configuration, unit, and isolated integration cases
+- Lint: `task lint` runs native format/YAML/workflow/wiki/Ansible/OpenTofu checks, then the full pytest suite once
+- Focused checks: `task lint:static`, `task lint:wiki`, `task lint:workflows`, `task lint:repository`, `task lint:ansible`, `task lint:ansible:static`, `task lint:kubernetes`, `task lint:terraform`
+- Local prerequisites include Node 24 or newer, OpenTofu, pinned SecretSpec, and native Kubernetes CLIs; see the [test guide](../../tests/README.md)
+- Wiki check: `task lint:wiki` runs the Ansible contract for links, sources, index reachability, and app-page coverage
+- pytest configuration assertions live in `tests/config`, adapter units in `tests/unit`, and real role/Task scenarios in `tests/integration`
+- Native validators retain syntax, schema, and deprecation checks; pytest reads original sources and owns executable test discovery
+- CI runs the same disjoint focused pytest subsets and requires the combined `Quality Gate`
 - Pre-commit gate: `task precommit` (`task fmt` + `task lint`)
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
 
@@ -32,7 +29,7 @@ Gatus • Helm • Ansible • Terraform
 1. Read the relevant pages from [the wiki index](index.md) and follow their
    source links before changing a repository contract.
 2. Make a small change. If behavior changes, write or update the failing
-   policy or contract check first.
+   pytest contract check first.
 3. Recheck affected wiki explanations. Update them in the same PR when the
    change alters their meaning; a version-only bump does not require prose
    churn. Record which pages were checked in the PR.
@@ -41,7 +38,7 @@ Gatus • Helm • Ansible • Terraform
 
 For repository questions and durable source ingests, follow the
 [wiki query, ingest, and review workflow](AGENTS.md). A query starts at the
-index; wiki pages guide navigation, while current configuration and policy
+index; wiki pages guide navigation, while current configuration and tests
 settle current facts.
 
 ## Project Layout
@@ -93,7 +90,7 @@ controllers:
 ### Monitoring
 - Gatus is the only uptime checker and Telegram alert engine. Its routed app,
   DNS, and ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
-- The parsed route coverage check in `ansible/roles/kubernetes_validation/tasks/check-uptime.yml` runs during
+- The parsed route coverage check in `tests/config/kubernetes/test_rendered.py` runs during
   `task lint:kubernetes`. Keep Jellyfin `/health` and CrossWatch `/healthz` checks.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
   annotations to routed apps; Gatus does not use route discovery.
@@ -123,21 +120,16 @@ Store: `external-secrets-store`
 - Field order: `apiVersion → kind → metadata → spec`
 - Metadata order: `name → namespace → labels → annotations`
 - Validation split:
-  - `task lint` covers direct repo validation and aggregates the focused `lint:*` targets
-  - CI runs the focused targets as separate pull-request jobs and uses `Quality Gate` as the required aggregate check
-  - Prefer policy or lint checks when the assertion is about repository content
-  - Assert operational invariants and cross-file relationships, not duplicated dependency versions, task names, comments, dashboard prose, or exact equivalent query strings
-  - `ansible/playbooks/validate-ansible.yml` collects static role inputs and runs role policies; `ansible/playbooks/validate-repository.yml` handles repository policies and native Git artifact lint
-  - `ansible/roles/kubernetes_validation/tasks/check-uptime.yml` collects Gatus and raw/rendered route hosts for Kubernetes policy
-  - Keep content and task-structure assertions in policy; keep parsing, command construction, disposable role execution, check-mode effects, rollback, and safe diagnostic fixtures in `ansible/tests/`
-  - Runtime assertions still guard operator inputs and live state; offline policies supplement them
-- Metadata policy lives under `policy/metadata/` and is enforced via Conftest
-- Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
-- `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`
+  - Native validators own standard syntax, schema, formatting, and deprecation requirements
+  - `task lint` runs the native checks and full pytest suite once; CI partitions the same cases among focused jobs
+  - Plain configuration assertions read sources directly, while isolated integration tests invoke real role entry points
+  - Assert operational invariants and cross-file relationships, not duplicated versions, task names, positions, comments, or equivalent source spelling
+  - Preserve runtime assertions for operator inputs and live state; offline tests supplement them
+  - The [test guide](../../tests/README.md) describes fixtures and when to add a check
+- `sync.wave` is required in every `apps/*/*/app.yaml` and stays within `-4` to `0`
 - Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
-- Kubernetes validation playbook:
-  - `ansible/playbooks/validate-kubernetes.yml` runs source, metadata, raw manifest, rendered manifest, schema, and deprecation checks
-  - The `kubernetes_validation` role resolves the Kubernetes target version from Tuppr, builds the Conftest inventory, caches chart pulls for the current run, and validates rendered output in a temporary tree
+- The internal Kubernetes validation playbook accepts an existing empty/private/nonsymlink `kubernetes_validation_output_dir`; its caller owns cleanup
+- The `kubernetes_validation` role caches chart pulls, renders CRDs, exports served schemas, and runs kubeconform/Pluto. pytest owns source/resource/route assertions and the isolated output directory
 - Ansible roles:
   - Keep operator orchestration in playbooks and roles. Task may launch native
     CLIs such as SecretSpec; role-owned adapters/plugins handle focused gaps.
@@ -180,7 +172,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 - [Pull request workflow](../../.github/workflows/ci.yml) defines the CI jobs.
 - [Pull request template](../../.github/pull_request_template.md) prompts for wiki impact.
 - [ApplicationSet](../../argocd/appsets/apps.appset.yaml) defines app discovery.
-- [Gatus values](../../apps/platform-system/gatus/values.yaml) and [route coverage check](../../ansible/roles/kubernetes_validation/tasks/check-uptime.yml) define uptime coverage.
+- [Gatus values](../../apps/platform-system/gatus/values.yaml) and [route coverage check](../../tests/config/kubernetes/test_rendered.py) define uptime coverage.
 
 ## Related pages
 

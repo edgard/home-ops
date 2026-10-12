@@ -16,7 +16,7 @@
   block:
     - name: Authenticate repository credential against GitHub
       ansible.builtin.uri:
-        url: https://api.github.com/user
+        url: "{{ platform_repository_identity_url }}"
         url_username: "{{ platform_application_values.argocd_repo_username }}"
         url_password: "{{ platform_application_values.argocd_repo_password }}"
         force_basic_auth: true

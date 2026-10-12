@@ -1,2 +1,0 @@
----
-repository_validation_root: "{{ repo_root }}"

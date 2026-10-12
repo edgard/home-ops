@@ -1,79 +1,61 @@
 # Validation and PR gate
 
-Purpose: distinguish local checks, repository policy, and deployment evidence.
-Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
+Purpose: distinguish native validation, repository assertions, and deployment evidence.
+Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
 
-`task lint` aggregates formatting, static analysis, wiki, workflow, repository,
-Ansible, Kubernetes, and Terraform validation. Policies own assertions about
-committed configuration; behavior tests exercise the adapters, roles, and native
-commands that consume it. The [policy guide](../../../policy/README.md) defines
-these boundaries and the input layer for each policy tree.
+`task lint` runs formatting, YAML/workflow/wiki checks, production-profile Ansible
+lint, backendless OpenTofu validation, then the complete pytest suite once.
+The [test guide](../../../tests/README.md) describes ownership and prerequisites.
+CI runs disjoint focused subsets in its Ansible and Kubernetes jobs, alongside
+the other native jobs, and requires their combined `Quality Gate`.
 
-`task lint:repository` checks Task interfaces, SecretSpec ownership and scopes,
-infrastructure inputs, Talos compatibility, and validation wiring through the
-repository validation role. Git supplies native tracked/ignored credential
-artifact checks. `task lint:ansible` runs Ansible lint, the static role policy
-runner, and disposable setup, cleanup, preflight, bootstrap, restore, and token
-rollback fixtures. Static role policy identifies operations by their modules and
-resource identities; harmless task additions and renaming must remain valid.
+pytest reads source YAML/TOML/JSON5 and Git-tracked HCL directly. Configuration
+checks protect metadata and source conventions, application wiring, SecretSpec
+ownership/scopes, compatibility bounds, credential artifacts, raw/rendered
+resource guardrails, and route coverage. Native tools retain syntax, lint,
+schema, and deprecation semantics. Conftest/Rego, normalized policy inventories,
+static task-operation catalogs, and nested Ansible test runners are retired.
 
-`task lint:kubernetes` runs metadata and source policies, including cross-file
-application configuration, then raw/rendered resource policy, schema, deprecation,
-and aggregate route-coverage checks. Parsing and inventory construction stay in
-validation roles; compatibility, safety, and content decisions stay in policy.
-Native wiki, Git, schema, and deprecation tools retain their own lint semantics.
+Unit tests exercise safe provider/material parsers and schema export. Integration
+tests invoke real Ansible entry points and Task commands with synthetic inputs,
+temporary paths, sanitized environments, fake CLIs, and a loopback API. The real
+Kubernetes collection handles REST operations; pod exec records commands through
+one test-only module. Another case loads the real exec module and reaches its
+connection boundary. This does not prove live websocket transport or restoration.
 
-Python tests under `ansible/tests/unit` include provider/parser units and isolated
-integration fixtures for inventory construction, policy invocation, Talos
-commands, OpenTofu sensitivity, and pinned SecretSpec. Policy regression cases
-live beside their rules in `*_test.rego`. Runtime assertions in operator roles
-still validate live inputs and state; offline policy cannot replace them. CI has
-no cloud credentials, so these fixtures do not prove a fresh-cluster bootstrap.
-The Ansible CI job runs repository, role, behavior, and wiki validation; the other
-focused jobs join it in `Quality Gate`.
+Operational assertions cover check mode, confidentiality, exact Talos server
+versions, private-material cleanup, tool checksums, scoped delivery, token rollback,
+committed handoff, original restore state, and failure evidence. Restore failure
+may leave workloads paused or partially resumed; tests retain that recovery
+contract. Roles contain no test-only execution branches. Runtime assertions
+continue to protect operator inputs and live state.
 
-Kubernetes schema validation renders the pinned charts with their CRDs first.
-Served schemas from both tracked CRDs and those charts take precedence over the
-external catalog. The exporter validates schema structure and adds strict unknown
-field checks while respecting composition branches, explicit map schemas, nullable
-fields, integer/string fields, and preserved unknown fields. A shared safe YAML
-parser handles chart scalar defaults for both schema export and route coverage.
-Sensitive YAML/JSON parsing emits safe categories instead of source excerpts.
-Native API failures use explicit result-shape checks to suppress raw provider
-diagnostics; a captured fixture-playbook run enforces output redaction alongside
-transaction and rollback behavior.
+The rendering fixture validates sources first and owns an empty private output
+directory. The Kubernetes role renders pinned charts with CRDs, exports served
+schemas, and runs kubeconform/Pluto. It retains per-run caching and isolated Helm
+paths, writes `rendered/<category>/<app>.yaml`, and leaves cleanup to its caller.
+Rendered tests share one pipeline invocation; source/unit tests need no rendering.
 
-Role contracts identify operations by their modules and resource identities.
-Harmless task additions and renaming must not fail the gate; credential checks,
-mutation ordering, cleanup branches, and original-state restoration remain
-enforced. Operator fixtures also check that confirmed restores skip execution
-in check mode and that Talos verification compares the server tag exactly.
-SecretSpec installation, validation, and integration tests share the role's
-configured pin. Discovery checks cover the operator-tool Renovate manager.
+Repository/chart served schemas precede the default/catalog fallback. Export
+preserves schema keyword/property distinctions, composition, maps, nullable and
+integer/string fields, and explicitly preserved unknown fields. Missing, malformed,
+conflicting schemas, unknown kinds, and invalid fields fail closed. The shared
+safe loader supports chart scalar defaults and safe embedded Recyclarr YAML.
 
-Missing served schemas, malformed definitions, conflicting versions, invalid
-resource fields, and unknown resource kinds remain errors. This uses the deployed
-API definitions and avoids depending on a separately converted catalog entry
-when the authoritative schema is available.
-
-The [validation architecture decision](../decisions/validation-architecture.md)
-explains the replacement of the former scripts directory. These checks prove
-the committed configuration satisfies the tested contracts, not that a synced
-application functions in the live cluster. Deployment acceptance requires
-targeted runtime checks.
+The [architecture decision](../decisions/validation-architecture.md) records the
+simplification. Offline checks supplement targeted deployment acceptance; they
+are not evidence that a synced application functions in the running cluster.
 
 ## Sources
 
 - [Taskfile](../../../Taskfile.yaml)
 - [CI workflow](../../../.github/workflows/ci.yml)
+- [Test guide](../../../tests/README.md)
+- [Configuration assertions](../../../tests/config)
+- [Integration scenarios](../../../tests/integration)
 - [CRD schema exporter](../../../ansible/roles/kubernetes_validation/files/export_schemas.py)
-- [Kubernetes validation playbook](../../../ansible/playbooks/validate-kubernetes.yml)
+- [Kubernetes validation role](../../../ansible/roles/kubernetes_validation/tasks/main.yml)
 - [Wiki validation playbook](../../../ansible/playbooks/validate-wiki.yml)
-- [Policy tree](../../../policy)
-- [Role policy runner](../../../ansible/playbooks/validate-ansible.yml)
-- [Repository policy runner](../../../ansible/playbooks/validate-repository.yml)
-- [Policy boundary guide](../../../policy/README.md)
-- [Operator behavior fixtures](../../../ansible/tests/unit/test_operator_patterns.py)
 
 ## Related pages
 

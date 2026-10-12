@@ -20,3 +20,4 @@ __pycache__/
 /.vault-password*
 /ansible/roles/talos/files/secrets.yaml.*
 /ansible/roles/talos/files/secrets.vault.yml
+/.pytest_cache/

@@ -1,7 +1,7 @@
 # Storage and shared media
 
 Purpose: explain the distinct NFS-backed data paths and shared-media contract.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
 
 The NFS CSI provisioner defines the default appdata class. A separate static
 media claim is mounted by several media apps; Restic repository and appdata
@@ -18,7 +18,7 @@ volume's group. The policy tests enforce the rule in source and rendered output.
 - [NFS provisioner values](../../../apps/kube-system/nfs-provisioner/values.yaml)
 - [Media PVC](../../../apps/kube-system/nfs-provisioner/manifests/nfs-provisioner-media.persistentvolumeclaim.yaml)
 - [Restic storage manifests](../../../apps/selfhosted/restic/manifests)
-- [Shared-media policy](../../../policy/source/app_template_values.rego)
+- [Shared-media assertions](../../../tests/support/applications.py)
 
 ## Related pages
 

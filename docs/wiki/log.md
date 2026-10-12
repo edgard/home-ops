@@ -3,6 +3,18 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-12] revision | Unify validation under pytest and native tools
+
+Replaced Conftest/Rego, configuration inventories, static operation catalogs,
+nested test runners, and production test-mode branches with direct source
+assertions and real role/Task scenarios. Native validators retain their specialized
+checks. Kubernetes rendering now accepts a caller-owned private workspace; pytest
+checks sources first, shares output once, and owns cleanup. CI and local commands
+cover disjoint pytest subsets. Reviewed contributor guidance, validation/decision,
+bootstrap, secrets, recovery, storage, uptime, source catalog, and related decisions.
+October's semantic review is already recorded below. Earlier entries describe the
+historical architectures superseded by this revision.
+
 ## [2026-10-12] revision | Separate repository policy from behavior fixtures
 
 Moved static role safety, application wiring, credential ownership, Talos target

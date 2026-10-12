@@ -162,10 +162,9 @@ tasks:
       - task: lint:static
       - task: lint:wiki
       - task: lint:workflows
-      - task: lint:repository
-      - task: lint:ansible
-      - task: lint:kubernetes
+      - task: lint:ansible:static
       - task: lint:terraform
+      - task: test
 
   lint:static:
     desc: Run static YAML checks
@@ -188,30 +187,45 @@ tasks:
       - find .github/workflows -maxdepth 1 \( -name "*.yml" -o -name "*.yaml" \) -print0 | xargs -0 actionlint
 
   lint:repository:
-    desc: Check repository configuration policy and credential artifact protection
+    desc: Check repository configuration and credential artifact protection
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/validate-repository.yml'
+      - '"{{.VENV_PYTHON}}" -m pytest tests/config/repository'
 
   lint:ansible:
-    desc: Run Ansible lint, role policy, and behavior fixtures
+    desc: Run Ansible lint and pytest unit and integration tests
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.ANSIBLE_LINT}}" ansible'
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/validate-ansible.yml'
-      - for test in ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" "$test"; done
+      - task: lint:ansible:static
+      - '"{{.VENV_PYTHON}}" -m pytest tests/unit tests/integration'
+
+  lint:ansible:static:
+    desc: Run production-profile Ansible lint
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - '"{{.ANSIBLE_LINT}}" ansible tests/fixtures'
+
+  test:
+    desc: Run all repository-owned pytest checks
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - '"{{.VENV_PYTHON}}" -m pytest tests'
 
   lint:kubernetes:
-    desc: Run Kubernetes source, policy, schema, and deprecation checks
+    desc: Run Kubernetes source, resource, schema, and deprecation checks
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/validate-kubernetes.yml'
+      - '"{{.VENV_PYTHON}}" -m pytest tests/config/kubernetes'
 
   lint:terraform:
     desc: Run backendless OpenTofu validation
