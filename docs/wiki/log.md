@@ -3,6 +3,16 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-12] revision | Harden Ansible operator conventions
+
+Guarded confirmed Restic restores and pod exec tasks in check mode, changed
+Talos upgrade verification to compare the selected server's tag exactly, and
+unified SecretSpec installation and validation around the role pin. Added
+operator-tool Renovate discovery and refactored role contracts to preserve
+operational guarantees without depending on absolute task positions or counts.
+Reviewed recovery, bootstrap, secret maintenance, validation, and Renovate wiki
+pages. The October semantic review is already recorded below.
+
 ## 2026-10-11 — Restore Ansible ownership of secret workflows
 
 Corrected the unified-secret implementation to follow the existing playbook/role

@@ -97,7 +97,9 @@ class PinnedIntegration(unittest.TestCase):
         binary = shutil.which('secretspec')
         self.assertIsNotNone(binary, 'Install pinned SecretSpec for the integration check')
         version = subprocess.run([binary, '--version'], capture_output=True, text=True, check=True).stdout.strip()
-        self.assertEqual(version, 'secretspec 0.21.1')
+        import yaml
+        defaults = yaml.safe_load((ROOT / 'ansible/roles/operator_secrets/defaults/main.yml').read_text())
+        self.assertEqual(version, 'secretspec ' + defaults['operator_secrets_secretspec_version'])
         value = 'line one\n$(ignored) `literal` "quotes"\n'
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)

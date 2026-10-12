@@ -49,6 +49,14 @@ destructive_source := {"platform/tasks/wait_condition.yml", "platform/tasks/dest
 
 deny contains msg if {
   some entry in input.flat
+  startswith(entry.source, "restic/tasks/")
+  object.get(entry.task, "kubernetes.core.k8s_exec", null) != null
+  not has_check_guard(entry.guards)
+  msg := sprintf("Restore exec has no check mode guard: %s", [entry.source])
+}
+
+deny contains msg if {
+  some entry in input.flat
   entry.source in destructive_source
   some module in {"kubernetes.core.k8s", "kubernetes.core.k8s_info", "kubernetes.core.k8s_scale"}
   object.get(entry.task, module, null) != null
@@ -70,45 +78,55 @@ required_credential_check(checks, credential) if {
   check == sprintf("%s | length > 0", [credential])
 }
 
-deny contains msg if {
-  some action in {"plan", "apply"}
+terraform_operations(action) := [ {"task": task, "index": index} |
   tasks := object.get(input.documents, sprintf("tofu/tasks/%s.yml", [action]), [])
-  count(tasks) != 2
-  msg := sprintf("Terraform %s must define a credential assertion and Terraform action", [action])
+  some index, task in tasks
+  object.get(task, "community.general.terraform", null) != null
+]
+
+credential_precedes_action(action, credential, operation_index) if {
+  tasks := object.get(input.documents, sprintf("tofu/tasks/%s.yml", [action]), [])
+  some index, task in tasks
+  index < operation_index
+  checks := object.get(object.get(task, "ansible.builtin.assert", {}), "that", [])
+  required_credential_check(checks, credential)
 }
 
 deny contains msg if {
   some action in {"plan", "apply"}
-  tasks := object.get(input.documents, sprintf("tofu/tasks/%s.yml", [action]), [])
-  count(tasks) >= 2
-  object.get(tasks[1], "community.general.terraform", null) == null
-  msg := sprintf("Terraform %s must invoke community.general.terraform", [action])
+  count(terraform_operations(action)) != 1
+  msg := sprintf("Terraform %s must invoke exactly one community.general.terraform action", [action])
 }
 
 deny contains msg if {
   some action in {"plan", "apply"}
-  tasks := input.documents[sprintf("tofu/tasks/%s.yml", [action])]
-  checks := object.get(object.get(tasks[0], "ansible.builtin.assert", {}), "that", [])
+  some operation in terraform_operations(action)
   required := {"tofu_aws_access_key_id", "tofu_aws_secret_access_key", "tofu_cloudflare_api_token", "tofu_cloudflare_zone_id", "tofu_tailscale_client_id", "tofu_tailscale_client_secret"}
   some credential in required
-  not required_credential_check(checks, credential)
-  msg := sprintf("Terraform %s must require %s", [action, credential])
+  not credential_precedes_action(action, credential, operation.index)
+  msg := sprintf("Terraform %s must require %s before its action", [action, credential])
 }
 
 deny contains msg if {
   some action in {"plan", "apply"}
-  tasks := input.documents[sprintf("tofu/tasks/%s.yml", [action])]
-  env := object.get(tasks[1], "environment", {})
+  some operation in terraform_operations(action)
+  env := object.get(operation.task, "environment", {})
   expected := {"AWS_ACCESS_KEY_ID": "tofu_aws_access_key_id", "AWS_SECRET_ACCESS_KEY": "tofu_aws_secret_access_key", "TF_VAR_cloudflare_api_token": "tofu_cloudflare_api_token", "TF_VAR_cloudflare_zone_id": "tofu_cloudflare_zone_id", "TF_VAR_tailscale_client_id": "tofu_tailscale_client_id", "TF_VAR_tailscale_client_secret": "tofu_tailscale_client_secret"}
   some key, variable in expected
   object.get(env, key, "") != sprintf("{{ %s }}", [variable])
   msg := sprintf("Terraform %s lost %s credential mapping", [action, key])
 }
 
-valid_bitwarden_secret if {
-  secret := input.documents["platform/tasks/external_secrets.yml"][0]["kubernetes.core.k8s"].definition
+bitwarden_writes := [secret |
+  some task in object.get(input.documents, "platform/tasks/external_secrets.yml", [])
+  secret := object.get(object.get(task, "kubernetes.core.k8s", {}), "definition", {})
   secret.kind == "Secret"
   secret.metadata.name == "bitwarden-credentials"
+]
+
+valid_bitwarden_secret if {
+  count(bitwarden_writes) == 1
+  some secret in bitwarden_writes
   secret.metadata.namespace == "platform-system"
   secret.stringData.token == "{{ platform_bitwarden_access_token }}"
 }

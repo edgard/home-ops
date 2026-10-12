@@ -1,7 +1,7 @@
 # Validation and PR gate
 
 Purpose: distinguish local checks, repository policy, and deployment evidence.
-Status: current. Reviewed against: `2fe88a7bb0b8bde1fc9857626c53bf17d5379295`.
+Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
 
 `task lint` aggregates formatting, static analysis, wiki, workflow, Ansible,
 Kubernetes, and Terraform validation. Source, metadata, raw manifest, and
@@ -24,6 +24,14 @@ Native API failures use explicit result-shape checks to suppress raw provider
 diagnostics; a captured fixture-playbook run enforces output redaction alongside
 transaction and rollback behavior.
 
+Role contracts identify operations by their modules and resource identities.
+Harmless task additions and renaming must not fail the gate; credential checks,
+mutation ordering, cleanup branches, and original-state restoration remain
+enforced. Operator fixtures also check that confirmed restores skip execution
+in check mode and that Talos verification compares the server tag exactly.
+SecretSpec installation, validation, and integration tests share the role's
+configured pin. Discovery checks cover the operator-tool Renovate manager.
+
 Missing served schemas, malformed definitions, conflicting versions, invalid
 resource fields, and unknown resource kinds remain errors. This uses the deployed
 API definitions and avoids depending on a separately converted catalog entry
@@ -43,6 +51,8 @@ targeted runtime checks.
 - [Kubernetes validation playbook](../../../ansible/playbooks/validate-kubernetes.yml)
 - [Wiki validation playbook](../../../ansible/playbooks/validate-wiki.yml)
 - [Policy tree](../../../policy)
+- [Role contracts](../../../ansible/tests/role-contracts.yml)
+- [Operator behavior fixtures](../../../ansible/tests/unit/test_operator_patterns.py)
 
 ## Related pages
 

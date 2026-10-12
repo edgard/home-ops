@@ -112,6 +112,18 @@
       datasourceTemplate: "docker",
     },
 
+    // Operator tools in Ansible role defaults (uses renovate comment hints)
+    {
+      customType: "regex",
+      description: "Operator secret tools in Ansible defaults",
+      managerFilePatterns: [
+        "/^ansible\\/roles\\/operator_secrets\\/defaults\\/main\\.ya?ml$/",
+      ],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*operator_secrets_(?:secretspec|bws)_version:\\s*[\"']?(?<currentValue>[0-9][^\"'\\s]*)[\"']?",
+      ],
+    },
+
     // Restic restore job image in Ansible role defaults
     {
       customType: "regex",
@@ -127,6 +139,14 @@
 
   // === Package Rules ===
   packageRules: [
+    // The shared SDK repository publishes Rust, Python, and .NET releases too.
+    {
+      description: "Use only BWS CLI releases from the Bitwarden SDK repository",
+      matchDatasources: ["github-releases"],
+      matchPackageNames: ["bitwarden/sdk-sm"],
+      extractVersion: "^bws-v(?<version>.*)$",
+    },
+
     // Query-only include_shadow_metadata forces DNS PUTs; lift after a no-change plan proves the upstream fix.
     {
       description: "Keep Cloudflare below the DNS query-parameter regression",

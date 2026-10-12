@@ -35,6 +35,7 @@
   loop: "{{ restic_restore_app_plan.restore_paths }}"
 
 - name: Delete current PVC contents
+  when: not ansible_check_mode
   kubernetes.core.k8s_exec:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"

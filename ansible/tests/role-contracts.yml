@@ -90,50 +90,298 @@
         role_contract_platform_wait: "{{ role_contract_documents['platform/tasks/wait_condition.yml'] }}"
         role_contract_platform_destroy: "{{ role_contract_documents['platform/tasks/destroy.yml'] }}"
 
+    - name: Identify transaction and phase operations by module and resource
+      ansible.builtin.set_fact:
+        role_contract_selected: "{{ role_contract_selected | default({}) | combine({item.name: lookup('ansible.builtin.template', 'templates/select-operations.j2') | from_json}) }}"
+      loop:
+        - name: talos_transaction
+          tasks: "{{ role_contract_talos_generate }}"
+          criteria:
+            - path:
+                - block
+              children:
+                - ansible.builtin.tempfile
+        - name: warmup_transaction
+          tasks: "{{ role_contract_platform_warmup }}"
+          criteria:
+            - path:
+                - block
+              children:
+                - kubernetes.core.k8s
+        - name: restore_transaction
+          tasks: "{{ role_contract_restore }}"
+          criteria:
+            - path:
+                - block
+              value: execute_prepare_app.yml
+              children:
+                - ansible.builtin.include_tasks
+        - name: platform_wait
+          tasks: "{{ role_contract_platform_wait }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s_info
+        - name: platform_destroy
+          tasks: "{{ role_contract_platform_destroy }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s
+        - name: stale_job_delete
+          tasks: "{{ role_contract_restore }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s
+                - kind
+              value: Job
+        - name: stale_pod_read
+          tasks: "{{ role_contract_restore }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s_info
+                - kind
+              value: Pod
+        - name: stale_pod_delete
+          tasks: "{{ role_contract_restore }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s
+                - kind
+              value: Pod
+        - name: disable_app_sync
+          tasks: "{{ role_contract_prepare }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s_json_patch
+        - name: scale_down
+          tasks: "{{ role_contract_prepare }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s_scale
+        - name: delete_path_guard
+          tasks: "{{ role_contract_prepare }}"
+          criteria:
+            - path:
+                - ansible.builtin.assert
+            - path:
+                - loop
+              value: !unsafe "{{ restic_restore_app_plan.restore_paths }}"
+        - name: delete_contents
+          tasks: "{{ role_contract_prepare }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s_exec
+        - name: restore_contents
+          tasks: "{{ role_contract_restore_app }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s_exec
+        - name: scale_up
+          tasks: "{{ role_contract_resume }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s_scale
+        - name: restore_app_sync
+          tasks: "{{ role_contract_resume }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s
+                - definition
+                - kind
+              value: Application
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Require unique transaction and phase operations before reading them
+      ansible.builtin.assert:
+        that: item.value | length == 1
+        fail_msg: "Missing or ambiguous safety operation: {{ item.key }}"
+      loop: "{{ role_contract_selected | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Record identified transaction and phase operations and relative order
+      ansible.builtin.set_fact:
+        role_contract_ops: "{{ role_contract_ops | default({}) | combine({item.key: item.value[0].task}) }}"
+        role_contract_positions: "{{ role_contract_positions | default({}) | combine({item.key: item.value[0].index}) }}"
+      loop: "{{ role_contract_selected | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Identify nested operations by module and resource
+      ansible.builtin.set_fact:
+        role_contract_selected: "{{ role_contract_selected | default({}) | combine({item.name: lookup('ansible.builtin.template', 'templates/select-operations.j2') | from_json}) }}"
+      loop:
+        - name: talos_secret_cleanup
+          tasks: "{{ role_contract_ops.talos_transaction.always }}"
+          criteria:
+            - path:
+                - ansible.builtin.file
+                - path
+              value: !unsafe "{{ talos_generate_secrets_temp.path | default('') }}"
+        - name: talos_output_cleanup
+          tasks: "{{ role_contract_ops.talos_transaction.always }}"
+          criteria:
+            - path:
+                - ansible.builtin.file
+                - path
+              value: !unsafe "{{ talos_generate_output.path | default('') }}"
+        - name: talos_validate_input
+          tasks: "{{ role_contract_ops.talos_transaction.block }}"
+          criteria:
+            - path:
+                - ansible.builtin.include_tasks
+              value: validate_generation.yml
+        - name: warmup_create
+          tasks: "{{ role_contract_ops.warmup_transaction.block }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s
+                - definition
+                - kind
+              value: Pod
+        - name: warmup_cleanup
+          tasks: "{{ role_contract_ops.warmup_transaction.always }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s
+                - kind
+              value: Pod
+        - name: applicationset_read
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s_info
+                - kind
+              value: ApplicationSet
+        - name: applicationset_guard
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - ansible.builtin.assert
+                - that
+              children: []
+              value: restic_restore_applicationset_info.resources | length == 1
+        - name: applicationset_record
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - ansible.builtin.set_fact
+                - restic_restore_applicationset_original_sync_policy
+        - name: applicationset_pause
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s
+                - definition
+                - spec
+                - syncPolicy
+                - applicationsSync
+        - name: prepare_apps
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - ansible.builtin.include_tasks
+              value: execute_prepare_app.yml
+        - name: restore_apps
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - ansible.builtin.include_tasks
+              value: execute_restore_app.yml
+        - name: resume_apps
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - ansible.builtin.include_tasks
+              value: execute_resume_app.yml
+        - name: applicationset_restore
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s
+                - definition
+                - spec
+                - syncPolicy
+              value: !unsafe "{{ restic_restore_applicationset_original_sync_policy }}"
+        - name: applicationset_remove_policy
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s_json_patch
+                - kind
+              value: ApplicationSet
+        - name: successful_job_delete
+          tasks: "{{ role_contract_ops.restore_transaction.block }}"
+          criteria:
+            - path:
+                - kubernetes.core.k8s
+                - kind
+              value: Job
+        - name: restore_fail
+          tasks: "{{ role_contract_ops.restore_transaction.rescue }}"
+          criteria:
+            - path:
+                - ansible.builtin.fail
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Require unique nested operations before reading them
+      ansible.builtin.assert:
+        that: item.value | length == 1
+        fail_msg: "Missing or ambiguous safety operation: {{ item.key }}"
+      loop: "{{ role_contract_selected | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Record identified nested operations and relative order
+      ansible.builtin.set_fact:
+        role_contract_ops: "{{ role_contract_ops | default({}) | combine({item.key: item.value[0].task}) }}"
+        role_contract_positions: "{{ role_contract_positions | default({}) | combine({item.key: item.value[0].index}) }}"
+      loop: "{{ role_contract_selected | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
     - name: Validate Talos and k8tz cleanup branches
       ansible.builtin.assert:
         that:
-          - role_contract_talos_generate[1].no_log | bool
-          - "'not ansible_check_mode' in role_contract_talos_generate[1].when"
-          - role_contract_talos_generate[1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.tempfile') | list | length == 2
-          - role_contract_talos_generate[1].block[0]['ansible.builtin.include_tasks'] == 'validate_generation.yml'
+          - role_contract_ops.talos_transaction.no_log | bool
+          - "'not ansible_check_mode' in role_contract_ops.talos_transaction.when"
+          - role_contract_ops.talos_validate_input['ansible.builtin.include_tasks'] == 'validate_generation.yml'
           - role_contract_talos_gen_argv[:3] == ['talosctl', 'gen', 'config']
           - role_contract_talos_validate_argv[:2] == ['talosctl', 'validate']
           - "'--mode' in role_contract_talos_validate_argv and 'metal' in role_contract_talos_validate_argv"
-          - role_contract_talos_generate[1].always | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.file') | list | length == 2
-          - role_contract_talos_generate[1].always[0]['ansible.builtin.file'].state == 'absent'
-          - role_contract_talos_generate[1].always[1]['ansible.builtin.file'].state == 'absent'
+          - role_contract_ops.talos_secret_cleanup['ansible.builtin.file'].state == 'absent'
+          - role_contract_ops.talos_output_cleanup['ansible.builtin.file'].state == 'absent'
           - >-
-            role_contract_talos_generate[1].always[0]['ansible.builtin.file'].path
+            role_contract_ops.talos_secret_cleanup['ansible.builtin.file'].path
             == '{' ~ '{' ~ " talos_generate_secrets_temp.path | default('') " ~ '}' ~ '}'
           - >-
-            role_contract_talos_generate[1].always[1]['ansible.builtin.file'].path
+            role_contract_ops.talos_output_cleanup['ansible.builtin.file'].path
             == '{' ~ '{' ~ " talos_generate_output.path | default('') " ~ '}' ~ '}'
-          - role_contract_talos_generate[1].always[0].when == 'talos_generate_secrets_temp is defined'
-          - role_contract_talos_generate[1].always[1].when == 'talos_generate_output is defined'
-          - role_contract_platform_warmup[-1].always | map('dict2items') | flatten | selectattr('key', 'equalto', 'kubernetes.core.k8s') | list | length == 1
-          - role_contract_platform_warmup[-1].always[0]['kubernetes.core.k8s'].state == 'absent'
-          - role_contract_platform_warmup[-1].always[0]['kubernetes.core.k8s'].wait | bool
-          - role_contract_platform_warmup[-1].always[0]['kubernetes.core.k8s'].name == role_contract_platform_warmup[-1].block[0]['kubernetes.core.k8s'].definition.metadata.name
-          - role_contract_platform_warmup[-1].always[0]['kubernetes.core.k8s'].namespace == role_contract_platform_warmup[-1].block[0]['kubernetes.core.k8s'].definition.metadata.namespace
+          - role_contract_ops.talos_secret_cleanup.when == 'talos_generate_secrets_temp is defined'
+          - role_contract_ops.talos_output_cleanup.when == 'talos_generate_output is defined'
+          - role_contract_ops.warmup_cleanup['kubernetes.core.k8s'].state == 'absent'
+          - role_contract_ops.warmup_cleanup['kubernetes.core.k8s'].wait | bool
+          - role_contract_ops.warmup_cleanup['kubernetes.core.k8s'].name == role_contract_ops.warmup_create['kubernetes.core.k8s'].definition.metadata.name
+          - role_contract_ops.warmup_cleanup['kubernetes.core.k8s'].namespace == role_contract_ops.warmup_create['kubernetes.core.k8s'].definition.metadata.namespace
 
       vars:
-        role_contract_talos_commands: "{{ role_contract_talos_generate[1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.command') | map(attribute='value.argv') | list }}"
+        role_contract_talos_commands: "{{ role_contract_ops.talos_transaction.block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.command') | map(attribute='value.argv') | list }}"
         role_contract_talos_gen_argv: "{{ role_contract_talos_commands | select('contains', 'gen') | first | default([]) }}"
         role_contract_talos_validate_argv: "{{ role_contract_talos_commands | select('contains', 'validate') | first | default([]) }}"
 
     - name: Validate native platform waits and deletion failures
       ansible.builtin.assert:
         that:
-          - role_contract_platform_wait[0]['kubernetes.core.k8s_info'].wait | bool
-          - role_contract_platform_wait[0]['kubernetes.core.k8s_info'].wait_condition.type is defined
-          - role_contract_platform_wait[0]['kubernetes.core.k8s_info'].wait_timeout is defined
-          - role_contract_platform_wait[0]['kubernetes.core.k8s_info'].wait_sleep is defined
-          - role_contract_platform_wait[0].until is not defined
-          - role_contract_platform_wait[0].failed_when is not defined
-          - role_contract_platform_destroy[0]['kubernetes.core.k8s'].state == 'absent'
-          - role_contract_platform_destroy[0]['kubernetes.core.k8s'].wait | bool
-          - role_contract_platform_destroy[0].failed_when is not defined
+          - role_contract_ops.platform_wait['kubernetes.core.k8s_info'].wait | bool
+          - role_contract_ops.platform_wait['kubernetes.core.k8s_info'].wait_condition.type is defined
+          - role_contract_ops.platform_wait['kubernetes.core.k8s_info'].wait_timeout is defined
+          - role_contract_ops.platform_wait['kubernetes.core.k8s_info'].wait_sleep is defined
+          - role_contract_ops.platform_wait.until is not defined
+          - role_contract_ops.platform_wait.failed_when is not defined
+          - role_contract_ops.platform_destroy['kubernetes.core.k8s'].state == 'absent'
+          - role_contract_ops.platform_destroy['kubernetes.core.k8s'].wait | bool
+          - role_contract_ops.platform_destroy.failed_when is not defined
 
     - name: Validate bootstrap dependency order
       ansible.builtin.assert:
@@ -148,81 +396,99 @@
     - name: Validate destructive restore order and failure behavior
       ansible.builtin.assert:
         that:
-          - role_contract_restore[-1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.include_tasks') | map(attribute='value') | list == ['execute_prepare_app.yml', 'execute_restore_app.yml', 'execute_resume_app.yml']
-          - role_contract_restore[-1].rescue | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.fail') | list | length == 1
-          - role_contract_restore[-1].rescue | length == 1
-          - role_contract_restore[-1].rescue[0].keys() | difference(['name', 'ansible.builtin.fail', 'ansible.builtin.debug']) | length == 0
-          - role_contract_restore[-1].always | default([]) | length == 0
-          - role_contract_restore[1]['kubernetes.core.k8s'].state == 'absent'
-          - role_contract_restore[1]['kubernetes.core.k8s'].wait | bool
-          - role_contract_restore[1]['kubernetes.core.k8s'].name is match('^[{][{] restic_restore_job_name [}][}]$')
-          - role_contract_restore[1]['kubernetes.core.k8s'].namespace is match('^[{][{] restic_restore_namespace [}][}]$')
-          - role_contract_restore[2]['kubernetes.core.k8s_info'].namespace == role_contract_restore[1]['kubernetes.core.k8s'].namespace
-          - role_contract_restore[2]['kubernetes.core.k8s_info'].label_selectors == ['job-name=' ~ role_contract_restore[1]['kubernetes.core.k8s'].name]
-          - role_contract_restore[3]['kubernetes.core.k8s'].state == 'absent'
-          - role_contract_restore[3]['kubernetes.core.k8s'].wait | bool
-          - role_contract_restore[3]['kubernetes.core.k8s'].namespace == role_contract_restore[1]['kubernetes.core.k8s'].namespace
-          - role_contract_restore[3]['kubernetes.core.k8s'].name is match('^[{][{] item.metadata.name [}][}]$')
-          - role_contract_restore[3].loop is match('^[{][{] restic_restore_stale_pods.resources [|] default\(\[\]\) [}][}]$')
-          - role_contract_restore[-1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'kubernetes.core.k8s_info') | map(attribute='value') | selectattr('kind', 'equalto', 'ApplicationSet') | list | length == 1
-          - role_contract_restore[-1].block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.assert') | list | length > 0
-          - role_contract_restore[-1].block[1]['kubernetes.core.k8s_info'].kind == 'ApplicationSet'
-          - "role_contract_restore[-1].block[2]['ansible.builtin.assert'].that == ['restic_restore_applicationset_info.resources | length == 1']"
-          - "role_contract_restore[-1].block[3]['ansible.builtin.set_fact'].restic_restore_applicationset_original_sync_policy is search('restic_restore_applicationset_info')"
-          - role_contract_restore[-1].block[6]['kubernetes.core.k8s'].definition.spec.syncPolicy.applicationsSync == 'create-only'
-          - role_contract_restore[-1].block[7]['ansible.builtin.include_tasks'] == 'execute_prepare_app.yml'
-          - role_contract_restore[-1].block[8]['ansible.builtin.include_tasks'] == 'execute_restore_app.yml'
-          - role_contract_restore[-1].block[9]['ansible.builtin.include_tasks'] == 'execute_resume_app.yml'
-          - role_contract_restore[-1].block[10]['kubernetes.core.k8s'].definition.spec.syncPolicy is match('^[{][{] restic_restore_applicationset_original_sync_policy [}][}]$')
-          - role_contract_restore[-1].block[10].when == 'restic_restore_applicationset_had_sync_policy | bool'
-          - role_contract_restore[-1].block[11].when == 'not (restic_restore_applicationset_had_sync_policy | bool)'
-          - role_contract_restore[-1].block[11]['kubernetes.core.k8s_json_patch'].patch[0].path == '/spec/syncPolicy'
-          - role_contract_restore[-1].block[-1]['kubernetes.core.k8s'].state == 'absent'
-          - role_contract_restore[-1].block[-1]['kubernetes.core.k8s'].wait | bool
-          - role_contract_restore[-1].block[-1]['kubernetes.core.k8s'].name == role_contract_restore[1]['kubernetes.core.k8s'].name
-          - role_contract_restore[-1].block[-1]['kubernetes.core.k8s'].namespace == role_contract_restore[1]['kubernetes.core.k8s'].namespace
-          - role_contract_restore[-1].block[-1].failed_when is not defined
+          - role_contract_ops.restore_transaction.block | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.include_tasks') | map(attribute='value') | select('in', ['execute_prepare_app.yml', 'execute_restore_app.yml', 'execute_resume_app.yml']) | list == ['execute_prepare_app.yml', 'execute_restore_app.yml', 'execute_resume_app.yml']
+          - role_contract_ops.restore_transaction.rescue | map('dict2items') | flatten | selectattr('key', 'equalto', 'ansible.builtin.fail') | list | length == 1
+          - role_contract_ops.restore_transaction.always | default([]) | map('dict2items') | flatten | rejectattr('key', 'in', ['name', 'ansible.builtin.debug']) | list | length == 0
+          - role_contract_ops.restore_transaction.rescue | map('dict2items') | flatten | rejectattr('key', 'in', ['name', 'ansible.builtin.debug', 'ansible.builtin.fail']) | list | length == 0
+          - role_contract_ops.stale_job_delete['kubernetes.core.k8s'].state == 'absent'
+          - role_contract_ops.stale_job_delete['kubernetes.core.k8s'].wait | bool
+          - role_contract_ops.stale_job_delete['kubernetes.core.k8s'].name is match('^[{][{] restic_restore_job_name [}][}]$')
+          - role_contract_ops.stale_job_delete['kubernetes.core.k8s'].namespace is match('^[{][{] restic_restore_namespace [}][}]$')
+          - role_contract_ops.stale_pod_read['kubernetes.core.k8s_info'].namespace == role_contract_ops.stale_job_delete['kubernetes.core.k8s'].namespace
+          - role_contract_ops.stale_pod_read['kubernetes.core.k8s_info'].label_selectors == ['job-name=' ~ role_contract_ops.stale_job_delete['kubernetes.core.k8s'].name]
+          - role_contract_ops.stale_pod_delete['kubernetes.core.k8s'].state == 'absent'
+          - role_contract_ops.stale_pod_delete['kubernetes.core.k8s'].wait | bool
+          - role_contract_ops.stale_pod_delete['kubernetes.core.k8s'].namespace == role_contract_ops.stale_job_delete['kubernetes.core.k8s'].namespace
+          - role_contract_ops.stale_pod_delete['kubernetes.core.k8s'].name is match('^[{][{] item.metadata.name [}][}]$')
+          - role_contract_ops.stale_pod_delete.loop is match('^[{][{] restic_restore_stale_pods.resources [|] default\(\[\]\) [}][}]$')
+          - role_contract_ops.applicationset_read['kubernetes.core.k8s_info'].kind == 'ApplicationSet'
+          - "'restic_restore_applicationset_info.resources | length == 1' in role_contract_ops.applicationset_guard['ansible.builtin.assert'].that"
+          - "role_contract_ops.applicationset_record['ansible.builtin.set_fact'].restic_restore_applicationset_original_sync_policy is search('restic_restore_applicationset_info')"
+          - role_contract_ops.applicationset_pause['kubernetes.core.k8s'].definition.spec.syncPolicy.applicationsSync == 'create-only'
+          - role_contract_ops.prepare_apps['ansible.builtin.include_tasks'] == 'execute_prepare_app.yml'
+          - role_contract_ops.restore_apps['ansible.builtin.include_tasks'] == 'execute_restore_app.yml'
+          - role_contract_ops.resume_apps['ansible.builtin.include_tasks'] == 'execute_resume_app.yml'
+          - role_contract_ops.applicationset_restore['kubernetes.core.k8s'].definition.spec.syncPolicy is match('^[{][{] restic_restore_applicationset_original_sync_policy [}][}]$')
+          - role_contract_ops.applicationset_restore.when == 'restic_restore_applicationset_had_sync_policy | bool'
+          - role_contract_ops.applicationset_remove_policy.when == 'not (restic_restore_applicationset_had_sync_policy | bool)'
+          - "role_contract_ops.applicationset_remove_policy['kubernetes.core.k8s_json_patch'].patch == [{'op': 'remove', 'path': '/spec/syncPolicy'}]"
+          - role_contract_ops.successful_job_delete['kubernetes.core.k8s'].state == 'absent'
+          - role_contract_ops.successful_job_delete['kubernetes.core.k8s'].wait | bool
+          - role_contract_ops.successful_job_delete['kubernetes.core.k8s'].name == role_contract_ops.stale_job_delete['kubernetes.core.k8s'].name
+          - role_contract_ops.successful_job_delete['kubernetes.core.k8s'].namespace == role_contract_ops.stale_job_delete['kubernetes.core.k8s'].namespace
+          - role_contract_ops.successful_job_delete.failed_when is not defined
+
+    - name: Validate safety operation ordering
+      ansible.builtin.assert:
+        that:
+          - role_contract_positions.stale_job_delete < role_contract_positions.stale_pod_read
+          - role_contract_positions.stale_pod_read < role_contract_positions.stale_pod_delete
+          - role_contract_positions.stale_pod_delete < role_contract_positions.restore_transaction
+          - role_contract_positions.applicationset_read < role_contract_positions.applicationset_guard
+          - role_contract_positions.applicationset_guard < role_contract_positions.applicationset_record
+          - role_contract_positions.applicationset_record < role_contract_positions.applicationset_pause
+          - role_contract_positions.applicationset_pause < role_contract_positions.prepare_apps
+          - role_contract_positions.prepare_apps < role_contract_positions.restore_apps
+          - role_contract_positions.restore_apps < role_contract_positions.resume_apps
+          - role_contract_positions.resume_apps < role_contract_positions.applicationset_restore
+          - role_contract_positions.resume_apps < role_contract_positions.applicationset_remove_policy
+          - role_contract_positions.applicationset_restore < role_contract_positions.successful_job_delete
+          - role_contract_positions.applicationset_remove_policy < role_contract_positions.successful_job_delete
+          - role_contract_positions.disable_app_sync < role_contract_positions.scale_down
+          - role_contract_positions.scale_down < role_contract_positions.delete_path_guard
+          - role_contract_positions.delete_path_guard < role_contract_positions.delete_contents
+          - role_contract_positions.scale_up < role_contract_positions.restore_app_sync
 
     - name: Keep each restore phase on the recorded plan
       ansible.builtin.assert:
         that:
           - item.loop is match('^[{][{] restic_restore_plan [}][}]$')
           - item.loop_control.loop_var == 'restic_restore_app_plan'
-      loop: "{{ role_contract_restore[-1].block[7:10] }}"
+      loop: "{{ [role_contract_ops.prepare_apps, role_contract_ops.restore_apps, role_contract_ops.resume_apps] }}"
       loop_control:
         label: "{{ item.name }}"
 
     - name: Validate restore delete guards and original state restoration
       ansible.builtin.assert:
         that:
-          - "role_contract_prepare[0]['kubernetes.core.k8s_json_patch'].patch == [{'op': 'remove', 'path': '/spec/syncPolicy/automated'}]"
-          - role_contract_prepare[0].when == 'restic_restore_app_plan.had_automated_sync | bool'
-          - role_contract_prepare[1]['kubernetes.core.k8s_scale'].replicas == 0
-          - role_contract_prepare[1]['kubernetes.core.k8s_scale'].wait | bool
-          - role_contract_prepare[2].loop == role_contract_prepare[3].loop
-          - role_contract_prepare[2].loop is match('^[{][{] restic_restore_app_plan.restore_paths [}][}]$')
-          - role_contract_prepare[3].loop is match('^[{][{] restic_restore_app_plan.restore_paths [}][}]$')
-          - "role_contract_prepare[3]['kubernetes.core.k8s_exec'].command is search('^sh -ceu')"
-          - "role_contract_prepare[3]['kubernetes.core.k8s_exec'].command is search('find .* -mindepth 1 -maxdepth 1 -exec rm -rf -- [{][}] [+];')"
-          - "role_contract_prepare[3]['kubernetes.core.k8s_exec'].command is search('mkdir -p')"
-          - "role_contract_prepare[3]['kubernetes.core.k8s_exec'].command is not search('rm -rf --? [^ ]*item')"
-          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('--host [{][{] restic_restore_snapshot_host [}][}]')"
-          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('--tag [{][{] restic_restore_snapshot_tag [}][}]')"
-          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('--path [{][{] restic_restore_snapshot_path [}][}]')"
-          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('^restic --retry-lock [{][{] restic_restore_retry_lock [}][}] restore [{][{] restic_restore_effective_snapshot [}][}]')"
-          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('restic_restore_app_plan.pvc_paths')"
-          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('--target [{][{] restic_restore_target_root [}][}]')"
-          - "role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command is search('--exclude-xattr')"
-          - role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command.count('--host') == 1
-          - role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command.count('--tag') == 1
-          - role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command.count('--path') == 1
-          - role_contract_restore_app[0]['kubernetes.core.k8s_exec'].command.count('--target') == 1
-          - role_contract_prepare[1].loop is match('^[{][{] restic_restore_app_plan.workloads [}][}]$')
-          - role_contract_resume[0].loop is match('^[{][{] restic_restore_app_plan.workloads [}][}]$')
-          - role_contract_resume[0]['kubernetes.core.k8s_scale'].wait | bool
-          - role_contract_resume[0]['kubernetes.core.k8s_scale'].replicas is match('^[{][{] item.replicas [}][}]$')
-          - role_contract_resume[1]['kubernetes.core.k8s'].definition.spec.syncPolicy is match('^[{][{] restic_restore_app_plan.sync_policy [}][}]$')
-          - role_contract_resume[1].when == 'restic_restore_app_plan.had_sync_policy | bool'
+          - "role_contract_ops.disable_app_sync['kubernetes.core.k8s_json_patch'].patch == [{'op': 'remove', 'path': '/spec/syncPolicy/automated'}]"
+          - role_contract_ops.disable_app_sync.when == 'restic_restore_app_plan.had_automated_sync | bool'
+          - role_contract_ops.scale_down['kubernetes.core.k8s_scale'].replicas == 0
+          - role_contract_ops.scale_down['kubernetes.core.k8s_scale'].wait | bool
+          - role_contract_ops.delete_path_guard.loop == role_contract_ops.delete_contents.loop
+          - role_contract_ops.delete_path_guard.loop is match('^[{][{] restic_restore_app_plan.restore_paths [}][}]$')
+          - role_contract_ops.delete_contents.loop is match('^[{][{] restic_restore_app_plan.restore_paths [}][}]$')
+          - "role_contract_ops.delete_contents['kubernetes.core.k8s_exec'].command is search('^sh -ceu')"
+          - "role_contract_ops.delete_contents['kubernetes.core.k8s_exec'].command is search('find .* -mindepth 1 -maxdepth 1 -exec rm -rf -- [{][}] [+];')"
+          - "role_contract_ops.delete_contents['kubernetes.core.k8s_exec'].command is search('mkdir -p')"
+          - "role_contract_ops.delete_contents['kubernetes.core.k8s_exec'].command is not search('rm -rf --? [^ ]*item')"
+          - "role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command is search('--host [{][{] restic_restore_snapshot_host [}][}]')"
+          - "role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command is search('--tag [{][{] restic_restore_snapshot_tag [}][}]')"
+          - "role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command is search('--path [{][{] restic_restore_snapshot_path [}][}]')"
+          - "role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command is search('^restic --retry-lock [{][{] restic_restore_retry_lock [}][}] restore [{][{] restic_restore_effective_snapshot [}][}]')"
+          - "role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command is search('restic_restore_app_plan.pvc_paths')"
+          - "role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command is search('--target [{][{] restic_restore_target_root [}][}]')"
+          - "role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command is search('--exclude-xattr')"
+          - role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command.count('--host') == 1
+          - role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command.count('--tag') == 1
+          - role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command.count('--path') == 1
+          - role_contract_ops.restore_contents['kubernetes.core.k8s_exec'].command.count('--target') == 1
+          - role_contract_ops.scale_down.loop is match('^[{][{] restic_restore_app_plan.workloads [}][}]$')
+          - role_contract_ops.scale_up.loop is match('^[{][{] restic_restore_app_plan.workloads [}][}]$')
+          - role_contract_ops.scale_up['kubernetes.core.k8s_scale'].wait | bool
+          - role_contract_ops.scale_up['kubernetes.core.k8s_scale'].replicas is match('^[{][{] item.replicas [}][}]$')
+          - role_contract_ops.restore_app_sync['kubernetes.core.k8s'].definition.spec.syncPolicy is match('^[{][{] restic_restore_app_plan.sync_policy [}][}]$')
+          - role_contract_ops.restore_app_sync.when == 'restic_restore_app_plan.had_sync_policy | bool'
 
     - name: Keep workload scaling on the recorded identity
       ansible.builtin.assert:
@@ -232,8 +498,8 @@
           - item.args.namespace is match('^[{][{] item.namespace [}][}]$')
           - item.args.name is match('^[{][{] item.name [}][}]$')
       loop:
-        - args: "{{ role_contract_prepare[1]['kubernetes.core.k8s_scale'] }}"
-        - args: "{{ role_contract_resume[0]['kubernetes.core.k8s_scale'] }}"
+        - args: "{{ role_contract_ops.scale_down['kubernetes.core.k8s_scale'] }}"
+        - args: "{{ role_contract_ops.scale_up['kubernetes.core.k8s_scale'] }}"
 
     - name: Validate restore path guard against unsafe roots
       ansible.builtin.assert:
@@ -247,7 +513,7 @@
           - "'/restore/data/appdata/' is not match(role_contract_delete_pattern)"
           - "'/data/appdata/ns/pvc' is not match(role_contract_delete_pattern)"
       vars:
-        role_contract_delete_rule: "{{ role_contract_prepare[2]['ansible.builtin.assert'].that[0] }}"
+        role_contract_delete_rule: "{{ role_contract_ops.delete_path_guard['ansible.builtin.assert'].that[0] }}"
         role_contract_delete_pattern: '{{ role_contract_delete_rule.split("''")[1] }}'
 
     - name: Reject retired local secret-maintenance inputs

@@ -2,7 +2,7 @@
 # Kubernetes Restic Restore Runbook
 
 Purpose: operator procedure for a Kubernetes appdata restore.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
 
 The `restic` app backs up Kubernetes appdata and serves the same repository used
 by the macOS and Windows workstation backups. Kubernetes owns repository
@@ -45,6 +45,9 @@ before relying on a schedule.
 
 - Always preview first. Restore tasks are plan-only unless
   `confirm_restore=true` is set.
+- Ansible check mode remains plan-only even when confirmation is supplied.
+  The role guards both transaction entry and individual pod exec tasks because
+  pod commands require an explicit check-mode guard.
 - `snapshot` defaults to `latest`.
 - `latest` is filtered to the Kubernetes snapshot family, so workstation
   snapshots are not eligible.
@@ -123,6 +126,7 @@ these constraints:
 - [Restic deployment](../../../apps/selfhosted/restic/values.yaml)
 - [Restore task entry points](../../../Taskfile.yaml)
 - [Restore role](../../../ansible/roles/restic/tasks/execute.yml)
+- [Restore entry point](../../../ansible/roles/restic/tasks/main.yml)
 - [Restore planning role](../../../ansible/roles/restic/tasks/plan.yml)
 - [Restore automation PR](https://github.com/edgard/home-ops/pull/261)
 

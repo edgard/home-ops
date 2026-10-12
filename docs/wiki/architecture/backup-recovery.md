@@ -1,14 +1,15 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `d9f31a0b9442ba41d4d8de9600b064fc89a0080d`.
+Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
 
 The Restic application serves a repository and runs appdata backup and
 maintenance workloads. Restore commands enter the Ansible role in plan-only
 mode by default. A confirmed restore selects eligible appdata PVCs, pauses
 Argo-managed updates, stops target workloads, restores data, and resumes the
 original policy. Shared media and repository storage are outside the appdata
-restore set. The [runbook](../operations/restic-backup-restore.md) is the
+restore set. Check mode never enters the restore transaction, including when
+confirmation is supplied. The [runbook](../operations/restic-backup-restore.md) is the
 operator procedure; this page is an architectural map.
 
 The transaction and failure behavior are documented in the
@@ -26,6 +27,7 @@ procedure; they do not replace Bitwarden availability.
 
 - [Restic values](../../../apps/selfhosted/restic/values.yaml)
 - [Restore planning tasks](../../../ansible/roles/restic/tasks/plan.yml)
+- [Restore entry point](../../../ansible/roles/restic/tasks/main.yml)
 - [Restore execution tasks](../../../ansible/roles/restic/tasks/execute.yml)
 - [Restore Taskfile entry points](../../../Taskfile.yaml)
 

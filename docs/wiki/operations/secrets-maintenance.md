@@ -1,7 +1,7 @@
 # Secrets maintenance and recovery
 
 Purpose: provision and operate the unified Bitwarden delivery paths.
-Status: current. Reviewed against: `2fe88a7bb0b8bde1fc9857626c53bf17d5379295`.
+Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
 
 ## Setup without cluster access
 
@@ -30,6 +30,10 @@ task secrets:check scope=terraform
 ```
 
 The checksum-verified installer writes pinned binaries to `~/.local/bin`.
+The [role defaults](../../../ansible/roles/operator_secrets/defaults/main.yml)
+own the tool pins; SecretSpec validation and its real-provider integration
+check use the same configured version. A pin update still has to pass the
+provider compatibility fixtures before delivery.
 Operator commands find that directory automatically. Login prompts securely;
 do not paste tokens into commands, Git, documentation, or chat. On macOS,
 SecretSpec's keyring provider uses Keychain. Recovery requires access to
@@ -119,6 +123,7 @@ ApplicationSet children, followed by fresh ExternalSecret reconciliation.
 
 - [SecretSpec manifest](../../../secretspec.toml)
 - [Operator delivery role](../../../ansible/roles/operator_secrets/tasks/validate.yml)
+- [Operator tool defaults](../../../ansible/roles/operator_secrets/defaults/main.yml)
 - [Read-only BWS adapter](../../../ansible/roles/operator_secrets/files/bws_readonly.py)
 - [Bootstrap preflight](../../../ansible/roles/platform/tasks/preflight.yml)
 - [Cluster checks and token replacement](../../../ansible/roles/platform/tasks/sync_token.yml)

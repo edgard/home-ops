@@ -1,0 +1,40 @@
+{# Select operations by module/resource identity, retaining order for safety checks. #}
+{%- set result = namespace(entries=[]) -%}
+{%- for task in item.tasks -%}
+  {%- set match = namespace(ok=true) -%}
+  {%- for criterion in item.criteria -%}
+    {%- set field = namespace(value=task, defined=true) -%}
+    {%- for key in criterion.path -%}
+      {%- if field.value is mapping and key in field.value -%}
+        {%- set field.value = field.value[key] -%}
+      {%- else -%}
+        {%- set field.defined = false -%}
+        {%- set field.value = none -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {%- if criterion.children is defined -%}
+      {%- set child_match = namespace(ok=false) -%}
+      {%- for child in field.value | default([], true) -%}
+        {%- set child_field = namespace(value=child, defined=true) -%}
+        {%- for key in criterion.children -%}
+          {%- if child_field.value is mapping and key in child_field.value -%}
+            {%- set child_field.value = child_field.value[key] -%}
+          {%- else -%}
+            {%- set child_field.defined = false -%}
+            {%- set child_field.value = none -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- if child_field.defined and (criterion.value is not defined or child_field.value == criterion.value) -%}
+          {%- set child_match.ok = true -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- set match.ok = match.ok and child_match.ok -%}
+    {%- else -%}
+      {%- set match.ok = match.ok and field.defined and (criterion.value is not defined or field.value == criterion.value) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- if match.ok -%}
+    {%- set result.entries = result.entries + [{'task': task, 'index': loop.index0}] -%}
+  {%- endif -%}
+{%- endfor -%}
+{{- result.entries | to_json -}}

@@ -92,6 +92,7 @@
       - --nodes
       - "{{ talos_node }}"
       - version
+      - --json
   register: talos_upgrade_version
   changed_when: false
 
@@ -101,5 +102,5 @@
     - not ansible_check_mode
   ansible.builtin.assert:
     that:
-      - talos_upgrade.installer.version in talos_upgrade_version.stdout
+      - (talos_upgrade_version.stdout | from_json).version.tag == talos_upgrade.installer.version
     fail_msg: "Talos server version mismatch; expected {{ talos_upgrade.installer.version }}."
