@@ -41,11 +41,14 @@ class TerraformContracts(unittest.TestCase):
         import yaml
         for action in ('plan', 'apply'):
             tasks = yaml.safe_load((ROOT / f'ansible/roles/tofu/tasks/{action}.yml').read_text())
-            env = tasks[1]['environment']
+            operations = [task for task in tasks if 'community.general.terraform' in task]
+            self.assertEqual(len(operations), 1, 'Require one Terraform operation per action')
+            operation, = operations
+            env = operation['environment']
             self.assertIn('TF_VAR_cloudflare_api_token', env)
             self.assertNotIn('BWS_ACCESS_TOKEN', env)
             self.assertNotIn('BW_ACCESS_TOKEN', env)
-            self.assertTrue(tasks[1]['no_log'])
+            self.assertTrue(operation['no_log'])
 
 
 class InfrastructureOwnershipTests(unittest.TestCase):

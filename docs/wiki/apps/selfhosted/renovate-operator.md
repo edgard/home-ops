@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `9b6b7afd758013ef4288ed68b10f088053661e07`.
+Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
 
 ## Dependencies
 
@@ -22,7 +22,8 @@ Review generated PR behavior and credentials after changing job or operator conf
 The [repository Renovate configuration](../../../../.renovaterc.json5) combines
 built-in managers for Actions, Ansible requirements, Terraform, and Kubernetes
 images with custom extraction for app charts, images, upgrade targets, CI tools,
-Gateway API, and the Restic restore image. When moving a dependency file, check
+Gateway API, the Restic restore image, and operator SecretSpec/BWS pins. The BWS
+manager selects CLI release tags from the SDK repository. When moving a dependency file, check
 its manager file patterns and run a local extraction dry run; valid configuration
 alone does not prove that the dependency is still discovered.
 
@@ -40,6 +41,7 @@ configuration, while provider dependencies and the CI OpenTofu tool remain manag
 ## Sources
 
 - [Repository Renovate configuration](../../../../.renovaterc.json5)
+- [Operator tool defaults](../../../../ansible/roles/operator_secrets/defaults/main.yml)
 - [App metadata](../../../../apps/selfhosted/renovate-operator/app.yaml)
 - [Helm values](../../../../apps/selfhosted/renovate-operator/values.yaml)
 - [Raw manifests](../../../../apps/selfhosted/renovate-operator/manifests)

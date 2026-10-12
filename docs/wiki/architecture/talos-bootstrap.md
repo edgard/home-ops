@@ -1,7 +1,7 @@
 # Talos and platform bootstrap
 
 Purpose: locate the cluster creation and upgrade boundaries.
-Status: current. Reviewed against: `d9a1261970b4d6607056507421a71ad52b5d07ce`.
+Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
 
 The Taskfile invokes Ansible for Talos configuration, bootstrap, upgrades, and
 platform installation. SecretSpec resolves cloud material before node mutation.
@@ -18,6 +18,9 @@ The [Image Factory installer decision](../decisions/talos-image-factory.md)
 explains why upgrades must preserve the configured installer and its extensions.
 An upgrade requires current node and snapshot preflight; this page does not
 assert that the live node matches the repo.
+The upgrade role reads the selected server's JSON version response and requires
+its tag to equal the configured installer version. A matching local client
+version cannot satisfy this check.
 
 ## Sources
 

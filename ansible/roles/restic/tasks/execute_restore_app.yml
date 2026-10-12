@@ -1,5 +1,6 @@
 ---
 - name: Restore app PVC paths
+  when: not ansible_check_mode
   kubernetes.core.k8s_exec:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
