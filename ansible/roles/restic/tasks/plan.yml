@@ -11,7 +11,6 @@
     restic_restore_effective_snapshot: "{{ restic_restore_snapshot | default('latest', true) }}"
 
 - name: Read Argo CD Applications
-  when: not (restic_restore_test_mode | bool)
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -21,7 +20,6 @@
   register: restic_restore_live_applications
 
 - name: Read PVCs
-  when: not (restic_restore_test_mode | bool)
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -30,7 +28,6 @@
   register: restic_restore_live_pvcs
 
 - name: Read Deployments
-  when: not (restic_restore_test_mode | bool)
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -39,7 +36,6 @@
   register: restic_restore_live_deployments
 
 - name: Read StatefulSets
-  when: not (restic_restore_test_mode | bool)
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -49,13 +45,11 @@
 
 - name: Normalize source facts
   ansible.builtin.set_fact:
-    restic_restore_source_applications: "{{ restic_restore_applications if restic_restore_test_mode | bool else restic_restore_live_applications.resources | default([]) }}"
-    restic_restore_source_pvcs: "{{ restic_restore_pvcs if restic_restore_test_mode | bool else restic_restore_live_pvcs.resources | default([]) }}"
+    restic_restore_source_applications: "{{ restic_restore_live_applications.resources | default([]) }}"
+    restic_restore_source_pvcs: "{{ restic_restore_live_pvcs.resources | default([]) }}"
     restic_restore_source_workloads: >-
       {{
-        restic_restore_workloads
-        if restic_restore_test_mode | bool
-        else (restic_restore_live_deployments.resources | default([])) + (restic_restore_live_statefulsets.resources | default([]))
+        (restic_restore_live_deployments.resources | default([])) + (restic_restore_live_statefulsets.resources | default([]))
       }}
 
 - name: Select restore applications

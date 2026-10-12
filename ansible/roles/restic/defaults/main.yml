@@ -20,7 +20,6 @@ restic_restore_snapshot_path: /data/appdata
 restic_restore_target_root: /restore
 restic_restore_appdata_pvc: restic-appdata
 restic_restore_retry_lock: 30m
-restic_restore_test_mode: false
 restic_restore_excluded_apps:
   - restic
   - root
@@ -30,6 +29,3 @@ restic_restore_excluded_pvcs:
   - media/media
   - selfhosted/restic-repo
   - selfhosted/restic-appdata
-restic_restore_applications: []
-restic_restore_pvcs: []
-restic_restore_workloads: []

@@ -1,7 +1,7 @@
 # Uptime monitoring
 
 Purpose: explain routed-app coverage and the limit of in-cluster alerts.
-Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
+Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
 
 Gatus is the configured uptime checker and Telegram alert engine. Its targets
 are explicit in its values; route coverage validation compares HTTP targets
@@ -16,9 +16,9 @@ health results; query the running endpoint and its logs when investigating.
 ## Sources
 
 - [Gatus values](../../../apps/platform-system/gatus/values.yaml)
-- [Route inventory collection](../../../ansible/roles/kubernetes_validation/tasks/check-uptime.yml)
-- [Route coverage policy](../../../policy/kubernetes/route_coverage.rego)
-- [Uptime contract](../../../ansible/tests/uptime.yml)
+- [Route inventory collection](../../../tests/config/kubernetes/test_rendered.py)
+- [Route coverage assertions](../../../tests/config/kubernetes/test_rendered.py)
+- [Uptime contract](../../../tests/config/kubernetes/test_resources.py)
 
 ## Related pages
 

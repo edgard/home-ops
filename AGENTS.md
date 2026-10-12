@@ -19,7 +19,7 @@ each calendar month also performs a semantic wiki review if
   workflow.
 - Configuration and policy are the source of truth; verify wiki claims against
   the current files and, when relevant, the running system.
-- For behavior changes, write or update a failing policy or contract check first.
+- For behavior changes, write or update a failing pytest contract check first.
 - Run `task fmt` and `task lint` before committing or updating a PR.
 - Argo CD sync follows a committed and pushed GitOps change; do not sync local
   uncommitted configuration.

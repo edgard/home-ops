@@ -1,41 +1,40 @@
-# Keep validation close to its contracts
+# Native validators and one pytest suite
 
-Purpose: record the current validation layout and its reason.
-Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
+Purpose: record validation ownership and the simplification decision.
+Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
 
-[PR #258](https://github.com/edgard/home-ops/pull/258) split CI into focused
-jobs with a required aggregate gate. [PR #409](https://github.com/edgard/home-ops/pull/409)
-retired the former scripts directory while retaining deployment, credential,
-restore, route, and manifest checks in Ansible roles/tests and Conftest policy.
-Secret workflows also follow this layout: Task launches native SecretSpec,
-Ansible roles own orchestration, and focused adapters and unit fixtures remain
-under Ansible. The completed state-migration helper is retained only in Git history.
-Static repository rules now live in Rego, including role transaction structure,
-application configuration, SecretSpec ownership, Talos compatibility, and the
-validation workflow itself. Ansible validation roles normalize inputs and invoke
-policy; native Git/wiki/schema/deprecation lint and executable behavior fixtures
-remain separate. The [policy guide](../../../policy/README.md) records which
-layer owns each contract. Runtime assertions in operator roles still validate
-their live inputs and state.
+The earlier validation refactors retired top-level scripts and separated
+configuration assertions from executable behavior. Their inventories, Rego rules,
+static task reconstruction, and nested test runners still created unnecessary
+plumbing. The unified suite now reads original source objects and invokes real
+role entry points through pytest.
 
-Local `task lint` runs the same focused checks. Keep new assertions with the
-source layer they protect, and check operational invariants instead of pinning
-test expectations to names or dependency versions without a behavioral reason.
+Ansible retains operator orchestration and native chart/schema/deprecation work.
+Native formatters, linters, Git, wiki validation, OpenTofu, kubeconform, and Pluto
+keep their specialized semantics. Plain pytest assertions cover repository
+relationships; units cover focused adapters; isolated scenarios cover execution,
+check mode, rollback, cleanup, confidentiality, and original-state restoration.
+There is no policy engine or generic contract registry.
 
-The Kubernetes role renders pinned charts before raw schema validation, exporting
-served CRD schemas alongside repository-owned CRDs. The exporter traverses schema
-keywords separately from property-name maps, so a field named `properties` cannot
-corrupt its containing schema. Strict validation stays enabled; no resource is
-exempted because a remote catalog conversion is malformed. The external catalog
-remains a fallback for APIs without a repository or chart schema.
+Tests derive operational versions and identities from owning configuration.
+Fixed compatibility bounds and reasoned security exceptions remain explicit.
+Task names, task positions, and equivalent source expressions are not behavior.
+The real Kubernetes collection talks to a loopback API; the unsupported pod-exec
+transport is one controlled module boundary, with separate real-module loading.
+Offline fixtures do not replace fresh-cluster or live application acceptance.
+
+The Kubernetes role accepts a caller-owned private workspace. pytest validates
+sources first, shares the resulting render once, and owns cleanup. Served CRD
+schemas remain authoritative; strict validation and catalog fallback retain their
+previous behavior. Local and CI commands cover the same disjoint pytest subsets.
 
 ## Sources
 
+- [Test guide](../../../tests/README.md)
 - [CI workflow](../../../.github/workflows/ci.yml)
 - [Taskfile](../../../Taskfile.yaml)
-- [Validation role](../../../ansible/roles/kubernetes_validation/tasks)
-- [Policy tree](../../../policy)
-- [Validation refactor, PR #409](https://github.com/edgard/home-ops/pull/409)
+- [Kubernetes validation role](../../../ansible/roles/kubernetes_validation/tasks/main.yml)
+- [Earlier validation refactor, PR #409](https://github.com/edgard/home-ops/pull/409)
 
 ## Related pages
 

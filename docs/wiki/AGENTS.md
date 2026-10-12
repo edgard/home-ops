@@ -34,7 +34,7 @@ not a generated dump of Helm values.
 1. Start at [the index](index.md), then read the relevant wiki pages and their
    cross-references. Use [the source catalog](sources.md) when locating broader
    evidence.
-2. Follow source links to current configuration and policy for current facts.
+2. Follow source links to current configuration and tests for current facts.
    Check a cited merged PR or commit for historical reasoning. If sources
    disagree with the wiki, report the discrepancy instead of repeating the
    stale claim.

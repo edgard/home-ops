@@ -26,7 +26,6 @@
 
 - name: Upgrade Talos node
   when:
-    - not (talos_upgrade_test_mode | default(false))
     - not ansible_check_mode
   ansible.builtin.command:
     argv: "{{ talos_upgrade_command }}"
@@ -34,7 +33,6 @@
 
 - name: Read Kubernetes nodes
   when:
-    - not (talos_upgrade_test_mode | default(false))
     - not ansible_check_mode
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
@@ -48,8 +46,7 @@
     talos_upgrade_kubernetes_node: "{{ item.metadata.name }}"
   loop: "{{ talos_upgrade_nodes.resources }}"
   when: >-
-    not (talos_upgrade_test_mode | default(false))
-    and not ansible_check_mode
+    not ansible_check_mode
     and (
       item.metadata.name == talos_node
       or (
@@ -63,7 +60,6 @@
 
 - name: Uncordon upgraded Kubernetes node
   when:
-    - not (talos_upgrade_test_mode | default(false))
     - not ansible_check_mode
     - talos_upgrade_kubernetes_node is defined
   kubernetes.core.k8s:
@@ -80,7 +76,6 @@
 
 - name: Read Talos server version
   when:
-    - not (talos_upgrade_test_mode | default(false))
     - not ansible_check_mode
   ansible.builtin.command:
     argv:
@@ -98,7 +93,6 @@
 
 - name: Assert Talos server version
   when:
-    - not (talos_upgrade_test_mode | default(false))
     - not ansible_check_mode
   ansible.builtin.assert:
     that:

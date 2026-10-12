@@ -1,7 +1,7 @@
 # Use Gatus for uptime
 
 Purpose: record the move to explicit, minimal in-cluster uptime checks.
-Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
+Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
 
 [PR #397](https://github.com/edgard/home-ops/pull/397) introduced explicit
 Gatus targets, Telegram alerting, and route coverage validation.
@@ -19,8 +19,8 @@ rather than reinstating the retired discovery or observability stack.
 ## Sources
 
 - [Gatus values](../../../apps/platform-system/gatus/values.yaml)
-- [Route inventory collection](../../../ansible/roles/kubernetes_validation/tasks/check-uptime.yml)
-- [Route coverage policy](../../../policy/kubernetes/route_coverage.rego)
+- [Route inventory collection](../../../tests/config/kubernetes/test_rendered.py)
+- [Route coverage assertions](../../../tests/config/kubernetes/test_rendered.py)
 - [Transition PRs #397](https://github.com/edgard/home-ops/pull/397) and [#398](https://github.com/edgard/home-ops/pull/398)
 
 ## Related pages

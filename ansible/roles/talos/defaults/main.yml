@@ -7,7 +7,6 @@ talos_secrets_yaml: "{{ lookup('env', 'TALOS_SECRETS_YAML') }}"
 talos_api_wait_retries: 30
 talos_api_wait_delay: 5
 talos_health_wait_timeout: 5m
-talos_upgrade_test_mode: false
 
 talos_upgrade:
   installer:

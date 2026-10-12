@@ -38,7 +38,7 @@ runs:
         cache-dependency-path: ansible/requirements.txt
 
     - name: Set Up Node
-      if: ${{ inputs.profile == 'format' }}
+      if: ${{ inputs.profile == 'format' || inputs.profile == 'ansible' }}
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: 24
@@ -71,13 +71,6 @@ runs:
       with:
         # renovate: datasource=github-releases depName=yannh/kubeconform
         kubeconform-version: "0.8.0"
-
-    - name: Set Up Conftest
-      if: ${{ inputs.profile == 'ansible' || inputs.profile == 'kubernetes' }}
-      uses: princespaghetti/setup-conftest@417586a9b2e806fc5a95c72dfe98e296ef092b6f # v1.2.0
-      with:
-        # renovate: datasource=github-releases depName=open-policy-agent/conftest
-        version: 0.71.1
 
     - name: Install APT Tools
       if: ${{ inputs.profile == 'static' }}

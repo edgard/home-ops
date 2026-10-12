@@ -1,6 +1,0 @@
----
-- name: Build metadata and source policy inventory
-  ansible.builtin.template:
-    src: inventory.json.j2
-    dest: "{{ kubernetes_validation_workdir.path }}/inventory.json"
-    mode: "0600"

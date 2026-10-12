@@ -1,3 +1,0 @@
----
-ansible_validation_repo_root: "{{ repo_root }}"
-ansible_validation_role_root: "{{ ansible_validation_repo_root }}/ansible/roles"
