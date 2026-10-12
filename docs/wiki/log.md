@@ -3,6 +3,17 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-12] revision | Separate repository policy from behavior fixtures
+
+Moved static role safety, application wiring, credential ownership, Talos target
+compatibility, validation wiring, and Gatus coverage decisions into their policy
+layers. Validation roles collect inputs and invoke Conftest; native Git artifact
+lint and disposable execution/parser/rollback/check-mode fixtures remain distinct.
+Added a policy boundary guide and `lint:repository`, wired into full lint and the
+Ansible CI job. Reviewed the contributor workflow, validation architecture and
+decision, recovery transaction, Talos installer, and uptime pages. The October
+semantic review is already recorded below.
+
 ## [2026-10-12] revision | Harden Ansible operator conventions
 
 Guarded confirmed Restic restores and pod exec tasks in check mode, changed

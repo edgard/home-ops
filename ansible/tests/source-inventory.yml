@@ -1,0 +1,190 @@
+---
+- name: Exercise source inventory normalization and policy delivery
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create source fixture
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: source-inventory-test
+      register: source_fixture
+
+    - name: Exercise source inventory adapter
+      block:
+        - name: Create fixture directories
+          ansible.builtin.file:
+            path: "{{ source_fixture.path }}/{{ item }}"
+            state: directory
+            mode: "0700"
+          loop:
+            - apps/selfhosted/changedetection/manifests
+            - apps/media/recyclarr/manifests
+            - apps/platform-system/istio/manifests
+
+        - name: Copy source fixtures
+          ansible.builtin.copy:
+            src: "{{ repo_root }}/{{ item }}"
+            dest: "{{ source_fixture.path }}/{{ item }}"
+            mode: "0600"
+          loop:
+            - apps/selfhosted/changedetection/app.yaml
+            - apps/selfhosted/changedetection/values.yaml
+            - apps/selfhosted/changedetection/manifests/changedetection-credentials.externalsecret.yaml
+            - apps/media/recyclarr/app.yaml
+            - apps/media/recyclarr/values.yaml
+            - apps/media/recyclarr/manifests/recyclarr-config.configmap.yaml
+            - apps/platform-system/istio/manifests/istio-gateway.gateway.yaml
+            - apps/platform-system/istio/manifests/istio-gateway-parameters.configmap.yaml
+
+        - name: Use synthetic fixture environment identifiers
+          ansible.builtin.replace:
+            path: "{{ source_fixture.path }}/apps/media/recyclarr/manifests/recyclarr-config.configmap.yaml"
+            regexp: "(api_key: !env_var)[ ]+[^\\n]+"
+            replace: "\\1 SOURCE_INVENTORY_FIXTURE_KEY"
+
+        - name: Set source inventory inputs
+          ansible.builtin.set_fact:
+            kubernetes_validation_repo_root: "{{ source_fixture.path }}"
+            kubernetes_validation_app_dirs:
+              - "{{ source_fixture.path }}/apps/selfhosted/changedetection"
+              - "{{ source_fixture.path }}/apps/media/recyclarr"
+            kubernetes_validation_manifest_files:
+              - "{{ source_fixture.path }}/apps/selfhosted/changedetection/manifests/changedetection-credentials.externalsecret.yaml"
+              - "{{ source_fixture.path }}/apps/media/recyclarr/manifests/recyclarr-config.configmap.yaml"
+
+        - name: Set source inventory output directory
+          ansible.builtin.set_fact:
+            kubernetes_validation_workdir:
+              path: "{{ source_fixture.path }}"
+
+        - name: Render valid inventory
+          ansible.builtin.include_role:
+            name: kubernetes_validation
+            tasks_from: source-inventory
+
+        - name: Verify embedded YAML normalization
+          ansible.builtin.assert:
+            that:
+              - source_recyclarr.embedded_recyclarr.sonarr['web-2160p-v4'].api_key == 'SOURCE_INVENTORY_FIXTURE_KEY'
+              - source_recyclarr.embedded_recyclarr.radarr['uhd-bluray-web'].api_key == 'SOURCE_INVENTORY_FIXTURE_KEY'
+          vars:
+            source_inventory: "{{ lookup('ansible.builtin.file', source_fixture.path ~ '/inventory.json') | from_json }}"
+            source_recyclarr: "{{ source_inventory.apps | selectattr('app_name', 'equalto', 'recyclarr') | first }}"
+
+        - name: Accept normalized source inventory
+          ansible.builtin.command:
+            argv:
+              - conftest
+              - test
+              - --no-color
+              - --policy
+              - "{{ repo_root }}/policy/source"
+              - "{{ source_fixture.path }}/inventory.json"
+          changed_when: false
+
+        - name: Omit Changedetection credential manifest
+          ansible.builtin.set_fact:
+            kubernetes_validation_manifest_files:
+              - "{{ source_fixture.path }}/apps/media/recyclarr/manifests/recyclarr-config.configmap.yaml"
+
+        - name: Render missing-secret inventory
+          ansible.builtin.include_role:
+            name: kubernetes_validation
+            tasks_from: source-inventory
+
+        - name: Check missing-secret policy delivery
+          ansible.builtin.command:
+            argv:
+              - conftest
+              - test
+              - --no-color
+              - --policy
+              - "{{ repo_root }}/policy/source"
+              - "{{ source_fixture.path }}/inventory.json"
+          changed_when: false
+          failed_when: false
+          register: source_missing_secret
+
+        - name: Verify missing credential is rejected by policy
+          ansible.builtin.assert:
+            that:
+              - source_missing_secret.rc == 1
+              - "'changedetection application configuration contract failed' in source_missing_secret.stdout"
+
+        - name: Restore Changedetection inventory manifest
+          ansible.builtin.set_fact:
+            kubernetes_validation_manifest_files:
+              - "{{ source_fixture.path }}/apps/selfhosted/changedetection/manifests/changedetection-credentials.externalsecret.yaml"
+              - "{{ source_fixture.path }}/apps/media/recyclarr/manifests/recyclarr-config.configmap.yaml"
+
+        - name: Write malformed embedded Recyclarr structure
+          ansible.builtin.copy:
+            dest: "{{ source_fixture.path }}/apps/media/recyclarr/manifests/recyclarr-config.configmap.yaml"
+            mode: "0600"
+            content: |
+              ---
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: recyclarr-config
+              data:
+                recyclarr.yml: |
+                  sonarr: []
+                  radarr: {}
+
+        - name: Render malformed embedded inventory
+          ansible.builtin.include_role:
+            name: kubernetes_validation
+            tasks_from: source-inventory
+
+        - name: Check malformed embedded policy delivery
+          ansible.builtin.command:
+            argv:
+              - conftest
+              - test
+              - --no-color
+              - --policy
+              - "{{ repo_root }}/policy/source"
+              - "{{ source_fixture.path }}/inventory.json"
+          changed_when: false
+          failed_when: false
+          register: source_malformed_embedded
+
+        - name: Verify malformed embedded configuration is rejected by policy
+          ansible.builtin.assert:
+            that:
+              - source_malformed_embedded.rc == 1
+              - "'recyclarr application configuration contract failed' in source_malformed_embedded.stdout"
+        - name: Write invalid embedded YAML syntax
+          ansible.builtin.copy:
+            dest: "{{ source_fixture.path }}/apps/media/recyclarr/manifests/recyclarr-config.configmap.yaml"
+            mode: "0600"
+            content: |
+              ---
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: recyclarr-config
+              data:
+                recyclarr.yml: |
+                  sonarr: [
+
+        - name: Reject invalid embedded YAML before policy evaluation
+          block:
+            - name: Attempt invalid embedded inventory rendering
+              ansible.builtin.include_role:
+                name: kubernetes_validation
+                tasks_from: source-inventory
+          rescue:
+            - name: Record embedded parser failure
+              ansible.builtin.set_fact:
+                source_invalid_yaml_rejected: "{{ 'from_yaml' in ansible_failed_result.msg }}"
+
+        - name: Verify invalid embedded syntax failed at the parser
+          ansible.builtin.assert:
+            that: source_invalid_yaml_rejected | default(false)
+      always:
+        - name: Remove source inventory fixture
+          ansible.builtin.file:
+            path: "{{ source_fixture.path }}"
+            state: absent

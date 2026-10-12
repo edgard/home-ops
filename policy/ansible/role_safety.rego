@@ -134,3 +134,12 @@ valid_bitwarden_secret if {
 deny contains "Bitwarden bootstrap credential mapping changed" if {
   not valid_bitwarden_secret
 }
+
+deny contains msg if {
+  some action in {"plan", "apply"}
+  some operation in terraform_operations(action)
+  environment := object.get(operation.task, "environment", {})
+  some key in {"BWS_ACCESS_TOKEN", "BW_ACCESS_TOKEN"}
+  key in object.keys(environment)
+  msg := sprintf("Terraform %s must not receive %s", [action, key])
+}

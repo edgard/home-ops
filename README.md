@@ -86,7 +86,8 @@ task fmt:check                     # Check formatting without modifying files
 task lint:static                   # Run yamllint
 task lint:wiki                     # Check wiki links, sources, and app coverage
 task lint:workflows                # Validate GitHub Actions workflows
-task lint:ansible                  # Run Ansible lint, contract, and integration checks
+task lint:repository               # Check repository configuration policy and credential artifacts
+task lint:ansible                  # Run Ansible lint, role policy, and behavior fixtures
 task lint:kubernetes               # Run Kubernetes source, policy, schema, and deprecation checks
 task lint:terraform                # Run backendless OpenTofu validation
 task lint                          # Run the full offline validation gate

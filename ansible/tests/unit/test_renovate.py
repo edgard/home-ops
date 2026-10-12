@@ -1,15 +1,14 @@
 import re
 import unittest
 
+import json5
 import yaml
 
 from test_secrets import ROOT
 
 
 def renovate_config():
-    # The repository uses YAML-compatible JSON5 with whole-line comments.
-    source = (ROOT / '.renovaterc.json5').read_text()
-    return yaml.safe_load(re.sub(r'(?m)^\s*//.*$', '', source))
+    return json5.loads((ROOT / '.renovaterc.json5').read_text(), allow_duplicate_keys=False)
 
 
 def regex(pattern):

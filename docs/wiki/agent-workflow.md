@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `2fe88a7bb0b8bde1fc9857626c53bf17d5379295`.
+Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -14,13 +14,15 @@ Gatus • Helm • Ansible • Terraform
 - Format check: `task fmt:check`
 - Dependencies: `task deps` uses Python 3.14 by default (`PYTHON_BIN` override) and installs pinned Python dependencies and Ansible collections in `.venv`
 - Lint: `task lint` (offline validation: formatting, yamllint, GitHub Actions workflow lint, Ansible lint/contracts/integration tests, metadata policy, raw and rendered manifest policy/schema/deprecation checks, `tofu validate`)
-- Focused checks: `task lint:static`, `task lint:wiki`, `task lint:workflows`, `task lint:ansible`, `task lint:kubernetes`, `task lint:terraform`
+- Focused checks: `task lint:static`, `task lint:wiki`, `task lint:workflows`, `task lint:repository`, `task lint:ansible`, `task lint:kubernetes`, `task lint:terraform`
 - Wiki check: `task lint:wiki` runs the Ansible structural contract for links, source sections, index reachability, and app-page coverage
 - Policy layers:
+  - `policy/repository/` validates Task interfaces, SecretSpec ownership, infrastructure inputs, Talos compatibility, and validation wiring
+  - `policy/source/` validates Helm values, conventions, and cross-file application configuration
   - `policy/metadata/` validates app metadata structure and required sync waves
-  - `policy/ansible/` validates role task safety and credential wiring
-  - `policy/kubernetes/` validates manifest and rendered-workload guardrails
-- Policy semantics are regression-tested in `policy/{ansible,metadata,kubernetes}/*_test.rego`
+  - `policy/ansible/` validates static role task safety, credential wiring, ordering, cleanup, and restore invariants
+  - `policy/kubernetes/` validates manifest and rendered-workload guardrails, plus aggregate Gatus route coverage
+- Policy semantics are regression-tested in `policy/{repository,ansible,source,metadata,kubernetes}/*_test.rego`
 - CI gate: GitHub `Quality Gate` job, backed by the same focused local `task lint:*` targets aggregated by `task lint`
 - Pre-commit gate: `task precommit` (`task fmt` + `task lint`)
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
@@ -125,7 +127,10 @@ Store: `external-secrets-store`
   - CI runs the focused targets as separate pull-request jobs and uses `Quality Gate` as the required aggregate check
   - Prefer policy or lint checks when the assertion is about repository content
   - Assert operational invariants and cross-file relationships, not duplicated dependency versions, task names, comments, dashboard prose, or exact equivalent query strings
-  - `ansible/tests/role-contracts.yml` builds the role policy inventory and checks restore contracts; `ansible/roles/kubernetes_validation/tasks/check-uptime.yml` compares Gatus targets with rendered routes
+  - `ansible/playbooks/validate-ansible.yml` collects static role inputs and runs role policies; `ansible/playbooks/validate-repository.yml` handles repository policies and native Git artifact lint
+  - `ansible/roles/kubernetes_validation/tasks/check-uptime.yml` collects Gatus and raw/rendered route hosts for Kubernetes policy
+  - Keep content and task-structure assertions in policy; keep parsing, command construction, disposable role execution, check-mode effects, rollback, and safe diagnostic fixtures in `ansible/tests/`
+  - Runtime assertions still guard operator inputs and live state; offline policies supplement them
 - Metadata policy lives under `policy/metadata/` and is enforced via Conftest
 - Kubernetes policy lives under `policy/kubernetes/` and is enforced against raw manifests and rendered app output
 - `sync.wave` is required in every `apps/*/*/app.yaml` and must stay within the repo wave bands `-4` to `0`
