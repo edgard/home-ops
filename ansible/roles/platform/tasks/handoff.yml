@@ -2,13 +2,13 @@
 - name: Record bounded GitOps handoff start
   ansible.builtin.set_fact:
     platform_secret_after: "{{ now().timestamp() | float }}"
-    platform_handoff_deadline: "{{ now().timestamp() | float + platform_handoff_timeout | default(300) | int }}"
+    platform_handoff_deadline: "{{ now().timestamp() | float + platform_handoff_timeout | int }}"
 
 - name: Require a bounded GitOps handoff timeout
   ansible.builtin.assert:
     that:
-      - platform_handoff_timeout | default(300) | int > 0
-      - platform_handoff_timeout | default(300) | int <= 300
+      - platform_handoff_timeout | int > 0
+      - platform_handoff_timeout | int <= 300
 
 - name: Verify committed root and owned ApplicationSet children
   no_log: true

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Read-only boundary around the official BWS CLI for SecretSpec."""
 import json
-import os
 import shutil
 import subprocess
 import sys

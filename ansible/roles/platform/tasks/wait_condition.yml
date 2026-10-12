@@ -13,4 +13,3 @@
       status: "{{ platform_wait_condition_status | default('True') }}"
     wait_sleep: "{{ platform_wait_delay | default(platform_wait_default_delay) }}"
     wait_timeout: "{{ (platform_wait_retries | default(platform_wait_default_retries) | int) * (platform_wait_delay | default(platform_wait_default_delay) | int) }}"
-  register: platform_wait_result
