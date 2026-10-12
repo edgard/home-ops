@@ -1,7 +1,6 @@
 ---
-- name: Reset Argo CD refresh targets
+- name: Record requested Argo CD application
   ansible.builtin.set_fact:
-    argocd_refresh_targets: []
     argocd_refresh_requested_app: "{{ app | default('') }}"
 
 - name: Read Argo CD applications
@@ -40,11 +39,12 @@
       - argocd_refresh_requested_application.resources | length == 1
     fail_msg: "Argo CD Application not found: {{ argocd_namespace }}/{{ argocd_refresh_requested_app }}"
 
-- name: Build Argo CD refresh patches
-  ansible.builtin.set_fact:
-    argocd_refresh_targets: "{{ argocd_refresh_targets | default([]) + [argocd_refresh_patch] }}"
-  vars:
-    argocd_refresh_patch:
+- name: Apply Argo CD refresh patches
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: patched
+    definition:
       apiVersion: argoproj.io/v1alpha1
       kind: Application
       metadata:
@@ -53,13 +53,5 @@
         annotations:
           argocd.argoproj.io/refresh: "{{ argocd_refresh_annotation }}"
   loop: "{{ argocd_refresh_target_names }}"
-
-- name: Apply Argo CD refresh patches
-  kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    state: patched
-    definition: "{{ item }}"
-  loop: "{{ argocd_refresh_targets }}"
   loop_control:
-    label: "{{ item.metadata.name }}"
+    label: "{{ item }}"

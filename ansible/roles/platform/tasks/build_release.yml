@@ -8,7 +8,7 @@
   ansible.builtin.set_fact:
     platform_bootstrap_release_specs: >-
       {{
-        platform_bootstrap_release_specs | default([])
+        platform_bootstrap_release_specs
         + [
           {
             'name': platform_release.name,
