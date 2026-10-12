@@ -1,0 +1,6 @@
+---
+- name: Validate Ansible task safety and role configuration policy
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - ansible_validation

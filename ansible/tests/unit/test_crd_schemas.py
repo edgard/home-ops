@@ -75,24 +75,12 @@ class ChartSchemaContracts(unittest.TestCase):
         self.assertEqual(exported['properties']['operator']['default'], '=')
 
     def test_route_parser_uses_safe_kubernetes_yaml_dialect(self):
-        tasks = (ROOT / 'ansible/roles/kubernetes_validation/tasks/check-uptime.yml').read_text()
-        self.assertIn('from_kubernetes_yaml_all', tasks)
         from kubernetes_yaml import from_kubernetes_yaml_all
         documents = from_kubernetes_yaml_all('kind: HTTPRoute\n---\ndefault: =\n')
         self.assertEqual(documents[0]['kind'], 'HTTPRoute')
         self.assertEqual(documents[1]['default'], '=')
         with self.assertRaises(Exception):
             from_kubernetes_yaml_all('!!python/object/apply:os.system ["false"]')
-
-    def test_rendering_precedes_schema_gate_and_includes_chart_crds(self):
-        tasks = yaml.safe_load((ROOT / 'ansible/roles/kubernetes_validation/tasks/main.yml').read_text())
-        block = next(task['block'] for task in tasks if 'block' in task)
-        names = [task['name'] for task in block]
-        self.assertLess(names.index('Render all declared Helm applications'), names.index('Validate raw manifest schemas'))
-        render = (ROOT / 'ansible/roles/kubernetes_validation/tasks/render-app.yml').read_text()
-        self.assertIn('--include-crds', render)
-        self.assertNotIn('-ignore-missing-schemas', str(block))
-
 
 if __name__ == '__main__':
     unittest.main()

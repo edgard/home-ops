@@ -1,7 +1,7 @@
 # Keep validation close to its contracts
 
 Purpose: record the current validation layout and its reason.
-Status: current. Reviewed against: `2fe88a7bb0b8bde1fc9857626c53bf17d5379295`.
+Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
 
 [PR #258](https://github.com/edgard/home-ops/pull/258) split CI into focused
 jobs with a required aggregate gate. [PR #409](https://github.com/edgard/home-ops/pull/409)
@@ -10,6 +10,14 @@ restore, route, and manifest checks in Ansible roles/tests and Conftest policy.
 Secret workflows also follow this layout: Task launches native SecretSpec,
 Ansible roles own orchestration, and focused adapters and unit fixtures remain
 under Ansible. The completed state-migration helper is retained only in Git history.
+Static repository rules now live in Rego, including role transaction structure,
+application configuration, SecretSpec ownership, Talos compatibility, and the
+validation workflow itself. Ansible validation roles normalize inputs and invoke
+policy; native Git/wiki/schema/deprecation lint and executable behavior fixtures
+remain separate. The [policy guide](../../../policy/README.md) records which
+layer owns each contract. Runtime assertions in operator roles still validate
+their live inputs and state.
+
 Local `task lint` runs the same focused checks. Keep new assertions with the
 source layer they protect, and check operational invariants instead of pinning
 test expectations to names or dependency versions without a behavioral reason.

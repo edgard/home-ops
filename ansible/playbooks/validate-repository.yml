@@ -1,0 +1,6 @@
+---
+- name: Validate repository configuration policy and credential artifact protection
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - repository_validation

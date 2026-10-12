@@ -1,0 +1,72 @@
+---
+- name: Find role task files
+  ansible.builtin.find:
+    paths: "{{ ansible_validation_role_root }}"
+    recurse: true
+    patterns: "*.yml"
+    file_type: file
+  register: ansible_validation_found
+
+- name: Load role task files
+  ansible.builtin.set_fact:
+    ansible_validation_documents: >-
+      {{ ansible_validation_documents | default({}) | combine({
+         item.path | relpath(ansible_validation_role_root):
+         lookup('ansible.builtin.file', item.path) | from_yaml
+      }) }}
+  loop: "{{ ansible_validation_found.files | selectattr('path', 'search', '/tasks/') | list }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Flatten nested tasks with inherited safeguards
+  ansible.builtin.set_fact:
+    ansible_validation_flat: >-
+      {{ ansible_validation_flat | default([]) +
+         (lookup('ansible.builtin.template', 'templates/flatten-tasks.j2').splitlines()
+          | reject('equalto', '') | map('from_json') | list) }}
+  vars:
+    validation_tasks: "{{ item.value }}"
+    validation_source: "{{ item.key }}"
+  loop: "{{ ansible_validation_documents | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Create role policy inventory
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: ansible-policy
+  register: ansible_validation_policy_dir
+
+- name: Check role policy
+  block:
+    - name: Write role policy inventory
+      ansible.builtin.copy:
+        dest: "{{ ansible_validation_policy_dir.path }}/roles.json"
+        content: "{{ {'kind': 'ansible-role-inventory', 'documents': ansible_validation_documents, 'flat': ansible_validation_flat} | to_json }}"
+        mode: "0600"
+
+    - name: Validate role safety policy
+      ansible.builtin.command:
+        argv:
+          - conftest
+          - test
+          - --no-color
+          - --policy
+          - "{{ ansible_validation_repo_root }}/policy/ansible"
+          - "{{ ansible_validation_policy_dir.path }}/roles.json"
+      changed_when: false
+
+    - name: Verify role policy regression tests
+      ansible.builtin.command:
+        argv:
+          - conftest
+          - verify
+          - --no-color
+          - --policy
+          - "{{ ansible_validation_repo_root }}/policy/ansible"
+      changed_when: false
+  always:
+    - name: Remove role policy inventory
+      ansible.builtin.file:
+        path: "{{ ansible_validation_policy_dir.path }}"
+        state: absent

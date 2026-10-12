@@ -42,8 +42,25 @@
       {%- set _ = raw_routes.append(path) -%}
     {%- endif -%}
   {%- endfor -%}
+  {%- set documents = [] -%}
+  {%- for path in kubernetes_validation_manifest_files -%}
+    {%- if path.startswith(app_dir ~ '/manifests/') -%}
+      {%- set _ = documents.extend(lookup('ansible.builtin.file', path) | from_kubernetes_yaml_all) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- set embedded = namespace(recyclarr={}) -%}
+  {%- if app_name == 'recyclarr' -%}
+    {%- for document in documents -%}
+      {%- if document.get('kind') == 'ConfigMap' and document.get('metadata', {}).get('name') == 'recyclarr-config' -%}
+        {%- set embedded.recyclarr = document.get('data', {}).get('recyclarr.yml', '') | regex_replace('!env_var[ ]+', '') | from_yaml -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
   {%- set app_record = {
     'path': app_dir,
+    'values': values,
+    'documents': documents,
+    'embedded_recyclarr': embedded.recyclarr,
     'category': category,
     'app_name': app_name,
     'generated_name': category ~ '-' ~ app_name,

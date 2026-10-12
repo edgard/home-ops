@@ -65,32 +65,6 @@ class GuardTests(unittest.TestCase):
                     self.guard.read_project(ARGS)
 
 
-class OperatorTests(unittest.TestCase):
-    def test_provider_projects_are_provisioned_and_distinct(self):
-        import tomllib
-        from urllib.parse import urlparse
-        from uuid import UUID
-        providers = tomllib.loads((ROOT / 'secretspec.toml').read_text())['providers']
-        projects = [UUID(urlparse(provider['uri']).netloc) for provider in providers.values()]
-        self.assertEqual(len(set(projects)), len(projects))
-        self.assertTrue(all(project.int for project in projects))
-
-    def test_manifest_has_explicit_required_read_only_scopes(self):
-        import tomllib
-        config = tomllib.loads((ROOT / 'secretspec.toml').read_text())
-        scopes = config['scopes']
-        self.assertEqual(scopes['cluster']['secrets'], ['TALOS_SECRETS_YAML', 'ESO_BWS_ACCESS_TOKEN'])
-        self.assertEqual(scopes['platform']['secrets'], ['ESO_BWS_ACCESS_TOKEN'])
-        for name, decl in config['profiles']['default'].items():
-            self.assertTrue(decl['required'])
-            self.assertEqual(len(decl['providers']), 1)
-            self.assertIn('item', decl['ref'])
-            self.assertNotIn('as_path', decl)
-        for provider in config['providers'].values():
-            self.assertEqual(provider['credentials'], {'access_token': 'keyring'})
-            self.assertNotIn('cache', provider)
-
-
 class PinnedIntegration(unittest.TestCase):
     def test_real_secretspec_scope_and_multiline_preservation(self):
         import shutil

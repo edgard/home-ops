@@ -1,17 +1,36 @@
 # Validation and PR gate
 
 Purpose: distinguish local checks, repository policy, and deployment evidence.
-Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
+Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
 
-`task lint` aggregates formatting, static analysis, wiki, workflow, Ansible,
-Kubernetes, and Terraform validation. Source, metadata, raw manifest, and
-rendered workload policy check repository contracts; Ansible tests exercise
-role behavior and fixtures. The Ansible gate runs native role contracts and disposable setup, preflight,
-bootstrap, and token rollback fixtures. Focused Python tests under `ansible/tests/unit`
-cover the provider adapter, pure readiness/schema predicates, isolated Talos
-generation, and pinned SecretSpec integration. CI has no
-cloud credentials; these tests do not prove a fresh-cluster bootstrap. CI runs focused targets as separate pull-request
-jobs and collects their results in `Quality Gate`.
+`task lint` aggregates formatting, static analysis, wiki, workflow, repository,
+Ansible, Kubernetes, and Terraform validation. Policies own assertions about
+committed configuration; behavior tests exercise the adapters, roles, and native
+commands that consume it. The [policy guide](../../../policy/README.md) defines
+these boundaries and the input layer for each policy tree.
+
+`task lint:repository` checks Task interfaces, SecretSpec ownership and scopes,
+infrastructure inputs, Talos compatibility, and validation wiring through the
+repository validation role. Git supplies native tracked/ignored credential
+artifact checks. `task lint:ansible` runs Ansible lint, the static role policy
+runner, and disposable setup, cleanup, preflight, bootstrap, restore, and token
+rollback fixtures. Static role policy identifies operations by their modules and
+resource identities; harmless task additions and renaming must remain valid.
+
+`task lint:kubernetes` runs metadata and source policies, including cross-file
+application configuration, then raw/rendered resource policy, schema, deprecation,
+and aggregate route-coverage checks. Parsing and inventory construction stay in
+validation roles; compatibility, safety, and content decisions stay in policy.
+Native wiki, Git, schema, and deprecation tools retain their own lint semantics.
+
+Python tests under `ansible/tests/unit` include provider/parser units and isolated
+integration fixtures for inventory construction, policy invocation, Talos
+commands, OpenTofu sensitivity, and pinned SecretSpec. Policy regression cases
+live beside their rules in `*_test.rego`. Runtime assertions in operator roles
+still validate live inputs and state; offline policy cannot replace them. CI has
+no cloud credentials, so these fixtures do not prove a fresh-cluster bootstrap.
+The Ansible CI job runs repository, role, behavior, and wiki validation; the other
+focused jobs join it in `Quality Gate`.
 
 Kubernetes schema validation renders the pinned charts with their CRDs first.
 Served schemas from both tracked CRDs and those charts take precedence over the
@@ -51,7 +70,9 @@ targeted runtime checks.
 - [Kubernetes validation playbook](../../../ansible/playbooks/validate-kubernetes.yml)
 - [Wiki validation playbook](../../../ansible/playbooks/validate-wiki.yml)
 - [Policy tree](../../../policy)
-- [Role contracts](../../../ansible/tests/role-contracts.yml)
+- [Role policy runner](../../../ansible/playbooks/validate-ansible.yml)
+- [Repository policy runner](../../../ansible/playbooks/validate-repository.yml)
+- [Policy boundary guide](../../../policy/README.md)
 - [Operator behavior fixtures](../../../ansible/tests/unit/test_operator_patterns.py)
 
 ## Related pages

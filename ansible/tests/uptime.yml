@@ -63,6 +63,15 @@
             kubernetes_validation_rendered_root: "{{ uptime_fixture.path }}/rendered"
             kubernetes_validation_apps_root: "{{ uptime_fixture.path }}/apps"
 
+        - name: Inspect accepted route inventory cleanup
+          ansible.builtin.stat:
+            path: "{{ kubernetes_validation_route_inventory.path }}"
+          register: uptime_accepted_inventory
+
+        - name: Verify accepted inventory was removed
+          ansible.builtin.assert:
+            that: not uptime_accepted_inventory.stat.exists
+
         - name: Write uncovered Gatus fixture
           ansible.builtin.copy:
             dest: "{{ uptime_fixture.path }}/apps/platform-system/gatus/values.yaml"
@@ -126,6 +135,14 @@
         - name: Assert duplicate target was rejected
           ansible.builtin.assert:
             that: uptime_duplicate_rejected | default(false)
+        - name: Inspect rejected route inventory cleanup
+          ansible.builtin.stat:
+            path: "{{ kubernetes_validation_route_inventory.path }}"
+          register: uptime_rejected_inventory
+
+        - name: Verify rejected inventory was removed
+          ansible.builtin.assert:
+            that: not uptime_rejected_inventory.stat.exists
       always:
         - name: Remove route fixture
           ansible.builtin.file:

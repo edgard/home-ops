@@ -1,0 +1,13 @@
+{%- macro flatten(tasks, protected=false, guards=[], failure_masked=false) -%}
+{%- for task in tasks -%}
+{%- set effective_protection = task.get('no_log', protected) -%}
+{%- set effective_guards = guards + ([task.when] if task.when is defined else []) -%}
+{%- set effective_masking = failure_masked or task.get('ignore_errors', false) or task.failed_when is defined -%}
+{{- {'source': validation_source, 'task': task, 'protected': effective_protection, 'guards': effective_guards, 'failure_masked': effective_masking} | to_json -}}
+{{- '\n' -}}
+{%- for branch in ['block', 'rescue', 'always'] -%}
+{{- flatten(task.get(branch, []), effective_protection, effective_guards, effective_masking) -}}
+{%- endfor -%}
+{%- endfor -%}
+{%- endmacro -%}
+{{- flatten(validation_tasks) -}}

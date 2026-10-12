@@ -162,6 +162,7 @@ tasks:
       - task: lint:static
       - task: lint:wiki
       - task: lint:workflows
+      - task: lint:repository
       - task: lint:ansible
       - task: lint:kubernetes
       - task: lint:terraform
@@ -186,13 +187,22 @@ tasks:
     cmds:
       - find .github/workflows -maxdepth 1 \( -name "*.yml" -o -name "*.yaml" \) -print0 | xargs -0 actionlint
 
+  lint:repository:
+    desc: Check repository configuration policy and credential artifact protection
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/validate-repository.yml'
+
   lint:ansible:
-    desc: Run Ansible lint, contract, and integration checks
+    desc: Run Ansible lint, role policy, and behavior fixtures
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
     cmds:
       - '"{{.ANSIBLE_LINT}}" ansible'
+      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/validate-ansible.yml'
       - for test in ansible/tests/*.yml; do "{{.ANSIBLE_PLAYBOOK}}" "$test"; done
 
   lint:kubernetes:
