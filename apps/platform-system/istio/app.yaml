@@ -1,6 +1,6 @@
 ---
 chart:
-  repo: oci://gcr.io/istio-release/charts/istiod
+  repo: oci://ghcr.io/istio/release/charts/istiod
   path: "."
   version: 1.30.5
 sync:

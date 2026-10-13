@@ -1,5 +1,6 @@
 ---
 global:
+  hub: docker.io/istio
   istioNamespace: platform-system
   configRootNamespace: platform-system
   proxy:
