@@ -160,7 +160,6 @@ tasks:
     cmds:
       - task: fmt:check
       - task: lint:static
-      - task: lint:wiki
       - task: lint:workflows
       - task: lint:ansible:static
       - task: lint:terraform
@@ -178,7 +177,7 @@ tasks:
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/validate-wiki.yml'
+      - '"{{.VENV_PYTHON}}" -m pytest tests/config/wiki'
 
   lint:workflows:
     desc: Validate GitHub Actions workflows

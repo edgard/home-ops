@@ -72,7 +72,10 @@ def run_role(
     tasks = [
         {
             "name": "Load shared operator filters",
-            "ansible.builtin.import_role": {"name": "operator_secrets", "tasks_from": "validate"},
+            "ansible.builtin.import_role": {
+                "name": "operator_secrets",
+                "tasks_from": "validate",
+            },
             "when": False,
         },
         {
@@ -106,10 +109,15 @@ def run_role(
         )
     )
     args = [str(PLAYBOOK), str(play), *(["--check"] if check else [])]
+    return run_command(args, cwd=ROOT, env=environment(directory, env), timeout=timeout)
+
+
+def run_command(args, *, cwd=None, env=None, timeout=90, check=False):
+    """Bound execution and terminate the entire tool process group on interruption."""
     process = subprocess.Popen(
         args,
-        cwd=ROOT,
-        env=environment(directory, env),
+        cwd=cwd,
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -117,7 +125,10 @@ def run_role(
     )
     try:
         stdout, stderr = process.communicate(timeout=timeout)
-        return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
+        result = subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
+        if check:
+            result.check_returncode()
+        return result
     except BaseException:
         try:
             os.killpg(process.pid, signal.SIGKILL)

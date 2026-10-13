@@ -1,9 +1,9 @@
 # Validation and PR gate
 
 Purpose: distinguish native validation, repository assertions, and deployment evidence.
-Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
+Status: current. Reviewed against: `df530ab8f6edc603500f39fb634d6c404b64c636`.
 
-`task lint` runs formatting, YAML/workflow/wiki checks, production-profile Ansible
+`task lint` runs formatting, YAML/workflow checks, production-profile Ansible
 lint, backendless OpenTofu validation, then the complete pytest suite once.
 The [test guide](../../../tests/README.md) describes ownership and prerequisites.
 CI runs disjoint focused subsets in its Ansible and Kubernetes jobs, alongside
@@ -15,6 +15,9 @@ ownership/scopes, compatibility bounds, credential artifacts, raw/rendered
 resource guardrails, and route coverage. Native tools retain syntax, lint,
 schema, and deprecation semantics. Conftest/Rego, normalized policy inventories,
 static task-operation catalogs, and nested Ansible test runners are retired.
+
+Wiki checks use plain pytest for links, page structure, index reachability, and
+app-page coverage. Ansible contains only operator orchestration and runtime guards.
 
 Unit tests exercise safe provider/material parsers and schema export. Integration
 tests invoke real Ansible entry points and Task commands with synthetic inputs,
@@ -31,8 +34,8 @@ contract. Roles contain no test-only execution branches. Runtime assertions
 continue to protect operator inputs and live state.
 
 The rendering fixture validates sources first and owns an empty private output
-directory. The Kubernetes role renders pinned charts with CRDs, exports served
-schemas, and runs kubeconform/Pluto. It retains per-run caching and isolated Helm
+directory. An ordinary test helper renders pinned charts with CRDs, exports served
+schemas, and invokes kubeconform/Pluto directly. It retains per-run caching and isolated Helm
 paths, writes `rendered/<category>/<app>.yaml`, and leaves cleanup to its caller.
 Rendered tests share one pipeline invocation; source/unit tests need no rendering.
 
@@ -53,9 +56,9 @@ are not evidence that a synced application functions in the running cluster.
 - [Test guide](../../../tests/README.md)
 - [Configuration assertions](../../../tests/config)
 - [Integration scenarios](../../../tests/integration)
-- [CRD schema exporter](../../../ansible/roles/kubernetes_validation/files/export_schemas.py)
-- [Kubernetes validation role](../../../ansible/roles/kubernetes_validation/tasks/main.yml)
-- [Wiki validation playbook](../../../ansible/playbooks/validate-wiki.yml)
+- [CRD schema exporter](../../../tests/support/schemas.py)
+- [Native Kubernetes pipeline](../../../tests/support/kubernetes.py)
+- [Wiki checks](../../../tests/config/wiki/test_wiki.py)
 
 ## Related pages
 

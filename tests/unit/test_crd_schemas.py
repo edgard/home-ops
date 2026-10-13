@@ -7,8 +7,10 @@ import yaml
 
 
 @pytest.fixture
-def schemas(module_loader):
-    return module_loader("kubernetes_validation/files/export_schemas.py")
+def schemas():
+    from tests.support import schemas
+
+    return schemas
 
 
 @pytest.fixture
@@ -101,7 +103,8 @@ def test_nullable_int_or_string_and_preserved_fields(schemas):
 
 
 @pytest.mark.parametrize(
-    "schema", [None, {}, {"type": "object", "properties": {"broken": False}}, {"type": "nonsense"}]
+    "schema",
+    [None, {}, {"type": "object", "properties": {"broken": False}}, {"type": "nonsense"}],
 )
 def test_missing_or_malformed_served_schema(schemas, crd, tmp_path, schema):
     if schema is None:
@@ -131,8 +134,8 @@ def test_chart_label_selector_default(schemas, crd, tmp_path):
     source.write_text(yaml.safe_dump(crd).replace("default: '='", "default: ="))
     schemas.export(tmp_path / "schemas", [source])
     assert (
-        json.loads((tmp_path / "schemas/example.org/fixture_v1.json").read_text())["properties"][
-            "operator"
-        ]["default"]
+        json.loads((tmp_path / "schemas/example.org/fixture_v1.json").read_text())[
+            "properties"
+        ]["operator"]["default"]
         == "="
     )

@@ -1,6 +1,6 @@
 import pytest
 
-from tests.support.runtime import run_role
+from tests.support.wiki import wiki_errors
 
 PAGE = """# Demo
 
@@ -29,9 +29,16 @@ INDEX = "# Index\n\n- [Demo](apps/media/demo.md)\n- [Rules](AGENTS.md)\n- [Sourc
         ("revision", "missing status or reviewed commit"),
         ("missing", "missing app page"),
         ("extra", "app page without app metadata"),
+        ("purpose", "missing purpose"),
+        ("related", "missing related pages"),
+        ("root-link", "broken local link"),
+        ("escape", "broken local link"),
+        ("symlink", "broken local link"),
+        ("no-index", "missing wiki index"),
+        ("encoded-link", ""),
     ],
 )
-def test_wiki_role_contracts(tmp_path, scenario, reason):
+def test_wiki_contracts(tmp_path, scenario, reason):
     root = tmp_path / "repository with spaces"
     sources = {
         "README.md": "# Demo\n[Wiki](docs/wiki/index.md)\n",
@@ -67,7 +74,31 @@ def test_wiki_role_contracts(tmp_path, scenario, reason):
         page.unlink()
     if scenario == "extra":
         page.with_name("unused.md").write_text(PAGE)
-    result = run_role(tmp_path, "wiki_validation", "main", {"wiki_validation_root": str(root)})
-    assert (result.returncode == 0) == (scenario == "valid"), result.stdout + result.stderr
+    if scenario == "purpose":
+        page.write_text(PAGE.replace("Purpose: example.", ""))
+    if scenario == "related":
+        page.write_text(PAGE.replace("## Related pages", ""))
+    if scenario == "root-link":
+        (root / "README.md").write_text("[Missing](missing.md)")
+    if scenario in {"escape", "symlink"}:
+        outside = tmp_path / "outside.md"
+        outside.write_text("# External")
+        target = "../outside.md"
+        if scenario == "symlink":
+            (root / "escape.md").symlink_to(outside)
+            target = "escape.md"
+        (root / "README.md").write_text(f"[Escaped]({target})")
+    if scenario == "no-index":
+        index.unlink()
+    if scenario == "encoded-link":
+        (root / "README.md").write_text(
+            "[Wiki](docs/%77iki/index.md?query=yes#anchor)\n[Web](https://example.invalid)\n[Anchor](#local)\n![Image](absent.png)"
+        )
+    errors = wiki_errors(root)
+    assert bool(errors) == (scenario not in {"valid", "encoded-link"}), errors
     if reason:
-        assert reason in result.stdout + result.stderr
+        assert any(reason in error for error in errors), errors
+
+
+def test_repository_wiki(repo_root):
+    assert not (errors := wiki_errors(repo_root)), "\n".join(errors)
