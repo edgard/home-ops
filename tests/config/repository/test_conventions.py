@@ -4,10 +4,38 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from packaging.specifiers import SpecifierSet
 
 from tests.support.configuration import walk, terraform_sources
 from tests.support.runtime import ROOT
 from tests.support.sources import read_yaml, read_json5
+
+
+def test_ci_python_matches_supported_operator_runtime():
+    toolchain = read_yaml(ROOT / ".github/actions/setup-toolchain/action.yml")
+    python_steps = [
+        step
+        for step in toolchain["runs"]["steps"]
+        if step.get("uses", "").startswith("actions/setup-python@")
+    ]
+    assert len(python_steps) == 1
+    version = python_steps[0]["with"]["python-version"]
+    default = read_yaml(ROOT / "Taskfile.yaml")["vars"]["PYTHON_BIN"]
+    assert f'"python{version}"' in default, "CI must install Task's default interpreter"
+    rules = [
+        rule
+        for rule in read_json5(ROOT / ".renovaterc.json5")["packageRules"]
+        if "github-actions" in rule.get("matchManagers", [])
+        and "python" in rule.get("matchDepNames", [])
+        and "allowedVersions" in rule
+    ]
+    assert rules, "Renovate must preserve Ansible's supported Python range"
+    # Ansible core 2.21 supports control-node Python through 3.14.
+    for rule in rules:
+        supported = SpecifierSet(rule["allowedVersions"])
+        assert version in supported, "CI Python must stay within Ansible's supported range"
+        assert "3.14" in supported
+        assert "3.15" not in supported
 
 
 def test_native_kubernetes_module_convention():
