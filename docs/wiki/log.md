@@ -3,6 +3,17 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-13] revision | Migrate Istio chart hosting
+
+The dependency PR review reproduced Istio chart-download failures during the
+upstream GCP hosting retirement test. Moved both chart sources to Istio's official
+GHCR replacement while retaining their versions. Set the image hub to the
+official Docker Hub source for control-plane and Gateway proxy images, and added
+a rendered contract that failed against the old hub. Updated both Istio
+app pages with the upstream migration evidence and checked the networking and
+validation explanations. Existing rendered pytest checks reproduced the failure
+before the source change. October's semantic review is already recorded below.
+
 ## [2026-10-12] revision | Unify validation under pytest and native tools
 
 Replaced Conftest/Rego, configuration inventories, static operation catalogs,

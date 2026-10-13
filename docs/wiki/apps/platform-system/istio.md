@@ -1,7 +1,7 @@
 # Istio
 
 Purpose: Istio provides the Gateway controller and shared HTTPS listener.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `74d60b4e0a7607351ba07234d24cd435cfd45f54`.
 
 ## Dependencies
 
@@ -18,6 +18,13 @@ No routed HTTP endpoint is declared in this app values file; inspect raw manifes
 ## Operational note
 
 A healthy control plane does not prove that every HTTPRoute works from clients.
+
+The chart uses Istio's official GHCR release repository. Istio is retiring its
+GCP artifact hosting; the [upstream migration notice](https://istio.io/latest/blog/2026/retirement-of-gcp/)
+documents the replacement and temporary access-disable tests. The values also
+set the image hub to Docker Hub, covering the control plane and generated Gateway
+proxy configuration. Keep chart and image sources on the maintained registries
+when changing versions.
 
 ## Sources
 

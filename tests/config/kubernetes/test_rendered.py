@@ -16,6 +16,26 @@ def test_rendered_resources(rendered):
             ) from error
 
 
+def test_istio_uses_maintained_image_registry(rendered):
+    pilots = [
+        container
+        for doc in rendered
+        if doc.get("kind") == "Deployment"
+        and doc.get("metadata", {}).get("labels", {}).get("app") == "istiod"
+        for container in doc["spec"]["template"]["spec"]["containers"]
+    ]
+    assert pilots, "Istio control-plane image must be rendered"
+    assert all(container["image"].startswith("docker.io/istio/") for container in pilots)
+    injectors = [
+        yaml.safe_load(doc["data"]["values"])
+        for doc in rendered
+        if doc.get("kind") == "ConfigMap"
+        and doc["metadata"]["name"] == "istio-sidecar-injector"
+    ]
+    assert len(injectors) == 1
+    assert injectors[0]["global"]["hub"] == "docker.io/istio"
+
+
 def test_route_coverage(repo_root, rendered):
     raw = [
         doc
