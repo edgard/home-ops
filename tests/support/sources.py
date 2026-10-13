@@ -7,11 +7,14 @@ import tomllib
 import json5
 import yaml
 
-from tests.support.runtime import load_module
 
-KubernetesLoader = load_module(
-    "kubernetes_validation/filter_plugins/kubernetes_yaml.py"
-).KubernetesLoader
+class KubernetesLoader(yaml.SafeLoader):
+    """Safe Kubernetes YAML, including an unquoted '=' chart scalar."""
+
+
+KubernetesLoader.add_constructor(
+    "tag:yaml.org,2002:value", KubernetesLoader.construct_scalar
+)
 
 
 def read_yaml(path, multiple=False):
@@ -22,7 +25,9 @@ def read_yaml(path, multiple=False):
         raise ValueError(f"invalid YAML: {path}") from None
     if multiple:
         return [document for document in documents if document is not None]
-    assert len(documents) == 1 and documents[0] is not None, f"empty or multiple documents: {path}"
+    assert (
+        len(documents) == 1 and documents[0] is not None
+    ), f"empty or multiple documents: {path}"
     return documents[0]
 
 

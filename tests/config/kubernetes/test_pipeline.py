@@ -1,6 +1,6 @@
 import pytest
 
-from tests.support.runtime import run_role
+from tests.support.kubernetes import render_validate
 
 
 @pytest.mark.parametrize("invalid", ["missing", "nonempty", "public", "symlink"])
@@ -16,10 +16,7 @@ def test_pipeline_rejects_unsafe_output_workspace(tmp_path, invalid):
         link = tmp_path / "link"
         link.symlink_to(output, target_is_directory=True)
         output = link
-    result = run_role(
-        tmp_path, "kubernetes_validation", "main", {"kubernetes_validation_output_dir": str(output)}
-    )
-    assert result.returncode != 0
-    assert "empty private directory without symlinks" in result.stdout + result.stderr
+    with pytest.raises(ValueError, match="empty private directory without symlinks"):
+        render_validate(tmp_path, output)
     if invalid == "nonempty":
         assert (output / "keep").read_text() == "preserve"

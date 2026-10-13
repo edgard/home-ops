@@ -13,16 +13,3 @@ bumps need no wiki edit when the explanation remains accurate. Follow the
 Starting the month after the initial wiki migration, the first substantive PR
 each calendar month also performs a semantic wiki review if
 [the log](docs/wiki/log.md) has no review entry for that month.
-
-- Keep operator orchestration in Ansible playbooks and roles. Use role-owned
-  adapters or plugins for focused functionality; do not add a top-level scripts
-  workflow.
-- Configuration and policy are the source of truth; verify wiki claims against
-  the current files and, when relevant, the running system.
-- For behavior changes, write or update a failing pytest contract check first.
-- Run `task fmt` and `task lint` before committing or updating a PR.
-- Argo CD sync follows a committed and pushed GitOps change; do not sync local
-  uncommitted configuration.
-- Maintain values in Bitwarden, resolve operator inputs through scoped SecretSpec,
-  and keep the operator machine token in Keychain. Keep only nonsecret settings
-  in the ignored operator environment. Never copy secrets into the wiki.

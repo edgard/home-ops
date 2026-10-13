@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
+Status: current. Reviewed against: `df530ab8f6edc603500f39fb634d6c404b64c636`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -14,10 +14,10 @@ Gatus • Helm • Ansible • Terraform
 - Format check: `task fmt:check`
 - Dependencies: `task deps` uses Python 3.14 by default (`PYTHON_BIN` override) and installs pinned Python dependencies and Ansible collections in `.venv`
 - Tests: `task test` runs all pytest configuration, unit, and isolated integration cases
-- Lint: `task lint` runs native format/YAML/workflow/wiki/Ansible/OpenTofu checks, then the full pytest suite once
+- Lint: `task lint` runs native format/YAML/workflow/Ansible/OpenTofu checks, then the full pytest suite once
 - Focused checks: `task lint:static`, `task lint:wiki`, `task lint:workflows`, `task lint:repository`, `task lint:ansible`, `task lint:ansible:static`, `task lint:kubernetes`, `task lint:terraform`
 - Local prerequisites include Node 24 or newer, OpenTofu, pinned SecretSpec, and native Kubernetes CLIs; see the [test guide](../../tests/README.md)
-- Wiki check: `task lint:wiki` runs the Ansible contract for links, sources, index reachability, and app-page coverage
+- Wiki check: `task lint:wiki` runs pytest checks for links, sources, index reachability, and app-page coverage
 - pytest configuration assertions live in `tests/config`, adapter units in `tests/unit`, and real role/Task scenarios in `tests/integration`
 - Native validators retain syntax, schema, and deprecation checks; pytest reads original sources and owns executable test discovery
 - CI runs the same disjoint focused pytest subsets and requires the combined `Quality Gate`
@@ -128,8 +128,8 @@ Store: `external-secrets-store`
   - The [test guide](../../tests/README.md) describes fixtures and when to add a check
 - `sync.wave` is required in every `apps/*/*/app.yaml` and stays within `-4` to `0`
 - Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
-- The internal Kubernetes validation playbook accepts an existing empty/private/nonsymlink `kubernetes_validation_output_dir`; its caller owns cleanup
-- The `kubernetes_validation` role caches chart pulls, renders CRDs, exports served schemas, and runs kubeconform/Pluto. pytest owns source/resource/route assertions and the isolated output directory
+- pytest owns the empty/private/nonsymlink Kubernetes output directory and cleanup
+- A test helper invokes Helm, kubeconform, and Pluto directly, caches chart pulls per run, renders CRDs, and exports served schemas before validation. Offline wiki and Kubernetes checks have no Ansible roles or playbooks
 - Ansible roles:
   - Keep operator orchestration in playbooks and roles. Task may launch native
     CLIs such as SecretSpec; role-owned adapters/plugins handle focused gaps.
