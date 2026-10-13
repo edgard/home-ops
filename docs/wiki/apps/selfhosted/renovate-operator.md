@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
+Status: current. Reviewed against: `74d60b4e0a7607351ba07234d24cd435cfd45f54`.
 
 ## Dependencies
 
@@ -38,9 +38,17 @@ The OpenTofu `required_version` constraint is manually managed. Renovate exclude
 the Terraform CLI dependency from both `.terraform-version` files and Terraform
 configuration, while provider dependencies and the CI OpenTofu tool remain managed.
 
+CI Python updates remain within the pinned Ansible core release's supported
+control-node runtime range. Keep the toolchain's interpreter aligned with the
+Taskfile default, and review the Python limit when upgrading Ansible core.
+The [Ansible support matrix](https://docs.ansible.com/projects/ansible-core/devel/reference_appendices/release_and_maintenance.html#ansible-core-support-matrix)
+defines the upstream compatibility boundary.
+
 ## Sources
 
 - [Repository Renovate configuration](../../../../.renovaterc.json5)
+- [CI toolchain](../../../../.github/actions/setup-toolchain/action.yml)
+- [Taskfile interpreter default](../../../../Taskfile.yaml)
 - [Operator tool defaults](../../../../ansible/roles/operator_secrets/defaults/main.yml)
 - [App metadata](../../../../apps/selfhosted/renovate-operator/app.yaml)
 - [Helm values](../../../../apps/selfhosted/renovate-operator/values.yaml)

@@ -139,6 +139,15 @@
 
   // === Package Rules ===
   packageRules: [
+    // Ansible core 2.21 supports control-node Python through 3.14.
+    // https://docs.ansible.com/projects/ansible-core/devel/reference_appendices/release_and_maintenance.html#ansible-core-support-matrix
+    {
+      description: "Keep CI Python within the supported Ansible runtime range",
+      matchManagers: ["github-actions"],
+      matchDepNames: ["python"],
+      allowedVersions: "<3.15",
+    },
+
     // The shared SDK repository publishes Rust, Python, and .NET releases too.
     {
       description: "Use only BWS CLI releases from the Bitwarden SDK repository",
