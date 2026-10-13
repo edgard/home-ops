@@ -134,3 +134,11 @@ formatter/linter exceptions, and retained-Vault contract. Added regression check
 that reject active legacy maintenance and protect credential backups. Updated
 contributor guidance, README, architecture, and maintenance/recovery instructions;
 preserved the migration procedure and historical decision with immutable links.
+
+## 2026-10-13 — Offline validation owned by pytest
+
+Removed the remaining wiki and Kubernetes validation roles/playbooks. pytest
+checks wiki sources directly and invokes Helm, served-schema export, kubeconform,
+and Pluto in its own temporary workspace. Updated the validation architecture,
+decision, contributor workflow, and test guide; operator runtime guards remain
+in Ansible. Reviewed against `df530ab8f6edc603500f39fb634d6c404b64c636`.

@@ -8,11 +8,12 @@ JSON5, and tracked HCL sources. There is no normalized policy inventory.
 | Command | Responsibility |
 | --- | --- |
 | `task test` | All configuration, unit, and integration cases |
+| `task lint:wiki` | Wiki links, page structure, index reachability, and app-page coverage |
 | `task lint:repository` | SecretSpec scopes/ownership, compatibility, Task interfaces, native Git artifact checks |
 | `task lint:ansible` | Production-profile ansible-lint, then unit and integration cases |
 | `task lint:ansible:static` | Production-profile ansible-lint only |
 | `task lint:kubernetes` | Source/raw/rendered assertions plus native Helm, kubeconform, and Pluto pipeline |
-| `task lint` | Format/static/wiki/workflow/Ansible/OpenTofu checks, then all pytest cases once |
+| `task lint` | Format/static/workflow/Ansible/OpenTofu checks, then all pytest cases once |
 
 Run `task deps` first. Local prerequisites include Python 3.14, Node 24 or newer,
 OpenTofu, pinned SecretSpec (`task secrets:setup`), and the existing native lint
@@ -20,19 +21,19 @@ and Kubernetes CLIs. CI installs these in the corresponding toolchain profiles.
 Ansible's focused subset requires no real Helm/kubeconform/Pluto installation.
 Missing dependencies fail the checks; required cases never silently skip.
 
-`config/repository` and `config/kubernetes` assert relationships and explicit
+`config/wiki` checks documentation sources and links. `config/repository` and
+`config/kubernetes` assert relationships and explicit
 safety limits. `unit` tests focused runtime adapters. `integration` runs real role
 entry points and Task commands with synthetic inputs. Test helpers live in
 `support`; disposable playbooks only invoke roles and export observed facts.
 `conftest.py` is pytest's ordinary fixture filename, unrelated to the retired
 Conftest CLI.
 
-The Kubernetes fixture checks sources before invoking the native validation
-role. It owns an empty, private, nonsymlink output directory, shares the result
-only with rendered tests, and removes it after success or failure. Ansible
+The Kubernetes fixture checks sources before invoking Helm, kubeconform, and
+Pluto directly through an ordinary test helper. It owns an empty, private, nonsymlink output directory, shares the result
+only with rendered tests, and removes it after success or failure. The helper
 renders `rendered/<category>/<app>.yaml`, exports served CRD schemas, and runs
-schema/deprecation checks. It never discovers or launches tests and never
-removes the caller's directory. Chart caching and Helm paths are isolated per
+schema/deprecation checks. The fixture owns cleanup; native tool failures propagate to pytest. Chart caching and Helm paths are isolated per
 run; local served schemas take precedence over default/catalog schemas.
 
 Ansible tests use temporary HOME/config paths, sanitized environments, bounded
