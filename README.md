@@ -39,13 +39,6 @@ task secrets:check scope=cluster
 task secrets:check scope=terraform
 ```
 
-Use the existing read-only Bitwarden machine account for both projects as
-specified in the [secrets maintenance and recovery runbook](docs/wiki/operations/secrets-maintenance.md).
-The project UUIDs are configured in `secretspec.toml`. Maintain values in Bitwarden's UI. ESO delivers app
-secrets; scoped SecretSpec commands deliver Talos and Terraform inputs.
-Keep only nonsecret settings in ignored `.envrc`. Recovery uses the existing
-Talos identity and infrastructure values in Bitwarden.
-
 ### Bootstrap Cluster
 
 ```bash
@@ -100,8 +93,6 @@ task tf:apply                        # Apply Terraform changes with OpenTofu
 task tf:clean                        # Remove local Terraform cache and plan files
 ```
 
-Taskfile is the operator interface; Ansible remains the orchestration implementation underneath.
-
 ## Repository Layout
 
 ```
@@ -131,9 +122,3 @@ Changes go through pull requests only.
 Start with the [knowledge wiki](docs/wiki/index.md) for system relationships and
 decision history. The [Restic restore runbook](docs/wiki/operations/restic-backup-restore.md)
 covers recovery. Agent and contributor guidance starts in [AGENTS.md](AGENTS.md).
-
-Validation gates protect operational behavior and relationships. Dependency versions
-belong in their source manifests rather than duplicate test assertions. Safety checks
-inspect parsed Ansible tasks and compare Gatus HTTP targets with rendered
-HTTPRoutes. Task names, comments, and equivalent configuration spellings may
-change freely.
