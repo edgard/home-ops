@@ -66,7 +66,6 @@ The app pages describe dependencies and unusual behavior. Read the linked
 - [CrossWatch](apps/media/crosswatch.md)
 - [FlareSolverr](apps/media/flaresolverr.md)
 - [Jellyfin](apps/media/jellyfin.md)
-- [MeTube](apps/media/metube.md)
 - [Prowlarr](apps/media/prowlarr.md)
 - [qBittorrent](apps/media/qbittorrent.md)
 - [Radarr](apps/media/radarr.md)
@@ -91,7 +90,6 @@ The app pages describe dependencies and unusual behavior. Read the linked
 
 - [Atuin](apps/selfhosted/atuin.md)
 - [Bambuddy](apps/selfhosted/bambuddy.md)
-- [BentoPDF](apps/selfhosted/bentopdf.md)
 - [Changedetection](apps/selfhosted/changedetection.md)
 - [Echo](apps/selfhosted/echo.md)
 - [Karakeep](apps/selfhosted/karakeep.md)

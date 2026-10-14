@@ -103,15 +103,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-    - name: metube
-      group: apps
-      url: https://metube.edgard.org
-      interval: 1m
-      conditions:
-        - "[STATUS] >= 200"
-        - "[STATUS] < 300"
-      alerts:
-        - type: telegram
     - name: prowlarr
       group: apps
       url: https://prowlarr.edgard.org
@@ -160,15 +151,6 @@ config:
     - name: bambuddy
       group: apps
       url: https://bambuddy.edgard.org
-      interval: 1m
-      conditions:
-        - "[STATUS] >= 200"
-        - "[STATUS] < 300"
-      alerts:
-        - type: telegram
-    - name: bentopdf
-      group: apps
-      url: https://bentopdf.edgard.org
       interval: 1m
       conditions:
         - "[STATUS] >= 200"
