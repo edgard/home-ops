@@ -21,5 +21,4 @@ motivated the edit.
 ## Related pages
 
 - [Storage](../architecture/storage.md)
-- [MeTube](../apps/media/metube.md)
 - [Unpackerr](../apps/media/unpackerr.md)

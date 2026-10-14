@@ -3,6 +3,16 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-14] revision | Retire BentoPDF and MeTube
+
+Removed both app definitions and their explicit Gatus targets, app pages, and
+catalog links. Kept the shared-media ownership decision and its historical PR
+evidence; its rule still applies to the remaining consumers. Reviewed GitOps
+delivery, storage, and uptime explanations against their current sources.
+ApplicationSet deletion cascades to app-owned resources; the NFS appdata class
+retains MeTube's underlying state volume, while downloaded files remain on the
+shared media claim. October's semantic review is already recorded below.
+
 ## [2026-10-13] revision | Migrate Istio chart hosting
 
 The dependency PR review reproduced Istio chart-download failures during the
