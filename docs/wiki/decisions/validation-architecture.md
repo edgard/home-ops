@@ -1,7 +1,7 @@
 # Native validators and one pytest suite
 
 Purpose: record validation ownership and the simplification decision.
-Status: current. Reviewed against: `df530ab8f6edc603500f39fb634d6c404b64c636`.
+Status: current. Reviewed against: `a317487d244c466f9191cf708bdd3d9a7c2eb40b`.
 
 The earlier validation refactors retired top-level scripts and separated
 configuration assertions from executable behavior. Their inventories, Rego rules,
@@ -30,12 +30,22 @@ validation roles and playbooks have been removed. Served CRD
 schemas remain authoritative; strict validation and catalog fallback retain their
 previous behavior. Local and CI commands cover the same disjoint pytest subsets.
 
+Global pytest defaults parallelize every case with a bounded worker count and
+the standard work-stealing scheduler. Fixtures own mutable-resource isolation;
+there are no test eligibility lists or scheduling markers. The rendering fixture
+uses a file lock and atomically published per-run snapshot so session fixtures
+do not repeat chart downloads in different workers. Consumers load independent
+objects, and failed or interrupted initialization cannot publish usable results.
+The standard `-n 0` option provides serial debugging.
+
 ## Sources
 
 - [Test guide](../../../tests/README.md)
 - [CI workflow](../../../.github/workflows/ci.yml)
 - [Taskfile](../../../Taskfile.yaml)
 - [Native Kubernetes pipeline](../../../tests/support/kubernetes.py)
+- [Rendering fixture](../../../tests/config/kubernetes/conftest.py)
+- [pytest configuration](../../../pyproject.toml)
 - [Earlier validation refactor, PR #409](https://github.com/edgard/home-ops/pull/409)
 
 ## Related pages

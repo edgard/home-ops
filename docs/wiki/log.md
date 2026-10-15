@@ -3,6 +3,18 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-15] revision | Parallelize every pytest invocation
+
+Added global bounded work-stealing defaults for direct pytest, Task commands,
+and CI. Resource isolation remains fixture-owned, with no test eligibility
+lists or scheduling exceptions. The Kubernetes fixture shares one validated
+render through a bounded file lock and atomically published private snapshot;
+workers receive independent objects and initialization failures block reuse.
+Updated the test guide, agent workflow, validation architecture, and decision
+page. Regression scenarios cover cross-module consumers, native failures,
+incomplete output, terminated initializers, child-process cleanup, and isolated
+loopback APIs. October's semantic review is already recorded below.
+
 ## [2026-10-14] revision | Retire BentoPDF and MeTube
 
 Removed both app definitions and their explicit Gatus targets, app pages, and

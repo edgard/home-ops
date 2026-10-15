@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `df530ab8f6edc603500f39fb634d6c404b64c636`.
+Status: current. Reviewed against: `a317487d244c466f9191cf708bdd3d9a7c2eb40b`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -14,6 +14,7 @@ Gatus • Helm • Ansible • Terraform
 - Format check: `task fmt:check`
 - Dependencies: `task deps` uses Python 3.14 by default (`PYTHON_BIN` override) and installs pinned Python dependencies and Ansible collections in `.venv`
 - Tests: `task test` runs all pytest configuration, unit, and isolated integration cases
+- All pytest invocations use global parallel defaults capped at four workers; `PYTEST_ADDOPTS="-n 0" task test` runs serially for debugging
 - Lint: `task lint` runs native format/YAML/workflow/Ansible/OpenTofu checks, then the full pytest suite once
 - Focused checks: `task lint:static`, `task lint:wiki`, `task lint:workflows`, `task lint:repository`, `task lint:ansible`, `task lint:ansible:static`, `task lint:kubernetes`, `task lint:terraform`
 - Local prerequisites include Node 24 or newer, OpenTofu, pinned SecretSpec, and native Kubernetes CLIs; see the [test guide](../../tests/README.md)
@@ -129,6 +130,7 @@ Store: `external-secrets-store`
 - `sync.wave` is required in every `apps/*/*/app.yaml` and stays within `-4` to `0`
 - Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
 - pytest owns the empty/private/nonsymlink Kubernetes output directory and cleanup
+- The rendering fixture coordinates workers with a bounded file lock and an atomic per-run snapshot; keep resource isolation in fixtures rather than test scheduling exceptions
 - A test helper invokes Helm, kubeconform, and Pluto directly, caches chart pulls per run, renders CRDs, and exports served schemas before validation. Offline wiki and Kubernetes checks have no Ansible roles or playbooks
 - Ansible roles:
   - Keep operator orchestration in playbooks and roles. Task may launch native
@@ -169,6 +171,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 ## Sources
 
 - [Taskfile](../../Taskfile.yaml) defines the operator commands and local gates.
+- [pytest configuration](../../pyproject.toml) defines parallel defaults for all test commands.
 - [Pull request workflow](../../.github/workflows/ci.yml) defines the CI jobs.
 - [Pull request template](../../.github/pull_request_template.md) prompts for wiki impact.
 - [ApplicationSet](../../argocd/appsets/apps.appset.yaml) defines app discovery.

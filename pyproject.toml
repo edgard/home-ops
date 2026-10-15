@@ -1,4 +1,4 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--import-mode=importlib -ra"
+addopts = "--import-mode=importlib -ra -n auto --maxprocesses=4 --dist=worksteal"
 empty_parameter_set_mark = "fail_at_collect"
