@@ -21,6 +21,13 @@ and Kubernetes CLIs. CI installs these in the corresponding toolchain profiles.
 Ansible's focused subset requires no real Helm/kubeconform/Pluto installation.
 Missing dependencies fail the checks; required cases never silently skip.
 
+All pytest commands, including focused checks and direct invocations, use the
+parallel defaults in [pyproject.toml](../pyproject.toml): automatic worker
+selection capped at four, with the standard work-stealing scheduler. Every test
+participates without eligibility markers or file lists. Use
+`.venv/bin/python -m pytest -n 0` or `PYTEST_ADDOPTS="-n 0" task test` for serial
+debugging. The same environment override works with `task lint`.
+
 `config/wiki` checks documentation sources and links. `config/repository` and
 `config/kubernetes` assert relationships and explicit
 safety limits. `unit` tests focused runtime adapters. `integration` runs real role
@@ -30,11 +37,21 @@ entry points and Task commands with synthetic inputs. Test helpers live in
 Conftest CLI.
 
 The Kubernetes fixture checks sources before invoking Helm, kubeconform, and
-Pluto directly through an ordinary test helper. It owns an empty, private, nonsymlink output directory, shares the result
-only with rendered tests, and removes it after success or failure. The helper
-renders `rendered/<category>/<app>.yaml`, exports served CRD schemas, and runs
-schema/deprecation checks. The fixture owns cleanup; native tool failures propagate to pytest. Chart caching and Helm paths are isolated per
-run; local served schemas take precedence over default/catalog schemas.
+Pluto directly through an ordinary test helper. It owns an empty, private,
+nonsymlink output directory and removes it after success or failure. A bounded
+interprocess file lock coordinates consumers across modules and workers: one
+initializer renders and validates, cleans up its workspace, then atomically
+publishes parsed documents in a private snapshot for this pytest run. Each
+worker loads its own objects. Failures retain native diagnostics and prevent
+other workers from retrying or consuming partial output. An abruptly terminated
+initializer leaves an interruption marker; pytest's temporary-directory
+retention handles files left by a process that cannot run cleanup.
+
+The helper renders `rendered/<category>/<app>.yaml`, exports served CRD schemas,
+and runs schema/deprecation checks. Chart caching and Helm paths are isolated
+per run; local served schemas take precedence over default/catalog schemas.
+The [xdist fixture recipe](https://pytest-xdist.readthedocs.io/en/stable/how-to.html#making-session-scoped-fixtures-execute-only-once)
+explains why session scope alone does not coordinate multiple workers.
 
 Ansible tests use temporary HOME/config paths, sanitized environments, bounded
 subprocesses, explicit fake CLIs, and a loopback Kubernetes API. The actual
@@ -57,6 +74,10 @@ an operational relationship, and a real entry-point scenario for role behavior.
 Derive versions, addresses, ports, item references, and original resource state
 from their owner. Avoid task display names, positions, counts, equivalent source
 spellings, copied pins, test discovery wrappers, and a new assertion framework.
+New fixtures must isolate mutable files and external resources with pytest
+temporary paths and dynamically allocated ports. Coordinate shared work in its
+own fixture rather than adding scheduling exceptions. Keep parametrized
+collection deterministic and preserve subprocess cleanup and credential isolation.
 
 These checks cover offline safety and configuration. They do not prove live pod
 websocket transport, a real restore, fresh-cluster installation, or deployed
