@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `74d60b4e0a7607351ba07234d24cd435cfd45f54`.
+Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
 
 ## Dependencies
 
@@ -23,7 +23,7 @@ The [repository Renovate configuration](../../../../.renovaterc.json5) combines
 built-in managers for Actions, Ansible requirements, Terraform, and Kubernetes
 images with custom extraction for app charts, images, upgrade targets, CI tools,
 Gateway API, the Restic restore image, and the shared SecretSpec compatibility
-pin in [`.secretspec-version`](../../../../.secretspec-version). When moving a dependency file, check
+pin in [the CLI role defaults](../../../../ansible/roles/cli_secrets/defaults/main.yml). When moving a dependency file, check
 its manager file patterns and run a local extraction dry run; valid configuration
 alone does not prove that the dependency is still discovered.
 
@@ -49,7 +49,7 @@ defines the upstream compatibility boundary.
 - [Repository Renovate configuration](../../../../.renovaterc.json5)
 - [CI toolchain](../../../../.github/actions/setup-toolchain/action.yml)
 - [Taskfile interpreter default](../../../../Taskfile.yaml)
-- [Operator tool defaults](../../../../ansible/roles/operator_secrets/defaults/main.yml)
+- [CLI tool defaults](../../../../ansible/roles/cli_secrets/defaults/main.yml)
 - [App metadata](../../../../apps/selfhosted/renovate-operator/app.yaml)
 - [Helm values](../../../../apps/selfhosted/renovate-operator/values.yaml)
 - [Raw manifests](../../../../apps/selfhosted/renovate-operator/manifests)

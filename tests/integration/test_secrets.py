@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 from tests.support.runtime import ROOT, environment
+from tests.support.sources import read_yaml
 
 PROJECT = "12345678-1234-1234-1234-123456789abc"
 ARGS = [
@@ -26,7 +27,10 @@ def test_real_secretspec_scope_and_multiline_preservation(tmp_path):
     version = subprocess.run(
         [binary, "--version"], capture_output=True, text=True, check=True
     ).stdout.strip()
-    assert version == "secretspec " + (ROOT / ".secretspec-version").read_text().strip()
+    pin = read_yaml(ROOT / "ansible/roles/cli_secrets/defaults/main.yml")[
+        "cli_secrets_secretspec_version"
+    ]
+    assert version == "secretspec " + pin
     value = 'line one\n$(ignored) `literal` "quotes"\n'
     path = tmp_path
     manifest = path / "secretspec.toml"
@@ -44,7 +48,7 @@ def test_real_secretspec_scope_and_multiline_preservation(tmp_path):
             HIDDEN="stale",
             PATH=str(path) + os.pathsep + os.environ["PATH"],
             SECRETSPEC_BWS_CLI_PATH=str(
-                ROOT / "ansible/roles/operator_secrets/files/bws_readonly.py"
+                ROOT / "ansible/roles/cli_secrets/files/bws_readonly.py"
             ),
         ),
     )

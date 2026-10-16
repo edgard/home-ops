@@ -53,7 +53,7 @@
       ansible.builtin.command:
         argv:
           - "{{ ansible_python_interpreter }}"
-          - "{{ repo_root }}/ansible/roles/operator_secrets/files/bws_readonly.py"
+          - "{{ repo_root }}/ansible/roles/cli_secrets/files/bws_readonly.py"
           - --color
           - "no"
           - --server-url

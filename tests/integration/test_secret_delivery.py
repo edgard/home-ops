@@ -17,7 +17,7 @@ from tests.support.runtime import ROOT, environment
         ("secrets:sync-cluster-token", "platform", "secrets-sync-cluster-token.yml"),
     ],
 )
-def test_task_clears_inherited_credentials_and_preserves_operator_settings(
+def test_task_clears_inherited_credentials_and_preserves_local_settings(
     tmp_path, task, scope, playbook
 ):
     path = tmp_path
@@ -72,7 +72,7 @@ def test_task_clears_inherited_credentials_and_preserves_operator_settings(
     assert delivered["environment"]["TALOSCONFIG"] == "custom path/config"
     assert delivered["args"][delivered["args"].index("--scope") + 1] == scope
     assert delivered["environment"]["SECRETSPEC_BWS_CLI_PATH"] == str(
-        ROOT / "ansible/roles/operator_secrets/files/bws_readonly.py"
+        ROOT / "ansible/roles/cli_secrets/files/bws_readonly.py"
     )
     if playbook:
         assert delivered["args"][-2:] == [

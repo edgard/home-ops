@@ -1,7 +1,7 @@
 ---
-- name: Load and validate native operator secret tooling
+- name: Load and validate native CLI secret tooling
   ansible.builtin.include_role:
-    name: operator_secrets
+    name: cli_secrets
     tasks_from: validate
     public: true
 

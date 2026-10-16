@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 @pytest.fixture
 def delivery(module_loader):
-    return module_loader("operator_secrets/filter_plugins/secret_delivery.py")
+    return module_loader("cli_secrets/filter_plugins/secret_delivery.py")
 
 
 def test_root_requires_every_source_revision_and_sync(delivery):

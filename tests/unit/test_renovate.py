@@ -2,7 +2,7 @@ import json
 import subprocess
 
 from tests.support.runtime import ROOT
-from tests.support.sources import read_json5
+from tests.support.sources import read_json5, read_yaml
 
 
 def node(source, data):
@@ -13,9 +13,9 @@ def node(source, data):
     return json.loads(result.stdout)
 
 
-def test_operator_pin_discovery_uses_native_regexes():
-    path = ".secretspec-version"
-    version = (ROOT / path).read_text().strip()
+def test_cli_pin_discovery_uses_native_regexes():
+    path = "ansible/roles/cli_secrets/defaults/main.yml"
+    version = read_yaml(ROOT / path)["cli_secrets_secretspec_version"]
     found = node(
         """const fs=require('fs');const input=JSON.parse(fs.readFileSync(0,'utf8'));const result=[];
 for(const manager of input.managers){

@@ -151,7 +151,9 @@ def test_bootstrap_order_and_native_failure(tmp_path, provider, failure):
             ).encode()
         ).decode(),
     }
-    pin = (ROOT / ".secretspec-version").read_text().strip()
+    pin = read_yaml(ROOT / "ansible/roles/cli_secrets/defaults/main.yml")[
+        "cli_secrets_secretspec_version"
+    ]
     executable(
         tmp_path,
         "secretspec",

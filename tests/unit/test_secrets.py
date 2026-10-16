@@ -6,7 +6,7 @@ import pytest
 
 @pytest.fixture
 def guard(module_loader):
-    return module_loader("operator_secrets/files/bws_readonly.py")
+    return module_loader("cli_secrets/files/bws_readonly.py")
 
 
 PROJECT = "12345678-1234-1234-1234-123456789abc"

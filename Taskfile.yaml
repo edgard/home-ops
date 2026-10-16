@@ -83,23 +83,23 @@ tasks:
         done
         export PATH="$HOME/.local/bin:$PATH"
         "$HOME_OPS_ANSIBLE_PLAYBOOK" ansible/playbooks/secrets-validate.yml
-        export SECRETSPEC_BWS_CLI_PATH="$HOME_OPS_SECRET_ROOT/ansible/roles/operator_secrets/files/bws_readonly.py"
+        export SECRETSPEC_BWS_CLI_PATH="$HOME_OPS_SECRET_ROOT/ansible/roles/cli_secrets/files/bws_readonly.py"
         case "$HOME_OPS_SECRET_ACTION" in
           login)
-            exec secretspec config provider --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --reason "home-ops operator machine-account login" login operator
+            exec secretspec config provider --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --reason "home-ops CLI machine-account login" login cli
             ;;
           check)
-            exec secretspec check --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --profile default --scope "$HOME_OPS_SECRET_SCOPE" --reason "home-ops $HOME_OPS_SECRET_SCOPE operator command" --no-prompt
+            exec secretspec check --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --profile default --scope "$HOME_OPS_SECRET_SCOPE" --reason "home-ops $HOME_OPS_SECRET_SCOPE CLI command" --no-prompt
             ;;
           run)
-            exec secretspec run --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --profile default --scope "$HOME_OPS_SECRET_SCOPE" --reason "home-ops $HOME_OPS_SECRET_SCOPE operator command" -- "$HOME_OPS_ANSIBLE_PLAYBOOK" "$HOME_OPS_SECRET_ROOT/ansible/playbooks/$HOME_OPS_SECRET_PLAYBOOK"
+            exec secretspec run --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --profile default --scope "$HOME_OPS_SECRET_SCOPE" --reason "home-ops $HOME_OPS_SECRET_SCOPE CLI command" -- "$HOME_OPS_ANSIBLE_PLAYBOOK" "$HOME_OPS_SECRET_ROOT/ansible/playbooks/$HOME_OPS_SECRET_PLAYBOOK"
             ;;
           *) exit 1 ;;
         esac
         '
 
   secrets:login:
-    desc: Store the operator machine token once in Keychain
+    desc: Store the CLI machine token once in Keychain
     interactive: true
     deps:
       - task: ansible:check

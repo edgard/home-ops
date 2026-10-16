@@ -15,7 +15,7 @@ from tests.support.sources import read_yaml, read_toml, read_json5
 
 def assert_secrets(config, tailscale_item):
     providers = config["providers"]
-    assert {"operator", "applications"} <= providers.keys(), "required Bitwarden projects"
+    assert {"cli", "applications"} <= providers.keys(), "required Bitwarden projects"
     projects = []
     for name, provider in providers.items():
         uri = urlsplit(provider["uri"])
@@ -46,7 +46,7 @@ def assert_secrets(config, tailscale_item):
         assert set(actual) == expected and len(actual) == len(expected), f"scope inputs: {scope}"
         assert expected <= declarations.keys(), f"declared scope inputs: {scope}"
     for name in ("TF_VAR_cloudflare_zone_id", "TF_VAR_tailscale_client_id"):
-        assert declarations[name]["providers"] == ["operator"], f"operator ownership: {name}"
+        assert declarations[name]["providers"] == ["cli"], f"CLI ownership: {name}"
     assert declarations["TF_VAR_tailscale_client_id"]["ref"]["item"] == "tailscale_oauth_client_id"
     shared = declarations["TF_VAR_tailscale_client_secret"]
     assert (
@@ -142,7 +142,7 @@ def assert_repository(root):
     assert "tf:migrate-secret-state" not in tasks, "retired migration command"
     assert "scripts/" not in json.dumps(tasks), "role-owned orchestration"
     for name in ("secrets-sync-cluster-token",):
-        assert (root / f"ansible/playbooks/{name}.yml").is_file(), f"operator entry point: {name}"
+        assert (root / f"ansible/playbooks/{name}.yml").is_file(), f"CLI entry point: {name}"
     retired = [
         "scripts",
         "ansible/vault/operator.yml",

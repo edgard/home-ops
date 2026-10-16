@@ -1,7 +1,7 @@
 # Validation and PR gate
 
 Purpose: distinguish native validation, repository assertions, and deployment evidence.
-Status: current. Reviewed against: `a317487d244c466f9191cf708bdd3d9a7c2eb40b`.
+Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
 
 `task lint` runs formatting, YAML/workflow checks, production-profile Ansible
 lint, backendless OpenTofu validation, then the complete pytest suite once.
@@ -31,11 +31,17 @@ one test-only module. Another case loads the real exec module and reaches its
 connection boundary. This does not prove live websocket transport or restoration.
 
 Operational assertions cover check mode, confidentiality, exact Talos server
-versions, private-material cleanup, tool checksums, scoped delivery, token rollback,
+versions, private-material cleanup, CI tool checksum/version rejection, scoped delivery, token rollback,
 committed handoff, original restore state, and failure evidence. Restore failure
 may leave workloads paused or partially resumed; tests retain that recovery
 contract. Roles contain no test-only execution branches. Runtime assertions
 continue to protect operator inputs and live state.
+
+The CI SecretSpec installer scenario executes the toolchain action's real shell
+against synthetic release archives. It verifies successful installation, rejected
+checksums or binary versions, preservation of an existing executable on rejection,
+and staging cleanup. The version comes from the CLI role defaults in both CI and
+runtime validation.
 
 The rendering fixture validates sources first and owns an empty private output
 directory. An ordinary test helper renders pinned charts with CRDs, exports served
@@ -69,6 +75,7 @@ are not evidence that a synced application functions in the running cluster.
 - [Native Kubernetes pipeline](../../../tests/support/kubernetes.py)
 - [Rendering fixture](../../../tests/config/kubernetes/conftest.py)
 - [Parallel resource regression scenarios](../../../tests/integration/test_parallel.py)
+- [CI tool installation scenarios](../../../tests/integration/test_ci_tools.py)
 - [pytest configuration](../../../pyproject.toml)
 - [Wiki checks](../../../tests/config/wiki/test_wiki.py)
 

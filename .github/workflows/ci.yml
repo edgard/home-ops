@@ -64,9 +64,6 @@ jobs:
         with:
           profile: ansible
 
-      - name: Set Up Ansible
-        run: task deps
-
       - name: Run Ansible Validation
         run: task lint:ansible
 
@@ -88,9 +85,6 @@ jobs:
         uses: ./.github/actions/setup-toolchain
         with:
           profile: kubernetes
-
-      - name: Set Up Ansible
-        run: task deps
 
       - name: Run Kubernetes Validation
         run: task lint:kubernetes

@@ -24,7 +24,7 @@ def load_module(relative):
 
 
 def environment(directory, extra=None):
-    # Allow only process/tool basics: never inherit operator credentials or config.
+    # Allow only process/tool basics: never inherit CLI credentials or config.
     allowed = {
         "PATH",
         "TMPDIR",
@@ -71,9 +71,9 @@ def run_role(
     directory = Path(directory)
     tasks = [
         {
-            "name": "Load shared operator filters",
+            "name": "Load shared CLI filters",
             "ansible.builtin.import_role": {
-                "name": "operator_secrets",
+                "name": "cli_secrets",
                 "tasks_from": "validate",
             },
             "when": False,

@@ -1,0 +1,3 @@
+---
+# renovate: datasource=github-releases depName=cachix/secretspec
+cli_secrets_secretspec_version: "0.21.1"

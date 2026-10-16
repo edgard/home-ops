@@ -1,2 +1,0 @@
----
-operator_secrets_secretspec_version: "{{ lookup('ansible.builtin.file', repo_root + '/.secretspec-version') | trim }}"

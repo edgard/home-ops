@@ -9,7 +9,9 @@ from tests.support.talos import MATERIAL
 
 
 def test_cluster_preflight_denial_precedes_node_mutation(tmp_path):
-    pin = (ROOT / ".secretspec-version").read_text().strip()
+    pin = read_yaml(ROOT / "ansible/roles/cli_secrets/defaults/main.yml")[
+        "cli_secrets_secretspec_version"
+    ]
     executable(
         tmp_path,
         "secretspec",

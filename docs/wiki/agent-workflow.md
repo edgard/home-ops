@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `a317487d244c466f9191cf708bdd3d9a7c2eb40b`.
+Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -138,7 +138,7 @@ Store: `external-secrets-store`
     Do not reintroduce a top-level scripts workflow.
   - Role-owned defaults live in `ansible/roles/*/defaults/main.yml`; inventory vars stay limited to local/site inputs.
   - Kubernetes operations use `kubernetes.core` modules with `kube_context`; avoid adding `kubectl` tasks.
-  - Runtime credentials resolve from Bitwarden through scoped SecretSpec Task commands; the operator machine token lives in Keychain. Keep only nonsecret settings in ignored `.envrc`.
+  - Runtime credentials resolve from Bitwarden through scoped SecretSpec Task commands; the CLI machine token lives in Keychain. Keep only nonsecret settings in ignored `.envrc`.
   - Talos generation uses the existing `TALOS_SECRETS_YAML` identity from SecretSpec. Recovery requires Bitwarden access; the retired Vault workflow is preserved only in history.
   - Legacy plaintext Talos secrets at `ansible/roles/talos/files/secrets.yaml` remain git-ignored and must not be reintroduced.
 
@@ -148,7 +148,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 ## External Services
 
-- Bitwarden: authoritative values, with one shared read-only machine account for ESO and operator commands; scoped SecretSpec supplies bootstrap and Terraform commands.
+- Bitwarden: authoritative values, with one shared read-only machine account for ESO and CLI commands; scoped SecretSpec supplies bootstrap and Terraform commands.
 - Backblaze B2 S3-compatible backend: credentials supplied through the SecretSpec Terraform scope.
 - Cloudflare: DNS management
 - Tailscale: VPN networking (192.168.1.0/24)
@@ -170,7 +170,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 ## Sources
 
-- [Taskfile](../../Taskfile.yaml) defines the operator commands and local gates.
+- [Taskfile](../../Taskfile.yaml) defines the CLI commands and local gates.
 - [pytest configuration](../../pyproject.toml) defines parallel defaults for all test commands.
 - [Pull request workflow](../../.github/workflows/ci.yml) defines the CI jobs.
 - [Pull request template](../../.github/pull_request_template.md) prompts for wiki impact.
