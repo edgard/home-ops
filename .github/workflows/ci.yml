@@ -67,11 +67,6 @@ jobs:
       - name: Set Up Ansible
         run: task deps
 
-      - name: Install pinned SecretSpec through Ansible
-        run: |
-          .venv/bin/ansible-playbook ansible/playbooks/secrets-setup.yml -e '{"operator_secrets_install_tools":["secretspec"]}'
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
       - name: Run Ansible Validation
         run: task lint:ansible
 

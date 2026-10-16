@@ -141,7 +141,7 @@ def assert_repository(root):
     tasks = read_yaml(root / "Taskfile.yaml")["tasks"]
     assert "tf:migrate-secret-state" not in tasks, "retired migration command"
     assert "scripts/" not in json.dumps(tasks), "role-owned orchestration"
-    for name in ("secrets-setup", "secrets-sync-cluster-token"):
+    for name in ("secrets-sync-cluster-token",):
         assert (root / f"ansible/playbooks/{name}.yml").is_file(), f"operator entry point: {name}"
     retired = [
         "scripts",

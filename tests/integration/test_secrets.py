@@ -26,12 +26,7 @@ def test_real_secretspec_scope_and_multiline_preservation(tmp_path):
     version = subprocess.run(
         [binary, "--version"], capture_output=True, text=True, check=True
     ).stdout.strip()
-    import yaml
-
-    defaults = yaml.safe_load(
-        (ROOT / "ansible/roles/operator_secrets/defaults/main.yml").read_text()
-    )
-    assert version == "secretspec " + defaults["operator_secrets_secretspec_version"]
+    assert version == "secretspec " + (ROOT / ".secretspec-version").read_text().strip()
     value = 'line one\n$(ignored) `literal` "quotes"\n'
     path = tmp_path
     manifest = path / "secretspec.toml"
