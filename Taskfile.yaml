@@ -86,7 +86,7 @@ tasks:
         export SECRETSPEC_BWS_CLI_PATH="$HOME_OPS_SECRET_ROOT/ansible/roles/cli_secrets/files/bws_readonly.py"
         case "$HOME_OPS_SECRET_ACTION" in
           login)
-            exec secretspec config provider --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --reason "home-ops CLI machine-account login" login cli
+            exec secretspec config provider --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --reason "home-ops CLI machine-account login" login bitwarden
             ;;
           check)
             exec secretspec check --file "$HOME_OPS_SECRET_ROOT/secretspec.toml" --profile default --scope "$HOME_OPS_SECRET_SCOPE" --reason "home-ops $HOME_OPS_SECRET_SCOPE CLI command" --no-prompt

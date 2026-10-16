@@ -13,26 +13,22 @@ from hcl2.utils import SerializationOptions
 from tests.support.sources import read_yaml, read_toml, read_json5
 
 
-def assert_secrets(config, tailscale_item):
+def assert_secrets(config, tailscale_item, project_id):
     providers = config["providers"]
-    assert {"cli", "applications"} <= providers.keys(), "required Bitwarden projects"
-    projects = []
-    for name, provider in providers.items():
-        uri = urlsplit(provider["uri"])
-        project = UUID(uri.netloc)
-        assert uri.scheme == "bws" and not uri.path and project.int, f"project URI: {name}"
-        projects.append(project)
-        assert provider["credentials"] == {
-            "access_token": "keyring"
-        }, f"Keychain credentials: {name}"
-        assert "cache" not in provider, f"no credential cache: {name}"
-    assert len(set(projects)) == len(projects), "distinct provider projects"
+    assert set(providers) == {"bitwarden"}, "one Bitwarden provider"
+    provider = providers["bitwarden"]
+    uri = urlsplit(provider["uri"])
+    project = UUID(uri.netloc)
+    assert uri.scheme == "bws" and not uri.path and project.int, "Bitwarden project URI"
+    assert project == UUID(project_id), "shared Bitwarden project for CLI and ESO"
+    assert provider["credentials"] == {"access_token": "keyring"}, "Keychain credential"
+    assert "cache" not in provider, "no credential cache"
     declarations = config["profiles"]["default"]
     assert declarations, "required secret declarations"
     for name, declaration in declarations.items():
         assert declaration["required"] is True, f"required secret: {name}"
         assert (
-            len(declaration["providers"]) == 1 and declaration["providers"][0] in providers
+            declaration["providers"] == ["bitwarden"]
         ), f"one provider: {name}"
         assert (
             isinstance(declaration["ref"]["item"], str) and declaration["ref"]["item"]
@@ -45,12 +41,10 @@ def assert_secrets(config, tailscale_item):
         actual = config["scopes"][scope]["secrets"]
         assert set(actual) == expected and len(actual) == len(expected), f"scope inputs: {scope}"
         assert expected <= declarations.keys(), f"declared scope inputs: {scope}"
-    for name in ("TF_VAR_cloudflare_zone_id", "TF_VAR_tailscale_client_id"):
-        assert declarations[name]["providers"] == ["cli"], f"CLI ownership: {name}"
     assert declarations["TF_VAR_tailscale_client_id"]["ref"]["item"] == "tailscale_oauth_client_id"
     shared = declarations["TF_VAR_tailscale_client_secret"]
     assert (
-        shared["providers"] == ["applications"] and shared["ref"]["item"] == tailscale_item
+        shared["ref"]["item"] == tailscale_item
     ), "shared Tailscale application item"
 
 
@@ -126,7 +120,8 @@ def assert_repository(root):
         if entry["secretKey"] == "client_secret"
     ]
     assert len(refs) == 1, "one Tailscale OAuth secret reference"
-    assert_secrets(read_toml(root / "secretspec.toml"), refs[0])
+    store = read_yaml(root / "apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml")
+    assert_secrets(read_toml(root / "secretspec.toml"), refs[0], store["spec"]["provider"]["bitwardensecretsmanager"]["projectID"])
     defaults = read_yaml(root / "ansible/roles/talos/defaults/main.yml")
     patch = read_yaml(root / "ansible/roles/talos/files/controlplane-patch.yaml", multiple=True)[0]
     upgrade = read_yaml(

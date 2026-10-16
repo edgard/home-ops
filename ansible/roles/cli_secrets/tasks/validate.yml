@@ -24,12 +24,13 @@
 - name: Read the authoritative secret contract
   ansible.builtin.set_fact:
     cli_secrets_manifest: "{{ lookup('ansible.builtin.file', repo_root + '/secretspec.toml') | from_toml }}"
+    cli_secrets_store: "{{ lookup('ansible.builtin.file', repo_root + '/apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml') | from_yaml }}"
 
-- name: Require provisioned distinct provider projects and a declared scope
+- name: Require one shared Bitwarden project and a declared scope
   ansible.builtin.assert:
     that:
-      - cli_secrets_manifest.providers | length == 2
-      - (cli_secrets_manifest.providers.values() | map(attribute='uri') | list | unique | length) == 2
+      - cli_secrets_manifest.providers.keys() | list == ['bitwarden']
+      - cli_secrets_manifest.providers.bitwarden.uri == 'bws://' ~ cli_secrets_store.spec.provider.bitwardensecretsmanager.projectID
       - "'00000000-0000-0000-0000-000000000000' not in (cli_secrets_manifest.providers | to_json)"
       - lookup('ansible.builtin.env', 'HOME_OPS_SECRET_SCOPE') | default('cluster', true) in cli_secrets_manifest.scopes
-    fail_msg: Provision distinct application/CLI projects and use a declared SecretSpec scope.
+    fail_msg: Configure one Bitwarden provider using the same project as ESO and use a declared SecretSpec scope.

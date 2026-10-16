@@ -31,7 +31,8 @@ export KUBE_CONTEXT="admin@homelab"
 ```
 
 Provision SecretSpec and BWS through your Chezmoi/Homebrew machine setup, then
-store the CLI machine token once. The required SecretSpec version lives in
+keep all values in one Bitwarden `home-ops` project and store its read-only machine
+token once. SecretSpec uses one `bitwarden` provider; ESO reads the same project. The required SecretSpec version lives in
 [the CLI role defaults](ansible/roles/cli_secrets/defaults/main.yml);
 CI reads the same pin through the toolchain action:
 

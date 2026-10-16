@@ -1,23 +1,25 @@
 # Secrets and credentials
 
 Purpose: explain authoritative Bitwarden values and scoped delivery.
-Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
+Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
 
-Bitwarden Secrets Manager owns values. ESO supplies Kubernetes workloads from
-the application project; SecretSpec supplies scoped local CLI commands.
-This homelab uses one shared read-only machine account for both projects.
-SecretSpec scopes limit values injected into each command; they do not isolate
-the account's access. ESO's token can also read CLI-project secrets.
-CLI-exclusive
-zone and OAuth client identifiers belong in the CLI project; shared API
-tokens remain existing application-project items. One Keychain token
-feeds both SecretSpec aliases, and the same token is stored in the CLI project
-for ESO bootstrap.
+Bitwarden Secrets Manager owns all values in one `home-ops` project. ESO supplies
+Kubernetes workloads through the existing ClusterSecretStore; SecretSpec supplies
+scoped local CLI commands through its single `bitwarden` provider. Both references
+must use the same project UUID. They are independent delivery paths to the same
+stored items, and the existing application project UUID remains authoritative.
+
+One read-only machine account serves ESO and CLI commands. Its Keychain token
+continues to use `home-ops/_provider/access_token`; `eso_bws_access_token` stores the
+ESO bootstrap copy in Bitwarden. SecretSpec scopes limit values injected into each
+command, while the account can read the whole project. The shared store restricts
+consumer namespaces; it does not isolate allowed namespaces from each other.
+
 The [maintenance runbook](../operations/secrets-maintenance.md) covers provisioning,
-rotation and recovery. Application
-Secret names, keys, refresh behavior, and shared item references remain stable.
-The shared store restricts consumer namespaces; it does not isolate allowed
-namespaces from each other.
+rotation, and recovery. Preserve item names and IDs during project consolidation.
+A credential shared by Terraform and a workload, such as the Tailscale OAuth
+secret, stays one item. Independent service credentials retain separate items even
+when their present values happen to match; their rotation lifecycles differ.
 
 Before changing access, inspect the store, target ExternalSecrets, and the
 Ansible or Terraform consumer together. The wiki records wiring and rationale,

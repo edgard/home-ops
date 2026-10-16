@@ -30,7 +30,7 @@ NEW = base64.b64encode(TOKEN.encode()).decode()
 def test_token_rotation_and_rollback(tmp_path, provider, secret_api, scenario, patches):
     projects, _, targets, manifests = provider
     if scenario == "invalid-provider-access":
-        (tmp_path / "projects.json").write_text(json.dumps(projects[:1]))
+        (tmp_path / "projects.json").write_text(json.dumps(projects[:-1]))
     with cluster_api(
         tmp_path,
         {
@@ -97,7 +97,7 @@ def test_provider_access(tmp_path, provider, scenario):
     projects, values, _, _ = provider
     changes = {
         "extra-project": ("projects", projects + [{"id": "extra-project"}]),
-        "missing-project": ("projects", projects[:1]),
+        "missing-project": ("projects", projects[:-1]),
         "malformed-projects": ("projects", {}),
         "invalid-project-json": ("projects", None),
         "invalid-secret-json": ("secrets", None),

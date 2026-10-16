@@ -1,11 +1,11 @@
 # Terraform and external infrastructure
 
 Purpose: locate Cloudflare, Tailscale, provider secrets, and state boundaries.
-Status: current. Reviewed against: `d9a1261970b4d6607056507421a71ad52b5d07ce`.
+Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
 
 OpenTofu manages Cloudflare DNS and Tailscale resources from this repo. Its
 remote S3-compatible backend remains configured in Terraform. SecretSpec supplies
-backend credentials and native provider variables; credential variables are
+backend credentials and native provider variables from the shared Bitwarden project; credential variables are
 sensitive, while the zone ID is nonsensitive. Sensitivity masks display and does
 not encrypt state. The root module preserves the legacy sensitivity flag on
 managed zone-ID attributes, so changing secret delivery does not plan writes
@@ -26,7 +26,7 @@ remain unchanged; no lifecycle rule suppresses DNS changes.
 
 ## Sources
 
-- [Operator secret contract](../../../secretspec.toml)
+- [CLI secret contract](../../../secretspec.toml)
 - [Maintenance runbook](../operations/secrets-maintenance.md)
 
 - [Terraform root module](../../../terraform/main.tf)
@@ -34,7 +34,7 @@ remain unchanged; no lifecycle rule suppresses DNS changes.
 - [Cloudflare module](../../../terraform/cloudflare/dns.tf)
 - [Tailscale resources](../../../terraform/tailscale.tf)
 - [Tofu role](../../../ansible/roles/tofu/tasks)
-- [Operator tasks](../../../Taskfile.yaml)
+- [CLI tasks](../../../Taskfile.yaml)
 
 ## Related pages
 
