@@ -1,18 +1,19 @@
 # Secrets maintenance and recovery
 
 Purpose: provision and operate the unified Bitwarden delivery paths.
-Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
+Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
 
 ## Setup without cluster access
 
 Bitwarden Secrets Manager is the value maintenance home. Maintain values in its
-UI. Use two projects: the existing application project and `home-ops-operator`.
+UI. Use two projects: the existing application project and a CLI project
+(currently named `home-ops-operator` in Bitwarden).
 First check the human account's project capacity. Reuse the existing machine
-account with read access to both configured projects. Operator commands and ESO
-share this account and its token; ESO can therefore read operator secrets too.
+account with read access to both configured projects. CLI commands and ESO
+share this account and its token; ESO can therefore read CLI secrets too.
 Preserve existing application values, shared items, the token, and Talos identity.
 
-Set the operator project's public UUID in the `operator` alias in
+Set the CLI project's public UUID in the `cli` alias in
 [secretspec.toml](../../../secretspec.toml) when provisioning a new environment.
 The configured projects must be distinct and nonempty. The application alias
 remains tied to the existing project. Both aliases read one
@@ -30,11 +31,14 @@ task secrets:check scope=terraform
 
 Provision SecretSpec and BWS through the local Chezmoi/Homebrew machine setup.
 This repository validates those tools but does not install local binaries.
-The [version file](../../../.secretspec-version) owns the SecretSpec compatibility
-pin used by runtime validation and the [CI toolchain action](../../../.github/actions/setup-toolchain/action.yml).
+The [CLI role defaults](../../../ansible/roles/cli_secrets/defaults/main.yml) own
+the SecretSpec compatibility pin used by runtime validation and the
+[CI toolchain action](../../../.github/actions/setup-toolchain/action.yml).
+The action installs the existing validation dependencies before reading that
+YAML value. Its isolated installer test covers checksum/version rejection and cleanup.
 CI uses synthetic provider fixtures and installs only SecretSpec. A pin update
 still has to pass the provider compatibility fixtures before delivery.
-Operator commands include `~/.local/bin` on `PATH` automatically. Login prompts securely;
+CLI commands include `~/.local/bin` on `PATH` automatically. Login prompts securely;
 do not paste tokens into commands, Git, documentation, or chat. On macOS,
 SecretSpec's keyring provider uses Keychain. Recovery requires access to
 Bitwarden and this credential or a replacement token; this design has no
@@ -45,9 +49,9 @@ cloud access.
 
 The manifest owns the exact key references and scope membership. Put existing
 Talos YAML, backend access/secret keys, and the shared machine-account token into
-the operator project using the manifest's item names. Cloudflare's API token and the Tailscale OAuth client secret remain single
+the CLI project using the manifest's item names. Cloudflare's API token and the Tailscale OAuth client secret remain single
 application-project items shared with ESO. The Cloudflare zone ID and Tailscale
-OAuth client ID are operator-only inputs and belong in the operator project.
+OAuth client ID are CLI-only inputs and belong in the CLI project.
 The manifest preserves the existing Bitwarden item names, including the
 `tailscale_oauth_` names. Do not duplicate shared values.
 
@@ -79,12 +83,12 @@ do not resolve cloud secrets.
 
 Create a replacement token on the existing read-only machine account and retain
 the current token until verification passes. Update `eso_bws_access_token` in
-the operator project through the Bitwarden UI, then run `task secrets:login`
+the CLI project through the Bitwarden UI, then run `task secrets:login`
 with the replacement token to update the single Keychain credential. Run both
 scope checks and `task secrets:sync-cluster-token`, then verify the consumers.
 Revoke the old token only after success. The synchronization command retains and
 restores the previous cluster token if reconciliation fails; restore the old
-operator-project value and Keychain credential too when rolling back the whole
+CLI-project value and Keychain credential too when rolling back the whole
 rotation. Project permissions remain the same.
 
 ## Migration history and protected state recovery
@@ -104,9 +108,10 @@ consult the immutable migration procedure before retiring its data entries;
 do not force overwrite newer concurrent state. Historical state retention and
 native state encryption remain separate work.
 
-For operator recovery, sign in through the human Bitwarden account, verify
-machine-account read access to the two configured projects, and run setup and
-login on the new Mac. Restore nonsecret node/disk/path settings, then use
+For CLI recovery, sign in through the human Bitwarden account, verify
+machine-account read access to the two configured projects, provision the local
+tools through Chezmoi/Homebrew, then run `task deps` and `task secrets:login`
+on the new Mac. Restore nonsecret node/disk/path settings, then use
 `task talos:gen` with the existing Talos identity to regenerate restricted client
 and machine configuration. Do not generate a new identity for an existing
 cluster. Verify client access before applying node configuration. Kubernetes
@@ -122,13 +127,13 @@ ApplicationSet children, followed by fresh ExternalSecret reconciliation.
 ## Sources
 
 - [SecretSpec manifest](../../../secretspec.toml)
-- [Operator delivery role](../../../ansible/roles/operator_secrets/tasks/validate.yml)
-- [Operator tool defaults](../../../ansible/roles/operator_secrets/defaults/main.yml)
-- [Read-only BWS adapter](../../../ansible/roles/operator_secrets/files/bws_readonly.py)
+- [CLI delivery role](../../../ansible/roles/cli_secrets/tasks/validate.yml)
+- [CLI tool defaults](../../../ansible/roles/cli_secrets/defaults/main.yml)
+- [Read-only BWS adapter](../../../ansible/roles/cli_secrets/files/bws_readonly.py)
 - [Bootstrap preflight](../../../ansible/roles/platform/tasks/preflight.yml)
 - [Cluster checks and token replacement](../../../ansible/roles/platform/tasks/sync_token.yml)
 - [Original secrets refactor, PR #433](https://github.com/edgard/home-ops/pull/433)
-- [Tool validation](../../../ansible/roles/operator_secrets/tasks/validate.yml)
+- [Tool validation](../../../ansible/roles/cli_secrets/tasks/validate.yml)
 - [Task interface](../../../Taskfile.yaml)
 - [SecretSpec credentials](https://secretspec.dev/reference/provider-credentials/) — credential precedence and keyring sources.
 - [SecretSpec BWS implementation](https://github.com/cachix/secretspec/blob/v0.21.1/secretspec/src/provider/bws.rs) — native project reads and process-memory caching.

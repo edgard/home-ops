@@ -13,13 +13,13 @@ def test_repository_configuration(repo_root):
 @pytest.mark.parametrize(
     "path,value",
     [
-        (("providers", "operator", "uri"), "file://12345678-1234-1234-1234-123456789abc"),
-        (("providers", "operator", "uri"), "bws://00000000-0000-0000-0000-000000000000"),
-        (("providers", "operator", "credentials"), {"access_token": "env"}),
-        (("providers", "operator", "cache"), True),
+        (("providers", "cli", "uri"), "file://12345678-1234-1234-1234-123456789abc"),
+        (("providers", "cli", "uri"), "bws://00000000-0000-0000-0000-000000000000"),
+        (("providers", "cli", "credentials"), {"access_token": "env"}),
+        (("providers", "cli", "cache"), True),
         (("profiles", "default", "TALOS_SECRETS_YAML", "required"), False),
         (("profiles", "default", "TALOS_SECRETS_YAML", "as_path"), True),
-        (("profiles", "default", "TALOS_SECRETS_YAML", "providers"), ["operator", "applications"]),
+        (("profiles", "default", "TALOS_SECRETS_YAML", "providers"), ["cli", "applications"]),
         (("profiles", "default", "TF_VAR_cloudflare_zone_id", "providers"), ["applications"]),
         (("profiles", "default", "TF_VAR_tailscale_client_id", "ref"), {"item": "wrong"}),
         (("profiles", "default", "TF_VAR_tailscale_client_secret", "ref"), {"item": "wrong"}),
@@ -45,7 +45,7 @@ def test_scope_order_and_additional_distinct_provider_are_allowed(repo_root):
         "credentials": {"access_token": "keyring"},
     }
     assert_secrets(config, "tailscale_oauth_client_secret")
-    config["providers"]["additional"]["uri"] = config["providers"]["operator"]["uri"]
+    config["providers"]["additional"]["uri"] = config["providers"]["cli"]["uri"]
     with pytest.raises(AssertionError):
         assert_secrets(config, "tailscale_oauth_client_secret")
 

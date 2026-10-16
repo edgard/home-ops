@@ -1,7 +1,7 @@
 # Talos and platform bootstrap
 
 Purpose: locate the cluster creation and upgrade boundaries.
-Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
+Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
 
 The Taskfile invokes Ansible for Talos configuration, bootstrap, upgrades, and
 platform installation. SecretSpec resolves cloud material before node mutation.
@@ -24,7 +24,7 @@ version cannot satisfy this check.
 
 Platform preflight keeps the GitHub identity endpoint in the nonsecret
 `platform_repository_identity_url` role default. Isolated tests point that HTTP
-boundary at loopback while exercising the real URI module. Operator commands
+boundary at loopback while exercising the real URI module. CLI commands
 continue to use the existing GitHub endpoint.
 
 Platform removal forwards `platform_helm_timeout` through `wait_timeout`: the
@@ -34,7 +34,7 @@ failure propagation, including future collection updates.
 
 ## Sources
 
-- [Operator secret contract](../../../secretspec.toml)
+- [CLI secret contract](../../../secretspec.toml)
 - [Maintenance runbook](../operations/secrets-maintenance.md)
 
 - [Talos role defaults](../../../ansible/roles/talos/defaults/main.yml)

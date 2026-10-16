@@ -3,6 +3,20 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-16] revision | Clarify CLI secrets tooling and restore role-owned pins
+
+Renamed the local secret-delivery role and variables to `cli_secrets` and its
+SecretSpec provider alias to `cli`, distinguishing CLI maintenance from Kubernetes
+operators. Project UUIDs, item references, scopes, and the shared Keychain address
+remain unchanged; the existing Bitwarden project display name is documented.
+Removed the separate version file and restored the SecretSpec pin to role defaults,
+with Renovate discovery and CI consuming the same value. The CI toolchain action
+now owns its existing dependency setup and validates the staged binary before
+installation. Added real-shell installer scenarios for success, checksum/version
+rejection, binary preservation, and cleanup. Updated affected secrets, validation,
+bootstrap, workflow, and dependency-maintenance explanations. October's semantic
+review is already recorded below.
+
 ## [2026-10-16] revision | Separate machine setup from operator workflows
 
 Retired the local operator-tool installer, its Task command, playbook, download

@@ -19,7 +19,7 @@ remain authoritative; verify the running system separately.
 - [GitOps delivery](architecture/gitops-delivery.md) — bootstrap, ApplicationSet, and reconciliation.
 - [Talos and platform bootstrap](architecture/talos-bootstrap.md) — node and foundational services.
 - [Networking and ingress](architecture/networking.md) — Gateway, DNS, Tailscale, and Multus.
-- [Secrets and credentials](architecture/secrets.md) — Bitwarden, External Secrets, and scoped operator inputs.
+- [Secrets and credentials](architecture/secrets.md) — Bitwarden, External Secrets, and scoped CLI inputs.
 - [Storage and shared media](architecture/storage.md) — NFS appdata, media, and repository boundaries.
 - [Backup and recovery](architecture/backup-recovery.md) — Restic and restore transaction.
 - [Uptime monitoring](architecture/uptime.md) — Gatus targets and alerting limit.

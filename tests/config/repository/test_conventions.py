@@ -11,7 +11,7 @@ from tests.support.runtime import ROOT
 from tests.support.sources import read_yaml, read_json5
 
 
-def test_ci_python_matches_supported_operator_runtime():
+def test_ci_python_matches_supported_cli_runtime():
     toolchain = read_yaml(ROOT / ".github/actions/setup-toolchain/action.yml")
     python_steps = [
         step
@@ -77,7 +77,7 @@ def test_tracked_hcl_boundary_and_duplicate_json5(tmp_path):
         terraform_sources(tmp_path)
 
 
-def test_operator_task_entrypoints():
+def test_cli_task_entrypoints():
     tasks = read_yaml(ROOT / "Taskfile.yaml")["tasks"]
     for name, entry in [
         ("secrets:sync-cluster-token", "secrets-sync-cluster-token.yml"),

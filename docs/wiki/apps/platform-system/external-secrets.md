@@ -1,7 +1,7 @@
 # External Secrets
 
 Purpose: External Secrets turns Bitwarden references into Kubernetes Secrets.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
 
 ## Dependencies
 
@@ -17,7 +17,7 @@ No routed HTTP endpoint is declared in this app values file; inspect raw manifes
 
 ## Operational note
 
-ESO and operator commands share the existing read-only machine account. The store
+ESO and CLI commands share the existing read-only machine account. The store
 fetches from the application project, while the account can read both configured
 projects. SecretSpec scopes control command injection, not account permissions.
 The shared store restricts consumers to the namespaces in its conditions; those

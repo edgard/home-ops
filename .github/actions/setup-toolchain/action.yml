@@ -58,23 +58,28 @@ runs:
         tofu_version: v1.13.1
         tofu_wrapper: false
 
+    - name: Set Up Ansible Dependencies
+      if: ${{ inputs.profile == 'ansible' || inputs.profile == 'kubernetes' }}
+      shell: bash
+      run: task deps
+
     - name: Install SecretSpec
       if: ${{ inputs.profile == 'ansible' }}
       shell: bash
       run: |
-        version="$(cat .secretspec-version)"
+        version="$(.venv/bin/python -c 'import yaml; print(yaml.safe_load(open("ansible/roles/cli_secrets/defaults/main.yml"))["cli_secrets_secretspec_version"])')"
         archive="secretspec-x86_64-unknown-linux-gnu.tar.xz"
         release="https://github.com/cachix/secretspec/releases/download/v${version}"
-        tmp="$(mktemp -d)"
+        tmp="$(mktemp -d "$RUNNER_TEMP/secretspec.XXXXXX")"
         trap 'rm -rf "$tmp"' EXIT
 
         curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$archive" "$release/$archive"
         curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$archive.sha256" "$release/$archive.sha256"
         (cd "$tmp" && sha256sum --check --status "$archive.sha256")
         tar -xJf "$tmp/$archive" -C "$tmp"
+        test "$("$tmp/secretspec-x86_64-unknown-linux-gnu/secretspec" --version)" = "secretspec $version"
         mkdir -p "$RUNNER_TEMP/home-ops-bin"
         install -m 0755 "$tmp/secretspec-x86_64-unknown-linux-gnu/secretspec" "$RUNNER_TEMP/home-ops-bin/secretspec"
-        test "$("$RUNNER_TEMP/home-ops-bin/secretspec" --version)" = "secretspec $version"
         echo "$RUNNER_TEMP/home-ops-bin" >> "$GITHUB_PATH"
 
     - name: Set Up pluto

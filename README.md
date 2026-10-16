@@ -23,7 +23,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 brew install python@3.14 helm talosctl go-task opentofu yamllint prettier yamlfmt pluto kubeconform actionlint node@24
 task deps                         # Install pinned validation dependencies
 
-# Set local operator inputs
+# Set local CLI inputs
 export TALOS_NODE="192.168.1.253"
 export TALOS_CLUSTER_NAME="homelab"
 export TALOS_INSTALL_DISK="/dev/vda"
@@ -31,8 +31,9 @@ export KUBE_CONTEXT="admin@homelab"
 ```
 
 Provision SecretSpec and BWS through your Chezmoi/Homebrew machine setup, then
-store the operator machine token once. The required SecretSpec version is in
-[.secretspec-version](.secretspec-version); CI installs it through the toolchain action:
+store the CLI machine token once. The required SecretSpec version lives in
+[the CLI role defaults](ansible/roles/cli_secrets/defaults/main.yml);
+CI reads the same pin through the toolchain action:
 
 ```bash
 task secrets:login

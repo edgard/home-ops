@@ -16,10 +16,15 @@ JSON5, and tracked HCL sources. There is no normalized policy inventory.
 | `task lint` | Format/static/workflow/Ansible/OpenTofu checks, then all pytest cases once |
 
 Run `task deps` first. Local prerequisites include Python 3.14, Node 24 or newer,
-OpenTofu, SecretSpec matching `.secretspec-version`, and the existing native lint
+OpenTofu, SecretSpec matching `cli_secrets_secretspec_version` in the CLI role defaults,
+and the existing native lint
 and Kubernetes CLIs. CI installs these in the corresponding toolchain profiles.
 Ansible's focused subset requires no real Helm/kubeconform/Pluto installation.
 Missing dependencies fail the checks; required cases never silently skip.
+The CI toolchain action runs `task deps` before reading the role's YAML pin with
+the installed YAML parser. An isolated integration test executes its SecretSpec
+installer with synthetic release archives, covering successful installation,
+checksum/version rejection, preservation of an existing binary, and staging cleanup.
 
 All pytest commands, including focused checks and direct invocations, use the
 parallel defaults in [pyproject.toml](../pyproject.toml): automatic worker
