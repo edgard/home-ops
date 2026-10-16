@@ -57,14 +57,6 @@ tasks:
     cmds:
       - true
 
-  secrets:setup:
-    desc: Install checksum-verified operator tools through Ansible
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/secrets-setup.yml'
-
   secrets:invoke:
     internal: true
     dir: "{{.TASKFILE_DIR}}"

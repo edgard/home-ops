@@ -16,7 +16,7 @@ JSON5, and tracked HCL sources. There is no normalized policy inventory.
 | `task lint` | Format/static/workflow/Ansible/OpenTofu checks, then all pytest cases once |
 
 Run `task deps` first. Local prerequisites include Python 3.14, Node 24 or newer,
-OpenTofu, pinned SecretSpec (`task secrets:setup`), and the existing native lint
+OpenTofu, SecretSpec matching `.secretspec-version`, and the existing native lint
 and Kubernetes CLIs. CI installs these in the corresponding toolchain profiles.
 Ansible's focused subset requires no real Helm/kubeconform/Pluto installation.
 Missing dependencies fail the checks; required cases never silently skip.

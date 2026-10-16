@@ -23,18 +23,18 @@ select a compatible interpreter) and the normal repository tools, then:
 
 ```bash
 task deps
-task secrets:setup
 task secrets:login
 task secrets:check scope=cluster
 task secrets:check scope=terraform
 ```
 
-The checksum-verified installer writes pinned binaries to `~/.local/bin`.
-The [role defaults](../../../ansible/roles/operator_secrets/defaults/main.yml)
-own the tool pins; SecretSpec validation and its real-provider integration
-check use the same configured version. A pin update still has to pass the
-provider compatibility fixtures before delivery.
-Operator commands find that directory automatically. Login prompts securely;
+Provision SecretSpec and BWS through the local Chezmoi/Homebrew machine setup.
+This repository validates those tools but does not install local binaries.
+The [version file](../../../.secretspec-version) owns the SecretSpec compatibility
+pin used by runtime validation and the [CI toolchain action](../../../.github/actions/setup-toolchain/action.yml).
+CI uses synthetic provider fixtures and installs only SecretSpec. A pin update
+still has to pass the provider compatibility fixtures before delivery.
+Operator commands include `~/.local/bin` on `PATH` automatically. Login prompts securely;
 do not paste tokens into commands, Git, documentation, or chat. On macOS,
 SecretSpec's keyring provider uses Keychain. Recovery requires access to
 Bitwarden and this credential or a replacement token; this design has no
@@ -61,7 +61,7 @@ permissions are the access boundary. Bootstrap and token replacement validate
 access to exactly the two configured projects, rejecting unconfigured projects.
 
 Task launches the native SecretSpec CLI and then the selected Ansible playbook.
-Ansible roles own tool installation, version checks, bootstrap preflight,
+Ansible roles own version checks, bootstrap preflight,
 Talos generation, GitOps handoff, and token replacement. The role-owned BWS
 adapter remains a small read-only CLI boundary required by SecretSpec's provider;
 it does not orchestrate workflows or maintain values.
@@ -128,7 +128,7 @@ ApplicationSet children, followed by fresh ExternalSecret reconciliation.
 - [Bootstrap preflight](../../../ansible/roles/platform/tasks/preflight.yml)
 - [Cluster checks and token replacement](../../../ansible/roles/platform/tasks/sync_token.yml)
 - [Original secrets refactor, PR #433](https://github.com/edgard/home-ops/pull/433)
-- [Tool installation](../../../ansible/roles/operator_secrets/tasks/setup.yml)
+- [Tool validation](../../../ansible/roles/operator_secrets/tasks/validate.yml)
 - [Task interface](../../../Taskfile.yaml)
 - [SecretSpec credentials](https://secretspec.dev/reference/provider-credentials/) — credential precedence and keyring sources.
 - [SecretSpec BWS implementation](https://github.com/cachix/secretspec/blob/v0.21.1/secretspec/src/provider/bws.rs) — native project reads and process-memory caching.

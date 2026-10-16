@@ -30,10 +30,11 @@ export TALOS_INSTALL_DISK="/dev/vda"
 export KUBE_CONTEXT="admin@homelab"
 ```
 
-Install the pinned operator binaries and store the operator machine token once:
+Provision SecretSpec and BWS through your Chezmoi/Homebrew machine setup, then
+store the operator machine token once. The required SecretSpec version is in
+[.secretspec-version](.secretspec-version); CI installs it through the toolchain action:
 
 ```bash
-task secrets:setup
 task secrets:login
 task secrets:check scope=cluster
 task secrets:check scope=terraform

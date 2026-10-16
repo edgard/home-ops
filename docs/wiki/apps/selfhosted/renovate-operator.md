@@ -22,8 +22,8 @@ Review generated PR behavior and credentials after changing job or operator conf
 The [repository Renovate configuration](../../../../.renovaterc.json5) combines
 built-in managers for Actions, Ansible requirements, Terraform, and Kubernetes
 images with custom extraction for app charts, images, upgrade targets, CI tools,
-Gateway API, the Restic restore image, and operator SecretSpec/BWS pins. The BWS
-manager selects CLI release tags from the SDK repository. When moving a dependency file, check
+Gateway API, the Restic restore image, and the shared SecretSpec compatibility
+pin in [`.secretspec-version`](../../../../.secretspec-version). When moving a dependency file, check
 its manager file patterns and run a local extraction dry run; valid configuration
 alone does not prove that the dependency is still discovered.
 

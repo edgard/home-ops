@@ -3,6 +3,17 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-16] revision | Separate machine setup from operator workflows
+
+Retired the local operator-tool installer, its Task command, playbook, download
+metadata, and installation-only tests. Local tools belong to Chezmoi/Homebrew;
+CI installs SecretSpec in its toolchain action. A shared version file keeps the
+CI binary and runtime validation aligned. Preserved provider, scope, version,
+and credential safeguards and updated their fixtures and Renovate discovery.
+Updated the README, test guide, secrets runbook, and Renovate app explanation;
+reviewed the contributor workflow and secrets architecture. October's semantic
+review is already recorded below.
+
 ## [2026-10-15] revision | Parallelize every pytest invocation
 
 Added global bounded work-stealing defaults for direct pytest, Task commands,

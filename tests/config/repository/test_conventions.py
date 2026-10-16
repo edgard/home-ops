@@ -80,7 +80,6 @@ def test_tracked_hcl_boundary_and_duplicate_json5(tmp_path):
 def test_operator_task_entrypoints():
     tasks = read_yaml(ROOT / "Taskfile.yaml")["tasks"]
     for name, entry in [
-        ("secrets:setup", "secrets-setup.yml"),
         ("secrets:sync-cluster-token", "secrets-sync-cluster-token.yml"),
     ]:
         assert entry in json.dumps(tasks[name]), f"{name} must invoke its real role entry point"

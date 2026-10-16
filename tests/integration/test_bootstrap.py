@@ -151,20 +151,18 @@ def test_bootstrap_order_and_native_failure(tmp_path, provider, failure):
             ).encode()
         ).decode(),
     }
-    pins = read_yaml(ROOT / "ansible/roles/operator_secrets/defaults/main.yml")
+    pin = (ROOT / ".secretspec-version").read_text().strip()
     executable(
         tmp_path,
         "secretspec",
-        "print('secretspec " + pins["operator_secrets_secretspec_version"] + "')\n",
+        "print('secretspec " + pin + "')\n",
     )
     # Provider list/read fixture remains active; add only the normal version command it needs.
     bws = tmp_path / "bws"
     bws.write_text(
         bws.read_text().replace(
             "args=sys.argv[1:]",
-            "args=sys.argv[1:]\nif args==['--version']: print('bws "
-            + pins["operator_secrets_bws_version"]
-            + "');sys.exit()",
+            "args=sys.argv[1:]\nif args==['--version']: print('bws 2.1.0');sys.exit()",
         )
     )
     tracked = subprocess.check_output(["git", "ls-files", "--", "apps"], cwd=ROOT, text=True)

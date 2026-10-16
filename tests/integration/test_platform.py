@@ -9,18 +9,16 @@ from tests.support.talos import MATERIAL
 
 
 def test_cluster_preflight_denial_precedes_node_mutation(tmp_path):
-    defaults = read_yaml(ROOT / "ansible/roles/operator_secrets/defaults/main.yml")
+    pin = (ROOT / ".secretspec-version").read_text().strip()
     executable(
         tmp_path,
         "secretspec",
-        "print('secretspec " + defaults["operator_secrets_secretspec_version"] + "')\n",
+        "print('secretspec " + pin + "')\n",
     )
     executable(
         tmp_path,
         "bws",
-        "import sys\nif sys.argv[1:]==['--version']: print('bws "
-        + defaults["operator_secrets_bws_version"]
-        + "')\nelse: print('PRIVATE_PROVIDER_ERROR',file=sys.stderr);sys.exit(1)\n",
+        "import sys\nif sys.argv[1:]==['--version']: print('bws 2.1.0')\nelse: print('PRIVATE_PROVIDER_ERROR',file=sys.stderr);sys.exit(1)\n",
     )
     marker = tmp_path / "node-contact"
     for name in ["talosctl", "helm"]:

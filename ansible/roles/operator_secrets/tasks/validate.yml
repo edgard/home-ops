@@ -19,7 +19,7 @@
       - operator_secrets_cli_versions.results | selectattr('rc', 'ne', 0) | list | length == 0
       - operator_secrets_cli_versions.results[0].stdout | trim == 'secretspec ' ~ operator_secrets_secretspec_version
       - (operator_secrets_cli_versions.results[1].stdout | regex_search('[0-9]+[.][0-9]+[.][0-9]+')) is version('0.3.0', '>=')
-    fail_msg: Run task secrets:setup to install the supported operator tools.
+    fail_msg: Provision SecretSpec and BWS through your machine's package setup; CI uses the toolchain action. See .secretspec-version for the required SecretSpec version.
 
 - name: Read the authoritative secret contract
   ansible.builtin.set_fact:
