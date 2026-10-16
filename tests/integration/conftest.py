@@ -2,7 +2,7 @@ import base64
 import json
 import pytest
 from tests.support.runtime import ROOT, executable
-from tests.support.sources import applications, read_toml
+from tests.support.sources import applications, read_toml, read_yaml
 
 
 @pytest.fixture
@@ -35,8 +35,8 @@ def provider(tmp_path):
     )
     for name, rows in [("projects", projects), ("secrets", values)]:
         (tmp_path / (name + ".json")).write_text(json.dumps(rows))
-    (tmp_path / "application-project").write_text(
-        config["providers"]["applications"]["uri"].split("/")[-1]
+    (tmp_path / "bitwarden-project").write_text(
+        read_yaml(ROOT / "apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml")["spec"]["provider"]["bitwardensecretsmanager"]["projectID"]
     )
     executable(
         tmp_path,
@@ -48,7 +48,7 @@ assert os.environ['BWS_ACCESS_TOKEN']=='synthetic-read-only-token'
 assert os.environ.get('BW_ACCESS_TOKEN','')==''
 if args == ['--color','no','--server-url','https://vault.bitwarden.com','project','list','--output','json']:
  print((base/'projects.json').read_text())
-elif len(args)==9 and args[6]==(base/'application-project').read_text() and args[:6]==['--color','no','--server-url','https://vault.bitwarden.com','secret','list'] and args[7:]==['--output','json']:
+elif len(args)==9 and args[6]==(base/'bitwarden-project').read_text() and args[:6]==['--color','no','--server-url','https://vault.bitwarden.com','secret','list'] and args[7:]==['--output','json']:
  print((base/'secrets.json').read_text())
 else: sys.exit(92)
 """,

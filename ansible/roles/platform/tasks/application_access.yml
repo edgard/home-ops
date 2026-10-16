@@ -11,12 +11,12 @@
       ansible.builtin.assert:
         that:
           - platform_bitwarden_access_token | length > 0
-          - platform_secret_providers | length == 2
+          - platform_secret_providers.keys() | list == ['bitwarden']
+          - platform_secret_providers.bitwarden.uri == 'bws://' ~ platform_secret_store.spec.provider.bitwardensecretsmanager.projectID
 
-    - name: Record configured Bitwarden project IDs
+    - name: Record the shared Bitwarden project ID
       ansible.builtin.set_fact:
-        platform_application_project: "{{ platform_secret_store.spec.provider.bitwardensecretsmanager.projectID }}"
-        platform_expected_projects: "{{ platform_secret_providers.values() | map(attribute='uri') | map('urlsplit', 'netloc') | unique | list }}"
+        platform_bitwarden_project: "{{ platform_secret_store.spec.provider.bitwardensecretsmanager.projectID }}"
 
     - name: List token-accessible Bitwarden projects
       timeout: 30
@@ -42,10 +42,8 @@
     - name: Validate exact project access
       ansible.builtin.assert:
         that:
-          - platform_expected_projects | length == 2
-          - platform_application_project in platform_expected_projects
           - (platform_projects_result.stdout | safe_from_json | type_debug) == 'list'
-          - platform_projects_result.stdout | safe_from_json | map(attribute='id') | unique | sort == platform_expected_projects | sort
+          - platform_projects_result.stdout | safe_from_json | map(attribute='id') | unique | sort == [platform_bitwarden_project]
 
     - name: Read application secrets through guarded read-only provider
       timeout: 30
@@ -60,7 +58,7 @@
           - https://vault.bitwarden.com
           - secret
           - list
-          - "{{ platform_application_project }}"
+          - "{{ platform_bitwarden_project }}"
           - --output
           - json
       environment:

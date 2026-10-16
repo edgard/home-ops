@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
+Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -148,7 +148,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 ## External Services
 
-- Bitwarden: authoritative values, with one shared read-only machine account for ESO and CLI commands; scoped SecretSpec supplies bootstrap and Terraform commands.
+- Bitwarden: one `home-ops` project with one shared read-only machine account for ESO and CLI commands; scoped SecretSpec supplies bootstrap and Terraform commands.
 - Backblaze B2 S3-compatible backend: credentials supplied through the SecretSpec Terraform scope.
 - Cloudflare: DNS management
 - Tailscale: VPN networking (192.168.1.0/24)

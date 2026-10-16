@@ -3,6 +3,18 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-16] revision | Consolidate Bitwarden storage and delivery references
+
+Consolidated CLI and application storage around the existing application project
+UUID and one SecretSpec `bitwarden` provider. ESO keeps its own direct delivery
+configuration and item references. Updated bootstrap and token preflight to require
+exact access to the shared project and reject project mismatches. Scope, read-only
+provider, redaction, and token rollback safeguards remain in place. Updated the
+secrets architecture, maintenance and migration procedure, Terraform explanation,
+External Secrets page, contributor workflow, and README. Equal values across
+independent service credentials do not by themselves justify merging their records.
+October's semantic review is already recorded below.
+
 ## [2026-10-16] revision | Clarify CLI secrets tooling and restore role-owned pins
 
 Renamed the local secret-delivery role and variables to `cli_secrets` and its

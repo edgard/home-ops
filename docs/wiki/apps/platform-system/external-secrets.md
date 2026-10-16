@@ -1,7 +1,7 @@
 # External Secrets
 
 Purpose: External Secrets turns Bitwarden references into Kubernetes Secrets.
-Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
+Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
 
 ## Dependencies
 
@@ -18,8 +18,8 @@ No routed HTTP endpoint is declared in this app values file; inspect raw manifes
 ## Operational note
 
 ESO and CLI commands share the existing read-only machine account. The store
-fetches from the application project, while the account can read both configured
-projects. SecretSpec scopes control command injection, not account permissions.
+and SecretSpec reference the same `home-ops` project; the machine account has
+read access to exactly that project. SecretSpec scopes control command injection, not account permissions.
 The shared store restricts consumers to the namespaces in its conditions; those
 namespaces are not isolated from each other. Bootstrap waits for store readiness
 before Argo handoff. [Token replacement](../../operations/secrets-maintenance.md)

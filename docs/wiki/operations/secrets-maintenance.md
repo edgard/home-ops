@@ -1,23 +1,21 @@
 # Secrets maintenance and recovery
 
 Purpose: provision and operate the unified Bitwarden delivery paths.
-Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
+Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
 
 ## Setup without cluster access
 
-Bitwarden Secrets Manager is the value maintenance home. Maintain values in its
-UI. Use two projects: the existing application project and a CLI project
-(currently named `home-ops-operator` in Bitwarden).
-First check the human account's project capacity. Reuse the existing machine
-account with read access to both configured projects. CLI commands and ESO
-share this account and its token; ESO can therefore read CLI secrets too.
-Preserve existing application values, shared items, the token, and Talos identity.
+Bitwarden Secrets Manager is the value maintenance home. Maintain all homelab
+values in one `home-ops` project. Reuse the existing read-only machine account for
+CLI commands and ESO, granting it access to exactly this project. Preserve item
+names, IDs, values, the existing token, and the Talos identity.
 
-Set the CLI project's public UUID in the `cli` alias in
-[secretspec.toml](../../../secretspec.toml) when provisioning a new environment.
-The configured projects must be distinct and nonempty. The application alias
-remains tied to the existing project. Both aliases read one
-`home-ops/_provider/access_token` Keychain credential through SecretSpec.
+Set the project's public UUID in the `bitwarden` provider in
+[secretspec.toml](../../../secretspec.toml) and in the
+[ClusterSecretStore](../../../apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml).
+They must match. The configured SecretSpec provider reads the existing
+`home-ops/_provider/access_token` Keychain credential; renaming or consolidating
+Bitwarden projects does not change that credential address.
 
 Install Python 3.14 (the default `task deps` interpreter; `PYTHON_BIN` can
 select a compatible interpreter) and the normal repository tools, then:
@@ -47,13 +45,14 @@ cloud access.
 
 ## Value inventory and ordinary use
 
-The manifest owns the exact key references and scope membership. Put existing
-Talos YAML, backend access/secret keys, and the shared machine-account token into
-the CLI project using the manifest's item names. Cloudflare's API token and the Tailscale OAuth client secret remain single
-application-project items shared with ESO. The Cloudflare zone ID and Tailscale
-OAuth client ID are CLI-only inputs and belong in the CLI project.
-The manifest preserves the existing Bitwarden item names, including the
-`tailscale_oauth_` names. Do not duplicate shared values.
+The manifest owns the exact CLI key references and scope membership. ExternalSecret
+manifests own the cluster's item references. All referenced items live in the same
+project. The Tailscale OAuth client secret is one item reused by Terraform and the
+router. Terraform's `cloudflare_token` and certificates' separate
+`cert_manager_cloudflare_api_token` remain distinct credentials. Preserve existing
+names, including `tailscale_oauth_` names. Deduplicate records representing the same
+credential and consumers; equal values alone do not make unrelated service accounts
+or encryption/session keys interchangeable.
 
 `talos:gen`, `platform:create`, `cluster:create`, `tf:plan`, and `tf:apply` resolve
 only their named scopes through the checked-in manifest. They clear inherited
@@ -62,7 +61,7 @@ through a read-only adapter that rejects duplicates, malformed data, writes,
 and unredacted provider diagnostics. Authentication is in subprocess environment,
 never CLI arguments. Scopes minimize delivery; machine-account project
 permissions are the access boundary. Bootstrap and token replacement validate
-access to exactly the two configured projects, rejecting unconfigured projects.
+access to exactly the shared project, rejecting unconfigured project access.
 
 Task launches the native SecretSpec CLI and then the selected Ansible playbook.
 Ansible roles own version checks, bootstrap preflight,
@@ -83,13 +82,27 @@ do not resolve cloud secrets.
 
 Create a replacement token on the existing read-only machine account and retain
 the current token until verification passes. Update `eso_bws_access_token` in
-the CLI project through the Bitwarden UI, then run `task secrets:login`
+the `home-ops` project through the Bitwarden UI, then run `task secrets:login`
 with the replacement token to update the single Keychain credential. Run both
 scope checks and `task secrets:sync-cluster-token`, then verify the consumers.
 Revoke the old token only after success. The synchronization command retains and
 restores the previous cluster token if reconciliation fails; restore the old
-CLI-project value and Keychain credential too when rolling back the whole
+Bitwarden item value and Keychain credential too when rolling back the whole
 rotation. Project permissions remain the same.
+
+## Project consolidation
+
+The single project retains the former application project's UUID, preserving ESO
+references. Move the former CLI project's items into it without recreating them.
+Before moving, compare names and references, and check that project access grants
+are compatible. Verify all item IDs, names, values, and notes after the move.
+Remove the retired project's machine-account grant after its items are verified in
+the retained project, then run the cluster and Terraform scope checks and the
+read-only application-access preflight. That preflight requires exactly one
+accessible project. Retire the empty project only after verification. If rollback
+is needed, restore its previous read-only machine-account grant first, move the
+affected items back using their original IDs, and restore the previous manifest
+before running maintenance commands.
 
 ## Migration history and protected state recovery
 
@@ -109,7 +122,7 @@ do not force overwrite newer concurrent state. Historical state retention and
 native state encryption remain separate work.
 
 For CLI recovery, sign in through the human Bitwarden account, verify
-machine-account read access to the two configured projects, provision the local
+machine-account read access to the shared project, provision the local
 tools through Chezmoi/Homebrew, then run `task deps` and `task secrets:login`
 on the new Mac. Restore nonsecret node/disk/path settings, then use
 `task talos:gen` with the existing Talos identity to regenerate restricted client
