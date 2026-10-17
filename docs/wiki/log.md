@@ -5,6 +5,10 @@ revisions. Ordinary questions and dependency bumps do not need entries.
 
 ## [2026-10-17] revision | Add Home Assistant Matter support
 
+The follow-up pins the legacy configuration PVC name and protects both claims
+from automatic pruning/deletion. Added a rendered regression for configuration
+claim identity when additional persistence entries are present.
+
 Added the HAOS-baselined Matter.js Server beside Home Assistant with private
 loopback management, separate controller storage, and upstream health checks.
 An app-owned bridge/tuning attachment enables pod-scoped IPv6 Thread route

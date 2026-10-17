@@ -24,6 +24,12 @@ restore. Restore matching Home Assistant and Matter state from one snapshot;
 before a server downgrade that changes storage format, restore a compatible
 state backup. See the [restore runbook](../../operations/restic-backup-restore.md).
 
+The configuration claim's name is explicitly pinned to the original
+`homeassistant` claim. App-template otherwise appends persistence identifiers
+when another PVC is added, which would select a fresh configuration volume.
+Both claims disable Argo pruning and deletion; retire them explicitly only after
+verifying the retained data and its backup.
+
 ## Networking and monitoring
 
 The Home Assistant route remains on the shared Gateway. The app-owned

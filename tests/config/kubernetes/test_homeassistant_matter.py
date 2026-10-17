@@ -120,6 +120,14 @@ def test_rendered_matter_volume_and_listener_isolation(rendered):
         for volume in pod["volumes"]
         if "persistentVolumeClaim" in volume
     }
+    config_mount = next(
+        mount
+        for mount in containers["app"]["volumeMounts"]
+        if mount["mountPath"] == "/config"
+    )
+    assert claims[config_mount["name"]] == "homeassistant", (
+        "Adding Matter storage must preserve the existing Home Assistant claim"
+    )
     matter_mounts = matter["volumeMounts"]
     assert len(matter_mounts) == 1 and matter_mounts[0]["mountPath"] == "/data"
     matter_volume = matter_mounts[0]["name"]

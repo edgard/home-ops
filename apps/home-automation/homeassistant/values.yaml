@@ -128,6 +128,9 @@ route:
 persistence:
   data:
     type: persistentVolumeClaim
+    forceRename: homeassistant
+    annotations:
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
     accessMode: ReadWriteOnce
     size: 10Gi
     advancedMounts:
