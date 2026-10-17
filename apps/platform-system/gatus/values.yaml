@@ -337,19 +337,3 @@ config:
       alerts:
         - type: telegram
         - type: homeassistant
-    - name: alert-light-a
-      group: acceptance
-      url: http://gatus-alert-light-acceptance.platform-system.svc:8080/a
-      interval: 5s
-      conditions:
-        - "[STATUS] == 200"
-      alerts:
-        - type: homeassistant
-    - name: alert-light-b
-      group: acceptance
-      url: http://gatus-alert-light-acceptance.platform-system.svc:8080/b
-      interval: 5s
-      conditions:
-        - "[STATUS] == 200"
-      alerts:
-        - type: homeassistant

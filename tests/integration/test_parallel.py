@@ -190,3 +190,61 @@ def test_loopback_apis_have_independent_ports_and_cleanup(tmp_path):
     for url in connections:
         with pytest.raises(OSError):
             urllib.request.urlopen(url + "/version", timeout=2)
+
+
+def test_loopback_api_does_not_announce_an_incomplete_port(tmp_path, monkeypatch):
+    import threading
+    import urllib.request
+    from concurrent.futures import ThreadPoolExecutor
+
+    import tests.support.api as fixture
+    from tests.support.sources import read_yaml
+
+    startup = tmp_path / "startup"
+    startup.mkdir()
+    (startup / "sitecustomize.py").write_text("""from pathlib import Path
+import time
+
+original = Path.write_text
+def held_write(path, value, *args, **kwargs):
+    if not isinstance(value, str) or not value.isdecimal():
+        return original(path, value, *args, **kwargs)
+    with path.open('w') as stream:
+        (path.parent / 'publication-open').touch()
+        deadline = time.monotonic() + 5
+        while not (path.parent / 'publication-release').exists():
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
+        return stream.write(value)
+Path.write_text = held_write
+""")
+    directory = tmp_path / "api"
+    directory.mkdir()
+    original_environment = fixture.environment
+    monkeypatch.setattr(
+        fixture,
+        "environment",
+        lambda path: original_environment(path, {"PYTHONPATH": str(startup)}),
+    )
+    announced = threading.Event()
+
+    def consume():
+        with cluster_api(directory, {"objects": {}, "events": []}) as (connection, _):
+            announced.set()
+            url = read_yaml(connection["kubeconfig_path"])["clusters"][0]["cluster"][
+                "server"
+            ]
+            with urllib.request.urlopen(url + "/version", timeout=2) as response:
+                return response.status
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        result = executor.submit(consume)
+        deadline = time.monotonic() + 5
+        while not (directory / "publication-open").exists():
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
+        try:
+            assert not announced.wait(0.1), "Fixture announced a partially written port"
+        finally:
+            (directory / "publication-release").touch()
+        assert result.result(timeout=5) == 200

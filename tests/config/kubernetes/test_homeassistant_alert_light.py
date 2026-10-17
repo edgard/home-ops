@@ -144,16 +144,10 @@ def assert_alert_delivery(gatus):
     assert not config.get("maintenance")
     for endpoint in config["endpoints"]:
         assert not endpoint.get("maintenance-windows")
-        expected_providers = (
-            {"homeassistant"}
-            if endpoint.get("group") == "acceptance"
-            else {"telegram", "homeassistant"}
-        )
+        expected_providers = {"telegram", "homeassistant"}
         assert {a["type"] for a in endpoint["alerts"]} == expected_providers
         assert all(set(a) == {"type"} for a in endpoint["alerts"])
-        assert endpoint["interval"] == (
-            "5s" if endpoint.get("group") == "acceptance" else "1m"
-        )
+        assert endpoint["interval"] == "1m"
     secret = next(
         d
         for d in gatus.documents
@@ -223,51 +217,11 @@ def test_rejects_unsafe_or_divergent_alert_delivery(repo_root, broken):
         assert_alert_delivery(gatus)
 
 
-def test_controlled_acceptance_targets_are_private_and_ephemeral(repo_root):
+def test_acceptance_fixture_is_retired(repo_root):
     gatus = next(app for app in applications(repo_root) if app.name == "gatus")
-    endpoints = [
-        e for e in gatus.values["config"]["endpoints"] if e.get("group") == "acceptance"
-    ]
-    assert {e["name"] for e in endpoints} == {"alert-light-a", "alert-light-b"}
-    assert {e["url"] for e in endpoints} == {
-        "http://gatus-alert-light-acceptance.platform-system.svc:8080/a",
-        "http://gatus-alert-light-acceptance.platform-system.svc:8080/b",
-    }
-    docs = {
-        d["kind"]: d
-        for d in gatus.documents
-        if d["metadata"]["name"] == "gatus-alert-light-acceptance"
-    }
-    assert set(docs) == {"ConfigMap", "Deployment", "Service"}
-    service = docs["Service"]["spec"]
-    assert service["type"] == "ClusterIP" and not service.get("externalIPs")
-    pod = docs["Deployment"]["spec"]["template"]["spec"]
-    assert not pod.get("hostNetwork") and pod["automountServiceAccountToken"] is False
     assert all(
-        set(v) - {"name"} in ({"configMap"}, {"emptyDir"}) for v in pod["volumes"]
+        e.get("group") != "acceptance" for e in gatus.values["config"]["endpoints"]
     )
-    assert not any(c.get("envFrom") for c in pod["containers"])
-    container = pod["containers"][0]
-    assert container["securityContext"] == {
-        "allowPrivilegeEscalation": False,
-        "readOnlyRootFilesystem": True,
-        "capabilities": {"drop": ["ALL"]},
-    }
-    assert pod["securityContext"]["runAsNonRoot"] is True
-    assert pod["securityContext"]["runAsUser"] == 1000
-    assert pod["securityContext"]["seccompProfile"] == {"type": "RuntimeDefault"}
-    assert container["command"] == ["python", "-B", "/fixture/server.py"]
-    script = docs["ConfigMap"]["data"]["server.py"]
-    scope = {"__name__": "fixture_test"}
-    exec(compile(script, "acceptance-fixture", "exec"), scope)
-    from pathlib import Path
-    from tempfile import TemporaryDirectory
-
-    with TemporaryDirectory() as folder:
-        scope["CONTROL"] = Path(folder)
-        assert scope["status"]("/a") == 200
-        assert scope["status"]("/b") == 200
-        assert scope["status"]("/unknown") == 404
-        Path(folder, "fail-a").touch()
-        assert scope["status"]("/a") == 503 and scope["status"]("/b") == 200
-        assert scope["status"]("/healthz") == 200
+    assert not any(
+        d["metadata"]["name"] == "gatus-alert-light-acceptance" for d in gatus.documents
+    )
