@@ -157,3 +157,16 @@ persistence:
           - path: /config/configuration.yaml
             subPath: configuration.yaml
             readOnly: true
+
+  config-gatus:
+    type: configMap
+    name: homeassistant-gatus-alert-light
+    advancedMounts:
+      main:
+        app:
+          - path: /config/packages/gatus_alert_light.yaml
+            subPath: gatus_alert_light.yaml
+            readOnly: true
+          - path: /config/custom_templates/gatus_alert_light.jinja
+            subPath: gatus_alert_light.jinja
+            readOnly: true
