@@ -57,7 +57,9 @@ versions, private-material cleanup, CI tool checksum/version rejection, scoped d
 committed handoff, original restore state, and failure evidence. Restore failure
 may leave workloads paused or partially resumed; tests retain that recovery
 contract. Roles contain no test-only execution branches. Runtime assertions
-continue to protect operator inputs and live state.
+continue to protect operator inputs and live state. Injected API-error scenarios
+use a separate bounded budget from deliberate timeout scenarios; a delayed
+synthetic response verifies that the intended target-read fault is reached.
 
 The CI SecretSpec installer scenario executes the toolchain action's real shell
 against synthetic release archives. It verifies successful installation, rejected

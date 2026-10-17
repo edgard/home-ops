@@ -31,11 +31,23 @@ def test_token_rotation_and_rollback(tmp_path, provider, secret_api, scenario, p
     projects, _, targets, manifests = provider
     if scenario == "invalid-provider-access":
         (tmp_path / "projects.json").write_text(json.dumps(projects[:-1]))
+    # Only timeout scenarios should expire before a read can complete. API-error
+    # scenarios need enough time to reach their injected fault on slower runners.
+    if scenario == "success":
+        reconcile_timeout = 120
+    elif scenario in {"reconciliation-failure", "restore-failure"}:
+        reconcile_timeout = 3
+    else:
+        reconcile_timeout = 30
+    first = manifests[0]["metadata"]
+    ready_path = f"/apis/external-secrets.io/v1/namespaces/{first['namespace']}/externalsecrets/{first['name']}"
     with cluster_api(
         tmp_path,
         {
             **secret_api,
             "scenario": scenario,
+            # Reproduce a slow ready response before the injected target-read fault.
+            "read_delays": {ready_path: 3} if scenario == "target-read-failure" else {},
             "token": OLD,
             "patches": [],
             "reads": [],
@@ -49,9 +61,7 @@ def test_token_rotation_and_rollback(tmp_path, provider, secret_api, scenario, p
             {
                 **connection,
                 "platform_bitwarden_access_token": TOKEN,
-                "platform_secret_reconcile_timeout": (
-                    120 if scenario == "success" else 3
-                ),
+                "platform_secret_reconcile_timeout": reconcile_timeout,
             },
         )
         state = observed()

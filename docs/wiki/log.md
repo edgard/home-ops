@@ -12,7 +12,9 @@ Tracked the root OpenTofu provider lock and preserved it through cleanup, with
 read-only backendless validation and explicit OpenTofu registry maintenance.
 CI now runs Format, Lint, and one complete Tests job behind Quality Gate, retaining
 JUnit evidence and native installer safeguards. Scoped provider execution selects
-the project interpreter even when the machine default differs. Reviewed contributor/wiki rules,
+the project interpreter even when the machine default differs. Separated synthetic
+API-error budgets from deliberate timeout scenarios and reproduced slow-response
+rollback coverage without changing production deadlines. Reviewed contributor/wiki rules,
 test guidance, validation architecture and decision, Terraform, secrets maintenance,
 source catalog, and Renovate explanations. October's semantic review is already
 recorded below.

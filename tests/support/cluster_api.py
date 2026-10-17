@@ -4,6 +4,7 @@ import base64
 import copy
 import json
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -214,6 +215,7 @@ class Handler(BaseHTTPRequestHandler):
                 {"kind": "Status", "message": "unexpected fixture target", "code": 422},
                 422,
             )
+        time.sleep(current.get("read_delays", {}).get(path, 0))
         name = path.rsplit("/", 1)[-1]
         if path.endswith("/applications/root"):
             current["root_reads"] = current.get("root_reads", 0) + 1
