@@ -1,7 +1,7 @@
 # Terraform and external infrastructure
 
 Purpose: locate Cloudflare, Tailscale, provider secrets, and state boundaries.
-Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
+Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
 
 OpenTofu manages Cloudflare DNS and Tailscale resources from this repo. Its
 remote S3-compatible backend remains configured in Terraform. SecretSpec supplies
@@ -15,8 +15,12 @@ requires a protected state backup and removal of only retired data-source entrie
 before a zero-change infrastructure plan. Planning and applying
 are Taskfile and Ansible operations, distinct from Argo CD application sync.
 
-The offline Terraform lint target validates configuration without connecting
-to the real backend. A successful lint does not constitute an applied plan.
+The offline Terraform lint target initializes without a backend in temporary
+provider data and validates with the committed root provider lock read-only.
+Provider checksums cover macOS ARM64 and Linux AMD64; `tf:clean` preserves the
+lock. Provider changes update their declarations and lock together, using the
+OpenTofu registry. State, plans, and credentials remain ignored. A successful
+lint does not constitute an applied plan.
 
 The Cloudflare provider pin and Renovate compatibility limit avoid the
 [query-parameter regression](https://github.com/cloudflare/terraform-provider-cloudflare/issues/7396)
@@ -30,6 +34,7 @@ remain unchanged; no lifecycle rule suppresses DNS changes.
 - [Maintenance runbook](../operations/secrets-maintenance.md)
 
 - [Terraform root module](../../../terraform/main.tf)
+- [Provider lock](../../../terraform/.terraform.lock.hcl)
 - [Dependency compatibility limits](../../../.renovaterc.json5)
 - [Cloudflare module](../../../terraform/cloudflare/dns.tf)
 - [Tailscale resources](../../../terraform/tailscale.tf)

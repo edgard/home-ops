@@ -8,7 +8,7 @@ from packaging.specifiers import SpecifierSet
 
 from tests.support.configuration import terraform_sources, walk
 from tests.support.runtime import ROOT
-from tests.support.sources import read_json5, read_yaml
+from tests.support.sources import read_json5, read_toml, read_yaml
 
 
 def test_ci_python_matches_supported_cli_runtime():
@@ -19,25 +19,23 @@ def test_ci_python_matches_supported_cli_runtime():
         if step.get("uses", "").startswith("actions/setup-python@")
     ]
     assert len(python_steps) == 1
-    version = python_steps[0]["with"]["python-version"]
+    metadata_path = python_steps[0]["with"]["python-version-file"]
+    project = read_toml(ROOT / metadata_path)["project"]
+    supported = SpecifierSet(project["requires-python"])
     default = read_yaml(ROOT / "Taskfile.yaml")["vars"]["PYTHON_BIN"]
-    assert f'"python{version}"' in default, "CI must install Task's default interpreter"
+    preferred = re.search(r"python([0-9]+\.[0-9]+)", default).group(1)
+    assert preferred in supported, "Task's default must satisfy the shared Python range"
+    # Ansible core 2.21 supports control-node Python through 3.14.
+    assert "3.14" in supported and "3.15" not in supported
     rules = [
         rule
         for rule in read_json5(ROOT / ".renovaterc.json5")["packageRules"]
-        if "github-actions" in rule.get("matchManagers", [])
-        and "python" in rule.get("matchDepNames", [])
-        and "allowedVersions" in rule
+        if "pep621" in rule.get("matchManagers", [])
+        and "requires-python" in rule.get("matchDepTypes", [])
     ]
-    assert rules, "Renovate must preserve Ansible's supported Python range"
-    # Ansible core 2.21 supports control-node Python through 3.14.
-    for rule in rules:
-        supported = SpecifierSet(rule["allowedVersions"])
-        assert version in supported, (
-            "CI Python must stay within Ansible's supported range"
-        )
-        assert "3.14" in supported
-        assert "3.15" not in supported
+    assert rules and all(rule.get("enabled") is False for rule in rules), (
+        "Review the supported Python range manually with Ansible upgrades"
+    )
 
 
 def test_native_kubernetes_module_convention():

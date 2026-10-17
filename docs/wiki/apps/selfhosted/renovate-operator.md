@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
+Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
 
 ## Dependencies
 
@@ -20,7 +20,8 @@ No routed HTTP endpoint is declared in this app values file; inspect raw manifes
 Review generated PR behavior and credentials after changing job or operator configuration.
 
 The [repository Renovate configuration](../../../../.renovaterc.json5) combines
-built-in managers for Actions, Ansible requirements, Terraform, and Kubernetes
+built-in managers for Actions, Python project metadata/uv locks, Ansible
+collections, Terraform/provider locks, and Kubernetes
 images with custom extraction for app charts, images, upgrade targets, CI tools,
 Gateway API, the Restic restore image, and the shared SecretSpec compatibility
 pin in [the CLI role defaults](../../../../ansible/roles/cli_secrets/defaults/main.yml). When moving a dependency file, check
@@ -38,9 +39,13 @@ The OpenTofu `required_version` constraint is manually managed. Renovate exclude
 the Terraform CLI dependency from both `.terraform-version` files and Terraform
 configuration, while provider dependencies and the CI OpenTofu tool remain managed.
 
-CI Python updates remain within the pinned Ansible core release's supported
-control-node runtime range. Keep the toolchain's interpreter aligned with the
-Taskfile default, and review the Python limit when upgrading Ansible core.
+CI reads the supported Python range from project metadata; the Taskfile's
+preferred interpreter must satisfy it. Renovate leaves this range manually
+managed and continues updating Python packages and their uv lock. Review the
+range with Ansible core upgrades. Provider updates use the OpenTofu registry,
+and native lock maintenance refreshes Python transitive dependencies and maintains
+provider selections within their constraints. Provider version PRs regenerate
+their lock hashes. Verify extraction and artifact updates when changing these files.
 The [Ansible support matrix](https://docs.ansible.com/projects/ansible-core/devel/reference_appendices/release_and_maintenance.html#ansible-core-support-matrix)
 defines the upstream compatibility boundary.
 
@@ -49,6 +54,9 @@ defines the upstream compatibility boundary.
 - [Repository Renovate configuration](../../../../.renovaterc.json5)
 - [CI toolchain](../../../../.github/actions/setup-toolchain/action.yml)
 - [Taskfile interpreter default](../../../../Taskfile.yaml)
+- [Python project metadata](../../../../pyproject.toml)
+- [Python lock](../../../../uv.lock)
+- [Provider lock](../../../../terraform/.terraform.lock.hcl)
 - [CLI tool defaults](../../../../ansible/roles/cli_secrets/defaults/main.yml)
 - [App metadata](../../../../apps/selfhosted/renovate-operator/app.yaml)
 - [Helm values](../../../../apps/selfhosted/renovate-operator/values.yaml)

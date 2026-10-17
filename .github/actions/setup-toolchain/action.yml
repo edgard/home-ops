@@ -4,7 +4,7 @@ description: Install pinned tools for Home Ops CI jobs.
 
 inputs:
   profile:
-    description: "Tool profile to install: format, static, ansible, kubernetes, terraform."
+    description: "Tool profile to install: format, lint, test."
     required: true
 
 runs:
@@ -12,12 +12,14 @@ runs:
   steps:
     - name: Validate Profile
       shell: bash
+      env:
+        HOME_OPS_TOOLCHAIN_PROFILE: ${{ inputs.profile }}
       run: |
-        case "${{ inputs.profile }}" in
-          format | static | ansible | kubernetes | terraform)
+        case "$HOME_OPS_TOOLCHAIN_PROFILE" in
+          format | lint | test)
             ;;
           *)
-            echo "::error::Unsupported toolchain profile: ${{ inputs.profile }}"
+            echo "::error::Unsupported toolchain profile: $HOME_OPS_TOOLCHAIN_PROFILE"
             exit 1
             ;;
         esac
@@ -30,41 +32,44 @@ runs:
         max-retries: 5
 
     - name: Set Up Python
-      if: ${{ inputs.profile == 'ansible' || inputs.profile == 'kubernetes' }}
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
-        python-version: "3.14"
-        cache: pip
-        cache-dependency-path: ansible/requirements.txt
+        python-version-file: pyproject.toml
+
+    - name: Set Up uv
+      uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      with:
+        # renovate: datasource=github-releases depName=astral-sh/uv
+        version: "0.13.1"
+        enable-cache: true
+        cache-dependency-glob: uv.lock
 
     - name: Set Up Node
-      if: ${{ inputs.profile == 'format' || inputs.profile == 'ansible' }}
+      if: ${{ inputs.profile == 'test' }}
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: 24
 
     - name: Set Up Helm
-      if: ${{ inputs.profile == 'kubernetes' }}
+      if: ${{ inputs.profile == 'test' }}
       uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
       with:
         # renovate: datasource=github-releases depName=helm/helm
         version: v4.3.1
 
     - name: Set Up OpenTofu
-      if: ${{ inputs.profile == 'format' || inputs.profile == 'ansible' || inputs.profile == 'terraform' }}
       uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
         # renovate: datasource=github-releases depName=opentofu/opentofu
         tofu_version: v1.13.1
         tofu_wrapper: false
 
-    - name: Set Up Ansible Dependencies
-      if: ${{ inputs.profile == 'ansible' || inputs.profile == 'kubernetes' }}
+    - name: Set Up Project Dependencies
       shell: bash
       run: task deps
 
     - name: Install SecretSpec
-      if: ${{ inputs.profile == 'ansible' }}
+      if: ${{ inputs.profile == 'test' }}
       shell: bash
       run: |
         version="$(.venv/bin/python -c 'import yaml; print(yaml.safe_load(open("ansible/roles/cli_secrets/defaults/main.yml"))["cli_secrets_secretspec_version"])')"
@@ -83,33 +88,25 @@ runs:
         echo "$RUNNER_TEMP/home-ops-bin" >> "$GITHUB_PATH"
 
     - name: Set Up pluto
-      if: ${{ inputs.profile == 'kubernetes' }}
+      if: ${{ inputs.profile == 'test' }}
       uses: FairwindsOps/pluto/github-action@ac2c42d55d5ff46a1af0f4b15faf3555119eea23 # v5.24.4
       with:
         # renovate: datasource=docker depName=us-docker.pkg.dev/fairwinds-ops/oss/pluto
         IMAGE_TAG: v5.23
 
     - name: Set Up kubeconform
-      if: ${{ inputs.profile == 'kubernetes' }}
+      if: ${{ inputs.profile == 'test' }}
       uses: bmuschko/setup-kubeconform@e5d264ec1eafe2314e750c429a9da7639dd5a003 # v1.1.0
       with:
         # renovate: datasource=github-releases depName=yannh/kubeconform
         kubeconform-version: "0.8.0"
 
     - name: Install APT Tools
-      if: ${{ inputs.profile == 'static' }}
+      if: ${{ inputs.profile == 'lint' }}
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y yamllint
-
-    - name: Install Prettier
-      if: ${{ inputs.profile == 'format' }}
-      shell: bash
-      env:
-        # renovate: datasource=npm depName=prettier
-        PRETTIER_VERSION: 3.9.10
-      run: npm install --global "prettier@${PRETTIER_VERSION}"
+        sudo apt-get install -y shellcheck
 
     - name: Install yamlfmt
       if: ${{ inputs.profile == 'format' }}
@@ -132,7 +129,7 @@ runs:
         yamlfmt -version
 
     - name: Install actionlint
-      if: ${{ inputs.profile == 'static' }}
+      if: ${{ inputs.profile == 'lint' }}
       shell: bash
       env:
         # renovate: datasource=github-releases depName=rhysd/actionlint

@@ -131,11 +131,11 @@ def test_cleanup_preserves_sources_and_nested_artifacts(tmp_path, check):
         "saved.tfplan",
         "terraform.tfstate",
         "terraform.tfstate.backup",
-        ".terraform.lock.hcl",
         ".bw-provider-state",
         ".terraform/provider-cache",
     ]
     preserved = [
+        ".terraform.lock.hcl",
         "main.tf",
         "local.tfvars",
         "notes.txt",

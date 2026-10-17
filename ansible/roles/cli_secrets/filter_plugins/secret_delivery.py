@@ -13,7 +13,7 @@ def safe_from_json(text):
     """Reject provider diagnostics without allowing parser exceptions into logs."""
     try:
         return json.loads(text)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -39,7 +39,7 @@ def platform_secret_ready(resource, after_epoch):
         return datetime.fromisoformat(
             status["refreshTime"].replace("Z", "+00:00")
         ).timestamp() >= float(after_epoch)
-    except (KeyError, TypeError, ValueError):
+    except KeyError, TypeError, ValueError:
         return False
 
 

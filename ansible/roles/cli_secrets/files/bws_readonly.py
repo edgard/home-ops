@@ -41,7 +41,7 @@ def read_project(args):
         raise ProviderError("provider-timeout") from None
     except FileNotFoundError:
         raise ProviderError("bws-not-installed") from None
-    except (OSError, UnicodeError):
+    except OSError, UnicodeError:
         raise ProviderError("provider-execution-failed") from None
     if result.returncode:
         raise ProviderError("provider-access-failed")
@@ -54,7 +54,7 @@ def read_project(args):
             for item in data
         ):
             raise ValueError
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         raise ProviderError("invalid-provider-response") from None
     keys = [item["key"] for item in data]
     if len(keys) != len(set(keys)):

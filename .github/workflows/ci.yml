@@ -19,7 +19,7 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-latest
-
+    timeout-minutes: 20
     steps:
       - name: Check Out Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,13 +29,13 @@ jobs:
         with:
           profile: format
 
-      - name: Run Format Check
+      - name: Run Format
         run: task fmt:check
 
-  static-analysis:
-    name: Static Analysis
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-
+    timeout-minutes: 20
     steps:
       - name: Check Out Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -43,18 +43,15 @@ jobs:
       - name: Set Up Toolchain
         uses: ./.github/actions/setup-toolchain
         with:
-          profile: static
+          profile: lint
 
-      - name: Run Static Analysis
-        run: task lint:static
+      - name: Run Lint
+        run: task lint
 
-      - name: Run Workflow Validation
-        run: task lint:workflows
-
-  ansible:
-    name: Ansible
+  tests:
+    name: Tests
     runs-on: ubuntu-latest
-
+    timeout-minutes: 20
     steps:
       - name: Check Out Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -62,79 +59,31 @@ jobs:
       - name: Set Up Toolchain
         uses: ./.github/actions/setup-toolchain
         with:
-          profile: ansible
+          profile: test
 
-      - name: Run Ansible Validation
-        run: task lint:ansible
+      - name: Run Tests
+        run: task test -- --junitxml=.pytest_cache/junit.xml
 
-      - name: Run Repository Configuration Checks
-        run: task lint:repository
-
-      - name: Run Wiki Validation
-        run: task lint:wiki
-
-  kubernetes:
-    name: Kubernetes
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check Out Repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set Up Toolchain
-        uses: ./.github/actions/setup-toolchain
+      - name: Upload Test Results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          profile: kubernetes
-
-      - name: Run Kubernetes Validation
-        run: task lint:kubernetes
-
-  terraform:
-    name: Terraform
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check Out Repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set Up Toolchain
-        uses: ./.github/actions/setup-toolchain
-        with:
-          profile: terraform
-
-      - name: Run Terraform Validation
-        run: task lint:terraform
+          name: pytest-results
+          path: .pytest_cache/junit.xml
+          include-hidden-files: true
+          if-no-files-found: ignore
 
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - format
-      - static-analysis
-      - ansible
-      - kubernetes
-      - terraform
+      - lint
+      - tests
     if: ${{ always() }}
-
     steps:
       - name: Check Job Results
-        run: |-
-          failed=0
-
-          check_result() {
-            local job="$1"
-            local result="$2"
-
-            if [[ "$result" != "success" ]]; then
-              echo "::error::${job} result: ${result}"
-              failed=1
-            fi
-          }
-
-          check_result "Format" "${{ needs.format.result }}"
-          check_result "Static Analysis" "${{ needs.static-analysis.result }}"
-          check_result "Ansible" "${{ needs.ansible.result }}"
-          check_result "Kubernetes" "${{ needs.kubernetes.result }}"
-          check_result "Terraform" "${{ needs.terraform.result }}"
-
-          exit "$failed"
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: jq -e 'all(.[]; .result == "success")' <<< "$JOB_RESULTS"

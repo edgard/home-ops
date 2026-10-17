@@ -17,7 +17,7 @@ def valid_talos_material(text):
             and all(data[section].get(field) for field in keys)
             for section, keys in fields.items()
         )
-    except (TypeError, ValueError, yaml.YAMLError):
+    except TypeError, ValueError, yaml.YAMLError:
         return False
 
 

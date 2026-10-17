@@ -1,3 +1,39 @@
+[project]
+name = "home-ops"
+version = "0.0.0"
+requires-python = ">=3.14,<3.15"
+
+[dependency-groups]
+dev = [
+    "ansible-core==2.21.5",
+    "ansible-lint==26.10.1",
+    "ansible-compat==26.10.0",
+    "kubernetes==37.0.1",
+    "jsonpatch==1.35",
+    "PyYAML==6.0.3",
+    "requests-oauthlib==2.0.0",
+    "jsonschema==4.26.0",
+    "json5==0.17.3",
+    "pytest==9.1.1",
+    "pytest-xdist==3.8.0",
+    "filelock==4.2.0",
+    "python-hcl2==8.1.4",
+    "packaging==26.3",
+    "ruff==0.17.1",
+    "yamllint==1.38.0",
+    "check-jsonschema==0.38.2",
+]
+
+[tool.uv]
+package = false
+python-downloads = "never"
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib -ra -n auto --maxprocesses=4 --dist=worksteal"

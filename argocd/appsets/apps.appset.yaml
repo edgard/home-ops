@@ -26,7 +26,7 @@ spec:
       labels:
         category: "{{ index .path.segments 1 }}"
       annotations:
-        argocd.argoproj.io/sync-wave: '{{ dig "sync" "wave" "0" . }}'
+        argocd.argoproj.io/sync-wave: "{{ dig \"sync\" \"wave\" \"0\" . }}"
       finalizers:
         - resources-finalizer.argocd.argoproj.io
 
@@ -38,8 +38,8 @@ spec:
 
       sources:
         - repoURL: "{{ .chart.repo }}"
-          chart: '{{ dig "chart" "name" "" . }}'
-          path: '{{ dig "chart" "path" "" . }}'
+          chart: "{{ dig \"chart\" \"name\" \"\" . }}"
+          path: "{{ dig \"chart\" \"path\" \"\" . }}"
           targetRevision: "{{ .chart.version }}"
           helm:
             valueFiles:

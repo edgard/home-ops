@@ -17,8 +17,10 @@ They must match. The configured SecretSpec provider reads the existing
 `home-ops/_provider/access_token` Keychain credential; renaming or consolidating
 Bitwarden projects does not change that credential address.
 
-Install Python 3.14 (the default `task deps` interpreter; `PYTHON_BIN` can
-select a compatible interpreter) and the normal repository tools, then:
+Install uv, Python 3.14 (the default `task deps` interpreter; `PYTHON_BIN` can
+select an interpreter within the supported project range), and the normal
+repository tools. `task deps` synchronizes locked Python dependencies and pinned
+collections without downloading Python, then use:
 
 ```bash
 task deps
