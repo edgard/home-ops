@@ -23,7 +23,10 @@ def restore(tmp_path):
     for app in data["applications"]:
         app.update(apiVersion="argoproj.io/v1alpha1", kind="Application")
         app["metadata"]["namespace"] = "argocd"
-        app["spec"]["syncPolicy"] = {"automated": {"prune": True}, "retry": {"limit": 2}}
+        app["spec"]["syncPolicy"] = {
+            "automated": {"prune": True},
+            "retry": {"limit": 2},
+        }
         objects[PREFIX["Application"] + app["metadata"]["name"]] = app
     for pvc in data["pvcs"]:
         pvc.update(apiVersion="v1", kind="PersistentVolumeClaim")
@@ -46,7 +49,12 @@ def restore(tmp_path):
         "apiVersion": "argoproj.io/v1alpha1",
         "kind": "ApplicationSet",
         "metadata": {"name": "apps", "namespace": "argocd"},
-        "spec": {"syncPolicy": {"applicationsSync": "sync", "preserveResourcesOnDeletion": True}},
+        "spec": {
+            "syncPolicy": {
+                "applicationsSync": "sync",
+                "preserveResourcesOnDeletion": True,
+            }
+        },
     }
     objects[PREFIX["ApplicationSet"] + "apps"] = appset
     objects["/apis/batch/v1/namespaces/selfhosted/jobs/restic-restore"] = {
@@ -106,7 +114,9 @@ def exported_plan(tmp_path):
 def test_live_restore_planning(tmp_path, restore, mode, app, snapshot, check):
     path, after = exported_plan(tmp_path)
     if app == "missing-pvc":
-        del restore["objects"]["/api/v1/namespaces/selfhosted/persistentvolumeclaims/paperless"]
+        del restore["objects"][
+            "/api/v1/namespaces/selfhosted/persistentvolumeclaims/paperless"
+        ]
     if mode == "all":
         for obj in restore["objects"].values():
             if obj["kind"] == "PersistentVolumeClaim":
@@ -138,14 +148,18 @@ def test_live_restore_planning(tmp_path, restore, mode, app, snapshot, check):
         )
         paperless = next(item for item in plan["plan"] if item["app"] == "paperless")
         assert paperless["pvc_paths"] == ["/data/appdata/selfhosted/paperless"]
-        assert paperless["restore_paths"] == ["/restore/data/appdata/selfhosted/paperless"]
+        assert paperless["restore_paths"] == [
+            "/restore/data/appdata/selfhosted/paperless"
+        ]
         assert {item["name"]: item["replicas"] for item in paperless["workloads"]} == {
             "paperless-main": 1,
             "paperless-gpt": 2,
         }
         assert (
             paperless["sync_policy"]
-            == restore["objects"][PREFIX["Application"] + "paperless"]["spec"]["syncPolicy"]
+            == restore["objects"][PREFIX["Application"] + "paperless"]["spec"][
+                "syncPolicy"
+            ]
         )
 
 
@@ -171,7 +185,9 @@ def test_restore_transaction_state_order_and_failure_evidence(
     appset = PREFIX["ApplicationSet"] + "apps"
     if absent_policy:
         del restore["objects"][appset]["spec"]["syncPolicy"]
-        del restore["objects"][PREFIX["Application"] + "paperless"]["spec"]["syncPolicy"]
+        del restore["objects"][PREFIX["Application"] + "paperless"]["spec"][
+            "syncPolicy"
+        ]
     if failure == "appset":
         del restore["objects"][appset]
     if failure == "ambiguous-appset":
@@ -216,9 +232,9 @@ def test_restore_transaction_state_order_and_failure_evidence(
     assert (result.returncode == 0) == (not failure), result.stdout + result.stderr
     assert "/api/v1/namespaces/selfhosted/pods/unrelated" in state["objects"]
     assert (
-        state["objects"]["/apis/apps/v1/namespaces/platform-system/deployments/cert-data"]["spec"][
-            "replicas"
-        ]
+        state["objects"][
+            "/apis/apps/v1/namespaces/platform-system/deployments/cert-data"
+        ]["spec"]["replicas"]
         == 0
     )
     events = state["events"]
@@ -253,18 +269,25 @@ def test_restore_transaction_state_order_and_failure_evidence(
             for i, event in enumerate(events)
             if event["method"] == "PATCH"
             and event["path"] == appset
-            and event["body"].get("spec", {}).get("syncPolicy", {}).get("applicationsSync")
+            and event["body"]
+            .get("spec", {})
+            .get("syncPolicy", {})
+            .get("applicationsSync")
             == "create-only"
         )
         assert appset_pause < pause[0]
         if failure in ["prepare", "restore", "resume"]:
-            assert state["objects"][app]["spec"]["syncPolicy"] == {"retry": {"limit": 2}}
+            assert state["objects"][app]["spec"]["syncPolicy"] == {
+                "retry": {"limit": 2}
+            }
     for path, original in restore["objects"].items():
         if original["kind"] == "Application" and path != app:
             assert state["objects"][path] == original
     commands = [event["body"] for event in events if event["method"] == "EXEC"]
     if failure in ["appset", "ambiguous-appset"]:
-        assert any(event["method"] == "GET" and event["path"] == appset for event in events)
+        assert any(
+            event["method"] == "GET" and event["path"] == appset for event in events
+        )
         assert "ApplicationSet not found" in result.stdout
         assert not commands
     if fault := restore.get("failure"):
@@ -280,7 +303,9 @@ def test_restore_transaction_state_order_and_failure_evidence(
         ]
         assert candidates, "injected failure never reached its intended native boundary"
         if fault.get("after"):
-            assert any(event["method"] == fault["after"] for event in events[: candidates[-1]])
+            assert any(
+                event["method"] == fault["after"] for event in events[: candidates[-1]]
+            )
 
     if not failure or failure in ["restore", "resume", "cleanup"]:
         assert commands[0].startswith("sh -ceu ")
@@ -305,8 +330,12 @@ def test_restore_transaction_state_order_and_failure_evidence(
         }
         for flag, value in expected.items():
             assert argv.count(flag) == 1 and argv[argv.index(flag) + 1] == value
-        delete_index = next(i for i, event in enumerate(events) if event["method"] == "EXEC")
-        paused = [event for event in events[:delete_index] if event["method"] == "PATCH"]
+        delete_index = next(
+            i for i, event in enumerate(events) if event["method"] == "EXEC"
+        )
+        paused = [
+            event for event in events[:delete_index] if event["method"] == "PATCH"
+        ]
         assert any(
             event["path"] == appset
             and event["body"]["spec"]["syncPolicy"]["applicationsSync"] == "create-only"
@@ -315,20 +344,24 @@ def test_restore_transaction_state_order_and_failure_evidence(
         assert {
             event["path"].rsplit("/", 2)[-2]
             for event in paused
-            if event["path"].endswith("/scale") and event["body"]["spec"]["replicas"] == 0
+            if event["path"].endswith("/scale")
+            and event["body"]["spec"]["replicas"] == 0
         } == {"paperless-main", "paperless-gpt"}
     if not failure:
-        assert "/apis/batch/v1/namespaces/selfhosted/jobs/restic-restore" not in state["objects"]
         assert (
-            state["objects"]["/apis/apps/v1/namespaces/selfhosted/deployments/paperless-main"][
-                "spec"
-            ]["replicas"]
+            "/apis/batch/v1/namespaces/selfhosted/jobs/restic-restore"
+            not in state["objects"]
+        )
+        assert (
+            state["objects"][
+                "/apis/apps/v1/namespaces/selfhosted/deployments/paperless-main"
+            ]["spec"]["replicas"]
             == 1
         )
         assert (
-            state["objects"]["/apis/apps/v1/namespaces/selfhosted/deployments/paperless-gpt"][
-                "spec"
-            ]["replicas"]
+            state["objects"][
+                "/apis/apps/v1/namespaces/selfhosted/deployments/paperless-gpt"
+            ]["spec"]["replicas"]
             == 2
         )
         assert ("syncPolicy" in state["objects"][appset]["spec"]) == (not absent_policy)
@@ -338,23 +371,30 @@ def test_restore_transaction_state_order_and_failure_evidence(
                 == restore["objects"][appset]["spec"]["syncPolicy"]
             )
             assert (
-                state["objects"][PREFIX["Application"] + "paperless"]["spec"]["syncPolicy"]
-                == restore["objects"][PREFIX["Application"] + "paperless"]["spec"]["syncPolicy"]
+                state["objects"][PREFIX["Application"] + "paperless"]["spec"][
+                    "syncPolicy"
+                ]
+                == restore["objects"][PREFIX["Application"] + "paperless"]["spec"][
+                    "syncPolicy"
+                ]
             )
     elif not failure.startswith("stale"):
-        assert "/apis/batch/v1/namespaces/selfhosted/jobs/restic-restore" in state["objects"]
+        assert (
+            "/apis/batch/v1/namespaces/selfhosted/jobs/restic-restore"
+            in state["objects"]
+        )
         assert "left for inspection" in result.stdout
         if failure == "resume":
             assert (
-                state["objects"]["/apis/apps/v1/namespaces/selfhosted/deployments/paperless-gpt"][
-                    "spec"
-                ]["replicas"]
+                state["objects"][
+                    "/apis/apps/v1/namespaces/selfhosted/deployments/paperless-gpt"
+                ]["spec"]["replicas"]
                 == 2
             )
             assert (
-                state["objects"]["/apis/apps/v1/namespaces/selfhosted/deployments/paperless-main"][
-                    "spec"
-                ]["replicas"]
+                state["objects"][
+                    "/apis/apps/v1/namespaces/selfhosted/deployments/paperless-main"
+                ]["spec"]["replicas"]
                 == 0
             )
     else:
@@ -405,12 +445,16 @@ def test_direct_restore_exec_boundary_and_unsafe_roots(tmp_path, entry, check, p
 def test_real_pod_exec_module_loads_and_fails_at_connection_boundary(tmp_path):
     # A real collection/client import check keeps the websocket stub from hiding dependency breakage.
     variables = {
-        "restic_restore_app_plan": {"pvc_paths": ["/data/appdata/selfhosted/paperless"]},
+        "restic_restore_app_plan": {
+            "pvc_paths": ["/data/appdata/selfhosted/paperless"]
+        },
         "restic_restore_pod_name": "restore-pod",
         "restic_restore_effective_snapshot": "selected-snapshot",
     }
     with cluster_api(tmp_path, {"objects": {}, "events": []}) as (connection, observed):
-        result = run_role(tmp_path, "restic", "execute_restore_app", {**connection, **variables})
+        result = run_role(
+            tmp_path, "restic", "execute_restore_app", {**connection, **variables}
+        )
         events = observed()["events"]
     assert result.returncode != 0
     assert any(event["path"].endswith("/pods/restore-pod") for event in events), (

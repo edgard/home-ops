@@ -1,15 +1,20 @@
 import pytest
 
-from tests.support.sources import read_yaml, applications
+from tests.support.sources import applications, read_yaml
 
 
 def test_source_loader_preserves_types_and_document_order(tmp_path):
     source = tmp_path / "values.yaml"
     source.write_text("enabled: true\nreplicas: 1\n---\ndefault: =\n")
-    assert read_yaml(source, multiple=True) == [{"enabled": True, "replicas": 1}, {"default": "="}]
+    assert read_yaml(source, multiple=True) == [
+        {"enabled": True, "replicas": 1},
+        {"default": "="},
+    ]
 
 
-@pytest.mark.parametrize("text", ["!!python/object/apply:os.system [false]", "value: ["])
+@pytest.mark.parametrize(
+    "text", ["!!python/object/apply:os.system [false]", "value: ["]
+)
 def test_source_loader_rejects_unsafe_or_malformed_yaml(tmp_path, text):
     source = tmp_path / "broken.yaml"
     source.write_text(text)

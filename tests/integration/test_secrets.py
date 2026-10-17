@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+
 from tests.support.runtime import ROOT, environment
 from tests.support.sources import read_yaml
 
@@ -38,7 +39,9 @@ def test_real_secretspec_scope_and_multiline_preservation(tmp_path):
         f'[project]\nname = "home-ops-fixture"\nrevision = "1.0"\n[providers]\napp = {{ uri = "bws://{PROJECT}", credentials = {{ access_token = {{ provider = "env", ref = {{ item = "FIXTURE_TOKEN" }} }} }} }}\n[profiles.default]\nVISIBLE = {{ description = "Visible fixture", required = true, providers = ["app"], ref = {{ item = "value" }} }}\nHIDDEN = {{ description = "Excluded fixture", required = true, providers = ["app"], ref = {{ item = "absent" }} }}\n[scopes.test]\nsecrets = ["VISIBLE"]\n'
     )
     bws = path / "bws"
-    bws.write_text('#!/usr/bin/env python3\nimport os\nprint(os.environ["FIXTURE_JSON"])\n')
+    bws.write_text(
+        '#!/usr/bin/env python3\nimport os\nprint(os.environ["FIXTURE_JSON"])\n'
+    )
     bws.chmod(493)
     env = environment(
         path,

@@ -1,5 +1,6 @@
-import pytest
 from datetime import datetime, timezone
+
+import pytest
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 import pytest
 
-from tests.support.runtime import run_role, ROOT, executable
+from tests.support.runtime import ROOT, executable, run_role
 from tests.support.sources import read_yaml
 
 
@@ -16,4 +16,6 @@ def test_cli_tool_pin_validation(tmp_path, version):
     )
     executable(tmp_path, "bws", "print('bws 2.1.0')\n")
     result = run_role(tmp_path, "cli_secrets", "validate")
-    assert (result.returncode == 0) == (version == "expected"), result.stdout + result.stderr
+    assert (result.returncode == 0) == (version == "expected"), (
+        result.stdout + result.stderr
+    )

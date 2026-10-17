@@ -2,11 +2,11 @@
 
 import base64
 import copy
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-from pathlib import Path
 import sys
-from urllib.parse import urlsplit, parse_qs
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 root = Path(sys.argv[1])
 
@@ -36,16 +36,26 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/identity":
             current = state()
             current["events"].append(
-                {"method": "AUTH", "path": path, "authorization": self.headers.get("Authorization")}
+                {
+                    "method": "AUTH",
+                    "path": path,
+                    "authorization": self.headers.get("Authorization"),
+                }
             )
             save(current)
-            if self.headers.get("Authorization") != current.get("identity_authorization"):
-                return self.respond({"message": "synthetic authentication failure"}, 403)
+            if self.headers.get("Authorization") != current.get(
+                "identity_authorization"
+            ):
+                return self.respond(
+                    {"message": "synthetic authentication failure"}, 403
+                )
             return self.respond({"login": "fixture-user"})
         if path == "/version":
             return self.respond({"major": "1", "minor": "35", "gitVersion": "v1.35.0"})
         if path == "/api":
-            return self.respond({"kind": "APIVersions", "apiVersion": "v1", "versions": ["v1"]})
+            return self.respond(
+                {"kind": "APIVersions", "apiVersion": "v1", "versions": ["v1"]}
+            )
         if path == "/apis":
             if "objects" in state():
                 return self.respond(
@@ -56,7 +66,10 @@ class Handler(BaseHTTPRequestHandler):
                             {
                                 "name": group,
                                 "versions": [
-                                    {"groupVersion": group + "/" + version, "version": version}
+                                    {
+                                        "groupVersion": group + "/" + version,
+                                        "version": version,
+                                    }
                                 ],
                                 "preferredVersion": {
                                     "groupVersion": group + "/" + version,
@@ -83,7 +96,10 @@ class Handler(BaseHTTPRequestHandler):
                         {
                             "name": "external-secrets.io",
                             "versions": [
-                                {"groupVersion": "external-secrets.io/v1", "version": "v1"}
+                                {
+                                    "groupVersion": "external-secrets.io/v1",
+                                    "version": "v1",
+                                }
                             ],
                             "preferredVersion": {
                                 "groupVersion": "external-secrets.io/v1",
@@ -93,7 +109,10 @@ class Handler(BaseHTTPRequestHandler):
                         {
                             "name": "argoproj.io",
                             "versions": [
-                                {"groupVersion": "argoproj.io/v1alpha1", "version": "v1alpha1"}
+                                {
+                                    "groupVersion": "argoproj.io/v1alpha1",
+                                    "version": "v1alpha1",
+                                }
                             ],
                             "preferredVersion": {
                                 "groupVersion": "argoproj.io/v1alpha1",
@@ -141,12 +160,21 @@ class Handler(BaseHTTPRequestHandler):
                     ("statefulsets/scale", "Scale", True),
                 ]
             if path == "/apis/apiextensions.k8s.io/v1":
-                resources = [("customresourcedefinitions", "CustomResourceDefinition", False)]
+                resources = [
+                    ("customresourcedefinitions", "CustomResourceDefinition", False)
+                ]
             if path == "/apis/cert-manager.io/v1":
-                resources = [("issuers", "Issuer", True), ("certificates", "Certificate", True)]
+                resources = [
+                    ("issuers", "Issuer", True),
+                    ("certificates", "Certificate", True),
+                ]
             if path == "/apis/k8s.cni.cncf.io/v1":
                 resources = [
-                    ("network-attachment-definitions", "NetworkAttachmentDefinition", True)
+                    (
+                        "network-attachment-definitions",
+                        "NetworkAttachmentDefinition",
+                        True,
+                    )
                 ]
             if path == "/apis/batch/v1":
                 resources = [("jobs", "Job", True)]
@@ -154,14 +182,23 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "kind": "APIResourceList",
                     "apiVersion": "v1",
-                    "groupVersion": "v1" if path == "/api/v1" else path.removeprefix("/apis/"),
+                    "groupVersion": "v1"
+                    if path == "/api/v1"
+                    else path.removeprefix("/apis/"),
                     "resources": [
                         {
                             "name": name,
                             "singularName": "",
                             "kind": kind,
                             "namespaced": namespaced,
-                            "verbs": ["get", "list", "patch", "create", "delete", "update"],
+                            "verbs": [
+                                "get",
+                                "list",
+                                "patch",
+                                "create",
+                                "delete",
+                                "update",
+                            ],
                         }
                         for name, kind, namespaced in resources
                     ],
@@ -174,7 +211,8 @@ class Handler(BaseHTTPRequestHandler):
         save(current)
         if path not in current["allowed_reads"]:
             return self.respond(
-                {"kind": "Status", "message": "unexpected fixture target", "code": 422}, 422
+                {"kind": "Status", "message": "unexpected fixture target", "code": 422},
+                422,
             )
         name = path.rsplit("/", 1)[-1]
         if path.endswith("/applications/root"):
@@ -191,7 +229,9 @@ class Handler(BaseHTTPRequestHandler):
                     "kind": "Application",
                     "metadata": {"name": "root", "namespace": "argocd"},
                     "spec": {"sources": [{}, {}, {}]},
-                    "status": {"sync": {"status": "Synced", "revisions": [revision] * 3}},
+                    "status": {
+                        "sync": {"status": "Synced", "revisions": [revision] * 3}
+                    },
                 }
             )
         if path.endswith("/applicationsets/apps"):
@@ -199,7 +239,8 @@ class Handler(BaseHTTPRequestHandler):
             save(current)
             uid = (
                 "new-appset-owner"
-                if current["scenario"] == "appset-recreated" and current["appset_reads"] > 1
+                if current["scenario"] == "appset-recreated"
+                and current["appset_reads"] > 1
                 else "fixture-appset-owner"
             )
             return self.respond(
@@ -231,8 +272,12 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/api/v1/namespaces/") and "/secrets/" in path:
             namespace = path.split("/")[4]
             if (
-                current["scenario"] == "previous-read-failure" and name == "bitwarden-credentials"
-            ) or (current["scenario"] == "target-read-failure" and name != "bitwarden-credentials"):
+                current["scenario"] == "previous-read-failure"
+                and name == "bitwarden-credentials"
+            ) or (
+                current["scenario"] == "target-read-failure"
+                and name != "bitwarden-credentials"
+            ):
                 return self.respond(
                     {
                         "kind": "Status",
@@ -253,7 +298,10 @@ class Handler(BaseHTTPRequestHandler):
                 and name == "bitwarden-credentials"
             ):
                 data = {"token": "not-base64!"}
-            if current["scenario"] == "missing-previous-token" and name == "bitwarden-credentials":
+            if (
+                current["scenario"] == "missing-previous-token"
+                and name == "bitwarden-credentials"
+            ):
                 data = {}
             return self.respond(
                 {
@@ -335,17 +383,26 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path != current["credential_path"]:
             return self.respond(
-                {"kind": "Status", "message": "unexpected fixture patch target", "code": 422}, 422
+                {
+                    "kind": "Status",
+                    "message": "unexpected fixture patch target",
+                    "code": 422,
+                },
+                422,
             )
         payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         value = payload.get("data", {}).get("token")
         if "token" in payload.get("stringData", {}):
             value = base64.b64encode(payload["stringData"]["token"].encode()).decode()
-        if value is None or (set(payload.get("data", {})) | set(payload.get("stringData", {}))) != {
-            "token"
-        }:
+        if value is None or (
+            set(payload.get("data", {})) | set(payload.get("stringData", {}))
+        ) != {"token"}:
             return self.respond(
-                {"kind": "Status", "message": "fixture rejects broad secret patch", "code": 422},
+                {
+                    "kind": "Status",
+                    "message": "fixture rejects broad secret patch",
+                    "code": 422,
+                },
                 422,
             )
         current["patches"].append(value)
@@ -402,7 +459,9 @@ class Handler(BaseHTTPRequestHandler):
         url = urlsplit(self.path)
         path = url.path
         body = (
-            json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
+            json.loads(
+                self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}"
+            )
             if method != "GET"
             else None
         )
@@ -421,7 +480,9 @@ class Handler(BaseHTTPRequestHandler):
             )
             and (
                 not failure.get("after")
-                or any(event["method"] == failure["after"] for event in current["events"])
+                or any(
+                    event["method"] == failure["after"] for event in current["events"]
+                )
             )
         ):
             return self.respond(
@@ -444,7 +505,10 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET":
             if key in objects:
                 value = objects[key]
-                if current.get("duplicate_appset") and value["kind"] == "ApplicationSet":
+                if (
+                    current.get("duplicate_appset")
+                    and value["kind"] == "ApplicationSet"
+                ):
                     return self.respond(
                         {
                             "apiVersion": value["apiVersion"],
@@ -488,11 +552,15 @@ class Handler(BaseHTTPRequestHandler):
                 "namespaces",
             )
             if plural in collections:
-                return self.respond({"apiVersion": "v1", "kind": "List", "items": candidates})
+                return self.respond(
+                    {"apiVersion": "v1", "kind": "List", "items": candidates}
+                )
         elif method == "DELETE" and key in objects:
             del objects[key]
             save(current)
-            return self.respond({"apiVersion": "v1", "kind": "Status", "status": "Success"})
+            return self.respond(
+                {"apiVersion": "v1", "kind": "Status", "status": "Success"}
+            )
         elif method == "POST":
             key = path + "/" + body["metadata"]["name"]
             if key not in current["allowed_creates"]:
@@ -508,7 +576,12 @@ class Handler(BaseHTTPRequestHandler):
                 )
             if key in objects:
                 return self.respond(
-                    {"apiVersion": "v1", "kind": "Status", "reason": "AlreadyExists", "code": 409},
+                    {
+                        "apiVersion": "v1",
+                        "kind": "Status",
+                        "reason": "AlreadyExists",
+                        "code": 409,
+                    },
                     409,
                 )
             objects[key] = body
@@ -521,10 +594,15 @@ class Handler(BaseHTTPRequestHandler):
                         "namespace": body["metadata"]["namespace"],
                         "labels": {"job-name": body["metadata"]["name"]},
                     },
-                    "status": {"phase": "Running", "containerStatuses": [{"ready": True}]},
+                    "status": {
+                        "phase": "Running",
+                        "containerStatuses": [{"ready": True}],
+                    },
                 }
                 objects[
-                    "/api/v1/namespaces/" + body["metadata"]["namespace"] + "/pods/restore-pod"
+                    "/api/v1/namespaces/"
+                    + body["metadata"]["namespace"]
+                    + "/pods/restore-pod"
                 ] = pod
             if body["kind"] == "Pod":
                 body["status"] = {"phase": "Succeeded"}
@@ -550,7 +628,10 @@ class Handler(BaseHTTPRequestHandler):
                             target[name] = content
 
                 merge(value, body)
-            if value["kind"] in ("Deployment", "StatefulSet") and "replicas" in value["spec"]:
+            if (
+                value["kind"] in ("Deployment", "StatefulSet")
+                and "replicas" in value["spec"]
+            ):
                 replicas = value["spec"]["replicas"]
                 value["metadata"]["generation"] = 1
                 value["status"] = {
@@ -570,7 +651,10 @@ class Handler(BaseHTTPRequestHandler):
                     "status": {"replicas": value["spec"]["replicas"]},
                 }
             return self.respond(value)
-        self.respond({"apiVersion": "v1", "kind": "Status", "reason": "NotFound", "code": 404}, 404)
+        self.respond(
+            {"apiVersion": "v1", "kind": "Status", "reason": "NotFound", "code": 404},
+            404,
+        )
 
 
 server = HTTPServer(("127.0.0.1", 0), Handler)

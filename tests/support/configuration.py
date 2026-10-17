@@ -1,16 +1,16 @@
 """Repository configuration assertions, expressed against parsed sources."""
 
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID
 
-from ansible.utils.version import SemanticVersion
 import hcl2
+from ansible.utils.version import SemanticVersion
 from hcl2.utils import SerializationOptions
 
-from tests.support.sources import read_yaml, read_toml, read_json5
+from tests.support.sources import read_json5, read_toml, read_yaml
 
 
 def assert_secrets(config, tailscale_item, project_id):
@@ -27,9 +27,7 @@ def assert_secrets(config, tailscale_item, project_id):
     assert declarations, "required secret declarations"
     for name, declaration in declarations.items():
         assert declaration["required"] is True, f"required secret: {name}"
-        assert (
-            declaration["providers"] == ["bitwarden"]
-        ), f"one provider: {name}"
+        assert declaration["providers"] == ["bitwarden"], f"one provider: {name}"
         assert (
             isinstance(declaration["ref"]["item"], str) and declaration["ref"]["item"]
         ), f"item reference: {name}"
@@ -39,25 +37,28 @@ def assert_secrets(config, tailscale_item, project_id):
         "platform": {"ESO_BWS_ACCESS_TOKEN"},
     }.items():
         actual = config["scopes"][scope]["secrets"]
-        assert set(actual) == expected and len(actual) == len(expected), f"scope inputs: {scope}"
+        assert set(actual) == expected and len(actual) == len(expected), (
+            f"scope inputs: {scope}"
+        )
         assert expected <= declarations.keys(), f"declared scope inputs: {scope}"
-    assert declarations["TF_VAR_tailscale_client_id"]["ref"]["item"] == "tailscale_oauth_client_id"
-    shared = declarations["TF_VAR_tailscale_client_secret"]
     assert (
-        shared["ref"]["item"] == tailscale_item
-    ), "shared Tailscale application item"
+        declarations["TF_VAR_tailscale_client_id"]["ref"]["item"]
+        == "tailscale_oauth_client_id"
+    )
+    shared = declarations["TF_VAR_tailscale_client_secret"]
+    assert shared["ref"]["item"] == tailscale_item, "shared Tailscale application item"
 
 
 def assert_targets(talos, kubernetes, patch):
     assert all(
         isinstance(value, str) and value for value in (talos, kubernetes, patch)
     ), "nonempty upgrade targets"
-    assert SemanticVersion(talos.removeprefix("v")) < SemanticVersion(
-        "1.14.0"
-    ), "Talos installer migration required"
-    assert SemanticVersion(kubernetes.removeprefix("v")) < SemanticVersion(
-        "1.37.0"
-    ), "upgrade deployed Talos before Kubernetes"
+    assert SemanticVersion(talos.removeprefix("v")) < SemanticVersion("1.14.0"), (
+        "Talos installer migration required"
+    )
+    assert SemanticVersion(kubernetes.removeprefix("v")) < SemanticVersion("1.37.0"), (
+        "upgrade deployed Talos before Kubernetes"
+    )
     assert patch.endswith(":" + talos), "Talos patch/default alignment"
 
 
@@ -79,15 +80,17 @@ def terraform_sources(root):
     result = {}
     for path in paths:
         with path.open() as source:
-            result[path.relative_to(root)] = hcl2.load(source, serialization_options=options)
+            result[path.relative_to(root)] = hcl2.load(
+                source, serialization_options=options
+            )
     return result
 
 
 def assert_terraform(root):
     documents = terraform_sources(root)
-    assert "bitwarden-secrets" not in json.dumps(
-        list(documents.values())
-    ), "retired Bitwarden provider"
+    assert "bitwarden-secrets" not in json.dumps(list(documents.values())), (
+        "retired Bitwarden provider"
+    )
     pins = [
         provider["version"]
         for document in documents.values()
@@ -105,7 +108,9 @@ def assert_terraform(root):
         and rule.get("allowedVersions", "").startswith("<")
     ]
     assert len(pins) == len(limits) == 1, "unambiguous Cloudflare compatibility pin"
-    assert SemanticVersion(pins[0]) < SemanticVersion(limits[0]), "Cloudflare compatibility limit"
+    assert SemanticVersion(pins[0]) < SemanticVersion(limits[0]), (
+        "Cloudflare compatibility limit"
+    )
 
 
 def assert_repository(root):
@@ -120,12 +125,22 @@ def assert_repository(root):
         if entry["secretKey"] == "client_secret"
     ]
     assert len(refs) == 1, "one Tailscale OAuth secret reference"
-    store = read_yaml(root / "apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml")
-    assert_secrets(read_toml(root / "secretspec.toml"), refs[0], store["spec"]["provider"]["bitwardensecretsmanager"]["projectID"])
+    store = read_yaml(
+        root
+        / "apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml"
+    )
+    assert_secrets(
+        read_toml(root / "secretspec.toml"),
+        refs[0],
+        store["spec"]["provider"]["bitwardensecretsmanager"]["projectID"],
+    )
     defaults = read_yaml(root / "ansible/roles/talos/defaults/main.yml")
-    patch = read_yaml(root / "ansible/roles/talos/files/controlplane-patch.yaml", multiple=True)[0]
+    patch = read_yaml(
+        root / "ansible/roles/talos/files/controlplane-patch.yaml", multiple=True
+    )[0]
     upgrade = read_yaml(
-        root / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
+        root
+        / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
     )
     assert_targets(
         defaults["talos_upgrade"]["installer"]["version"],
@@ -137,13 +152,17 @@ def assert_repository(root):
     assert "tf:migrate-secret-state" not in tasks, "retired migration command"
     assert "scripts/" not in json.dumps(tasks), "role-owned orchestration"
     for name in ("secrets-sync-cluster-token",):
-        assert (root / f"ansible/playbooks/{name}.yml").is_file(), f"CLI entry point: {name}"
+        assert (root / f"ansible/playbooks/{name}.yml").is_file(), (
+            f"CLI entry point: {name}"
+        )
     retired = [
         "scripts",
         "ansible/vault/operator.yml",
         "ansible/roles/talos/files/secrets.vault.yml",
     ]
-    assert not any((root / path).exists() for path in retired), "retired secret workflows"
+    assert not any((root / path).exists() for path in retired), (
+        "retired secret workflows"
+    )
     artifacts = [
         "ansible/roles/talos/files/secrets.yaml",
         ".envrc.backup",

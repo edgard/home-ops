@@ -2,10 +2,10 @@
 
 import hashlib
 import os
-from pathlib import Path
 import stat
 import subprocess
 import time
+from pathlib import Path
 
 from tests.support.runtime import environment, run_command
 from tests.support.schemas import export
@@ -93,10 +93,12 @@ def render_validate(root, output, *, env=None):
         chart = app.metadata["chart"]
         repo, pin = chart["repo"], chart["version"]
         name = chart.get("name", repo.rsplit("/", 1)[-1])
-        assert (
-            name and Path(name).name == name and name not in {".", ".."}
-        ), "invalid chart name"
-        key = hashlib.sha256(f"{repo}|{chart.get('name', '')}|{pin}".encode()).hexdigest()
+        assert name and Path(name).name == name and name not in {".", ".."}, (
+            "invalid chart name"
+        )
+        key = hashlib.sha256(
+            f"{repo}|{chart.get('name', '')}|{pin}".encode()
+        ).hexdigest()
         cache = output / "charts" / key
         cache.mkdir(mode=0o700, exist_ok=True)
         if not (cache / name).exists():
@@ -140,9 +142,9 @@ def render_validate(root, output, *, env=None):
         target = directory / (app.name + ".yaml")
         target.write_text(result.stdout)
         target.chmod(0o600)
-        assert read_yaml(
-            target, multiple=True
-        ), f"application rendered no resources: {app.path}"
+        assert read_yaml(target, multiple=True), (
+            f"application rendered no resources: {app.path}"
+        )
         rendered.append(target)
 
     export(output / "schemas", sources + rendered)

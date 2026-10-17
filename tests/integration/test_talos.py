@@ -7,7 +7,6 @@ import pytest
 from tests.support.api import cluster_api
 from tests.support.runtime import ROOT, executable, run_role
 from tests.support.sources import read_yaml
-
 from tests.support.talos import MATERIAL
 
 
@@ -16,13 +15,16 @@ def talos(tmp_path):
     defaults = read_yaml(ROOT / "ansible/roles/talos/defaults/main.yml")
     variables = {
         "k8s_version": read_yaml(
-            ROOT / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
+            ROOT
+            / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
         )["spec"]["kubernetes"]["version"],
         "talos_node": "192.0.2.10",
         "talos_cluster_name": "fixture",
         "talos_install_disk": "/dev/fixture",
         "talos_config_path": str(tmp_path / "custom client/config"),
-        "talos_controlplane_config_path": str(tmp_path / "custom machine/controlplane.yaml"),
+        "talos_controlplane_config_path": str(
+            tmp_path / "custom machine/controlplane.yaml"
+        ),
         "talos_api_wait_retries": 1,
         "talos_api_wait_delay": 0,
         "talos_health_wait_timeout": "1s",
@@ -59,7 +61,11 @@ if os.environ.get('FAIL') in args:
 
     def commands():
         path = tmp_path / "commands.jsonl"
-        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+        return (
+            [json.loads(line) for line in path.read_text().splitlines()]
+            if path.exists()
+            else []
+        )
 
     return variables, defaults, commands
 
@@ -79,18 +85,25 @@ def test_generation_private_files_cleanup_and_targets(tmp_path, talos, failure):
         args = commands()[1]
         assert args[0] == "validate" and args[args.index("--mode") + 1] == "metal"
         output = json.loads((tmp_path / "private-paths.json").read_text())[1]
-        assert args[args.index("--config") + 1] == str(Path(output) / "controlplane.yaml")
+        assert args[args.index("--config") + 1] == str(
+            Path(output) / "controlplane.yaml"
+        )
     for path in json.loads((tmp_path / "private-paths.json").read_text()):
         assert not Path(path).exists()
     config = Path(variables["talos_config_path"])
     plane = Path(variables["talos_controlplane_config_path"])
     assert config.exists() == plane.exists() == (failure == "")
     if not failure:
-        assert stat.S_IMODE(config.stat().st_mode) == stat.S_IMODE(plane.stat().st_mode) == 0o600
+        assert (
+            stat.S_IMODE(config.stat().st_mode)
+            == stat.S_IMODE(plane.stat().st_mode)
+            == 0o600
+        )
         assert stat.S_IMODE(config.parent.stat().st_mode) == 0o700
         args = commands()[0]
         upgrade = read_yaml(
-            ROOT / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
+            ROOT
+            / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
         )
         installer = defaults["talos_upgrade"]["installer"]
         for flag, value in [
@@ -118,15 +131,24 @@ def test_every_talos_entrypoint_preserves_check_mode(tmp_path, talos, entry):
 def test_upgrade_uses_installer_and_exact_server_version(tmp_path, talos, version):
     variables, defaults, commands = talos
     expected = defaults["talos_upgrade"]["installer"]["version"]
-    server = {"expected": expected, "older": "v1.0.0", "prefix": expected + "0", None: ""}[version]
+    server = {
+        "expected": expected,
+        "older": "v1.0.0",
+        "prefix": expected + "0",
+        None: "",
+    }[version]
     node = {
         "apiVersion": "v1",
         "kind": "Node",
         "metadata": {"name": "fixture-node"},
         "spec": {"unschedulable": True},
-        "status": {"addresses": [{"type": "InternalIP", "address": variables["talos_node"]}]},
+        "status": {
+            "addresses": [{"type": "InternalIP", "address": variables["talos_node"]}]
+        },
     }
-    with cluster_api(tmp_path, {"objects": {"/api/v1/nodes/fixture-node": node}, "events": []}) as (
+    with cluster_api(
+        tmp_path, {"objects": {"/api/v1/nodes/fixture-node": node}, "events": []}
+    ) as (
         connection,
         observed,
     ):
@@ -138,11 +160,18 @@ def test_upgrade_uses_installer_and_exact_server_version(tmp_path, talos, versio
             env={"SERVER_VERSION": server},
         )
         state = observed()
-    assert (result.returncode == 0) == (version == "expected"), result.stdout + result.stderr
+    assert (result.returncode == 0) == (version == "expected"), (
+        result.stdout + result.stderr
+    )
     args = commands()[0]
     installer = defaults["talos_upgrade"]["installer"]
-    assert args[args.index("--image") + 1] == installer["repository"] + ":" + installer["version"]
-    assert state["objects"]["/api/v1/nodes/fixture-node"]["spec"]["unschedulable"] is False
+    assert (
+        args[args.index("--image") + 1]
+        == installer["repository"] + ":" + installer["version"]
+    )
+    assert (
+        state["objects"]["/api/v1/nodes/fixture-node"]["spec"]["unschedulable"] is False
+    )
     assert all(
         event["path"].endswith("/fixture-node")
         for event in state["events"]

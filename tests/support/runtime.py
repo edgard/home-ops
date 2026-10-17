@@ -3,9 +3,9 @@
 import importlib.util
 import os
 import signal
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import yaml
 
@@ -86,7 +86,11 @@ def run_role(
     if rescue:
         tasks = [
             tasks[0],
-            {"name": "Observe isolated role failure", "block": tasks[1:], "rescue": rescue},
+            {
+                "name": "Observe isolated role failure",
+                "block": tasks[1:],
+                "rescue": rescue,
+            },
         ]
     variables = {
         "repo_root": str(ROOT),

@@ -49,7 +49,9 @@ def test_token_rotation_and_rollback(tmp_path, provider, secret_api, scenario, p
             {
                 **connection,
                 "platform_bitwarden_access_token": TOKEN,
-                "platform_secret_reconcile_timeout": (120 if scenario == "success" else 3),
+                "platform_secret_reconcile_timeout": (
+                    120 if scenario == "success" else 3
+                ),
             },
         )
         state = observed()
@@ -112,10 +114,15 @@ def test_provider_access(tmp_path, provider, scenario):
     if scenario in changes:
         name, value = changes[scenario]
         (tmp_path / (name + ".json")).write_text(
-            "SYNTHETIC-PRIVATE-PROVIDER-DIAGNOSTIC" if value is None else json.dumps(value)
+            "SYNTHETIC-PRIVATE-PROVIDER-DIAGNOSTIC"
+            if value is None
+            else json.dumps(value)
         )
     result = run_role(
-        tmp_path, "platform", "application_access", {"platform_bitwarden_access_token": TOKEN}
+        tmp_path,
+        "platform",
+        "application_access",
+        {"platform_bitwarden_access_token": TOKEN},
     )
     output = result.stdout + result.stderr
     assert (result.returncode == 0) == (scenario == "success"), output
@@ -124,7 +131,9 @@ def test_provider_access(tmp_path, provider, scenario):
         assert "Application credential validation failed" in output
 
 
-@pytest.mark.parametrize("scenario", ["handoff-success", "root-advanced", "appset-recreated"])
+@pytest.mark.parametrize(
+    "scenario", ["handoff-success", "root-advanced", "appset-recreated"]
+)
 def test_committed_handoff(tmp_path, provider, secret_api, scenario):
     _, _, targets, manifests = provider
     with cluster_api(

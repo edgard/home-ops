@@ -1,7 +1,7 @@
 import json
-from pathlib import Path
 import subprocess
 import time
+from pathlib import Path
 
 import pytest
 
@@ -102,9 +102,9 @@ def test_documents(rendered, worker_id, case):
         assert "8 passed" in output
         snapshots = list((tmp_path / "run").rglob("rendered.json"))
         assert len(snapshots) == 1
-        assert (
-            "owner" not in snapshots[0].read_text()
-        ), "worker mutated shared documents"
+        assert "owner" not in snapshots[0].read_text(), (
+            "worker mutated shared documents"
+        )
         assert snapshots[0].stat().st_mode & 0o777 == 0o600
     else:
         assert result.returncode != 0, output

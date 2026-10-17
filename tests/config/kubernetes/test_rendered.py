@@ -25,7 +25,9 @@ def test_istio_uses_maintained_image_registry(rendered):
         for container in doc["spec"]["template"]["spec"]["containers"]
     ]
     assert pilots, "Istio control-plane image must be rendered"
-    assert all(container["image"].startswith("docker.io/istio/") for container in pilots)
+    assert all(
+        container["image"].startswith("docker.io/istio/") for container in pilots
+    )
     injectors = [
         yaml.safe_load(doc["data"]["values"])
         for doc in rendered
@@ -64,8 +66,8 @@ def test_route_coverage(repo_root, rendered):
     ]
     assert_route_coverage(
         sorted(routes),
-        read_yaml(repo_root / "apps/platform-system/gatus/values.yaml")["gateway"]["route"][
-            "hosts"
-        ],
+        read_yaml(repo_root / "apps/platform-system/gatus/values.yaml")["gateway"][
+            "route"
+        ]["hosts"],
         actual,
     )

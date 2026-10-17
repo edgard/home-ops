@@ -1,6 +1,7 @@
 import json
 import subprocess
 from unittest.mock import patch
+
 import pytest
 
 
@@ -55,7 +56,9 @@ def test_refuse_write_and_argument_injection(guard):
         ARGS[:-1],
     ):
         with patch.object(guard.subprocess, "run") as run:
-            with pytest.raises(guard.ProviderError, match="^read-only-command-required$"):
+            with pytest.raises(
+                guard.ProviderError, match="^read-only-command-required$"
+            ):
                 guard.read_project(args)
             run.assert_not_called()
 
@@ -78,9 +81,13 @@ def test_malformed_and_wrong_shape_rejected(guard):
         '[{"id":"x","key":"","value":"x"}]',
     ):
         with patch.object(
-            guard.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, value, "")
+            guard.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess([], 0, value, ""),
         ):
-            with pytest.raises(guard.ProviderError, match="^invalid-provider-response$"):
+            with pytest.raises(
+                guard.ProviderError, match="^invalid-provider-response$"
+            ):
                 guard.read_project(ARGS)
 
 

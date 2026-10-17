@@ -1,7 +1,9 @@
-import os
 import json
+import os
 import subprocess
+
 import pytest
+
 from tests.support.runtime import ROOT, environment
 
 
@@ -96,4 +98,6 @@ def test_task_clears_inherited_credentials_and_preserves_local_settings(
         timeout=30,
     )
     assert result.returncode != 0
-    assert not record.exists(), "A failed Ansible preflight must prevent SecretSpec invocation"
+    assert not record.exists(), (
+        "A failed Ansible preflight must prevent SecretSpec invocation"
+    )

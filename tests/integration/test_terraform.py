@@ -6,7 +6,7 @@ import hcl2
 import pytest
 
 from tests.support.configuration import terraform_sources
-from tests.support.runtime import ROOT, run_role, environment, executable
+from tests.support.runtime import ROOT, environment, executable, run_role
 
 CREDENTIALS = [
     "tofu_aws_access_key_id",
@@ -37,7 +37,9 @@ def test_native_variable_and_resource_state_sensitivity(tmp_path):
             "tailscale_client_secret",
         ]
     ]
-    expressions.append("issensitive(" + assignment.removeprefix("${").removesuffix("}") + ")")
+    expressions.append(
+        "issensitive(" + assignment.removeprefix("${").removesuffix("}") + ")"
+    )
     (tmp_path / "fixture.auto.tfvars").write_text(
         "\n".join(
             name + ' = "synthetic-' + name + '"'
@@ -79,7 +81,9 @@ def test_native_variable_and_resource_state_sensitivity(tmp_path):
             "wired_" + attribute + " = " + found[0].removeprefix("${").removesuffix("}")
         )
         expected.append("synthetic-" + variable)
-    (tmp_path / "wiring.tf").write_text("locals {\n" + "\n".join(declarations) + "\n}\n")
+    (tmp_path / "wiring.tf").write_text(
+        "locals {\n" + "\n".join(declarations) + "\n}\n"
+    )
     result = subprocess.run(
         ["tofu", "console", "-no-color"],
         cwd=tmp_path,
@@ -109,7 +113,10 @@ def test_missing_credentials_prevent_tofu_invocation(tmp_path, entry, missing):
         "tofu",
         entry,
         {
-            **{name: "" if name == missing else "synthetic-" + name for name in CREDENTIALS},
+            **{
+                name: "" if name == missing else "synthetic-" + name
+                for name in CREDENTIALS
+            },
             "tofu_binary_path": str(binary),
             "tofu_project_path": str(tmp_path),
         },
@@ -139,14 +146,20 @@ def test_cleanup_preserves_sources_and_nested_artifacts(tmp_path, check):
         path = tmp_path / name
         path.parent.mkdir(exist_ok=True)
         path.write_text("fixture")
-    result = run_role(tmp_path, "tofu", "clean", {"tofu_project_path": str(tmp_path)}, check=check)
+    result = run_role(
+        tmp_path, "tofu", "clean", {"tofu_project_path": str(tmp_path)}, check=check
+    )
     assert result.returncode == 0, result.stdout + result.stderr
     for name in generated + preserved:
         assert (tmp_path / name).exists() == (check or name in preserved), name
 
 
-@pytest.mark.parametrize("entry,failure", [("plan", False), ("apply", False), ("apply", True)])
-def test_native_tofu_receives_scoped_inputs_and_redacts_output(tmp_path, entry, failure):
+@pytest.mark.parametrize(
+    "entry,failure", [("plan", False), ("apply", False), ("apply", True)]
+)
+def test_native_tofu_receives_scoped_inputs_and_redacts_output(
+    tmp_path, entry, failure
+):
     variables = {name: "SYNTHETIC_PRIVATE_" + name for name in CREDENTIALS}
     executable(
         tmp_path,
@@ -181,7 +194,8 @@ elif args[0]=='apply':
     )
     assert (result.returncode == 0) == (not failure), result.stdout + result.stderr
     events = [
-        json.loads(line) for line in (tmp_path / "tofu-events.jsonl").read_text().splitlines()
+        json.loads(line)
+        for line in (tmp_path / "tofu-events.jsonl").read_text().splitlines()
     ]
     expected = dict(
         zip(

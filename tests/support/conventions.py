@@ -15,13 +15,15 @@ def assert_manifest_source(relative, doc):
     if str(relative) == VENDORED:
         return
     keys = list(doc)
-    assert keys[:3] == ["apiVersion", "kind", "metadata"], f"resource field order: {relative}"
+    assert keys[:3] == ["apiVersion", "kind", "metadata"], (
+        f"resource field order: {relative}"
+    )
     assert "spec" not in keys or keys[3] == "spec", f"spec field order: {relative}"
     ordered(doc["metadata"], ["name", "namespace", "labels", "annotations"])
     if relative.parts[0] == "apps":
-        assert relative.name.startswith(
-            relative.parts[2] + "-"
-        ), f"owned manifest filename: {relative}"
+        assert relative.name.startswith(relative.parts[2] + "-"), (
+            f"owned manifest filename: {relative}"
+        )
     else:
         assert "." in relative.name, f"resource filename: {relative}"
 
@@ -30,7 +32,9 @@ def assert_gateway(gateway, parameters):
     target = gateway["metadata"]["annotations"]["external-dns.kubernetes.io/target"]
     deployment = yaml.safe_load(parameters["data"]["deployment"])
     networks = json.loads(
-        deployment["spec"]["template"]["metadata"]["annotations"]["k8s.v1.cni.cncf.io/networks"]
+        deployment["spec"]["template"]["metadata"]["annotations"][
+            "k8s.v1.cni.cncf.io/networks"
+        ]
     )
     addresses = [
         str(ipaddress.ip_interface(cidr).ip)

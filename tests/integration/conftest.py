@@ -1,6 +1,8 @@
 import base64
 import json
+
 import pytest
+
 from tests.support.runtime import ROOT, executable
 from tests.support.sources import applications, read_toml, read_yaml
 
@@ -8,7 +10,9 @@ from tests.support.sources import applications, read_toml, read_yaml
 @pytest.fixture
 def provider(tmp_path):
     config = read_toml(ROOT / "secretspec.toml")
-    projects = [{"id": item["uri"].split("/")[-1]} for item in config["providers"].values()]
+    projects = [
+        {"id": item["uri"].split("/")[-1]} for item in config["providers"].values()
+    ]
     manifests = [
         doc
         for app in applications(ROOT)
@@ -18,7 +22,11 @@ def provider(tmp_path):
     values = [
         {"id": key, "key": key, "value": "SYNTHETIC-PRIVATE-" + key}
         for key in sorted(
-            {entry["remoteRef"]["key"] for doc in manifests for entry in doc["spec"]["data"]}
+            {
+                entry["remoteRef"]["key"]
+                for doc in manifests
+                for entry in doc["spec"]["data"]
+            }
         )
     ]
     targets = {
@@ -36,7 +44,10 @@ def provider(tmp_path):
     for name, rows in [("projects", projects), ("secrets", values)]:
         (tmp_path / (name + ".json")).write_text(json.dumps(rows))
     (tmp_path / "bitwarden-project").write_text(
-        read_yaml(ROOT / "apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml")["spec"]["provider"]["bitwardensecretsmanager"]["projectID"]
+        read_yaml(
+            ROOT
+            / "apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml"
+        )["spec"]["provider"]["bitwardensecretsmanager"]["projectID"]
     )
     executable(
         tmp_path,
@@ -60,13 +71,18 @@ else: sys.exit(92)
 def secret_api(provider):
     _, _, _, manifests = provider
     holder = "/api/v1/namespaces/platform-system/secrets/bitwarden-credentials"
-    paths = {holder, "/apis/external-secrets.io/v1/clustersecretstores/external-secrets-store"}
+    paths = {
+        holder,
+        "/apis/external-secrets.io/v1/clustersecretstores/external-secrets-store",
+    }
     for manifest in manifests:
         namespace = manifest["metadata"]["namespace"]
         paths.add(
             f"/apis/external-secrets.io/v1/namespaces/{namespace}/externalsecrets/{manifest['metadata']['name']}"
         )
-        paths.add(f"/api/v1/namespaces/{namespace}/secrets/{manifest['spec']['target']['name']}")
+        paths.add(
+            f"/api/v1/namespaces/{namespace}/secrets/{manifest['spec']['target']['name']}"
+        )
     paths.update(
         {
             "/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/root",
@@ -74,4 +90,8 @@ def secret_api(provider):
             "/apis/argoproj.io/v1alpha1/namespaces/argocd/applications",
         }
     )
-    return {"allowed_reads": sorted(paths), "credential_path": holder, "patch_paths": []}
+    return {
+        "allowed_reads": sorted(paths),
+        "credential_path": holder,
+        "patch_paths": [],
+    }

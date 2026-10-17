@@ -3,9 +3,9 @@ from dataclasses import replace
 
 import pytest
 
-from tests.support.applications import assert_application, assert_app_configuration
-from tests.support.sources import applications
+from tests.support.applications import assert_app_configuration, assert_application
 from tests.support.runtime import ROOT
+from tests.support.sources import applications
 
 APPS = applications(ROOT)
 
@@ -57,19 +57,55 @@ def test_required_application_structure_cannot_disappear(name, values):
 @pytest.mark.parametrize(
     "name,path,value",
     [
-        ("karakeep", "/controllers/chrome/containers/app/image/repository", "browserless/chrome"),
+        (
+            "karakeep",
+            "/controllers/chrome/containers/app/image/repository",
+            "browserless/chrome",
+        ),
         ("karakeep", "/controllers/chrome/containers/app/command", ["chromium"]),
         ("karakeep", "/controllers/chrome/containers/app/args", ["--no-sandbox"]),
-        ("karakeep", "/controllers/chrome/containers/app/args", ["--remote-debugging-port=9222"]),
+        (
+            "karakeep",
+            "/controllers/chrome/containers/app/args",
+            ["--remote-debugging-port=9222"],
+        ),
         ("karakeep", "/controllers/chrome/containers/app/args", "--no-sandbox"),
-        ("karakeep", "/controllers/main/containers/app/env/BROWSER_WEB_URL", "http://chrome:9999"),
+        (
+            "karakeep",
+            "/controllers/main/containers/app/env/BROWSER_WEB_URL",
+            "http://chrome:9999",
+        ),
         ("radarr", "/controllers/main/containers/app/env/TMPDIR", "/root"),
-        ("sonarr", "/controllers/main/containers/app/securityContext/capabilities/add", ["CHOWN"]),
-        ("prowlarr", "/controllers/main/containers/app/securityContext/capabilities/add", None),
-        ("qbittorrent", "/controllers/main/containers/gluetun/probes/readiness/type", "TCP"),
-        ("qbittorrent", "/controllers/main/containers/gluetun/probes/readiness/port", 1234),
-        ("qbittorrent", "/controllers/main/containers/gluetun/env/FIREWALL_INPUT_PORTS", "1234"),
-        ("jellyfin", "/controllers/main/containers/app/probes/readiness/spec/httpGet/path", "/"),
+        (
+            "sonarr",
+            "/controllers/main/containers/app/securityContext/capabilities/add",
+            ["CHOWN"],
+        ),
+        (
+            "prowlarr",
+            "/controllers/main/containers/app/securityContext/capabilities/add",
+            None,
+        ),
+        (
+            "qbittorrent",
+            "/controllers/main/containers/gluetun/probes/readiness/type",
+            "TCP",
+        ),
+        (
+            "qbittorrent",
+            "/controllers/main/containers/gluetun/probes/readiness/port",
+            1234,
+        ),
+        (
+            "qbittorrent",
+            "/controllers/main/containers/gluetun/env/FIREWALL_INPUT_PORTS",
+            "1234",
+        ),
+        (
+            "jellyfin",
+            "/controllers/main/containers/app/probes/readiness/spec/httpGet/path",
+            "/",
+        ),
         (
             "jellyfin",
             "/controllers/main/containers/app/env/JELLYFIN_PublishedServerUrl",
@@ -77,20 +113,36 @@ def test_required_application_structure_cannot_disappear(name, values):
         ),
         ("jellyfin", "/controllers/main/containers/app/ports", []),
         ("changedetection", "/controllers/main/containers/app/env/LLM_MODEL", ""),
-        ("changedetection", "/controllers/main/containers/app/env/LLM_MAX_INPUT_CHARS", 0),
-        ("changedetection", "/controllers/main/containers/app/env/LLM_API_BASE", "synthetic"),
-        ("changedetection", "/controllers/main/containers/app/env/LLM_FEATURES_DISABLED", True),
+        (
+            "changedetection",
+            "/controllers/main/containers/app/env/LLM_MAX_INPUT_CHARS",
+            0,
+        ),
+        (
+            "changedetection",
+            "/controllers/main/containers/app/env/LLM_API_BASE",
+            "synthetic",
+        ),
+        (
+            "changedetection",
+            "/controllers/main/containers/app/env/LLM_FEATURES_DISABLED",
+            True,
+        ),
         ("changedetection", "/controllers/main/containers/app/envFrom", []),
         ("gatus", "/config/endpoints", []),
     ],
 )
 def test_app_specific_configuration_regressions(name, path, value):
     import dataclasses
+
     import jsonpatch
 
     app = next(app for app in APPS if app.name == name)
     bad = dataclasses.replace(
-        app, values=jsonpatch.apply_patch(app.values, [{"op": "add", "path": path, "value": value}])
+        app,
+        values=jsonpatch.apply_patch(
+            app.values, [{"op": "add", "path": path, "value": value}]
+        ),
     )
     with pytest.raises((AssertionError, KeyError, TypeError, ValueError)):
         assert_app_configuration(bad)
@@ -99,7 +151,9 @@ def test_app_specific_configuration_regressions(name, path, value):
 def test_changedetection_credential_and_safe_embedded_recyclarr():
     import copy
     import dataclasses
+
     import yaml
+
     from tests.support.applications import RecyclarrLoader, assert_recyclarr
 
     app = next(app for app in APPS if app.name == "changedetection")
@@ -116,18 +170,24 @@ def test_changedetection_credential_and_safe_embedded_recyclarr():
     with pytest.raises(AssertionError):
         assert_app_configuration(dataclasses.replace(app, documents=documents))
     app = next(app for app in APPS if app.name == "recyclarr")
-    config = yaml.load(app.documents[0]["data"]["recyclarr.yml"], Loader=RecyclarrLoader)
+    config = yaml.load(
+        app.documents[0]["data"]["recyclarr.yml"], Loader=RecyclarrLoader
+    )
     assert_recyclarr(config)
     assert isinstance(config["sonarr"]["web-2160p-v4"]["api_key"], str)
-    for content in ["sonarr: []\nradarr: {}", "sonarr: [", "!!python/object:os.system {}"]:
+    for content in [
+        "sonarr: []\nradarr: {}",
+        "sonarr: [",
+        "!!python/object:os.system {}",
+    ]:
         with pytest.raises((AssertionError, KeyError, yaml.YAMLError)):
             assert_recyclarr(yaml.load(content, Loader=RecyclarrLoader))
 
 
 @pytest.mark.parametrize("version", ["4.99.0", "5.0.0", "3.0.0", "6.0.0", "bad", ""])
 def test_supported_chart_majors_and_optional_sections(version):
-    import dataclasses
     import copy
+    import dataclasses
 
     app = next(
         app
@@ -136,14 +196,20 @@ def test_supported_chart_majors_and_optional_sections(version):
     )
     metadata = copy.deepcopy(app.metadata)
     metadata["chart"]["version"] = version
-    fixture = dataclasses.replace(app, metadata=metadata, values={"controllers": {"main": {}}})
+    fixture = dataclasses.replace(
+        app, metadata=metadata, values={"controllers": {"main": {}}}
+    )
     if version.startswith(("4.", "5.")):
         assert_application(fixture)
         with pytest.raises(AssertionError):
-            assert_application(dataclasses.replace(fixture, values={"controllers": {"other": {}}}))
+            assert_application(
+                dataclasses.replace(fixture, values={"controllers": {"other": {}}})
+            )
         with pytest.raises(AssertionError):
             assert_application(
-                dataclasses.replace(fixture, values={"route": {}, "controllers": {"main": {}}})
+                dataclasses.replace(
+                    fixture, values={"route": {}, "controllers": {"main": {}}}
+                )
             )
     else:
         with pytest.raises(AssertionError):
@@ -192,8 +258,8 @@ def test_shared_media_security_profile(category, group, valid):
 
 
 def test_argocd_route_ownership_and_browser_ipv6():
-    import dataclasses
     import copy
+    import dataclasses
 
     app = next(app for app in APPS if app.name == "argocd")
     with pytest.raises(AssertionError):
@@ -215,7 +281,11 @@ def test_argocd_route_ownership_and_browser_ipv6():
         ({"repo": "oci://example/chart", "version": ""}, {"wave": "0"}, []),
         ({"repo": "https://example/charts", "version": "1.0.0"}, {"wave": "0"}, []),
         ({"repo": "oci://example/chart", "version": "1.0.0"}, {}, []),
-        ({"repo": "oci://example/chart", "version": "1.0.0"}, {"wave": "0"}, [{"group": ""}]),
+        (
+            {"repo": "oci://example/chart", "version": "1.0.0"},
+            {"wave": "0"},
+            [{"group": ""}],
+        ),
         (
             {"repo": "oci://example/chart", "version": "1.0.0"},
             {"wave": "0"},
@@ -244,10 +314,13 @@ def test_metadata_required_fields(chart, sync, ignore):
 def test_recyclarr_configuration_regressions(path, value):
     import jsonpatch
     import yaml
-    from tests.support.applications import assert_recyclarr, RecyclarrLoader
+
+    from tests.support.applications import RecyclarrLoader, assert_recyclarr
 
     app = next(app for app in APPS if app.name == "recyclarr")
-    config = yaml.load(app.documents[0]["data"]["recyclarr.yml"], Loader=RecyclarrLoader)
+    config = yaml.load(
+        app.documents[0]["data"]["recyclarr.yml"], Loader=RecyclarrLoader
+    )
     with pytest.raises(AssertionError):
         assert_recyclarr(
             jsonpatch.apply_patch(config, [{"op": "add", "path": path, "value": value}])

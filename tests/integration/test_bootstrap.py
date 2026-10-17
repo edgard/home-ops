@@ -1,8 +1,7 @@
-import json
-import base64
-
 """Run the real bootstrap scheduler with explicit CLI/loopback boundaries."""
 
+import base64
+import json
 import subprocess
 from urllib.parse import urlsplit
 
@@ -58,9 +57,14 @@ def test_bootstrap_order_and_native_failure(tmp_path, provider, failure):
             objects[key(version, kind, namespace, name)] = {
                 "apiVersion": version,
                 "kind": kind,
-                "metadata": {"name": name, **({"namespace": namespace} if namespace else {})},
+                "metadata": {
+                    "name": name,
+                    **({"namespace": namespace} if namespace else {}),
+                },
                 "spec": {},
-                "status": {"conditions": [{"type": item["condition_type"], "status": "True"}]},
+                "status": {
+                    "conditions": [{"type": item["condition_type"], "status": "True"}]
+                },
             }
     root = {
         "apiVersion": "argoproj.io/v1alpha1",
@@ -110,9 +114,15 @@ def test_bootstrap_order_and_native_failure(tmp_path, provider, failure):
             "/api/v1/namespaces/" + namespace
             for namespace in defaults["platform_bootstrap_namespaces"]
         ]
-        + ["/api/v1/namespaces/kube-system/pods/" + defaults["platform_k8tz_warmup_pod_name"]]
+        + [
+            "/api/v1/namespaces/kube-system/pods/"
+            + defaults["platform_k8tz_warmup_pod_name"]
+        ]
     )
-    owned = [ROOT / path for path in defaults["platform_external_secrets_bootstrap_manifests"]] + [
+    owned = [
+        ROOT / path
+        for path in defaults["platform_external_secrets_bootstrap_manifests"]
+    ] + [
         path
         for release in defaults["platform_bootstrap_releases"]
         if release.get("manifests_dir")
@@ -147,7 +157,9 @@ def test_bootstrap_order_and_native_failure(tmp_path, provider, failure):
         "identity_authorization": "Basic "
         + base64.b64encode(
             (
-                credentials["argocd_repo_username"] + ":" + credentials["argocd_repo_password"]
+                credentials["argocd_repo_username"]
+                + ":"
+                + credentials["argocd_repo_password"]
             ).encode()
         ).decode(),
     }
@@ -167,9 +179,13 @@ def test_bootstrap_order_and_native_failure(tmp_path, provider, failure):
             "args=sys.argv[1:]\nif args==['--version']: print('bws 2.1.0');sys.exit()",
         )
     )
-    tracked = subprocess.check_output(["git", "ls-files", "--", "apps"], cwd=ROOT, text=True)
+    tracked = subprocess.check_output(
+        ["git", "ls-files", "--", "apps"], cwd=ROOT, text=True
+    )
     (tmp_path / "tracked.txt").write_text(tracked)
-    (tmp_path / "releases.json").write_text(json.dumps(defaults["platform_bootstrap_releases"]))
+    (tmp_path / "releases.json").write_text(
+        json.dumps(defaults["platform_bootstrap_releases"])
+    )
     executable(
         tmp_path,
         "git",
@@ -218,7 +234,9 @@ if 'uninstall' in args:
 """,
     )
     with cluster_api(tmp_path, state) as (connection, observed):
-        base = urlsplit(read_yaml(tmp_path / "kubeconfig")["clusters"][0]["cluster"]["server"])
+        base = urlsplit(
+            read_yaml(tmp_path / "kubeconfig")["clusters"][0]["cluster"]["server"]
+        )
         result = run_role(
             tmp_path,
             "platform",
@@ -238,7 +256,9 @@ if 'uninstall' in args:
                         release["name"]
                         for release in defaults["platform_bootstrap_releases"]
                         if release["phase"]
-                        == ("argocd" if failure == "destroy-failure" else "certificates")
+                        == (
+                            "argocd" if failure == "destroy-failure" else "certificates"
+                        )
                     )
                     if failure in ["helm", "destroy-failure"]
                     else ""
@@ -253,7 +273,8 @@ if 'uninstall' in args:
     installs = [event["path"] for event in state["events"] if event["method"] == "HELM"]
     if failure.startswith("destroy"):
         assert installs == [
-            release["name"] for release in reversed(defaults["platform_bootstrap_releases"])
+            release["name"]
+            for release in reversed(defaults["platform_bootstrap_releases"])
         ]
         assert all(
             "--wait" in event["body"] and "--timeout" in event["body"]
@@ -265,7 +286,13 @@ if 'uninstall' in args:
             for event in state["events"]
         )
     else:
-        phase_order = ["storage", "networking", "certificates", "external-secrets", "argocd"]
+        phase_order = [
+            "storage",
+            "networking",
+            "certificates",
+            "external-secrets",
+            "argocd",
+        ]
         expected = [
             release["name"]
             for phase in phase_order
@@ -290,9 +317,13 @@ if 'uninstall' in args:
             assert write["body"]["metadata"]["name"] == "bitwarden-credentials"
             assert write["body"]["metadata"]["namespace"] == "platform-system"
             assert write["body"]["stringData"] == {"token": "synthetic-read-only-token"}
-        auth = next(i for i, event in enumerate(state["events"]) if event["method"] == "AUTH")
+        auth = next(
+            i for i, event in enumerate(state["events"]) if event["method"] == "AUTH"
+        )
         assert auth < next(
-            i for i, event in enumerate(state["events"]) if event["method"] not in ["GET", "AUTH"]
+            i
+            for i, event in enumerate(state["events"])
+            if event["method"] not in ["GET", "AUTH"]
         )
         assert "synthetic-read-only-token" not in result.stdout + result.stderr
         assert "SYNTHETIC-PRIVATE" not in result.stdout + result.stderr
