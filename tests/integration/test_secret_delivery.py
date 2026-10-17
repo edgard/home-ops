@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-from tests.support.runtime import ROOT, environment
+from tests.support.runtime import ROOT, environment, executable, run_command
 
 
 @pytest.mark.parametrize(
@@ -101,3 +101,31 @@ def test_task_clears_inherited_credentials_and_preserves_local_settings(
     assert not record.exists(), (
         "A failed Ansible preflight must prevent SecretSpec invocation"
     )
+
+
+def test_provider_uses_project_python_when_default_python3_is_incompatible(tmp_path):
+    executable(tmp_path, "python3", "raise SystemExit(93)\n")
+    playbook = executable(tmp_path, "ansible-playbook", "raise SystemExit(0)\n")
+    executable(
+        tmp_path,
+        "bws",
+        "import json\nprint(json.dumps([{'id':'fixture','key':'fixture','value':'synthetic'}]))\n",
+    )
+    executable(
+        tmp_path,
+        "secretspec",
+        "import os,subprocess,sys\n"
+        "result=subprocess.run([os.environ['SECRETSPEC_BWS_CLI_PATH'],"
+        "'--color','no','--server-url','https://vault.bitwarden.com','secret','list',"
+        "'00000000-0000-4000-8000-000000000001','--output','json'])\n"
+        "raise SystemExit(result.returncode)\n",
+    )
+    result = run_command(
+        ["task", "secrets:check", "ANSIBLE_PLAYBOOK=" + str(playbook)],
+        cwd=ROOT,
+        env=environment(tmp_path),
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == [
+        {"id": "fixture", "key": "fixture", "value": "synthetic"}
+    ]

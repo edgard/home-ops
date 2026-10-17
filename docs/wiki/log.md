@@ -11,7 +11,8 @@ configuration schemas, and moved Python dependency setup to locked uv sync.
 Tracked the root OpenTofu provider lock and preserved it through cleanup, with
 read-only backendless validation and explicit OpenTofu registry maintenance.
 CI now runs Format, Lint, and one complete Tests job behind Quality Gate, retaining
-JUnit evidence and native installer safeguards. Reviewed contributor/wiki rules,
+JUnit evidence and native installer safeguards. Scoped provider execution selects
+the project interpreter even when the machine default differs. Reviewed contributor/wiki rules,
 test guidance, validation architecture and decision, Terraform, secrets maintenance,
 source catalog, and Renovate explanations. October's semantic review is already
 recorded below.

@@ -20,7 +20,9 @@ Python tools and dependencies live in the non-packaged project metadata and
 committed uv lock; `task deps` performs locked synchronization and installs pinned
 collections. Python is supplied by machine setup, with the supported range
 reviewed alongside Ansible. Lint checks lock freshness without synchronizing.
-Checks and tests never rewrite locks or install dependencies.
+Checks and tests never rewrite locks or install dependencies. Scoped secret
+commands put the project interpreter first on PATH so the standalone provider
+uses the supported Python even when the machine default differs.
 
 OpenTofu initialization is backendless, noninteractive, uses temporary provider
 data, and verifies the committed root lock read-only before validation. Provider
