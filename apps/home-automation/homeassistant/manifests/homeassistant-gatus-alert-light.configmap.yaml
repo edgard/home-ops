@@ -1,0 +1,71 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homeassistant-gatus-alert-light
+  namespace: home-automation
+data:
+  gatus_alert_light.jinja: |-
+    {%- macro reduce_history(results, previous_active, now_ts, failure_limit, success_limit) -%}
+      {%- set ns = namespace(valid=results is sequence and results is not string and results is not mapping and results | length > 0, active=previous_active, transition='', failures=0, successes=0, last=none) -%}
+      {%- if ns.valid -%}
+        {%- for result in results -%}
+          {%- if result is not mapping or result.success is not boolean or result.timestamp is not defined -%}
+            {%- set ns.valid = false -%}
+          {%- else -%}
+            {%- set stamp = as_timestamp(result.timestamp, none) -%}
+            {%- if stamp is none or (ns.last is not none and stamp <= ns.last) -%}
+              {%- set ns.valid = false -%}
+            {%- else -%}
+              {%- set ns.last = stamp -%}
+              {%- set ns.failures = 0 if result.success else ns.failures + 1 -%}
+              {%- set ns.successes = ns.successes + 1 if result.success else 0 -%}
+              {%- if ns.failures >= failure_limit -%}
+                {%- set ns.active = true -%}
+                {%- set ns.transition = 'triggered' -%}
+              {%- elif ns.successes >= success_limit -%}
+                {%- set ns.active = false -%}
+                {%- set ns.transition = 'resolved' -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+      {%- if ns.last is none or now_ts - ns.last > 180 or ns.last - now_ts > 30 -%}
+        {%- set ns.valid = false -%}
+      {%- endif -%}
+      {{- {'valid': ns.valid, 'active': ns.active if ns.valid else previous_active, 'transition': ns.transition if ns.valid else ''} | to_json -}}
+    {%- endmacro -%}
+
+    {%- macro normalize_event(payload, endpoint_names) -%}
+      {%- set data = payload.get('event_data') if payload is mapping else none -%}
+      {%- set valid = data is mapping and data.endpoint is string and data.endpoint in endpoint_names and data.status is string and data.status in ['triggered', 'resolved'] -%}
+      {{- {'valid': valid, 'endpoint': data.endpoint if valid else '', 'status': data.status if valid else ''} | to_json -}}
+    {%- endmacro -%}
+
+    {%- macro snapshot_light(state, attributes) -%}
+      {%- set ns = namespace(valid=false, snapshot={}) -%}
+      {%- if state == 'off' -%}
+        {%- set ns.valid = true -%}
+        {%- set ns.snapshot = {'state': 'off'} -%}
+      {%- elif state == 'on' and attributes is mapping and attributes.brightness is integer and 0 < attributes.brightness <= 255 -%}
+        {%- set mode = attributes.get('color_mode') -%}
+        {%- set ns.snapshot = {'state': 'on', 'brightness': attributes.brightness, 'color_mode': mode} -%}
+        {%- if mode == 'color_temp' and attributes.color_temp_kelvin is number and 0 < attributes.color_temp_kelvin < 100000 -%}
+          {%- set ns.snapshot = dict(ns.snapshot, color_temp_kelvin=attributes.color_temp_kelvin) -%}
+          {%- set ns.valid = true -%}
+        {%- elif mode in ['hs', 'xy'] -%}
+          {%- set pair = attributes.get('hs_color' if mode == 'hs' else 'xy_color') -%}
+          {%- if pair is sequence and pair is not string and pair | length == 2 and pair[0] is number and pair[1] is number -%}
+            {%- set max_x = 360 if mode == 'hs' else 1 -%}
+            {%- set max_y = 100 if mode == 'hs' else 1 -%}
+            {%- if 0 <= pair[0] <= max_x and 0 <= pair[1] <= max_y -%}
+              {%- set ns.snapshot = dict(ns.snapshot, **{('hs_color' if mode == 'hs' else 'xy_color'): pair | list}) -%}
+              {%- set ns.valid = true -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endif -%}
+      {%- if ns.snapshot | to_json | length > 255 -%}{%- set ns.valid = false -%}{%- endif -%}
+      {{- {'valid': ns.valid, 'snapshot': ns.snapshot if ns.valid else {}} | to_json -}}
+    {%- endmacro -%}
