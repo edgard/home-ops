@@ -8,7 +8,8 @@ revisions. Ordinary questions and dependency bumps do not need entries.
 Added native Home Assistant alert delivery alongside Telegram, a serialized
 warning-light worker, persistent snapshot/open-incident helpers and history
 reconciliation for missed recovery events. Documented token delivery and rotation,
-manual light changes, endpoint retirement, restart/restore ordering, rollback
+the event API's administrator-token requirement, manual light changes, endpoint
+retirement, restart/restore ordering, rollback
 and the limits of in-memory Gatus history. Reviewed Home Assistant, Gatus, uptime,
 backup architecture, restore runbook and source catalog. October's semantic
 review is already recorded; no repeat review was needed.

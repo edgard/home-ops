@@ -55,6 +55,7 @@ the same five-failure/two-success policy, including recovery notifications. Use
 
 A dedicated named Home Assistant access token is stored once in the existing
 Bitwarden project and delivered to Gatus through its existing ExternalSecret.
+The installed HA event API requires an administrator token; it is not event-scoped.
 Never commit its value or include it in diagnostics. Provision the credential
 before enabling the new provider; do not deploy a missing-secret configuration.
 Credential creation/storage is an operator step if the available account cannot

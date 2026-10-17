@@ -29,10 +29,13 @@ two-success policy and recovery notification setting. Gatus sends nested
 retried on later failures, but failed recovery delivery is not retried; Home
 Assistant therefore also reconciles retained API history.
 
-Create a named long-lived HA access token for Gatus (a dedicated non-admin user
-is preferred) and store it directly as `homeassistant_gatus_token` in the existing
-Bitwarden `home-ops` project. The token inherits its user's permissions; it is
-not event-scoped. The existing read-only machine account needs no broader access.
+Create a named long-lived HA access token for Gatus under an administrator
+account and store it directly as `homeassistant_gatus_token` in the existing
+Bitwarden `home-ops` project. The installed HA event API requires administrator
+access; a non-admin token cannot post these events. The token inherits broad
+account permissions and is not event-scoped. Prefer a dedicated account for
+independent revocation; native-provider delivery cannot use a least-privilege
+event-only token. The existing read-only machine account needs no broader access.
 The [credential ExternalSecret](../../../../apps/platform-system/gatus/manifests/gatus-credentials.externalsecret.yaml)
 delivers `HOMEASSISTANT_GATUS_TOKEN` to the existing Gatus Secret. Never put the
 value in Git, chat or diagnostic output.
@@ -53,6 +56,7 @@ A complete single-node outage cannot be reported by this in-cluster checker.
 
 ## Sources
 
+- [HA event API](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/api/__init__.py) — administrator authorization required for event posting.
 - [Native HA provider](https://github.com/TwiN/gatus/blob/v5.37.0/alerting/provider/homeassistant/homeassistant.go) — authenticated nested event delivery.
 - [Alert delivery lifecycle](https://github.com/TwiN/gatus/blob/v5.37.0/watchdog/alerting.go) — trigger retries and recovery behavior.
 
