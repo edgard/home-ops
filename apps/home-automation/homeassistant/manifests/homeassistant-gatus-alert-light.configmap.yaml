@@ -69,3 +69,305 @@ data:
       {%- if ns.snapshot | to_json | length > 255 -%}{%- set ns.valid = false -%}{%- endif -%}
       {{- {'valid': ns.valid, 'snapshot': ns.snapshot if ns.valid else {}} | to_json -}}
     {%- endmacro -%}
+
+    {%- macro matches_light(saved, state, attrs) -%}
+      {%- set ns = namespace(ok=saved is mapping and saved.get('state') == state and state in ['on', 'off']) -%}
+      {%- if ns.ok and state == 'on' -%}
+        {%- set mode = saved.get('color_mode') -%}
+        {%- set ns.ok = attrs is mapping and attrs.brightness is number and saved.brightness is number and (attrs.brightness - saved.brightness) | abs <= 1 and attrs.get('color_mode') == mode -%}
+        {%- if ns.ok and mode == 'color_temp' -%}
+          {%- set ns.ok = attrs.color_temp_kelvin is number and (attrs.color_temp_kelvin - saved.color_temp_kelvin) | abs <= 25 -%}
+        {%- elif ns.ok and mode in ['hs', 'xy'] -%}
+          {%- set key = 'hs_color' if mode == 'hs' else 'xy_color' -%}
+          {%- set pair = attrs.get(key) -%}
+          {%- set ns.ok = pair is sequence and pair | length == 2 and pair[0] is number and pair[1] is number -%}
+          {%- if ns.ok -%}
+            {%- set dx = (pair[0] - saved[key][0]) | abs -%}
+            {%- set dy = (pair[1] - saved[key][1]) | abs -%}
+            {%- set ns.ok = ([dx, 360 - dx] | min <= 2 and dy <= 2) if mode == 'hs' else (dx <= 0.005 and dy <= 0.005) -%}
+          {%- endif -%}
+        {%- elif ns.ok -%}
+          {%- set ns.ok = false -%}
+        {%- endif -%}
+      {%- endif -%}
+      {{- ns.ok | to_json -}}
+    {%- endmacro -%}
+  gatus_alert_light.yaml: |-
+    input_boolean:
+      gatus_alert_apps_argocd:
+        name: Gatus alert apps/argocd
+      gatus_alert_apps_homeassistant:
+        name: Gatus alert apps/homeassistant
+      gatus_alert_apps_scrypted:
+        name: Gatus alert apps/scrypted
+      gatus_alert_apps_bazarr:
+        name: Gatus alert apps/bazarr
+      gatus_alert_apps_jellyfin:
+        name: Gatus alert apps/jellyfin
+      gatus_alert_apps_prowlarr:
+        name: Gatus alert apps/prowlarr
+      gatus_alert_apps_qbittorrent:
+        name: Gatus alert apps/qbittorrent
+      gatus_alert_apps_radarr:
+        name: Gatus alert apps/radarr
+      gatus_alert_apps_sonarr:
+        name: Gatus alert apps/sonarr
+      gatus_alert_apps_atuin:
+        name: Gatus alert apps/atuin
+      gatus_alert_apps_bambuddy:
+        name: Gatus alert apps/bambuddy
+      gatus_alert_apps_changedetection:
+        name: Gatus alert apps/changedetection
+      gatus_alert_apps_crosswatch:
+        name: Gatus alert apps/crosswatch
+      gatus_alert_apps_echo:
+        name: Gatus alert apps/echo
+      gatus_alert_apps_karakeep:
+        name: Gatus alert apps/karakeep
+      gatus_alert_apps_paperless:
+        name: Gatus alert apps/paperless
+      gatus_alert_apps_twitch_drops_miner:
+        name: Gatus alert apps/twitch-drops-miner
+      gatus_alert_dns_dns_google:
+        name: Gatus alert dns/dns-google
+      gatus_alert_dns_dns_cloudflare:
+        name: Gatus alert dns/dns-cloudflare
+      gatus_alert_dns_dns_quad9:
+        name: Gatus alert dns/dns-quad9
+      gatus_alert_internet_internet_amazon:
+        name: Gatus alert internet/internet-amazon
+      gatus_alert_internet_internet_google:
+        name: Gatus alert internet/internet-google
+      gatus_alert_internet_internet_microsoft:
+        name: Gatus alert internet/internet-microsoft
+      gatus_alert_internet_internet_cloudflare:
+        name: Gatus alert internet/internet-cloudflare
+      gatus_alert_internet_internet_akamai:
+        name: Gatus alert internet/internet-akamai
+      gatus_alert_internet_internet_fastly:
+        name: Gatus alert internet/internet-fastly
+    input_text:
+      gatus_alert_light_snapshot:
+        name: Gatus light original state
+        max: 255
+    rest_command:
+      gatus_alert_light_status:
+        url: http://gatus.platform-system.svc/api/v1/endpoints/statuses
+        method: GET
+        timeout: 5
+    script:
+      gatus_alert_light_worker:
+        alias: Gatus alert light worker
+        mode: queued
+        max: 100
+        fields:
+          kind:
+            selector:
+              select:
+                options: [event, reconcile]
+          payload:
+            description: Structured Gatus event body
+        variables:
+          target_light: light.office_office_mood_light
+          snapshot_helper: input_text.gatus_alert_light_snapshot
+          endpoints:
+            apps/argocd: input_boolean.gatus_alert_apps_argocd
+            apps/homeassistant: input_boolean.gatus_alert_apps_homeassistant
+            apps/scrypted: input_boolean.gatus_alert_apps_scrypted
+            apps/bazarr: input_boolean.gatus_alert_apps_bazarr
+            apps/jellyfin: input_boolean.gatus_alert_apps_jellyfin
+            apps/prowlarr: input_boolean.gatus_alert_apps_prowlarr
+            apps/qbittorrent: input_boolean.gatus_alert_apps_qbittorrent
+            apps/radarr: input_boolean.gatus_alert_apps_radarr
+            apps/sonarr: input_boolean.gatus_alert_apps_sonarr
+            apps/atuin: input_boolean.gatus_alert_apps_atuin
+            apps/bambuddy: input_boolean.gatus_alert_apps_bambuddy
+            apps/changedetection: input_boolean.gatus_alert_apps_changedetection
+            apps/crosswatch: input_boolean.gatus_alert_apps_crosswatch
+            apps/echo: input_boolean.gatus_alert_apps_echo
+            apps/karakeep: input_boolean.gatus_alert_apps_karakeep
+            apps/paperless: input_boolean.gatus_alert_apps_paperless
+            apps/twitch-drops-miner: input_boolean.gatus_alert_apps_twitch_drops_miner
+            dns/dns-google: input_boolean.gatus_alert_dns_dns_google
+            dns/dns-cloudflare: input_boolean.gatus_alert_dns_dns_cloudflare
+            dns/dns-quad9: input_boolean.gatus_alert_dns_dns_quad9
+            internet/internet-amazon: input_boolean.gatus_alert_internet_internet_amazon
+            internet/internet-google: input_boolean.gatus_alert_internet_internet_google
+            internet/internet-microsoft: input_boolean.gatus_alert_internet_internet_microsoft
+            internet/internet-cloudflare: input_boolean.gatus_alert_internet_internet_cloudflare
+            internet/internet-akamai: input_boolean.gatus_alert_internet_internet_akamai
+            internet/internet-fastly: input_boolean.gatus_alert_internet_internet_fastly
+        sequence:
+          - variables:
+              event: >-
+                {% from 'gatus_alert_light.jinja' import normalize_event %}
+                {{ normalize_event(payload | default({}), endpoints) | from_json }}
+          - if: "{{ kind | default('reconcile') == 'event' and not event.valid }}"
+            then:
+              - stop: Invalid or unknown Gatus event
+          - wait_template: >-
+              {% set ns = namespace(ready=states[snapshot_helper] is not none) %}
+              {% for helper in endpoints.values() %}
+                {% if states(helper) not in ['on', 'off'] %}{% set ns.ready = false %}{% endif %}
+              {% endfor %}
+              {{ ns.ready }}
+            timeout: '00:00:10'
+            continue_on_timeout: false
+          - if: "{{ is_state(snapshot_helper, 'unknown') }}"
+            then:
+              - action: input_text.set_value
+                target:
+                  entity_id: "{{ snapshot_helper }}"
+                data:
+                  value: ''
+          - variables:
+              status_response: {status: 0, content: []}
+          - action: rest_command.gatus_alert_light_status
+            response_variable: status_response
+            continue_on_error: true
+          - variables:
+              source_valid: >-
+                {{ status_response is mapping and status_response.get('status') == 200
+                   and status_response.get('content') is sequence
+                   and status_response.content is not string and status_response.content is not mapping }}
+              previous_names: >-
+                {% set ns = namespace(names=[]) %}
+                {% for name, helper in endpoints.items() %}
+                  {% if is_state(helper, 'on') %}{% set ns.names = ns.names + [name] %}{% endif %}
+                {% endfor %}
+                {{ ns.names }}
+              desired: >-
+                {% from 'gatus_alert_light.jinja' import reduce_history %}
+                {% set ns = namespace(flags={}, proof={}) %}
+                {% for name, helper in endpoints.items() %}
+                  {% set rows = namespace(matches=[]) %}
+                  {% if source_valid %}
+                    {% for row in status_response.content %}
+                      {% if row is mapping and row.get('name') is string and row.get('group', '') is string %}
+                        {% set display = (row.get('group') + '/' if row.get('group') else '') + row.name %}
+                        {% if display == name %}{% set rows.matches = rows.matches + [row] %}{% endif %}
+                      {% endif %}
+                    {% endfor %}
+                  {% endif %}
+                  {% set results = rows.matches[0].get('results') if rows.matches | length == 1 else none %}
+                  {% set result = reduce_history(results, is_state(helper, 'on'), as_timestamp(now()), 5, 2) | from_json %}
+                  {% set active = result.active %}
+                  {% if kind | default('reconcile') == 'event' and event.valid and event.endpoint == name and event.status == 'triggered' and not (result.valid and result.transition != '') %}
+                    {% set active = true %}
+                  {% endif %}
+                  {% set ns.flags = dict(ns.flags, **{name: active}) %}
+                  {% set ns.proof = dict(ns.proof, **{name: result.valid and not result.active}) %}
+                {% endfor %}
+                {{ {'flags': ns.flags, 'proof': ns.proof} }}
+              active_names: >-
+                {% set ns = namespace(names=[]) %}
+                {% for name, active in desired.flags.items() %}
+                  {% if active %}{% set ns.names = ns.names + [name] %}{% endif %}
+                {% endfor %}
+                {{ ns.names }}
+              saved: "{{ states(snapshot_helper) | from_json({}) }}"
+              saved_valid: >-
+                {% from 'gatus_alert_light.jinja' import snapshot_light %}
+                {{ saved is mapping and (snapshot_light(saved.get('state'), saved) | from_json).valid }}
+              red: >-
+                {% from 'gatus_alert_light.jinja' import matches_light %}
+                {{ matches_light({'state':'on', 'brightness':128, 'color_mode':'hs', 'hs_color':[0,100]}, states(target_light), states[target_light].attributes if states[target_light] is not none else {}) | from_json }}
+          - choose:
+              - conditions: "{{ active_names | length > 0 }}"
+                sequence:
+                  - &persist_flags
+                    repeat:
+                      for_each: "{{ endpoints.keys() | list }}"
+                      sequence:
+                        - if: "{{ desired.flags[repeat.item] != is_state(endpoints[repeat.item], 'on') }}"
+                          then:
+                            - action: "{{ 'input_boolean.turn_on' if desired.flags[repeat.item] else 'input_boolean.turn_off' }}"
+                              target:
+                                entity_id: "{{ endpoints[repeat.item] }}"
+                  - if: "{{ not saved_valid }}"
+                    then:
+                      - if: "{{ previous_names | length > 0 and red }}"
+                        then:
+                          - stop: Missing original light snapshot; operator recovery required
+                      - variables:
+                          captured: >-
+                            {% from 'gatus_alert_light.jinja' import snapshot_light %}
+                            {{ snapshot_light(states(target_light), states[target_light].attributes if states[target_light] is not none else {}) | from_json }}
+                      - if: "{{ not captured.valid }}"
+                        then:
+                          - stop: Light state unavailable; snapshot deferred
+                      - action: input_text.set_value
+                        target:
+                          entity_id: "{{ snapshot_helper }}"
+                        data:
+                          value: "{{ captured.snapshot | to_json }}"
+                  - if: "{{ states(target_light) in ['on', 'off'] and not red }}"
+                    then:
+                      - action: light.turn_on
+                        target:
+                          entity_id: "{{ target_light }}"
+                        data:
+                          rgb_color: [255, 0, 0]
+                          brightness_pct: 50
+              - conditions: "{{ saved_valid }}"
+                sequence:
+                  - variables:
+                      can_restore: >-
+                        {% set ns = namespace(ok=source_valid) %}
+                        {% for name in previous_names %}
+                          {% if not desired.proof.get(name, false) %}{% set ns.ok = false %}{% endif %}
+                        {% endfor %}
+                        {{ ns.ok }}
+                  - if: "{{ not can_restore or states(target_light) not in ['on', 'off'] }}"
+                    then:
+                      - stop: Restoration deferred until fresh recovery and an available light
+                  - choose:
+                      - conditions: "{{ saved.state == 'off' }}"
+                        sequence:
+                          - action: light.turn_off
+                            target:
+                              entity_id: "{{ target_light }}"
+                    default:
+                      - action: light.turn_on
+                        target:
+                          entity_id: "{{ target_light }}"
+                        data: >-
+                          {% set field = {'color_temp':'color_temp_kelvin', 'hs':'hs_color', 'xy':'xy_color'}[saved.color_mode] %}
+                          {{ dict(brightness=saved.brightness, **{field: saved[field]}) }}
+                  - wait_template: >-
+                      {% from 'gatus_alert_light.jinja' import matches_light %}
+                      {{ matches_light(saved, states(target_light), states[target_light].attributes if states[target_light] is not none else {}) | from_json }}
+                    timeout: '00:00:10'
+                    continue_on_timeout: false
+                  - action: input_text.set_value
+                    target:
+                      entity_id: "{{ snapshot_helper }}"
+                    data:
+                      value: ''
+                  - *persist_flags
+            default:
+              - *persist_flags
+    automation:
+      - id: gatus_alert_light_dispatch
+        alias: Gatus alert light dispatch
+        mode: parallel
+        max: 100
+        triggers:
+          - trigger: event
+            event_type: gatus_alert
+            id: event
+          - trigger: homeassistant
+            event: start
+          - trigger: time_pattern
+            seconds: /30
+          - trigger: state
+            entity_id: light.office_office_mood_light
+            from: unavailable
+          - trigger: state
+            entity_id: light.office_office_mood_light
+            from: unknown
+        actions:
+          - action: script.gatus_alert_light_worker
+            data:
+              kind: "{{ 'event' if trigger.id | default('') == 'event' else 'reconcile' }}"
+              payload: "{{ trigger.event.data if trigger.id | default('') == 'event' else {} }}"

@@ -178,3 +178,32 @@ def test_snapshot_restoration_fields(macros, state, attributes, snapshot):
 )
 def test_invalid_snapshot_does_not_invent_original_state(macros, state, attributes):
     assert json.loads(macros.snapshot_light(state, attributes))["valid"] is False
+
+
+@pytest.mark.parametrize(
+    "actual,expected",
+    [
+        (
+            {"brightness": 77, "color_mode": "color_temp", "color_temp_kelvin": 2202},
+            True,
+        ),
+        (
+            {"brightness": 78, "color_mode": "color_temp", "color_temp_kelvin": 2220},
+            True,
+        ),
+        (
+            {"brightness": 90, "color_mode": "color_temp", "color_temp_kelvin": 2202},
+            False,
+        ),
+        ({"brightness": 77, "color_mode": "hs", "hs_color": [0, 100]}, False),
+        ({}, False),
+    ],
+)
+def test_restoration_requires_matching_reported_state(macros, actual, expected):
+    saved = {
+        "state": "on",
+        "brightness": 77,
+        "color_mode": "color_temp",
+        "color_temp_kelvin": 2202,
+    }
+    assert json.loads(macros.matches_light(saved, "on", actual)) is expected
