@@ -50,6 +50,8 @@ owns `light.office_office_mood_light` while a confirmed Gatus warning is open.
 It applies steady red at 50% brightness after five consecutive failed checks.
 Two successful checks clear an endpoint; the original on/off state, brightness,
 and active color mode return only after every open warning clears.
+An originally-off light returns to off; its latent brightness/color are not
+snapshotted, so its next manual turn-on can retain the warning preset.
 Manual light changes during a warning are replaced by red on the next worker
 run. The saved original state is preserved across duplicates and overlapping alerts.
 

@@ -143,7 +143,7 @@ def assert_alert_delivery(gatus):
     assert ha["token"] == "$HOMEASSISTANT_GATUS_TOKEN"
     assert not config.get("maintenance")
     for endpoint in config["endpoints"]:
-        assert not endpoint.get("maintenance")
+        assert not endpoint.get("maintenance-windows")
         expected_providers = (
             {"homeassistant"}
             if endpoint.get("group") == "acceptance"
@@ -179,7 +179,16 @@ def test_gatus_native_provider_and_secret_contract(repo_root):
 
 @pytest.mark.parametrize(
     "broken",
-    ["threshold", "recovery", "telegram", "token", "secret", "maintenance", "override"],
+    [
+        "threshold",
+        "recovery",
+        "telegram",
+        "token",
+        "secret",
+        "maintenance",
+        "endpoint-maintenance",
+        "override",
+    ],
 )
 def test_rejects_unsafe_or_divergent_alert_delivery(repo_root, broken):
     gatus = copy.deepcopy(
@@ -204,6 +213,10 @@ def test_rejects_unsafe_or_divergent_alert_delivery(repo_root, broken):
         )["remoteRef"]["key"] = "wrong_key"
     elif broken == "maintenance":
         config["maintenance"] = [{"start": "00:00", "duration": "1h"}]
+    elif broken == "endpoint-maintenance":
+        config["endpoints"][0]["maintenance-windows"] = [
+            {"start": "00:00", "duration": "1h", "timezone": "Europe/Warsaw"}
+        ]
     else:
         config["endpoints"][0]["alerts"][0]["failure-threshold"] = 1
     with pytest.raises(AssertionError):
