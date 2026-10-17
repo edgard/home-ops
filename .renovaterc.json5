@@ -248,6 +248,17 @@
       automergeType: "pr",
     },
 
+    // Keep the server aligned with the HAOS add-on and Home Assistant's Matter client.
+    // Last matching rule overrides generic major/non-major grouping and automerge.
+    {
+      description: "Review Matter Server updates against the HAOS add-on baseline",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/matter-js/matterjs-server"],
+      groupName: "matter-server",
+      automerge: false,
+      addLabels: ["renovate/manual-review"],
+    },
+
     // OpenTofu's required_version is manually managed; keep provider updates enabled.
     {
       description: "Disable Terraform CLI version updates (using OpenTofu)",

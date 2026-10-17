@@ -19,8 +19,9 @@ controllers:
         k8s.v1.cni.cncf.io/networks: |-
           [
             {
-              "name": "multus-lan-bridge",
-              "namespace": "kube-system",
+              "name": "homeassistant-matter-lan",
+              "namespace": "home-automation",
+              "interface": "net1",
               "ips": ["192.168.1.246/24"],
               "gateway": ["192.168.1.1"],
               "mac": "02:42:c0:a8:01:f6"
@@ -43,6 +44,62 @@ controllers:
             enabled: true
         securityContext:
           privileged: true
+      matter-server:
+        image:
+          repository: ghcr.io/matter-js/matterjs-server
+          tag: 1.4.0
+        args:
+          - --vendorid
+          - "4939"
+          - --fabricid
+          - "2"
+        env:
+          STORAGE_PATH: /data
+          PORT: "5580"
+          LOG_LEVEL: info
+          PRIMARY_INTERFACE: net1
+          LISTEN_ADDRESS: 127.0.0.1
+          # Talos TimeStatus must be synchronized before enabling device time sync.
+          ENABLE_TIME_SYNC: "true"
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - /usr/local/bin/healthcheck.sh
+              periodSeconds: 5
+              timeoutSeconds: 10
+              failureThreshold: 180
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - /usr/local/bin/healthcheck.sh
+              periodSeconds: 60
+              timeoutSeconds: 10
+              failureThreshold: 6
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - /usr/local/bin/healthcheck.sh
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 3
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
 
 service:
   main:
@@ -73,12 +130,27 @@ persistence:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
     size: 10Gi
-    globalMounts:
-      - path: /config
+    advancedMounts:
+      main:
+        app:
+          - path: /config
+  matter:
+    type: persistentVolumeClaim
+    annotations:
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    storageClass: nfs-fast
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    advancedMounts:
+      main:
+        matter-server:
+          - path: /data
   config-main:
     type: configMap
     name: homeassistant-config
-    globalMounts:
-      - path: /config/configuration.yaml
-        subPath: configuration.yaml
-        readOnly: true
+    advancedMounts:
+      main:
+        app:
+          - path: /config/configuration.yaml
+            subPath: configuration.yaml
+            readOnly: true

@@ -19,6 +19,7 @@ catalog is a guide to it, not a copy of all tracked files.
 | Secrets and CLI inputs | [SecretSpec](../../secretspec.toml), [CLI role](../../ansible/roles/cli_secrets), [platform playbooks](../../ansible/playbooks) | [Secrets](architecture/secrets.md), [maintenance](operations/secrets-maintenance.md) |
 | External infrastructure | [Terraform](../../terraform) and [provider lock](../../terraform/.terraform.lock.hcl) | [Terraform](architecture/terraform.md) |
 | Enforced contracts | [Test guide](../../tests/README.md), [Python metadata](../../pyproject.toml), [Python lock](../../uv.lock), [assertions and scenarios](../../tests), and [CI](../../.github/workflows/ci.yml) | [Validation](architecture/validation.md) |
+| Matter controller | [Home Assistant values](../../apps/home-automation/homeassistant/values.yaml) and [LAN attachment](../../apps/home-automation/homeassistant/manifests/homeassistant-matter-lan.networkattachmentdefinition.yaml) | [Home Assistant](apps/home-automation/homeassistant.md), [networking](architecture/networking.md), [recovery](architecture/backup-recovery.md) |
 | Dependency maintenance | [Renovate configuration](../../.renovaterc.json5) and [RenovateJob](../../apps/selfhosted/renovate-operator/manifests/renovate-operator-home-ops.renovatejob.yaml) | [Renovate Operator](apps/selfhosted/renovate-operator.md), [Talos installer](decisions/talos-image-factory.md) |
 
 ## Decision evidence
