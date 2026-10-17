@@ -661,9 +661,7 @@ class Handler(BaseHTTPRequestHandler):
 
 server = HTTPServer(("127.0.0.1", 0), Handler)
 server.timeout = 0.2
-port_announcement = root / "api-port.tmp"
-port_announcement.write_text(str(server.server_address[1]))
-port_announcement.replace(root / "api-port")
+(root / "api-port").write_text(str(server.server_address[1]))
 while not (root / "api-stop").exists():
     server.handle_request()
 server.server_close()

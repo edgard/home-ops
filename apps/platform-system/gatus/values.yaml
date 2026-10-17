@@ -50,13 +50,6 @@ config:
     type: memory
   metrics: false
   alerting:
-    homeassistant:
-      url: http://homeassistant.home-automation.svc:8123
-      token: "$HOMEASSISTANT_GATUS_TOKEN"
-      default-alert:
-        failure-threshold: 5
-        success-threshold: 2
-        send-on-resolved: true
     telegram:
       token: "$TELEGRAM_BOT_TOKEN"
       id: "$TELEGRAM_CHAT_ID"
@@ -74,7 +67,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: homeassistant
       group: apps
       url: https://homeassistant.edgard.org
@@ -84,7 +76,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: scrypted
       group: apps
       url: https://scrypted.edgard.org
@@ -94,7 +85,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: bazarr
       group: apps
       url: https://bazarr.edgard.org
@@ -104,7 +94,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: jellyfin
       group: apps
       url: https://jellyfin.edgard.org/health
@@ -114,7 +103,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: prowlarr
       group: apps
       url: https://prowlarr.edgard.org
@@ -124,7 +112,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: qbittorrent
       group: apps
       url: https://qbittorrent.edgard.org
@@ -134,7 +121,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: radarr
       group: apps
       url: https://radarr.edgard.org
@@ -144,7 +130,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: sonarr
       group: apps
       url: https://sonarr.edgard.org
@@ -154,7 +139,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: atuin
       group: apps
       url: https://atuin.edgard.org
@@ -164,7 +148,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: bambuddy
       group: apps
       url: https://bambuddy.edgard.org
@@ -174,7 +157,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: changedetection
       group: apps
       url: https://changedetection.edgard.org
@@ -184,7 +166,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: crosswatch
       group: apps
       url: https://crosswatch.edgard.org/healthz
@@ -194,7 +175,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: echo
       group: apps
       url: https://echo.edgard.org
@@ -204,7 +184,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: karakeep
       group: apps
       url: https://karakeep.edgard.org
@@ -214,7 +193,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: paperless
       group: apps
       url: https://paperless.edgard.org
@@ -224,7 +202,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: twitch-drops-miner
       group: apps
       url: https://twitchdrops.edgard.org
@@ -234,7 +211,6 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: dns-google
       group: dns
       url: 8.8.8.8
@@ -246,7 +222,6 @@ config:
         - "[DNS_RCODE] == NOERROR"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: dns-cloudflare
       group: dns
       url: 1.1.1.1
@@ -258,7 +233,6 @@ config:
         - "[DNS_RCODE] == NOERROR"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: dns-quad9
       group: dns
       url: 9.9.9.9
@@ -270,7 +244,6 @@ config:
         - "[DNS_RCODE] == NOERROR"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: internet-amazon
       group: internet
       url: icmp://www.amazon.com
@@ -281,7 +254,6 @@ config:
         - "[CONNECTED] == true"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: internet-google
       group: internet
       url: icmp://www.google.com
@@ -292,7 +264,6 @@ config:
         - "[CONNECTED] == true"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: internet-microsoft
       group: internet
       url: icmp://www.microsoft.com
@@ -303,7 +274,6 @@ config:
         - "[CONNECTED] == true"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: internet-cloudflare
       group: internet
       url: icmp://www.cloudflare.com
@@ -314,7 +284,6 @@ config:
         - "[CONNECTED] == true"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: internet-akamai
       group: internet
       url: icmp://www.akamai.com
@@ -325,7 +294,6 @@ config:
         - "[CONNECTED] == true"
       alerts:
         - type: telegram
-        - type: homeassistant
     - name: internet-fastly
       group: internet
       url: icmp://www.fastly.com
@@ -336,4 +304,3 @@ config:
         - "[CONNECTED] == true"
       alerts:
         - type: telegram
-        - type: homeassistant
