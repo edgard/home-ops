@@ -63,6 +63,7 @@ def test_route_coverage(repo_root, rendered):
         urlsplit(endpoint["url"]).hostname
         for endpoint in config["endpoints"]
         if endpoint.get("url", "").startswith(("https://", "http://"))
+        and endpoint.get("group") != "acceptance"
     ]
     assert_route_coverage(
         sorted(routes),

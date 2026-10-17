@@ -94,6 +94,10 @@ data:
     {%- endmacro -%}
   gatus_alert_light.yaml: |-
     input_boolean:
+      gatus_alert_acceptance_alert_light_a:
+        name: Gatus alert acceptance/alert-light-a
+      gatus_alert_acceptance_alert_light_b:
+        name: Gatus alert acceptance/alert-light-b
       gatus_alert_apps_argocd:
         name: Gatus alert apps/argocd
       gatus_alert_apps_homeassistant:
@@ -171,6 +175,8 @@ data:
           target_light: light.office_office_mood_light
           snapshot_helper: input_text.gatus_alert_light_snapshot
           endpoints:
+            acceptance/alert-light-a: input_boolean.gatus_alert_acceptance_alert_light_a
+            acceptance/alert-light-b: input_boolean.gatus_alert_acceptance_alert_light_b
             apps/argocd: input_boolean.gatus_alert_apps_argocd
             apps/homeassistant: input_boolean.gatus_alert_apps_homeassistant
             apps/scrypted: input_boolean.gatus_alert_apps_scrypted
