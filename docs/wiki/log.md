@@ -3,34 +3,6 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
-## [2026-10-17] revision | Gatus warning light and restoration
-
-Added native Home Assistant alert delivery alongside Telegram, a serialized
-warning-light worker, persistent snapshot/open-incident helpers and history
-reconciliation for missed recovery events. Documented token delivery and rotation,
-the event API's administrator-token requirement, manual light changes, endpoint
-retirement, restart/restore ordering, rollback
-and the limits of in-memory Gatus history. Reviewed Home Assistant, Gatus, uptime,
-backup architecture, restore runbook and source catalog. October's semantic
-review is already recorded; no repeat review was needed.
-
-## [2026-10-17] revision | Add Home Assistant Matter support
-
-The follow-up pins the legacy configuration PVC name and protects both claims
-from automatic pruning/deletion. Added a rendered regression for configuration
-claim identity when additional persistence entries are present.
-
-Added the HAOS-baselined Matter.js Server beside Home Assistant with private
-loopback management, separate controller storage, and upstream health checks.
-An app-owned bridge/tuning attachment enables pod-scoped IPv6 Thread route
-learning while retaining the existing LAN identity and shared networking.
-Matter image updates require manual upstream/client compatibility review.
-Documented phone-based Apple Home sharing, coupled pod readiness and rollout,
-NTP assumptions, backup/restore, restart acceptance and rollback. Reviewed the
-Home Assistant, networking, backup architecture, restore runbook and source
-catalog. October's semantic review is already recorded below. Device pairing
-and changing live health are deliberately not recorded here.
-
 ## [2026-10-17] revision | Standardize validation commands and CI
 
 Separated formatting, static analysis, pytest, and the complete `task check`

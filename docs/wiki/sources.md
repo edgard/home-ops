@@ -1,7 +1,7 @@
 # Source catalog
 
 Purpose: locate the evidence used to build and maintain this wiki.
-Status: current. Reviewed against: `e9e0be76723b83306553122a3f5b0e4e8db832d8`.
+Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
 
 The immutable starting snapshot is Git commit
 [`2b1488a2`](https://github.com/edgard/home-ops/tree/2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b).
@@ -19,8 +19,6 @@ catalog is a guide to it, not a copy of all tracked files.
 | Secrets and CLI inputs | [SecretSpec](../../secretspec.toml), [CLI role](../../ansible/roles/cli_secrets), [platform playbooks](../../ansible/playbooks) | [Secrets](architecture/secrets.md), [maintenance](operations/secrets-maintenance.md) |
 | External infrastructure | [Terraform](../../terraform) and [provider lock](../../terraform/.terraform.lock.hcl) | [Terraform](architecture/terraform.md) |
 | Enforced contracts | [Test guide](../../tests/README.md), [Python metadata](../../pyproject.toml), [Python lock](../../uv.lock), [assertions and scenarios](../../tests), and [CI](../../.github/workflows/ci.yml) | [Validation](architecture/validation.md) |
-| Matter controller | [Home Assistant values](../../apps/home-automation/homeassistant/values.yaml) and [LAN attachment](../../apps/home-automation/homeassistant/manifests/homeassistant-matter-lan.networkattachmentdefinition.yaml) | [Home Assistant](apps/home-automation/homeassistant.md), [networking](architecture/networking.md), [recovery](architecture/backup-recovery.md) |
-| Gatus warning light | [HA package](../../apps/home-automation/homeassistant/manifests/homeassistant-gatus-alert-light.configmap.yaml), [Gatus provider](../../apps/platform-system/gatus/values.yaml), and [native engine scenarios](../../tests/support/homeassistant_alert_light.py) | [Home Assistant](apps/home-automation/homeassistant.md#gatus-warning-light), [Gatus](apps/platform-system/gatus.md#home-assistant-delivery), [uptime](architecture/uptime.md) |
 | Dependency maintenance | [Renovate configuration](../../.renovaterc.json5) and [RenovateJob](../../apps/selfhosted/renovate-operator/manifests/renovate-operator-home-ops.renovatejob.yaml) | [Renovate Operator](apps/selfhosted/renovate-operator.md), [Talos installer](decisions/talos-image-factory.md) |
 
 ## Decision evidence
