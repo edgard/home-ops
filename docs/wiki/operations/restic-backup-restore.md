@@ -2,7 +2,7 @@
 # Kubernetes Restic Restore Runbook
 
 Purpose: operator procedure for a Kubernetes appdata restore.
-Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
+Status: current. Reviewed against: `0347fad141d7dfe0692ab03b8636296f0921548a`.
 
 The `restic` app backs up Kubernetes appdata and serves the same repository used
 by the macOS and Windows workstation backups. Kubernetes owns repository
@@ -80,6 +80,12 @@ Home Assistant example:
 task restic:restore app=homeassistant
 task restic:restore app=homeassistant confirm_restore=true
 ```
+
+Home Assistant owns two appdata claims: application configuration and Matter
+controller state. Confirm both appear in its restore preview and restore a
+matching snapshot. The Matter claim contains the fabric identity needed to keep
+device pairings; retain it during rollback and use a compatible snapshot before
+a server downgrade that changes storage format.
 
 The plan shows the app, namespace, source paths, restore paths, and workloads
 that will be stopped and resumed. A single-PVC restore is the same command:

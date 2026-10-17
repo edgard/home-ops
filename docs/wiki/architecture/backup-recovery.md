@@ -1,7 +1,7 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
+Status: current. Reviewed against: `0347fad141d7dfe0692ab03b8636296f0921548a`.
 
 The Restic application serves a repository and runs appdata backup and
 maintenance workloads. Restore commands enter the Ansible role in plan-only
@@ -23,6 +23,12 @@ identity and infrastructure values resolve from Bitwarden through scoped
 SecretSpec. Protected infrastructure-state backups have a separate recovery
 procedure; they do not replace Bitwarden availability.
 
+Home Assistant's application owns separate configuration and Matter controller
+PVCs. The app restore preview must select both; paired devices depend on the
+persisted Matter fabric identity. Verify snapshot coverage before relying on it,
+and preserve a compatible state backup before downgrading the server. See
+[Home Assistant recovery](../apps/home-automation/homeassistant.md#data-and-recovery).
+
 ## Sources
 
 - [Restic values](../../../apps/selfhosted/restic/values.yaml)
@@ -30,6 +36,7 @@ procedure; they do not replace Bitwarden availability.
 - [Restore entry point](../../../ansible/roles/restic/tasks/main.yml)
 - [Restore execution tasks](../../../ansible/roles/restic/tasks/execute.yml)
 - [Restore Taskfile entry points](../../../Taskfile.yaml)
+- [Home Assistant values](../../../apps/home-automation/homeassistant/values.yaml)
 
 ## Related pages
 
