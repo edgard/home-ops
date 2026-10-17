@@ -1,13 +1,35 @@
 # Validation and PR gate
 
 Purpose: distinguish native validation, repository assertions, and deployment evidence.
-Status: current. Reviewed against: `ae198e1dcee21682caa39016c64839a7e52a416c`.
+Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
 
-`task lint` runs formatting, YAML/workflow checks, production-profile Ansible
-lint, backendless OpenTofu validation, then the complete pytest suite once.
+`task check` runs formatting checks, native static checks, and the complete
+pytest suite once. `task fmt` changes formatting, `task fmt:check` verifies the
+same formatting, `task lint` performs static analysis, and `task test` owns all
+pytest discovery. Focus tests with `task test -- <path or pytest options>`.
 The [test guide](../../../tests/README.md) describes ownership and prerequisites.
-CI runs disjoint focused subsets in its Ansible and Kubernetes jobs, alongside
-the other native jobs, and requires their combined `Quality Gate`.
+CI runs the same commands in Format, Lint, and one full Tests job; the required
+`Quality Gate` rejects failed, cancelled, or skipped dependencies. Tests publish
+JUnit results, including on failure. New pytest directories need no CI edits.
+
+YAML formatting uses yamlfmt alone, including quote style. Ruff formats Python
+and imports and checks a focused correctness/import rule set. Native yamllint,
+production-profile ansible-lint, actionlint with required ShellCheck, and bundled
+Taskfile/Renovate/composite-action schemas retain their specialized checks.
+Python tools and dependencies live in the non-packaged project metadata and
+committed uv lock; `task deps` performs locked synchronization and installs pinned
+collections. Python is supplied by machine setup, with the supported range
+reviewed alongside Ansible. Lint checks lock freshness without synchronizing.
+Checks and tests never rewrite locks or install dependencies. Scoped secret
+commands put the project interpreter first on PATH so the standalone provider
+uses the supported Python even when the machine default differs.
+
+OpenTofu initialization is backendless, noninteractive, uses temporary provider
+data, and verifies the committed root lock read-only before validation. Provider
+pins, OpenTofu registry identities, and checksums for macOS ARM64/Linux AMD64 stay
+reviewable. `tf:clean` preserves the lock. Renovate manages dependency/lock updates;
+configuration validation alone does not prove discovery or artifact generation.
+
 All pytest invocations inherit automatic parallelism capped at four workers
 and work-stealing scheduling from [pytest configuration](../../../pyproject.toml).
 Every test participates; resource isolation belongs to fixtures rather than
@@ -35,7 +57,9 @@ versions, private-material cleanup, CI tool checksum/version rejection, scoped d
 committed handoff, original restore state, and failure evidence. Restore failure
 may leave workloads paused or partially resumed; tests retain that recovery
 contract. Roles contain no test-only execution branches. Runtime assertions
-continue to protect operator inputs and live state.
+continue to protect operator inputs and live state. Injected API-error scenarios
+use a separate bounded budget from deliberate timeout scenarios; a delayed
+synthetic response verifies that the intended target-read fault is reached.
 
 The CI SecretSpec installer scenario executes the toolchain action's real shell
 against synthetic release archives. It verifies successful installation, rejected
@@ -76,7 +100,9 @@ are not evidence that a synced application functions in the running cluster.
 - [Rendering fixture](../../../tests/config/kubernetes/conftest.py)
 - [Parallel resource regression scenarios](../../../tests/integration/test_parallel.py)
 - [CI tool installation scenarios](../../../tests/integration/test_ci_tools.py)
-- [pytest configuration](../../../pyproject.toml)
+- [Python dependencies, lint, and pytest configuration](../../../pyproject.toml)
+- [Python lock](../../../uv.lock)
+- [Provider lock](../../../terraform/.terraform.lock.hcl)
 - [Wiki checks](../../../tests/config/wiki/test_wiki.py)
 
 ## Related pages

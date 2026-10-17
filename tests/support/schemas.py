@@ -3,12 +3,12 @@
 import copy
 import json
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 
+import yaml
 from jsonschema import Draft4Validator
 from jsonschema.exceptions import SchemaError as InvalidSchema
-import yaml
 
 from tests.support.sources import KubernetesLoader
 
@@ -55,7 +55,9 @@ def export(destination, paths):
     try:
         for path in paths:
             label = Path(path).name
-            for document in yaml.load_all(Path(path).read_text(), Loader=KubernetesLoader):
+            for document in yaml.load_all(
+                Path(path).read_text(), Loader=KubernetesLoader
+            ):
                 if (
                     not isinstance(document, dict)
                     or document.get("kind") != "CustomResourceDefinition"
@@ -90,7 +92,9 @@ def export(destination, paths):
         location = "/".join(str(part) for part in error.absolute_path)
         raise SchemaError(f"invalid-served-schema:{label}:{location}") from None
     except (KeyError, TypeError, ValueError, OSError, yaml.YAMLError) as error:
-        raise SchemaError(f"invalid-served-schema:{label}:{type(error).__name__}") from None
+        raise SchemaError(
+            f"invalid-served-schema:{label}:{type(error).__name__}"
+        ) from None
     for (group, kind, name), schema in schemas.items():
         directory = Path(destination) / group
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)

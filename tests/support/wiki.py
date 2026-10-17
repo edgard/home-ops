@@ -1,8 +1,8 @@
 """Check the wiki against repository sources and local links."""
 
+import re
 from collections import Counter
 from pathlib import Path
-import re
 from urllib.parse import unquote
 
 
@@ -25,13 +25,16 @@ def wiki_errors(root):
     }
     errors = [f"missing app page: {page}" for page in sorted(expected - app_pages)]
     errors += [
-        f"app page without app metadata: {page}" for page in sorted(app_pages - expected)
+        f"app page without app metadata: {page}"
+        for page in sorted(app_pages - expected)
     ]
     index = wiki / "index.md"
     if not index.is_file():
         return errors + ["missing wiki index"]
     indexed = [path for _, path in local_links(index.read_text(), wiki)]
-    errors += [f"not indexed: {page}" for page in sorted(pages - {index} - set(indexed))]
+    errors += [
+        f"not indexed: {page}" for page in sorted(pages - {index} - set(indexed))
+    ]
     if any(
         count > 1
         for path, count in Counter(indexed).items()

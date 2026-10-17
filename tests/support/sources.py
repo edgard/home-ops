@@ -1,8 +1,8 @@
 """Read authoritative sources without policy-specific inventories."""
 
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
 
 import json5
 import yaml
@@ -25,9 +25,9 @@ def read_yaml(path, multiple=False):
         raise ValueError(f"invalid YAML: {path}") from None
     if multiple:
         return [document for document in documents if document is not None]
-    assert (
-        len(documents) == 1 and documents[0] is not None
-    ), f"empty or multiple documents: {path}"
+    assert len(documents) == 1 and documents[0] is not None, (
+        f"empty or multiple documents: {path}"
+    )
     return documents[0]
 
 
@@ -62,10 +62,12 @@ def applications(root):
     for path in paths:
         for name in ("app.yaml", "values.yaml"):
             assert (path / name).is_file(), f"missing {path / name}"
-        metadata, values = (read_yaml(path / name) for name in ("app.yaml", "values.yaml"))
-        assert isinstance(metadata, dict) and isinstance(
-            values, dict
-        ), f"invalid application: {path}"
+        metadata, values = (
+            read_yaml(path / name) for name in ("app.yaml", "values.yaml")
+        )
+        assert isinstance(metadata, dict) and isinstance(values, dict), (
+            f"invalid application: {path}"
+        )
         documents = [
             doc
             for source in sorted((path / "manifests").glob("*.yaml"))

@@ -44,7 +44,12 @@ def pod_spec(doc):
     if kind in {"Deployment", "StatefulSet", "DaemonSet", "Job"}:
         return spec.get("template", {}).get("spec", {})
     if kind == "CronJob":
-        return spec.get("jobTemplate", {}).get("spec", {}).get("template", {}).get("spec", {})
+        return (
+            spec.get("jobTemplate", {})
+            .get("spec", {})
+            .get("template", {})
+            .get("spec", {})
+        )
     return {}
 
 
@@ -57,32 +62,38 @@ def assert_resource(doc):
     assert not any(
         key.startswith("external-dns.alpha.kubernetes.io/") for key in annotations
     ), f"retired ExternalDNS annotation: {label}"
-    assert (
-        "gatus.home-operations.com/endpoint" not in annotations
-    ), f"explicit Gatus monitoring: {label}"
-    assert (
-        doc["apiVersion"].split("/")[0] not in RETIRED_GROUPS
-    ), f"retired observability API: {label}"
+    assert "gatus.home-operations.com/endpoint" not in annotations, (
+        f"explicit Gatus monitoring: {label}"
+    )
+    assert doc["apiVersion"].split("/")[0] not in RETIRED_GROUPS, (
+        f"retired observability API: {label}"
+    )
     if kind == "CustomResourceDefinition":
-        assert doc["spec"]["group"] not in RETIRED_GROUPS, f"retired observability CRD: {label}"
+        assert doc["spec"]["group"] not in RETIRED_GROUPS, (
+            f"retired observability CRD: {label}"
+        )
     if kind in {"Deployment", "StatefulSet", "DaemonSet"}:
-        assert not name.startswith(RETIRED_WORKLOADS), f"retired observability workload: {label}"
+        assert not name.startswith(RETIRED_WORKLOADS), (
+            f"retired observability workload: {label}"
+        )
     if kind == "Secret":
         assert not any(
-            value for field in ("data", "stringData") for value in doc.get(field, {}).values()
+            value
+            for field in ("data", "stringData")
+            for value in doc.get(field, {}).values()
         ), f"populated Secret: {label}"
     if kind == "ExternalSecret":
-        assert (
-            doc["spec"]["secretStoreRef"]["name"] == "external-secrets-store"
-        ), f"canonical secret store: {label}"
-        assert (
-            doc["spec"]["secretStoreRef"]["kind"] == "ClusterSecretStore"
-        ), f"cluster secret store: {label}"
+        assert doc["spec"]["secretStoreRef"]["name"] == "external-secrets-store", (
+            f"canonical secret store: {label}"
+        )
+        assert doc["spec"]["secretStoreRef"]["kind"] == "ClusterSecretStore", (
+            f"cluster secret store: {label}"
+        )
     if kind == "ClusterSecretStore" and name == "external-secrets-store":
         conditions = doc["spec"]["conditions"]
-        assert len(conditions) == 1 and set(conditions[0]) == {
-            "namespaces"
-        }, "restricted secret consumers"
+        assert len(conditions) == 1 and set(conditions[0]) == {"namespaces"}, (
+            "restricted secret consumers"
+        )
         assert set(conditions[0]["namespaces"]) == {
             "argocd",
             "media",
@@ -107,13 +118,16 @@ def assert_resource(doc):
             for ref in doc["spec"].get("parentRefs", [])
         ), f"route gateway: {label}"
     if kind == "Gateway" and name == "gateway" and namespace == "platform-system":
-        assert annotations.get("external-dns.kubernetes.io/target"), "gateway DNS target"
+        assert annotations.get("external-dns.kubernetes.io/target"), (
+            "gateway DNS target"
+        )
     if kind == "ValidatingWebhookConfiguration" and name in {
         "istiod-default-validator",
         "istio-validator-platform-system",
     }:
         assert all(
-            webhook.get("failurePolicy", "Fail") == "Fail" for webhook in doc["webhooks"]
+            webhook.get("failurePolicy", "Fail") == "Fail"
+            for webhook in doc["webhooks"]
         ), "fail-closed mesh webhooks"
     if (
         kind == "ConfigMap"
@@ -123,23 +137,33 @@ def assert_resource(doc):
     ):
         merged = json.loads(doc["data"]["merged-values"])
         assert (
-            merged.get("telemetry", {}).get("v2", {}).get("prometheus", {}).get("enabled", True)
+            merged.get("telemetry", {})
+            .get("v2", {})
+            .get("prometheus", {})
+            .get("enabled", True)
             is False
         ), "unused Istio telemetry"
     pod = pod_spec(doc)
     containers = pod.get("containers", []) + pod.get("initContainers", [])
     for container in containers:
-        assert not container.get("image", "").lower().endswith(":latest"), f"latest image: {label}"
+        assert not container.get("image", "").lower().endswith(":latest"), (
+            f"latest image: {label}"
+        )
     if kind == "Deployment" and name == "csi-nfs-controller":
         assert all(
             container["name"] != "csi-snapshotter" for container in containers
         ), "snapshot CRDs required"
-    if kind == "Deployment" and name == "cert-manager" and namespace == "platform-system":
+    if (
+        kind == "Deployment"
+        and name == "cert-manager"
+        and namespace == "platform-system"
+    ):
         for container in containers:
             if container["name"] == "cert-manager-controller":
                 assert any(
                     re.fullmatch(
-                        r"--metrics-listen-address=(127\.0\.0\.1|localhost|\[::1\]):[0-9]+", arg
+                        r"--metrics-listen-address=(127\.0\.0\.1|localhost|\[::1\]):[0-9]+",
+                        arg,
                     )
                     for arg in container.get("args", [])
                 ), "local-only unused metrics"
@@ -149,9 +173,9 @@ def assert_resource(doc):
         return
     assert doc["spec"].get("replicas", 1) == 1, f"single replica: {label}"
     if kind == "Deployment":
-        assert (
-            doc["spec"].get("strategy", {}).get("type") == "Recreate"
-        ), f"Recreate strategy: {label}"
+        assert doc["spec"].get("strategy", {}).get("type") == "Recreate", (
+            f"Recreate strategy: {label}"
+        )
     pod_security = pod.get("securityContext", {})
     if any(
         volume.get("persistentVolumeClaim", {}).get("claimName") == "media"
@@ -163,33 +187,34 @@ def assert_resource(doc):
         security = container.get("securityContext", {})
         capabilities = security.get("capabilities", {})
         if not image.startswith(SECURITY_EXCEPTIONS):
-            assert not security.get(
-                "allowPrivilegeEscalation", False
-            ), f'privilege escalation: {label}/{container["name"]}'
-            assert "ALL" in capabilities.get(
-                "drop", []
-            ), f'drop capabilities: {label}/{container["name"]}'
+            assert not security.get("allowPrivilegeEscalation", False), (
+                f"privilege escalation: {label}/{container['name']}"
+            )
+            assert "ALL" in capabilities.get("drop", []), (
+                f"drop capabilities: {label}/{container['name']}"
+            )
         if not image.startswith(ROOT_IMAGES):
             assert security.get(
                 "runAsNonRoot", pod_security.get("runAsNonRoot", False)
-            ), f'non-root: {label}/{container["name"]}'
+            ), f"non-root: {label}/{container['name']}"
         if image.startswith("icereed/paperless-gpt:"):
-            assert {"CHOWN", "SETUID", "SETGID"} <= set(
-                capabilities.get("add", [])
-            ), "Paperless entrypoint capabilities"
+            assert {"CHOWN", "SETUID", "SETGID"} <= set(capabilities.get("add", [])), (
+                "Paperless entrypoint capabilities"
+            )
         if image.startswith("qmcgaw/gluetun:"):
-            assert (
-                container.get("livenessProbe", {}).get("httpGet") is not None
-            ), "VPN HTTP health probe"
+            assert container.get("livenessProbe", {}).get("httpGet") is not None, (
+                "VPN HTTP health probe"
+            )
 
 
 def assert_route_coverage(routes, excluded, actual):
     assert all(
-        isinstance(hosts, list) and all(isinstance(host, str) and host for host in hosts)
+        isinstance(hosts, list)
+        and all(isinstance(host, str) and host for host in hosts)
         for hosts in (routes, excluded, actual)
     ), "nonempty hostname arrays"
     assert len(actual) == len(set(actual)), "duplicate Gatus HTTP targets"
     expected = set(routes) - set(excluded)
-    assert expected == set(
-        actual
-    ), f"Gatus coverage: missing={expected - set(actual)}, obsolete={set(actual) - expected}"
+    assert expected == set(actual), (
+        f"Gatus coverage: missing={expected - set(actual)}, obsolete={set(actual) - expected}"
+    )

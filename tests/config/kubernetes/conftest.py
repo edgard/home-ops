@@ -2,10 +2,10 @@ import json
 import shutil
 import traceback
 
-from filelock import FileLock
 import pytest
+from filelock import FileLock
 
-from tests.support.applications import assert_application, assert_app_configuration
+from tests.support.applications import assert_app_configuration, assert_application
 from tests.support.kubernetes import render_validate
 from tests.support.sources import applications, read_yaml
 
@@ -40,9 +40,9 @@ def rendered(tmp_path_factory, repo_root, worker_id):
                         output / "rendered" / app.category / (app.name + ".yaml")
                         for app in apps
                     }
-                    assert (
-                        set((output / "rendered").glob("*/*.yaml")) == expected
-                    ), "rendered application inventory differs from sources"
+                    assert set((output / "rendered").glob("*/*.yaml")) == expected, (
+                        "rendered application inventory differs from sources"
+                    )
                     by_app = {
                         path: read_yaml(path, multiple=True)
                         for path in sorted(expected)

@@ -3,12 +3,12 @@ from pathlib import Path
 import pytest
 
 from tests.support.conventions import (
-    assert_source_conventions,
-    assert_manifest_source,
     assert_gateway,
+    assert_manifest_source,
+    assert_source_conventions,
 )
-from tests.support.sources import read_yaml
 from tests.support.runtime import ROOT
+from tests.support.sources import read_yaml
 
 
 def test_source_conventions():
@@ -19,7 +19,12 @@ def test_source_conventions():
     "doc",
     [
         {"kind": "ConfigMap", "apiVersion": "v1", "metadata": {"name": "demo"}},
-        {"apiVersion": "v1", "kind": "ConfigMap", "data": {}, "metadata": {"name": "demo"}},
+        {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "data": {},
+            "metadata": {"name": "demo"},
+        },
         {
             "apiVersion": "apps/v1",
             "kind": "Deployment",
@@ -27,12 +32,18 @@ def test_source_conventions():
             "status": {},
             "spec": {},
         },
-        {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"annotations": {}, "name": "demo"}},
+        {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": {"annotations": {}, "name": "demo"},
+        },
     ],
 )
 def test_owned_field_order(doc):
     with pytest.raises(AssertionError):
-        assert_manifest_source(Path("apps/demo/demo/manifests/demo-config.configmap.yaml"), doc)
+        assert_manifest_source(
+            Path("apps/demo/demo/manifests/demo-config.configmap.yaml"), doc
+        )
 
 
 def test_gateway_relationship_accepts_moved_address_and_rejects_mismatch():
@@ -40,10 +51,13 @@ def test_gateway_relationship_accepts_moved_address_and_rejects_mismatch():
     gateway = read_yaml(base / "istio-gateway.gateway.yaml")
     parameters = read_yaml(base / "istio-gateway-parameters.configmap.yaml")
     assert_gateway(gateway, parameters)
-    gateway["metadata"]["annotations"]["external-dns.kubernetes.io/target"] = "192.0.2.10"
+    gateway["metadata"]["annotations"]["external-dns.kubernetes.io/target"] = (
+        "192.0.2.10"
+    )
     with pytest.raises(AssertionError):
         assert_gateway(gateway, parameters)
     import json
+
     import yaml
 
     deployment = yaml.safe_load(parameters["data"]["deployment"])
@@ -56,10 +70,19 @@ def test_gateway_relationship_accepts_moved_address_and_rejects_mismatch():
 
 
 def test_owned_filename_and_optional_spec():
-    doc = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "demo"}, "data": {}}
-    assert_manifest_source(Path("apps/demo/demo/manifests/demo-config.configmap.yaml"), doc)
+    doc = {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {"name": "demo"},
+        "data": {},
+    }
+    assert_manifest_source(
+        Path("apps/demo/demo/manifests/demo-config.configmap.yaml"), doc
+    )
     with pytest.raises(AssertionError):
-        assert_manifest_source(Path("apps/demo/demo/manifests/other.configmap.yaml"), doc)
+        assert_manifest_source(
+            Path("apps/demo/demo/manifests/other.configmap.yaml"), doc
+        )
     # The one checked-in upstream CRD bundle deliberately retains upstream ordering.
     assert_manifest_source(
         Path("apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml"),

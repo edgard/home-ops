@@ -3,6 +3,22 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-17] revision | Standardize validation commands and CI
+
+Separated formatting, static analysis, pytest, and the complete `task check`
+gate. Replaced duplicate YAML formatting with yamlfmt, added Ruff and bundled
+configuration schemas, and moved Python dependency setup to locked uv sync.
+Tracked the root OpenTofu provider lock and preserved it through cleanup, with
+read-only backendless validation and explicit OpenTofu registry maintenance.
+CI now runs Format, Lint, and one complete Tests job behind Quality Gate, retaining
+JUnit evidence and native installer safeguards. Scoped provider execution selects
+the project interpreter even when the machine default differs. Separated synthetic
+API-error budgets from deliberate timeout scenarios and reproduced slow-response
+rollback coverage without changing production deadlines. Reviewed contributor/wiki rules,
+test guidance, validation architecture and decision, Terraform, secrets maintenance,
+source catalog, and Renovate explanations. October's semantic review is already
+recorded below.
+
 ## [2026-10-16] revision | Consolidate Bitwarden storage and delivery references
 
 Consolidated CLI and application storage around the existing application project

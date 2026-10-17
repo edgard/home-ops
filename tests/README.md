@@ -7,31 +7,56 @@ JSON5, and tracked HCL sources. There is no normalized policy inventory.
 
 | Command | Responsibility |
 | --- | --- |
+| `task deps` | Synchronize locked Python tools and pinned Ansible collections |
+| `task fmt` | Format YAML, Python/imports, and Terraform |
+| `task fmt:check` | Check the same formatting without modifying files |
+| `task lint` | All native static checks and backendless OpenTofu validation |
 | `task test` | All configuration, unit, and integration cases |
-| `task lint:wiki` | Wiki links, page structure, index reachability, and app-page coverage |
-| `task lint:repository` | SecretSpec scopes/ownership, compatibility, Task interfaces, native Git artifact checks |
-| `task lint:ansible` | Production-profile ansible-lint, then unit and integration cases |
-| `task lint:ansible:static` | Production-profile ansible-lint only |
-| `task lint:kubernetes` | Source/raw/rendered assertions plus native Helm, kubeconform, and Pluto pipeline |
-| `task lint` | Format/static/workflow/Ansible/OpenTofu checks, then all pytest cases once |
+| `task test -- tests/config/wiki` | Focus pytest on wiki checks; any pytest path/options work |
+| `task check` | Formatting checks, static checks, then the complete test suite once |
 
-Run `task deps` first. Local prerequisites include Python 3.14, Node 24 or newer,
-OpenTofu, SecretSpec matching `cli_secrets_secretspec_version` in the CLI role defaults,
-and the existing native lint
-and Kubernetes CLIs. CI installs these in the corresponding toolchain profiles.
-Ansible's focused subset requires no real Helm/kubeconform/Pluto installation.
-Missing dependencies fail the checks; required cases never silently skip.
-The CI toolchain action runs `task deps` before reading the role's YAML pin with
-the installed YAML parser. An isolated integration test executes its SecretSpec
-installer with synthetic release archives, covering successful installation,
-checksum/version rejection, preservation of an existing binary, and staging cleanup.
+Focused native commands are `lint:yaml`, `lint:python`, `lint:config`,
+`lint:workflows`, `lint:ansible`, and `lint:terraform`. `lint:ansible` runs only
+production-profile ansible-lint. Configuration assertions, unit tests, isolated
+integration scenarios, and the Kubernetes Helm/kubeconform/Pluto pipeline belong
+to pytest. The old pytest-backed `lint:wiki`, `lint:repository`, and
+`lint:kubernetes` commands, `lint:static`, `lint:ansible:static`, and `precommit`
+were removed without aliases.
+
+Run `task deps` first. uv synchronizes the default development group from the
+committed lock into `.venv`; pinned collections remain in
+`ansible/requirements.yml`. Python 3.14 must already be installed; `PYTHON_BIN`
+selects the interpreter within the supported project range. Machine tools belong
+to Homebrew/Chezmoi, not this repository's dependency installer. Local tools include
+uv, Task, OpenTofu, yamlfmt, actionlint, ShellCheck, Node 24 or newer, Helm,
+kubeconform, Pluto, and SecretSpec matching the CLI role defaults. The installer
+scenario also needs Bash, tar with xz support, and sha256sum. Python lint, format,
+and schema CLIs come from `.venv`, not global installations. Missing tools fail
+rather than silently skipping required checks.
+
+Checks never synchronize the environment or change a lockfile. `lint:python`
+verifies Python lock freshness; update dependencies deliberately with `uv lock`,
+then run `task deps`. Direct pins remain Renovate-managed, while the supported
+Python range is manually reviewed with Ansible upgrades. OpenTofu validates with
+a temporary data directory and a read-only root provider lock, without using the
+remote backend. The tracked provider lock supports macOS ARM64 and Linux AMD64;
+`tf:clean` preserves it. Updating provider pins requires a matching lock update.
+
+CI runs Format, Lint, and one full Tests job. Tests use ordinary pytest discovery,
+so new directories participate automatically. Quality Gate requires all three
+jobs to succeed, and CI retains JUnit results even when tests fail. Toolchain
+setup uses locked Python dependencies, role-owned SecretSpec compatibility,
+and checksum/version validation of the staged installer. Isolated installer
+scenarios cover success, rejected checksums/versions, binary preservation, and
+staging cleanup. These offline checks may download charts/providers/packages;
+they require no live cluster or cloud credentials.
 
 All pytest commands, including focused checks and direct invocations, use the
 parallel defaults in [pyproject.toml](../pyproject.toml): automatic worker
 selection capped at four, with the standard work-stealing scheduler. Every test
 participates without eligibility markers or file lists. Use
 `.venv/bin/python -m pytest -n 0` or `PYTEST_ADDOPTS="-n 0" task test` for serial
-debugging. The same environment override works with `task lint`.
+debugging. The same environment override works with `task check`.
 
 `config/wiki` checks documentation sources and links. `config/repository` and
 `config/kubernetes` assert relationships and explicit

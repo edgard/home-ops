@@ -1,9 +1,9 @@
 import hashlib
 import io
 import json
-from pathlib import Path
 import subprocess
 import tarfile
+from pathlib import Path
 
 import pytest
 
@@ -14,7 +14,9 @@ from tests.support.sources import read_yaml
 @pytest.mark.parametrize("failure", [None, "checksum", "version"])
 def test_ci_secretspec_installation_preserves_binary_on_failure(tmp_path, failure):
     # Exercise the actual action shell, replacing only the network boundary.
-    steps = read_yaml(ROOT / ".github/actions/setup-toolchain/action.yml")["runs"]["steps"]
+    steps = read_yaml(ROOT / ".github/actions/setup-toolchain/action.yml")["runs"][
+        "steps"
+    ]
     (step,) = [step for step in steps if "secretspec-x86_64" in step.get("run", "")]
     defaults = tmp_path / "ansible/roles/cli_secrets/defaults/main.yml"
     defaults.parent.mkdir(parents=True)
@@ -30,8 +32,14 @@ def test_ci_secretspec_installation_preserves_binary_on_failure(tmp_path, failur
         member = tarfile.TarInfo(name + "/secretspec")
         member.size, member.mode = len(content), 0o755
         package.addfile(member, io.BytesIO(content))
-    digest = "0" * 64 if failure == "checksum" else hashlib.sha256(archive.read_bytes()).hexdigest()
-    (downloads / (archive.name + ".sha256")).write_text(digest + "  " + archive.name + "\n")
+    digest = (
+        "0" * 64
+        if failure == "checksum"
+        else hashlib.sha256(archive.read_bytes()).hexdigest()
+    )
+    (downloads / (archive.name + ".sha256")).write_text(
+        digest + "  " + archive.name + "\n"
+    )
     record = tmp_path / "requests.json"
     record.write_text("[]")
     (tmp_path / ".venv").symlink_to(ROOT / ".venv", target_is_directory=True)
@@ -60,19 +68,27 @@ def test_ci_secretspec_installation_preserves_binary_on_failure(tmp_path, failur
     result = subprocess.run(
         ["bash", "-euo", "pipefail", "-c", step["run"]],
         cwd=tmp_path,
-        env=environment(tmp_path, {
-            "RUNNER_TEMP": str(runner), "GITHUB_PATH": str(github_path),
-            "FIXTURE_DOWNLOADS": str(downloads),
-            "FIXTURE_RECORD": str(record),
-        }),
-        capture_output=True, text=True, timeout=30,
+        env=environment(
+            tmp_path,
+            {
+                "RUNNER_TEMP": str(runner),
+                "GITHUB_PATH": str(github_path),
+                "FIXTURE_DOWNLOADS": str(downloads),
+                "FIXTURE_RECORD": str(record),
+            },
+        ),
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
     assert (result.returncode == 0) == (failure is None), result.stdout + result.stderr
     requests = json.loads(record.read_text())
     assert len(requests) == 2
     for request in requests:
         stage = Path(request["destination"]).parent
-        assert stage.parent == runner, "Stage downloads inside the runner's temporary directory"
+        assert stage.parent == runner, (
+            "Stage downloads inside the runner's temporary directory"
+        )
         assert not stage.exists(), "Installer must clean staged downloads on every exit"
     if failure:
         assert binary.read_bytes() == original

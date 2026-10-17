@@ -3,7 +3,7 @@ import subprocess
 import pytest
 
 from tests.support.api import cluster_api
-from tests.support.runtime import ROOT, PLAYBOOK, environment, executable, run_role
+from tests.support.runtime import PLAYBOOK, ROOT, environment, executable, run_role
 from tests.support.sources import read_yaml
 from tests.support.talos import MATERIAL
 
@@ -58,8 +58,7 @@ def test_cluster_preflight_denial_precedes_node_mutation(tmp_path):
 def test_argo_refresh_scope(tmp_path, app, check):
     prefix = "/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/"
     objects = {
-        prefix
-        + name: {
+        prefix + name: {
             "apiVersion": "argoproj.io/v1alpha1",
             "kind": "Application",
             "metadata": {"name": name, "namespace": "argocd"},
@@ -67,8 +66,13 @@ def test_argo_refresh_scope(tmp_path, app, check):
         }
         for name in ["one", "two"]
     }
-    with cluster_api(tmp_path, {"objects": objects, "events": []}) as (connection, observed):
-        result = run_role(tmp_path, "argocd", "refresh", {**connection, "app": app}, check=check)
+    with cluster_api(tmp_path, {"objects": objects, "events": []}) as (
+        connection,
+        observed,
+    ):
+        result = run_role(
+            tmp_path, "argocd", "refresh", {**connection, "app": app}, check=check
+        )
         state = observed()
     assert (result.returncode == 0) == (app != "missing"), result.stdout + result.stderr
     patched = [event for event in state["events"] if event["method"] == "PATCH"]
@@ -89,7 +93,10 @@ def test_argo_refresh_scope(tmp_path, app, check):
 @pytest.mark.parametrize("failure", ["", "create", "cleanup"])
 def test_warmup_cleanup_matches_created_pod(tmp_path, failure):
     defaults = read_yaml(ROOT / "ansible/roles/platform/defaults/main.yml")
-    path = "/api/v1/namespaces/kube-system/pods/" + defaults["platform_k8tz_warmup_pod_name"]
+    path = (
+        "/api/v1/namespaces/kube-system/pods/"
+        + defaults["platform_k8tz_warmup_pod_name"]
+    )
     state = {"objects": {}, "events": [], "allowed_creates": [path]}
     if failure:
         state["failure"] = {
@@ -99,7 +106,10 @@ def test_warmup_cleanup_matches_created_pod(tmp_path, failure):
         }
     with cluster_api(tmp_path, state) as (connection, observed):
         result = run_role(
-            tmp_path, "platform", "k8tz_warmup", {**connection, "platform_wait_default_delay": 0}
+            tmp_path,
+            "platform",
+            "k8tz_warmup",
+            {**connection, "platform_wait_default_delay": 0},
         )
         state = observed()
     assert (result.returncode == 0) == (not failure), result.stdout + result.stderr
@@ -123,7 +133,9 @@ def test_platform_wait_propagates_failure(tmp_path, failure):
         "kind": "Pod",
         "metadata": {"name": "ready", "namespace": "fixture"},
         "status": {
-            "conditions": [{"type": "Ready", "status": "False" if failure == "timeout" else "True"}]
+            "conditions": [
+                {"type": "Ready", "status": "False" if failure == "timeout" else "True"}
+            ]
         },
     }
     state = {"objects": {path: pod}, "events": []}
@@ -147,4 +159,6 @@ def test_platform_wait_propagates_failure(tmp_path, failure):
         )
         events = observed()["events"]
     assert (result.returncode == 0) == (not failure), result.stdout + result.stderr
-    assert events and all(event["method"] == "GET" and event["path"] == path for event in events)
+    assert events and all(
+        event["method"] == "GET" and event["path"] == path for event in events
+    )

@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 from packaging.specifiers import SpecifierSet
 
-from tests.support.configuration import walk, terraform_sources
+from tests.support.configuration import terraform_sources, walk
 from tests.support.runtime import ROOT
-from tests.support.sources import read_yaml, read_json5
+from tests.support.sources import read_json5, read_toml, read_yaml
 
 
 def test_ci_python_matches_supported_cli_runtime():
@@ -19,23 +19,23 @@ def test_ci_python_matches_supported_cli_runtime():
         if step.get("uses", "").startswith("actions/setup-python@")
     ]
     assert len(python_steps) == 1
-    version = python_steps[0]["with"]["python-version"]
+    metadata_path = python_steps[0]["with"]["python-version-file"]
+    project = read_toml(ROOT / metadata_path)["project"]
+    supported = SpecifierSet(project["requires-python"])
     default = read_yaml(ROOT / "Taskfile.yaml")["vars"]["PYTHON_BIN"]
-    assert f'"python{version}"' in default, "CI must install Task's default interpreter"
+    preferred = re.search(r"python([0-9]+\.[0-9]+)", default).group(1)
+    assert preferred in supported, "Task's default must satisfy the shared Python range"
+    # Ansible core 2.21 supports control-node Python through 3.14.
+    assert "3.14" in supported and "3.15" not in supported
     rules = [
         rule
         for rule in read_json5(ROOT / ".renovaterc.json5")["packageRules"]
-        if "github-actions" in rule.get("matchManagers", [])
-        and "python" in rule.get("matchDepNames", [])
-        and "allowedVersions" in rule
+        if "pep621" in rule.get("matchManagers", [])
+        and "requires-python" in rule.get("matchDepTypes", [])
     ]
-    assert rules, "Renovate must preserve Ansible's supported Python range"
-    # Ansible core 2.21 supports control-node Python through 3.14.
-    for rule in rules:
-        supported = SpecifierSet(rule["allowedVersions"])
-        assert version in supported, "CI Python must stay within Ansible's supported range"
-        assert "3.14" in supported
-        assert "3.15" not in supported
+    assert rules and all(rule.get("enabled") is False for rule in rules), (
+        "Review the supported Python range manually with Ansible upgrades"
+    )
 
 
 def test_native_kubernetes_module_convention():
@@ -45,9 +45,9 @@ def test_native_kubernetes_module_convention():
         for mapping in walk(read_yaml(path)):
             for module in ["ansible.builtin.command", "ansible.builtin.shell"]:
                 if module in mapping:
-                    assert not re.search(
-                        r"\bkubectl\b", json.dumps(mapping[module])
-                    ), f"Use kubernetes.core modules: {path}"
+                    assert not re.search(r"\bkubectl\b", json.dumps(mapping[module])), (
+                        f"Use kubernetes.core modules: {path}"
+                    )
 
 
 def test_tracked_hcl_boundary_and_duplicate_json5(tmp_path):
@@ -67,7 +67,9 @@ def test_tracked_hcl_boundary_and_duplicate_json5(tmp_path):
         == "${var.fixture_token}"
     )
     config = tmp_path / "renovate.json5"
-    config.write_text('{ /* comment */ packageRules: [ {allowedVersions: "<9.0.0",}, ],}')
+    config.write_text(
+        '{ /* comment */ packageRules: [ {allowedVersions: "<9.0.0",}, ],}'
+    )
     assert read_json5(config) == {"packageRules": [{"allowedVersions": "<9.0.0"}]}
     config.write_text("{packageRules: [], packageRules: []}")
     with pytest.raises(ValueError):
@@ -82,12 +84,15 @@ def test_cli_task_entrypoints():
     for name, entry in [
         ("secrets:sync-cluster-token", "secrets-sync-cluster-token.yml"),
     ]:
-        assert entry in json.dumps(tasks[name]), f"{name} must invoke its real role entry point"
+        assert entry in json.dumps(tasks[name]), (
+            f"{name} must invoke its real role entry point"
+        )
 
 
 @pytest.mark.parametrize("mutation", ["limit", "retired", "missing"])
 def test_terraform_compatibility_and_retired_provider(tmp_path, mutation):
     import shutil
+
     from tests.support.configuration import assert_terraform
 
     for path in ROOT.glob("terraform/**/*.tf"):
@@ -119,7 +124,10 @@ def test_terraform_compatibility_and_retired_provider(tmp_path, mutation):
         main.write_text(main.read_text() + '\nprovider "bitwarden-secrets" {}\n')
     if mutation == "missing":
         subprocess.run(
-            ["git", "rm", "-r", "-f", "terraform"], cwd=tmp_path, check=True, capture_output=True
+            ["git", "rm", "-r", "-f", "terraform"],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
         )
     with pytest.raises(AssertionError):
         assert_terraform(tmp_path)

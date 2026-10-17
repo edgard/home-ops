@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
+Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -12,17 +12,18 @@ Gatus • Helm • Ansible • Terraform
 
 - Format: `task fmt`
 - Format check: `task fmt:check`
-- Dependencies: `task deps` uses Python 3.14 by default (`PYTHON_BIN` override) and installs pinned Python dependencies and Ansible collections in `.venv`
+- Dependencies: `task deps` uses Python 3.14 by default (`PYTHON_BIN` override) and synchronizes locked Python dependencies into `.venv` and installs pinned Ansible collections; uv never downloads Python
 - Tests: `task test` runs all pytest configuration, unit, and isolated integration cases
 - All pytest invocations use global parallel defaults capped at four workers; `PYTEST_ADDOPTS="-n 0" task test` runs serially for debugging
-- Lint: `task lint` runs native format/YAML/workflow/Ansible/OpenTofu checks, then the full pytest suite once
-- Focused checks: `task lint:static`, `task lint:wiki`, `task lint:workflows`, `task lint:repository`, `task lint:ansible`, `task lint:ansible:static`, `task lint:kubernetes`, `task lint:terraform`
+- Lint: `task lint` runs native YAML/Python/schema/workflow/Ansible/OpenTofu checks only
+- Complete gate: `task check` runs formatting checks, lint, then the full pytest suite once
+- Focused native checks: `task lint:yaml`, `task lint:python`, `task lint:config`, `task lint:workflows`, `task lint:ansible`, `task lint:terraform`; focus pytest with `task test -- <path or options>`
 - Local prerequisites include Node 24 or newer, OpenTofu, pinned SecretSpec, and native Kubernetes CLIs; see the [test guide](../../tests/README.md)
-- Wiki check: `task lint:wiki` runs pytest checks for links, sources, index reachability, and app-page coverage
+- Wiki check: `task test -- tests/config/wiki` runs pytest checks for links, sources, index reachability, and app-page coverage
 - pytest configuration assertions live in `tests/config`, adapter units in `tests/unit`, and real role/Task scenarios in `tests/integration`
 - Native validators retain syntax, schema, and deprecation checks; pytest reads original sources and owns executable test discovery
-- CI runs the same disjoint focused pytest subsets and requires the combined `Quality Gate`
-- Pre-commit gate: `task precommit` (`task fmt` + `task lint`)
+- CI runs Format, Lint, and the full Tests job and requires their combined `Quality Gate`
+- Before commit: `task fmt` followed by `task check`; neither checking nor testing installs dependencies
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
 
 ## Developer Loop
@@ -34,8 +35,8 @@ Gatus • Helm • Ansible • Terraform
 3. Recheck affected wiki explanations. Update them in the same PR when the
    change alters their meaning; a version-only bump does not require prose
    churn. Record which pages were checked in the PR.
-4. Use `task lint` while iterating when changing Ansible behavior or Helm/app
-   compatibility. Run `task fmt` and `task lint` before commit or PR update.
+4. Use focused native checks or `task test -- <path>` while iterating. Run
+   `task fmt` and `task check` before commit or PR update.
 
 For repository questions and durable source ingests, follow the
 [wiki query, ingest, and review workflow](AGENTS.md). A query starts at the
@@ -92,7 +93,7 @@ controllers:
 - Gatus is the only uptime checker and Telegram alert engine. Its routed app,
   DNS, and ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
 - The parsed route coverage check in `tests/config/kubernetes/test_rendered.py` runs during
-  `task lint:kubernetes`. Keep Jellyfin `/health` and CrossWatch `/healthz` checks.
+  `task test -- tests/config/kubernetes`. Keep Jellyfin `/health` and CrossWatch `/healthz` checks.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
   annotations to routed apps; Gatus does not use route discovery.
 - Gatus uses memory storage without a PVC. There is no metrics or searchable log
@@ -122,7 +123,9 @@ Store: `external-secrets-store`
 - Metadata order: `name → namespace → labels → annotations`
 - Validation split:
   - Native validators own standard syntax, schema, formatting, and deprecation requirements
-  - `task lint` runs the native checks and full pytest suite once; CI partitions the same cases among focused jobs
+  - Python dependencies and tools are declared in `pyproject.toml` and locked in `uv.lock`; the supported Python range is manually managed
+  - yamlfmt owns YAML formatting, Ruff owns Python/import formatting, and OpenTofu owns Terraform formatting
+  - `task check` runs formatting checks, native lint, and the full pytest suite once; CI uses the same commands in three jobs
   - Plain configuration assertions read sources directly, while isolated integration tests invoke real role entry points
   - Assert operational invariants and cross-file relationships, not duplicated versions, task names, positions, comments, or equivalent source spelling
   - Preserve runtime assertions for operator inputs and live state; offline tests supplement them
@@ -164,7 +167,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 1. Branch from `master` with descriptive name
 2. For behavior changes, write the failing policy or repo contract check first
-3. Run `task lint` before committing
+3. Run `task check` before committing
 4. All changes via PR only
 5. Force pushes allowed only on feature branches using `--force-with-lease`
 

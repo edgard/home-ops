@@ -3,6 +3,7 @@
 /.venv/
 /terraform/**/.terraform/
 /terraform/**/.terraform.lock.hcl
+!/terraform/.terraform.lock.hcl
 /terraform/**/terraform.tfstate
 /terraform/**/terraform.tfstate.backup
 /terraform/**/*.tfplan
@@ -21,3 +22,4 @@ __pycache__/
 /ansible/roles/talos/files/secrets.yaml.*
 /ansible/roles/talos/files/secrets.vault.yml
 /.pytest_cache/
+/.ruff_cache/

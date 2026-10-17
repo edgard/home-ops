@@ -65,7 +65,8 @@ def test_wiki_contracts(tmp_path, scenario, reason):
     if scenario == "sources":
         page.write_text(
             PAGE.replace(
-                "## Sources\n\n- [Values](../../../../apps/media/demo/values.yaml)\n\n", ""
+                "## Sources\n\n- [Values](../../../../apps/media/demo/values.yaml)\n\n",
+                "",
             )
         )
     if scenario == "revision":

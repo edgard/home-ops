@@ -4,17 +4,23 @@ import jsonpatch
 import pytest
 
 from tests.support.resources import assert_resource, assert_route_coverage
-from tests.support.sources import manifest_paths, read_yaml
 from tests.support.runtime import ROOT
+from tests.support.sources import manifest_paths, read_yaml
 
-RAW = [(path, doc) for path in manifest_paths(ROOT) for doc in read_yaml(path, multiple=True)]
+RAW = [
+    (path, doc)
+    for path in manifest_paths(ROOT)
+    for doc in read_yaml(path, multiple=True)
+]
 
 
 @pytest.mark.parametrize(
     "path,doc",
     RAW,
     ids=[
-        str(path.relative_to(ROOT)) + ":" + str(doc.get("metadata", {}).get("name", "document"))
+        str(path.relative_to(ROOT))
+        + ":"
+        + str(doc.get("metadata", {}).get("name", "document"))
         for path, doc in RAW
     ],
 )
@@ -55,7 +61,10 @@ def workload():
     [
         ("/spec/replicas", 2),
         ("/spec/strategy/type", "RollingUpdate"),
-        ("/spec/template/spec/containers/0/securityContext/allowPrivilegeEscalation", True),
+        (
+            "/spec/template/spec/containers/0/securityContext/allowPrivilegeEscalation",
+            True,
+        ),
         (
             "/spec/template/spec/containers/0/securityContext/capabilities/drop",
             ["NET_BIND_SERVICE"],
@@ -68,7 +77,9 @@ def test_workload_security_regressions(workload, path, value):
     assert_resource(workload)
     with pytest.raises(AssertionError):
         assert_resource(
-            jsonpatch.apply_patch(workload, [{"op": "replace", "path": path, "value": value}])
+            jsonpatch.apply_patch(
+                workload, [{"op": "replace", "path": path, "value": value}]
+            )
         )
 
 
@@ -102,12 +113,21 @@ def test_route_coverage_deduplicates_raw_and_rendered_hosts():
         ("PersistentVolumeClaim", {"storageClassName": "nfs-fast"}, {"name": "demo"}),
         (
             "ExternalSecret",
-            {"secretStoreRef": {"name": "external-secrets-store", "kind": "ClusterSecretStore"}},
+            {
+                "secretStoreRef": {
+                    "name": "external-secrets-store",
+                    "kind": "ClusterSecretStore",
+                }
+            },
             {"name": "demo"},
         ),
         (
             "ClusterSecretStore",
-            {"conditions": [{"namespaces": ["argocd", "media", "platform-system", "selfhosted"]}]},
+            {
+                "conditions": [
+                    {"namespaces": ["argocd", "media", "platform-system", "selfhosted"]}
+                ]
+            },
             {"name": "external-secrets-store"},
         ),
         (
@@ -115,7 +135,11 @@ def test_route_coverage_deduplicates_raw_and_rendered_hosts():
             {
                 "hostnames": ["demo.edgard.org"],
                 "parentRefs": [
-                    {"name": "gateway", "namespace": "platform-system", "sectionName": "https"}
+                    {
+                        "name": "gateway",
+                        "namespace": "platform-system",
+                        "sectionName": "https",
+                    }
                 ],
             },
             {"name": "demo"},
@@ -135,7 +159,10 @@ def test_resource_hygiene_valid_and_invalid(kind, spec, metadata):
     resource = {"apiVersion": "v1", "kind": kind, "metadata": metadata, "spec": spec}
     assert_resource(resource)
     mutations = {
-        "Secret": [("/data", {"token": "synthetic"}), ("/stringData", {"token": "synthetic"})],
+        "Secret": [
+            ("/data", {"token": "synthetic"}),
+            ("/stringData", {"token": "synthetic"}),
+        ],
         "PersistentVolumeClaim": [("/spec/storageClassName", "local-path")],
         "ExternalSecret": [
             ("/spec/secretStoreRef/name", "other"),
@@ -159,7 +186,9 @@ def test_resource_hygiene_valid_and_invalid(kind, spec, metadata):
     for path, value in mutations[kind]:
         with pytest.raises(AssertionError):
             assert_resource(
-                jsonpatch.apply_patch(resource, [{"op": "add", "path": path, "value": value}])
+                jsonpatch.apply_patch(
+                    resource, [{"op": "add", "path": path, "value": value}]
+                )
             )
     for annotation in [
         "external-dns.alpha.kubernetes.io/target",
@@ -248,7 +277,7 @@ def test_specific_runtime_and_observability_guards(workload):
     container["args"] = ["--metrics-listen-address=0.0.0.0:9402"]
     with pytest.raises(AssertionError):
         assert_resource(workload)
-    from tests.support.resources import RETIRED_WORKLOADS, RETIRED_GROUPS
+    from tests.support.resources import RETIRED_GROUPS, RETIRED_WORKLOADS
 
     for name in RETIRED_WORKLOADS:
         workload["metadata"]["name"] = name + "-synthetic"
@@ -294,7 +323,9 @@ def test_specific_runtime_and_observability_guards(workload):
             "labels": {"app.kubernetes.io/name": "istiod"},
         },
         "data": {
-            "merged-values": json.dumps({"telemetry": {"v2": {"prometheus": {"enabled": False}}}})
+            "merged-values": json.dumps(
+                {"telemetry": {"v2": {"prometheus": {"enabled": False}}}}
+            )
         },
     }
     assert_resource(resource)

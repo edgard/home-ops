@@ -7,7 +7,11 @@ from tests.support.sources import read_json5, read_yaml
 
 def node(source, data):
     result = subprocess.run(
-        ["node", "-e", source], input=json.dumps(data), capture_output=True, text=True, timeout=20
+        ["node", "-e", source],
+        input=json.dumps(data),
+        capture_output=True,
+        text=True,
+        timeout=20,
     )
     assert result.returncode == 0, result.stderr
     return json.loads(result.stdout)

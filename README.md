@@ -20,8 +20,8 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install python@3.14 helm talosctl go-task opentofu yamllint prettier yamlfmt pluto kubeconform actionlint node@24
-task deps                         # Install pinned validation dependencies
+brew install python@3.14 helm talosctl go-task opentofu uv yamlfmt pluto kubeconform actionlint shellcheck node@24
+task deps                         # Synchronize locked Python dependencies and pinned collections
 
 # Set local CLI inputs
 export TALOS_NODE="192.168.1.253"
@@ -76,25 +76,25 @@ task secrets:check scope=cluster     # Check scoped resolution without values
 task secrets:sync-cluster-token      # Update only ESO bootstrap token and verify
 
 # Development
-task deps                          # Install pinned validation dependencies
-task fmt                           # Format all code (YAML, Terraform)
-task fmt:check                     # Check formatting without modifying files
-task lint:static                   # Run yamllint
-task lint:wiki                     # Check wiki links, sources, and app coverage
-task lint:workflows                # Validate GitHub Actions workflows
-task lint:repository               # Check repository assertions and credential artifacts
-task lint:ansible                  # Run Ansible lint plus pytest units and integration scenarios
-task lint:kubernetes               # Run Kubernetes assertions and native schema/deprecation checks
-task lint:terraform                # Run backendless OpenTofu validation
-task test                          # Run all pytest configuration/unit/integration cases
-task lint                          # Run the full offline validation gate
-task precommit                     # Format code, then run lint
+task deps                          # Synchronize locked Python dependencies and pinned collections
+task fmt                           # Format YAML, Python/imports, and Terraform
+task fmt:check                      # Check the same formatting without changes
+task lint                          # Static analysis and backendless OpenTofu validation
+task test                          # Run the complete pytest suite
+task test -- tests/unit             # Focus pytest on a path or pass normal pytest options
+task check                         # Complete gate: formatting checks, lint, and tests
 
 # Terraform
 task tf:plan                         # Plan Terraform changes with OpenTofu
 task tf:apply                        # Apply Terraform changes with OpenTofu
 task tf:clean                        # Remove local Terraform cache and plan files
 ```
+
+`task deps` requires uv and an installed Python 3.14; it never downloads Python.
+Python tools are synchronized into `.venv` from `pyproject.toml` and `uv.lock`.
+Formatting, checking, and testing do not install dependencies or rewrite locks.
+Use `uv lock` when intentionally changing Python dependency declarations.
+The [test guide](tests/README.md) describes focused lint commands and prerequisites.
 
 ## Repository Layout
 

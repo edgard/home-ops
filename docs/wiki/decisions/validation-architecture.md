@@ -1,7 +1,7 @@
 # Native validators and one pytest suite
 
 Purpose: record validation ownership and the simplification decision.
-Status: current. Reviewed against: `a317487d244c466f9191cf708bdd3d9a7c2eb40b`.
+Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
 
 The earlier validation refactors retired top-level scripts and separated
 configuration assertions from executable behavior. Their inventories, Rego rules,
@@ -28,7 +28,12 @@ The Kubernetes fixture validates sources first, invokes the native pipeline in
 a private workspace, shares the resulting render once, and owns cleanup. Offline
 validation roles and playbooks have been removed. Served CRD
 schemas remain authoritative; strict validation and catalog fallback retain their
-previous behavior. Local and CI commands cover the same disjoint pytest subsets.
+previous behavior. Local and CI commands use the same complete pytest discovery. CI runs one full
+Tests job alongside Format and Lint; `task check` composes those commands locally.
+Static checks never run pytest or synchronize dependencies. Python tools are
+locked through uv, while machine tools remain outside the repository installer.
+Single formatters own YAML, Python, and Terraform; shared native schema tooling
+validates standard configuration rather than bespoke assertions.
 
 Global pytest defaults parallelize every case with a bounded worker count and
 the standard work-stealing scheduler. Fixtures own mutable-resource isolation;

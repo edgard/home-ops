@@ -4,9 +4,9 @@ import subprocess
 import pytest
 import yaml
 
-from tests.support.runtime import executable, environment
-from tests.support.sources import read_yaml
 from tests.support.kubernetes import render_validate
+from tests.support.runtime import environment, executable
+from tests.support.sources import read_yaml
 
 
 @pytest.mark.parametrize(
@@ -46,7 +46,9 @@ def test_native_pipeline_keeps_crds_schema_precedence_and_failure(tmp_path, fail
                                     "properties": {
                                         "kubernetes": {
                                             "type": "object",
-                                            "properties": {"version": {"type": "string"}},
+                                            "properties": {
+                                                "version": {"type": "string"}
+                                            },
                                         }
                                     },
                                 }
@@ -108,7 +110,9 @@ if name=='kubeconform':
         )
     elif failure in {"empty", "nested"}:
         reason = (
-            "rendered no resources" if failure == "empty" else "unsupported manifest layout"
+            "rendered no resources"
+            if failure == "empty"
+            else "unsupported manifest layout"
         )
         with pytest.raises(AssertionError, match=reason):
             render_validate(root, output, env=environment(tmp_path, {"FAIL": failure}))
@@ -116,9 +120,9 @@ if name=='kubeconform':
         render_validate(root, output, env=environment(tmp_path, {"FAIL": failure}))
     assert output.is_dir(), "caller owns workspace cleanup"
     if failure == "nested":
-        assert not (
-            tmp_path / "tools.jsonl"
-        ).exists(), "reject omitted sources before invoking tools"
+        assert not (tmp_path / "tools.jsonl").exists(), (
+            "reject omitted sources before invoking tools"
+        )
         return
     events = [
         json.loads(line) for line in (tmp_path / "tools.jsonl").read_text().splitlines()
@@ -130,9 +134,9 @@ if name=='kubeconform':
             for event in events
             if event["name"] == "helm" and event["args"][0] == "pull"
         ]
-        assert len(pulls) == (
-            2 if failure == "retry" else 1
-        ), "retry failures, then reuse chart cache"
+        assert len(pulls) == (2 if failure == "retry" else 1), (
+            "retry failures, then reuse chart cache"
+        )
         templates = [
             event["args"]
             for event in events
@@ -142,7 +146,9 @@ if name=='kubeconform':
             str(app / "values.yaml"),
             str(second / "values.yaml"),
         }
-        assert all(args[args.index("--kube-version") + 1] == "1.36.1" for args in templates)
+        assert all(
+            args[args.index("--kube-version") + 1] == "1.36.1" for args in templates
+        )
         schema_commands = [
             event["args"] for event in events if event["name"] == "kubeconform"
         ]
@@ -178,7 +184,9 @@ if name=='kubeconform':
 
         env = environment(tmp_path)
         env["PATH"] = os.environ["PATH"]
-        valid = subprocess.run(native, env=env, capture_output=True, text=True, timeout=30)
+        valid = subprocess.run(
+            native, env=env, capture_output=True, text=True, timeout=30
+        )
         assert valid.returncode == 0, valid.stdout + valid.stderr
         document = read_yaml(resource)
         document["spec"]["unknown"] = "forbidden"

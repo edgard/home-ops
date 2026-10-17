@@ -41,11 +41,16 @@ def cluster_api(directory, state):
                     "clusters": [
                         {
                             "name": "fixture",
-                            "cluster": {"server": "http://127.0.0.1:" + port.read_text()},
+                            "cluster": {
+                                "server": "http://127.0.0.1:" + port.read_text()
+                            },
                         }
                     ],
                     "contexts": [
-                        {"name": "fixture", "context": {"cluster": "fixture", "user": "fixture"}}
+                        {
+                            "name": "fixture",
+                            "context": {"cluster": "fixture", "user": "fixture"},
+                        }
                     ],
                     "users": [{"name": "fixture", "user": {}}],
                     "current-context": "fixture",
@@ -53,8 +58,9 @@ def cluster_api(directory, state):
             )
         )
         kubeconfig.chmod(0o600)
-        yield {"kubeconfig_path": str(kubeconfig), "kube_context": "fixture"}, lambda: json.loads(
-            state_file.read_text()
+        yield (
+            {"kubeconfig_path": str(kubeconfig), "kube_context": "fixture"},
+            lambda: json.loads(state_file.read_text()),
         )
     finally:
         (directory / "api-stop").touch()
@@ -77,7 +83,9 @@ def pod_exec_collection(directory):
             (target / path.name).symlink_to(path, target_is_directory=path.is_dir())
     for path in (source / "plugins").iterdir():
         if path.name != "modules":
-            (target / "plugins" / path.name).symlink_to(path, target_is_directory=path.is_dir())
+            (target / "plugins" / path.name).symlink_to(
+                path, target_is_directory=path.is_dir()
+            )
     for path in (source / "plugins/modules").iterdir():
         if path.name != "k8s_exec.py":
             (target / "plugins/modules" / path.name).symlink_to(
@@ -86,4 +94,6 @@ def pod_exec_collection(directory):
     (target / "plugins/modules/k8s_exec.py").write_text(
         Path(__file__).with_name("exec_module.py").read_text()
     )
-    return str(Path(directory) / "collections") + ":" + str(ROOT / ".ansible/collections")
+    return (
+        str(Path(directory) / "collections") + ":" + str(ROOT / ".ansible/collections")
+    )

@@ -1,9 +1,9 @@
 import copy
 import json
 
-from jsonschema import Draft4Validator
 import pytest
 import yaml
+from jsonschema import Draft4Validator
 
 
 @pytest.fixture
@@ -34,7 +34,9 @@ def crd():
                                     "properties": {
                                         "properties": {
                                             "type": "object",
-                                            "properties": {"enabled": {"type": "boolean"}},
+                                            "properties": {
+                                                "enabled": {"type": "boolean"}
+                                            },
                                         },
                                         "free": {
                                             "type": "object",
@@ -104,7 +106,12 @@ def test_nullable_int_or_string_and_preserved_fields(schemas):
 
 @pytest.mark.parametrize(
     "schema",
-    [None, {}, {"type": "object", "properties": {"broken": False}}, {"type": "nonsense"}],
+    [
+        None,
+        {},
+        {"type": "object", "properties": {"broken": False}},
+        {"type": "nonsense"},
+    ],
 )
 def test_missing_or_malformed_served_schema(schemas, crd, tmp_path, schema):
     if schema is None:
@@ -118,15 +125,17 @@ def test_missing_or_malformed_served_schema(schemas, crd, tmp_path, schema):
 def test_identical_duplicates_allowed_conflicts_rejected(schemas, crd, tmp_path):
     export(schemas, tmp_path, [crd, crd])
     other = copy.deepcopy(crd)
-    other["spec"]["versions"][0]["schema"]["openAPIV3Schema"]["properties"]["different"] = {
-        "type": "string"
-    }
+    other["spec"]["versions"][0]["schema"]["openAPIV3Schema"]["properties"][
+        "different"
+    ] = {"type": "string"}
     with pytest.raises(schemas.SchemaError):
         export(schemas, tmp_path, [crd, other])
 
 
 def test_chart_label_selector_default(schemas, crd, tmp_path):
-    crd["spec"]["versions"][0]["schema"]["openAPIV3Schema"]["properties"]["operator"] = {
+    crd["spec"]["versions"][0]["schema"]["openAPIV3Schema"]["properties"][
+        "operator"
+    ] = {
         "type": "string",
         "default": "=",
     }

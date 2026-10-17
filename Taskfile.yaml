@@ -2,20 +2,18 @@
 version: "3"
 
 silent: true
-failfast: true
 set:
   - errexit
   - nounset
   - pipefail
-shell: bash -c
 
 vars:
-  K8S_VERSION: '{{.K8S_VERSION | default ""}}'
-  TERRAFORM_DIR: '{{.TERRAFORM_DIR | default (printf "%s/terraform" .TASKFILE_DIR)}}'
-  TALOS_CLUSTER_NAME: '{{.TALOS_CLUSTER_NAME | default "homelab"}}'
-  TALOS_INSTALL_DISK: '{{.TALOS_INSTALL_DISK | default ""}}'
-  TALOS_NODE: '{{.TALOS_NODE | default ""}}'
-  PYTHON_BIN: '{{.PYTHON_BIN | default "python3.14"}}'
+  K8S_VERSION: "{{.K8S_VERSION | default \"\"}}"
+  TERRAFORM_DIR: "{{.TERRAFORM_DIR | default (printf \"%s/terraform\" .TASKFILE_DIR)}}"
+  TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME | default \"homelab\"}}"
+  TALOS_INSTALL_DISK: "{{.TALOS_INSTALL_DISK | default \"\"}}"
+  TALOS_NODE: "{{.TALOS_NODE | default \"\"}}"
+  PYTHON_BIN: "{{.PYTHON_BIN | default \"python3.14\"}}"
   VENV_DIR: "{{.TASKFILE_DIR}}/.venv"
   VENV_PYTHON: "{{.VENV_DIR}}/bin/python"
   ANSIBLE_GALAXY: "{{.VENV_DIR}}/bin/ansible-galaxy"
@@ -37,14 +35,25 @@ tasks:
       - task --list
 
   deps:
-    desc: Install pinned validation dependencies
+    desc: Synchronize locked Python dependencies and pinned Ansible collections
     dir: "{{.TASKFILE_DIR}}"
+    env:
+      UV_PROJECT_ENVIRONMENT: "{{.VENV_DIR}}"
+      UV_PYTHON_DOWNLOADS: never
+    preconditions:
+      - sh: command -v uv
+        msg: Install uv through your machine setup before running `task deps`.
     cmds:
-      - '"{{.PYTHON_BIN}}" -m venv "{{.VENV_DIR}}"'
-      - '"{{.VENV_PYTHON}}" -m pip install --upgrade pip'
-      - '"{{.VENV_PYTHON}}" -m pip uninstall -y ansible || true'
-      - '"{{.VENV_PYTHON}}" -m pip install -r ansible/requirements.txt'
-      - '"{{.ANSIBLE_GALAXY}}" collection install -r ansible/requirements.yml -p "{{.ANSIBLE_COLLECTIONS_PATH}}"'
+      - uv sync --locked --python {{.PYTHON_BIN | shellQuote}}
+      - "\"{{.ANSIBLE_GALAXY}}\" collection install -r ansible/requirements.yml -p \"{{.ANSIBLE_COLLECTIONS_PATH}}\""
+
+  python:check:
+    internal: true
+    preconditions:
+      - sh: test -x "{{.VENV_PYTHON}}"
+        msg: Run `task deps` to synchronize the project environment.
+    cmds:
+      - "true"
 
   ansible:check:
     internal: true
@@ -52,24 +61,23 @@ tasks:
     preconditions:
       - sh: test -x "{{.ANSIBLE_PLAYBOOK}}"
         msg: Run `task deps` to create .venv and install Ansible dependencies.
-      - sh: test -x "{{.ANSIBLE_LINT}}"
-        msg: Run `task deps` to create .venv and install Ansible dependencies.
     cmds:
-      - true
+      - "true"
 
   secrets:invoke:
     internal: true
     dir: "{{.TASKFILE_DIR}}"
     vars:
-      action: '{{.action | default "run"}}'
-      scope: '{{.scope | default "cluster"}}'
-      playbook: '{{.playbook | default ""}}'
+      action: "{{.action | default \"run\"}}"
+      scope: "{{.scope | default \"cluster\"}}"
+      playbook: "{{.playbook | default \"\"}}"
     env:
       HOME_OPS_SECRET_ACTION: "{{.action}}"
       HOME_OPS_SECRET_SCOPE: "{{.scope}}"
       HOME_OPS_SECRET_PLAYBOOK: "{{.playbook}}"
       HOME_OPS_SECRET_ROOT: "{{.TASKFILE_DIR}}"
       HOME_OPS_ANSIBLE_PLAYBOOK: "{{.ANSIBLE_PLAYBOOK}}"
+      HOME_OPS_VENV_BIN: "{{.VENV_DIR}}/bin"
     cmds:
       - |
         bash -c '
@@ -81,7 +89,7 @@ tasks:
               ;;
           esac
         done
-        export PATH="$HOME/.local/bin:$PATH"
+        export PATH="$HOME_OPS_VENV_BIN:$HOME/.local/bin:$PATH"
         "$HOME_OPS_ANSIBLE_PLAYBOOK" ansible/playbooks/secrets-validate.yml
         export SECRETSPEC_BWS_CLI_PATH="$HOME_OPS_SECRET_ROOT/ansible/roles/cli_secrets/files/bws_readonly.py"
         case "$HOME_OPS_SECRET_ACTION" in
@@ -111,7 +119,7 @@ tasks:
   secrets:check:
     desc: Check scoped Bitwarden resolution without printing values
     vars:
-      scope: '{{.scope | default "cluster"}}'
+      scope: "{{.scope | default \"cluster\"}}"
     deps:
       - task: ansible:check
     cmds:
@@ -132,104 +140,112 @@ tasks:
 
   # Quality gate and local development
   fmt:
-    desc: Format all code
+    desc: Format YAML, Python imports/code, and Terraform
     dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - python:check
     cmds:
-      - prettier --write "**/*.{yaml,yml}"
       - yamlfmt "**/*.{yaml,yml}"
-      - tofu fmt -recursive
+      - "\"{{.VENV_DIR}}/bin/ruff\" check --select I --fix ansible/roles tests"
+      - "\"{{.VENV_DIR}}/bin/ruff\" format ansible/roles tests"
+      - tofu fmt -recursive terraform
 
   fmt:check:
     desc: Check formatting without modifying files
     dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - python:check
     cmds:
       - yamlfmt -lint "**/*.{yaml,yml}"
-      - tofu fmt -check -recursive
+      - "\"{{.VENV_DIR}}/bin/ruff\" check --select I ansible/roles tests"
+      - "\"{{.VENV_DIR}}/bin/ruff\" format --check ansible/roles tests"
+      - tofu fmt -check -recursive terraform
 
   lint:
-    desc: Run the offline validation checks
+    desc: Run static analysis and backendless configuration validation
     dir: "{{.TASKFILE_DIR}}"
     cmds:
-      - task: fmt:check
-      - task: lint:static
+      - task: lint:yaml
+      - task: lint:python
+      - task: lint:config
       - task: lint:workflows
-      - task: lint:ansible:static
+      - task: lint:ansible
       - task: lint:terraform
-      - task: test
 
-  lint:static:
-    desc: Run static YAML checks
-    dir: "{{.TASKFILE_DIR}}"
-    cmds:
-      - yamllint -c .yamllint .
-
-  lint:wiki:
-    desc: Check wiki links, sources, and app coverage
+  lint:yaml:
+    desc: Lint YAML syntax and conventions
     dir: "{{.TASKFILE_DIR}}"
     deps:
-      - task: ansible:check
+      - python:check
     cmds:
-      - '"{{.VENV_PYTHON}}" -m pytest tests/config/wiki'
+      - "\"{{.VENV_DIR}}/bin/yamllint\" -c .yamllint ."
+
+  lint:python:
+    desc: Check Python code and dependency lock freshness
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - python:check
+    env:
+      UV_PYTHON_DOWNLOADS: never
+    cmds:
+      - uv lock --check --python {{.PYTHON_BIN | shellQuote}}
+      - "\"{{.VENV_DIR}}/bin/ruff\" check ansible/roles tests"
+
+  lint:config:
+    desc: Validate Taskfile and Renovate configuration schemas
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - python:check
+    cmds:
+      - "\"{{.VENV_DIR}}/bin/check-jsonschema\" --builtin-schema vendor.taskfile Taskfile.yaml"
+      - "\"{{.VENV_DIR}}/bin/check-jsonschema\" --builtin-schema vendor.renovate --regex-variant nonunicode .renovaterc.json5"
 
   lint:workflows:
-    desc: Validate GitHub Actions workflows
-    dir: "{{.TASKFILE_DIR}}"
-    cmds:
-      - find .github/workflows -maxdepth 1 \( -name "*.yml" -o -name "*.yaml" \) -print0 | xargs -0 actionlint
-
-  lint:repository:
-    desc: Check repository configuration and credential artifact protection
+    desc: Validate workflows, their shell scripts, and composite action schemas
     dir: "{{.TASKFILE_DIR}}"
     deps:
-      - task: ansible:check
+      - python:check
+    preconditions:
+      - sh: command -v shellcheck
+        msg: Install ShellCheck through your machine setup; workflow shell checks are required.
     cmds:
-      - '"{{.VENV_PYTHON}}" -m pytest tests/config/repository'
+      - actionlint -shellcheck shellcheck
+      - "\"{{.VENV_DIR}}/bin/check-jsonschema\" --builtin-schema vendor.github-actions .github/actions/*/action.y*ml"
 
   lint:ansible:
-    desc: Run Ansible lint and pytest unit and integration tests
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - task: lint:ansible:static
-      - '"{{.VENV_PYTHON}}" -m pytest tests/unit tests/integration'
-
-  lint:ansible:static:
     desc: Run production-profile Ansible lint
     dir: "{{.TASKFILE_DIR}}"
     deps:
-      - task: ansible:check
+      - ansible:check
     cmds:
-      - '"{{.ANSIBLE_LINT}}" ansible tests/fixtures'
-
-  test:
-    desc: Run all repository-owned pytest checks
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - '"{{.VENV_PYTHON}}" -m pytest tests'
-
-  lint:kubernetes:
-    desc: Run Kubernetes source, resource, schema, and deprecation checks
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - '"{{.VENV_PYTHON}}" -m pytest tests/config/kubernetes'
+      - "\"{{.ANSIBLE_LINT}}\" ansible tests/fixtures"
 
   lint:terraform:
-    desc: Run backendless OpenTofu validation
+    desc: Validate OpenTofu configuration using locked providers without a backend
     dir: "{{.TASKFILE_DIR}}"
     cmds:
-      - tf_data_dir=$(mktemp -d) && trap 'rm -rf "$tf_data_dir"' EXIT && cd terraform && TF_DATA_DIR="$tf_data_dir" tofu init -upgrade -backend=false >/dev/null 2>&1 && TF_DATA_DIR="$tf_data_dir" tofu validate
+      - |
+        tf_data_dir=$(mktemp -d)
+        trap 'rm -rf "$tf_data_dir"' EXIT
+        export TF_DATA_DIR="$tf_data_dir"
+        tofu -chdir=terraform init -backend=false -input=false -lockfile=readonly
+        tofu -chdir=terraform validate
 
-  precommit:
-    desc: Format code and run the offline validation checks
+  test:
+    desc: Run the full pytest suite, or forward arguments after --
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - python:check
+    cmds:
+      - "\"{{.VENV_PYTHON}}\" -m pytest {{.CLI_ARGS}}"
+
+  check:
+    desc: Check formatting, static analysis, and the complete test suite
     dir: "{{.TASKFILE_DIR}}"
     cmds:
-      - task: fmt
+      - task: fmt:check
       - task: lint
+      - task: test
 
   # High-level cluster lifecycle
   cluster:create:
@@ -258,7 +274,7 @@ tasks:
       vars:
         - TALOS_NODE
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/cluster-destroy.yml'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/cluster-destroy.yml"
 
   # Talos operations
   talos:gen:
@@ -286,7 +302,7 @@ tasks:
       vars:
         - TALOS_NODE
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-apply.yml'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-apply.yml"
 
   talos:bootstrap:
     desc: Bootstrap Talos control plane and kubeconfig
@@ -299,7 +315,7 @@ tasks:
         - TALOS_NODE
         - TALOS_CLUSTER_NAME
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-bootstrap.yml'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-bootstrap.yml"
 
   talos:upgrade:
     desc: Upgrade Talos on a node from the repo target version
@@ -309,7 +325,7 @@ tasks:
       vars:
         - TALOS_NODE
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-upgrade.yml'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-upgrade.yml"
 
   talos:upgrade-k8s:
     desc: Upgrade Kubernetes control plane
@@ -321,7 +337,7 @@ tasks:
         - TALOS_NODE
         - K8S_VERSION
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/talos-upgrade-k8s.yml'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-upgrade-k8s.yml"
 
   # Platform and Argo operations
   platform:create:
@@ -342,7 +358,7 @@ tasks:
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/platform-destroy.yml'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/platform-destroy.yml"
 
   argo:sync:
     desc: Force Argo CD Applications to refresh
@@ -350,9 +366,9 @@ tasks:
     deps:
       - task: ansible:check
     vars:
-      app: '{{.app | default ""}}'
+      app: "{{.app | default \"\"}}"
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/argo-refresh.yml {{if .app}}-e "app={{.app}}"{{end}}'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/argo-refresh.yml {{if .app}}--extra-vars {{dict \"app\" .app | toJson | shellQuote}}{{end}}"
 
   restic:restore:
     desc: Plan or run a restic restore for one Argo CD app
@@ -361,14 +377,14 @@ tasks:
     deps:
       - task: ansible:check
     vars:
-      app: '{{.app | default ""}}'
-      snapshot: '{{.snapshot | default "latest"}}'
-      confirm_restore: '{{.confirm_restore | default "false"}}'
+      app: "{{.app | default \"\"}}"
+      snapshot: "{{.snapshot | default \"latest\"}}"
+      confirm_restore: "{{.confirm_restore | default \"false\"}}"
     requires:
       vars:
         - app
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/restic-restore.yml -e "restic_restore_mode=app" -e "restic_restore_app={{.app}}" -e "restic_restore_snapshot={{.snapshot}}" -e "restic_restore_confirm={{.confirm_restore}}"'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/restic-restore.yml --extra-vars {{dict \"restic_restore_mode\" \"app\" \"restic_restore_app\" .app \"restic_restore_snapshot\" .snapshot \"restic_restore_confirm\" .confirm_restore | toJson | shellQuote}}"
 
   restic:restore-all:
     desc: Plan or run a restic restore for all appdata PVCs
@@ -377,10 +393,10 @@ tasks:
     deps:
       - task: ansible:check
     vars:
-      snapshot: '{{.snapshot | default "latest"}}'
-      confirm_restore: '{{.confirm_restore | default "false"}}'
+      snapshot: "{{.snapshot | default \"latest\"}}"
+      confirm_restore: "{{.confirm_restore | default \"false\"}}"
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/restic-restore.yml -e "restic_restore_mode=all" -e "restic_restore_snapshot={{.snapshot}}" -e "restic_restore_confirm={{.confirm_restore}}"'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/restic-restore.yml --extra-vars {{dict \"restic_restore_mode\" \"all\" \"restic_restore_snapshot\" .snapshot \"restic_restore_confirm\" .confirm_restore | toJson | shellQuote}}"
 
   # Terraform operations
   tf:plan:
@@ -411,4 +427,4 @@ tasks:
     deps:
       - task: ansible:check
     cmds:
-      - '"{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/terraform-clean.yml'
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/terraform-clean.yml"

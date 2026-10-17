@@ -29,10 +29,18 @@ def ordered(keys, expected):
 def assert_application(app):
     metadata, values = app.metadata, app.values
     chart = metadata["chart"]
-    assert isinstance(chart["repo"], str) and chart["repo"], f"chart repository: {app.path}"
-    assert isinstance(chart["version"], str) and chart["version"], f"chart version: {app.path}"
-    assert chart["repo"].startswith("oci://") or chart.get("name"), f"HTTP chart name: {app.path}"
-    assert str(metadata["sync"]["wave"]) in {"-4", "-3", "-2", "-1", "0"}, f"sync wave: {app.path}"
+    assert isinstance(chart["repo"], str) and chart["repo"], (
+        f"chart repository: {app.path}"
+    )
+    assert isinstance(chart["version"], str) and chart["version"], (
+        f"chart version: {app.path}"
+    )
+    assert chart["repo"].startswith("oci://") or chart.get("name"), (
+        f"HTTP chart name: {app.path}"
+    )
+    assert str(metadata["sync"]["wave"]) in {"-4", "-3", "-2", "-1", "0"}, (
+        f"sync wave: {app.path}"
+    )
     if "ignoreDifferences" in metadata:
         assert isinstance(metadata["ignoreDifferences"], list), "ignoreDifferences list"
         assert all(
@@ -40,12 +48,14 @@ def assert_application(app):
             for entry in metadata["ignoreDifferences"]
         ), "ignoreDifferences group/kind"
     if chart["repo"] == "oci://ghcr.io/argoproj/argo-helm/argo-cd":
-        assert not any(
-            doc.get("kind") == "HTTPRoute" for doc in app.documents
-        ), "Argo CD route belongs in chart values"
+        assert not any(doc.get("kind") == "HTTPRoute" for doc in app.documents), (
+            "Argo CD route belongs in chart values"
+        )
     if chart["repo"] != "oci://ghcr.io/bjw-s-labs/helm/app-template":
         return
-    assert re.fullmatch(r"[45]\.[0-9]+\.[0-9]+", chart["version"]), "supported app-template major"
+    assert re.fullmatch(r"[45]\.[0-9]+\.[0-9]+", chart["version"]), (
+        "supported app-template major"
+    )
     ordered(values.keys(), SECTIONS)
     for field in ("controllers", "service", "route"):
         if values.get(field):
@@ -92,7 +102,9 @@ class RecyclarrLoader(KubernetesLoader):
     pass
 
 
-RecyclarrLoader.add_constructor("!env_var", lambda loader, node: loader.construct_scalar(node))
+RecyclarrLoader.add_constructor(
+    "!env_var", lambda loader, node: loader.construct_scalar(node)
+)
 
 
 def assert_recyclarr(config):
@@ -100,11 +112,12 @@ def assert_recyclarr(config):
         assert isinstance(config[service], dict), f"Recyclarr {service} instances"
         for instance in config[service].values():
             groups = instance["custom_format_groups"]
-            assert isinstance(groups, dict) and isinstance(
-                groups["add"], list
-            ), "Recyclarr format groups"
+            assert isinstance(groups, dict) and isinstance(groups["add"], list), (
+                "Recyclarr format groups"
+            )
             assert all(
-                isinstance(group, dict) and "trash_id" in group for group in groups["add"]
+                isinstance(group, dict) and "trash_id" in group
+                for group in groups["add"]
             ), "Recyclarr trash IDs"
     assert config["sonarr"]["web-2160p-v4"]["media_naming"]["series"] == "jellyfin-tvdb"
     naming = config["radarr"]["uhd-bluray-web"]["media_naming"]
@@ -126,23 +139,25 @@ def assert_app_configuration(app):
             and not arg.startswith("--remote-debugging-")
             for arg in args
         ), "managed browser flags"
-        url = urlsplit(values["controllers"]["main"]["containers"]["app"]["env"]["BROWSER_WEB_URL"])
-        assert url.port == int(
-            values["service"]["chrome"]["ports"]["http"]["port"]
-        ), "browser service port"
+        url = urlsplit(
+            values["controllers"]["main"]["containers"]["app"]["env"]["BROWSER_WEB_URL"]
+        )
+        assert url.port == int(values["service"]["chrome"]["ports"]["http"]["port"]), (
+            "browser service port"
+        )
     elif name in {"radarr", "sonarr", "prowlarr"}:
         container = values["controllers"]["main"]["containers"]["app"]
         assert container["env"]["TMPDIR"] == "/tmp", "ARR temporary directory"
         capabilities = container["securityContext"]["capabilities"]["add"]
-        assert (
-            isinstance(capabilities, list) and "CHOWN" not in capabilities
-        ), "ARR ownership safety"
+        assert isinstance(capabilities, list) and "CHOWN" not in capabilities, (
+            "ARR ownership safety"
+        )
     elif name == "qbittorrent":
         vpn = values["controllers"]["main"]["containers"]["gluetun"]
         port = vpn["env"]["HEALTH_SERVER_ADDRESS"].rsplit(":", 1)[-1]
-        assert int(port) > 0 and int(vpn["probes"]["readiness"]["port"]) == int(
-            port
-        ), "VPN health port"
+        assert int(port) > 0 and int(vpn["probes"]["readiness"]["port"]) == int(port), (
+            "VPN health port"
+        )
         assert vpn["probes"]["readiness"]["type"] == "HTTP" and port in vpn["env"][
             "FIREWALL_INPUT_PORTS"
         ].split(","), "VPN readiness/firewall"
@@ -151,17 +166,20 @@ def assert_app_configuration(app):
         container = controller["containers"]["app"]
         assert container["probes"]["liveness"]["spec"]["tcpSocket"]["port"] == "http"
         assert container["probes"]["readiness"]["spec"]["httpGet"]["path"] == "/health"
-        networks = json.loads(controller["pod"]["annotations"]["k8s.v1.cni.cncf.io/networks"])
+        networks = json.loads(
+            controller["pod"]["annotations"]["k8s.v1.cni.cncf.io/networks"]
+        )
         addresses = [
             str(ipaddress.ip_interface(cidr).ip)
             for network in networks
-            if network["name"] == "multus-lan-bridge" and network["namespace"] == "kube-system"
+            if network["name"] == "multus-lan-bridge"
+            and network["namespace"] == "kube-system"
             for cidr in network["ips"]
         ]
         published = urlsplit(container["env"]["JELLYFIN_PublishedServerUrl"])
-        assert (
-            published.hostname in addresses and published.scheme == "http"
-        ), "published Jellyfin LAN address"
+        assert published.hostname in addresses and published.scheme == "http", (
+            "published Jellyfin LAN address"
+        )
         assert published.port == int(
             values["service"]["main"]["ports"]["http"]["port"]
         ), "published Jellyfin service port"
@@ -180,9 +198,9 @@ def assert_app_configuration(app):
             and env["LLM_MODEL"].strip()
             and float(env["LLM_MAX_INPUT_CHARS"]) >= 1
         ), "LLM inputs"
-        assert (
-            not {"LLM_API_BASE", "LLM_FEATURES_DISABLED"} & env.keys()
-        ), "active LLM configuration"
+        assert not {"LLM_API_BASE", "LLM_FEATURES_DISABLED"} & env.keys(), (
+            "active LLM configuration"
+        )
         secrets = [
             doc
             for doc in app.documents
@@ -200,17 +218,21 @@ def assert_app_configuration(app):
             for entry in container["envFrom"]
         ), "consumed LLM credential"
         assert re.fullmatch(
-            r"\{\{\s*\.openai_api_key\s*\}\}", secret["target"]["template"]["data"]["LLM_API_KEY"]
+            r"\{\{\s*\.openai_api_key\s*\}\}",
+            secret["target"]["template"]["data"]["LLM_API_KEY"],
         )
-        refs = [entry for entry in secret["data"] if entry["secretKey"] == "openai_api_key"]
-        assert (
-            len(refs) == 1 and refs[0]["remoteRef"]["key"] == "openai_api_key"
-        ), "shared OpenAI item"
+        refs = [
+            entry for entry in secret["data"] if entry["secretKey"] == "openai_api_key"
+        ]
+        assert len(refs) == 1 and refs[0]["remoteRef"]["key"] == "openai_api_key", (
+            "shared OpenAI item"
+        )
     elif name == "recyclarr":
         configs = [
             doc["data"]["recyclarr.yml"]
             for doc in app.documents
-            if doc.get("kind") == "ConfigMap" and doc["metadata"]["name"] == "recyclarr-config"
+            if doc.get("kind") == "ConfigMap"
+            and doc["metadata"]["name"] == "recyclarr-config"
         ]
         assert len(configs) == 1, "one Recyclarr configuration"
         assert_recyclarr(yaml.load(configs[0], Loader=RecyclarrLoader))
