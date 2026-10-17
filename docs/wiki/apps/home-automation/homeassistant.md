@@ -1,7 +1,7 @@
 # Home Assistant
 
 Purpose: Home Assistant hosts home automation state and integrations, with a local Matter controller.
-Status: current. Reviewed against: `0347fad141d7dfe0692ab03b8636296f0921548a`.
+Status: current. Reviewed against: `e9e0be76723b83306553122a3f5b0e4e8db832d8`.
 
 ## Dependencies
 
@@ -41,7 +41,43 @@ nor the Talos host's IPv6 forwarding or router-advertisement settings.
 
 Matter's WebSocket and dashboard listen only on pod loopback. No Matter ingress
 or Service port is exposed. Check [Gatus values](../../../../apps/platform-system/gatus/values.yaml)
-for Home Assistant's explicit uptime target; alert-to-light automation is separate.
+for Home Assistant's explicit uptime target; the warning-light package consumes confirmed alerts.
+
+## Gatus warning light
+
+The [alert-light package](../../../../apps/home-automation/homeassistant/manifests/homeassistant-gatus-alert-light.configmap.yaml)
+owns `light.office_office_mood_light` while a confirmed Gatus warning is open.
+It applies steady red at 50% brightness after five consecutive failed checks.
+Two successful checks clear an endpoint; the original on/off state, brightness,
+and active color mode return only after every open warning clears.
+Manual light changes during a warning are replaced by red on the next worker
+run. The saved original state is preserved across duplicates and overlapping alerts.
+
+Repository configuration enables packages and mounts this package and its Jinja
+macros read-only into Home Assistant alone. UI-managed automations, scripts and
+scenes remain on the configuration claim. A queued worker serializes Gatus events
+and reconciliation at startup, every 30 seconds and after bulb availability.
+It checks fresh ordered Gatus history to repair missed deliveries and reject
+stale recovery events. API failures, missing rows and insufficient history retain
+open warnings; an unavailable bulb defers snapshotting or restoration.
+
+Persistent `input_boolean.gatus_alert_*` helpers hold endpoint flags and
+`input_text.gatus_alert_light_snapshot` holds compact restoration JSON. No helper
+has an `initial` value. Ordinary restarts restore them from the existing HA claim;
+this is not crash-atomic incident storage. Gatus's memory history can be lost,
+so extended simultaneous downtime can require operator recovery.
+
+When retiring an endpoint, first confirm recovery and an empty snapshot, then
+remove its Gatus entry and mapped helper together. Do not treat a missing API
+row as recovery. If a snapshot is missing while an open warning is already red,
+the worker stops snapshot capture: restore the intended light state explicitly
+before clearing the known incident after verifying Gatus health.
+
+For rollback, disable the dispatch automation, finish or manually verify the
+saved restoration, then revert package/provider wiring through GitOps. Preserve
+helpers until recovery is verified; retain both PVCs and the Apple Home fabric.
+Revoke the dedicated provider token only after disabling its consumer. See
+[Gatus credentials](../platform-system/gatus.md#home-assistant-delivery).
 
 ## Matter setup and acceptance
 

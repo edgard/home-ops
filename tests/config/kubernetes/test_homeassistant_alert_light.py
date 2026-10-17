@@ -124,3 +124,87 @@ def test_rendered_alert_package_does_not_change_storage_or_matter(rendered):
         for v in pod["volumes"]
         if "persistentVolumeClaim" in v
     } == {"homeassistant", deployment["metadata"]["name"] + "-matter"}
+
+
+def assert_alert_delivery(gatus):
+    config = gatus.values["config"]
+    providers = config["alerting"]
+    assert {"telegram", "homeassistant"} <= set(providers)
+    expected = {
+        "failure-threshold": 5,
+        "success-threshold": 2,
+        "send-on-resolved": True,
+    }
+    for name in ("telegram", "homeassistant"):
+        assert providers[name]["default-alert"] == expected
+        assert not providers[name].get("overrides")
+    ha = providers["homeassistant"]
+    assert ha["url"] == "http://homeassistant.home-automation.svc:8123"
+    assert ha["token"] == "$HOMEASSISTANT_GATUS_TOKEN"
+    assert not config.get("maintenance")
+    for endpoint in config["endpoints"]:
+        assert not endpoint.get("maintenance")
+        expected_providers = (
+            {"homeassistant"}
+            if endpoint.get("group") == "acceptance"
+            else {"telegram", "homeassistant"}
+        )
+        assert {a["type"] for a in endpoint["alerts"]} == expected_providers
+        assert all(set(a) == {"type"} for a in endpoint["alerts"])
+        assert endpoint["interval"] == (
+            "5s" if endpoint.get("group") == "acceptance" else "1m"
+        )
+    secret = next(
+        d
+        for d in gatus.documents
+        if d["kind"] == "ExternalSecret"
+        and d["metadata"]["name"] == "gatus-credentials"
+    )
+    assert {d["secretKey"]: d["remoteRef"]["key"] for d in secret["spec"]["data"]} == {
+        "TELEGRAM_BOT_TOKEN": "telegram_bot_token",
+        "TELEGRAM_CHAT_ID": "telegram_chat_id",
+        "HOMEASSISTANT_GATUS_TOKEN": "homeassistant_gatus_token",
+    }
+    assert secret["spec"]["secretStoreRef"] == {
+        "name": "external-secrets-store",
+        "kind": "ClusterSecretStore",
+    }
+    assert gatus.values["envFrom"] == [{"secretRef": {"name": "gatus-credentials"}}]
+
+
+def test_gatus_native_provider_and_secret_contract(repo_root):
+    gatus = next(app for app in applications(repo_root) if app.name == "gatus")
+    assert_alert_delivery(gatus)
+
+
+@pytest.mark.parametrize(
+    "broken",
+    ["threshold", "recovery", "telegram", "token", "secret", "maintenance", "override"],
+)
+def test_rejects_unsafe_or_divergent_alert_delivery(repo_root, broken):
+    gatus = copy.deepcopy(
+        next(app for app in applications(repo_root) if app.name == "gatus")
+    )
+    config = gatus.values["config"]
+    provider = config["alerting"]["homeassistant"]
+    if broken == "threshold":
+        provider["default-alert"]["failure-threshold"] = 1
+    elif broken == "recovery":
+        provider["default-alert"]["send-on-resolved"] = False
+    elif broken == "telegram":
+        config["endpoints"][0]["alerts"] = [{"type": "homeassistant"}]
+    elif broken == "token":
+        provider["token"] = "literal-token"
+    elif broken == "secret":
+        secret = next(d for d in gatus.documents if d["kind"] == "ExternalSecret")
+        next(
+            d
+            for d in secret["spec"]["data"]
+            if d["secretKey"] == "HOMEASSISTANT_GATUS_TOKEN"
+        )["remoteRef"]["key"] = "wrong_key"
+    elif broken == "maintenance":
+        config["maintenance"] = [{"start": "00:00", "duration": "1h"}]
+    else:
+        config["endpoints"][0]["alerts"][0]["failure-threshold"] = 1
+    with pytest.raises(AssertionError):
+        assert_alert_delivery(gatus)

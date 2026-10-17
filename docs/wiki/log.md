@@ -3,6 +3,16 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-17] revision | Gatus warning light and restoration
+
+Added native Home Assistant alert delivery alongside Telegram, a serialized
+warning-light worker, persistent snapshot/open-incident helpers and history
+reconciliation for missed recovery events. Documented token delivery and rotation,
+manual light changes, endpoint retirement, restart/restore ordering, rollback
+and the limits of in-memory Gatus history. Reviewed Home Assistant, Gatus, uptime,
+backup architecture, restore runbook and source catalog. October's semantic
+review is already recorded; no repeat review was needed.
+
 ## [2026-10-17] revision | Add Home Assistant Matter support
 
 The follow-up pins the legacy configuration PVC name and protects both claims

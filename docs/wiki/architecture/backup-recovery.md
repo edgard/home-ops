@@ -1,7 +1,7 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `0347fad141d7dfe0692ab03b8636296f0921548a`.
+Status: current. Reviewed against: `e9e0be76723b83306553122a3f5b0e4e8db832d8`.
 
 The Restic application serves a repository and runs appdata backup and
 maintenance workloads. Restore commands enter the Ansible role in plan-only
@@ -25,7 +25,10 @@ procedure; they do not replace Bitwarden availability.
 
 Home Assistant's application owns separate configuration and Matter controller
 PVCs. The app restore preview must select both; paired devices depend on the
-persisted Matter fabric identity. Verify snapshot coverage before relying on it,
+persisted Matter fabric identity. The configuration claim also holds persistent
+Gatus warning flags and the original light snapshot; restore these together,
+then allow fresh Gatus history reconciliation before clearing an open warning.
+Verify snapshot coverage before relying on it,
 and preserve a compatible state backup before downgrading the server. See
 [Home Assistant recovery](../apps/home-automation/homeassistant.md#data-and-recovery).
 
