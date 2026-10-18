@@ -3,6 +3,17 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-18] revision | Repair Paperless GPT document processing
+
+Bound OCR image rendering for the provider's image limits, configured the vision
+temperature explicitly, selected a metadata model supported by the bundled
+client, and removed the partial-document OCR page cap. Persisted GPT settings,
+prompts, and history on the existing Paperless claim. Updated the Paperless page
+with client compatibility, saved-setting precedence, original-file preservation,
+and failed-document recovery. Reviewed storage and backup/recovery explanations;
+their claim-based contracts remain accurate. October's semantic review is
+already recorded below.
+
 ## [2026-10-17] revision | Standardize validation commands and CI
 
 Separated formatting, static analysis, pytest, and the complete `task check`
