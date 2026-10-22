@@ -18,7 +18,7 @@ controllers:
       tesseract-langs:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: 3.3.1
+          tag: 3.3.3
         securityContext:
           runAsUser: 0
           runAsGroup: 0
@@ -61,7 +61,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/paperless-ngx/paperless-ngx
-          tag: 3.3.1
+          tag: 3.3.3
         env:
           PAPERLESS_URL: https://paperless.edgard.org
           PAPERLESS_PORT: "8000"
@@ -196,7 +196,7 @@ controllers:
       app:
         image:
           repository: docker.io/gotenberg/gotenberg
-          tag: "8.37.0"
+          tag: "8.38.1"
         args:
           - gotenberg
           - --chromium-disable-javascript=true
@@ -225,7 +225,7 @@ controllers:
       app:
         image:
           repository: docker.io/apache/tika
-          tag: 3.3.1.0
+          tag: 3.3.3.0
         probes:
           startup:
             enabled: true
