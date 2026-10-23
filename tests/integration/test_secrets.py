@@ -49,7 +49,9 @@ def test_real_secretspec_scope_and_multiline_preservation(tmp_path):
             FIXTURE_TOKEN="synthetic",
             FIXTURE_JSON=json.dumps([{"id": "1", "key": "value", "value": value}]),
             HIDDEN="stale",
-            PATH=str(path) + os.pathsep + os.environ["PATH"],
+            PATH=os.pathsep.join(
+                [str(path), os.path.dirname(sys.executable), os.environ["PATH"]]
+            ),
             SECRETSPEC_BWS_CLI_PATH=str(
                 ROOT / "ansible/roles/cli_secrets/files/bws_readonly.py"
             ),
