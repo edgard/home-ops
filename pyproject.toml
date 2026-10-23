@@ -19,7 +19,7 @@ dev = [
     "filelock==4.2.4",
     "python-hcl2==8.1.4",
     "packaging==26.3",
-    "ruff==0.17.1",
+    "ruff==0.17.2",
     "yamllint==1.38.0",
     "check-jsonschema==0.38.2",
 ]
