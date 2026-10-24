@@ -244,6 +244,23 @@ def test_effective_security_context_and_exceptions(workload, field):
         assert_resource(workload)
 
 
+@pytest.mark.parametrize(
+    "image",
+    ["ghcr.io/karakeep-app/karakeep:0.34.1", "icereed/paperless-gpt:1.0"],
+)
+def test_s6_entrypoint_capabilities(workload, image):
+    container = workload["spec"]["template"]["spec"]["containers"][0]
+    container["image"] = image
+    capabilities = container["securityContext"]["capabilities"]
+    required = {"CHOWN", "SETUID", "SETGID"}
+    capabilities["add"] = sorted(required)
+    assert_resource(workload)
+    for missing in required:
+        capabilities["add"] = sorted(required - {missing})
+        with pytest.raises(AssertionError, match="entrypoint capabilities"):
+            assert_resource(workload)
+
+
 def test_specific_runtime_and_observability_guards(workload):
     pod = workload["spec"]["template"]["spec"]
     pod["volumes"] = [{"persistentVolumeClaim": {"claimName": "media"}}]

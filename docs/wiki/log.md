@@ -3,6 +3,16 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-23] revision | Restore Karakeep startup after image upgrade
+
+Restored the main container's `CHOWN` capability so its root s6 entrypoint can
+adjust the newer image's `/run` ownership. Kept default capabilities dropped,
+privilege escalation disabled, and the browser/search security profiles intact.
+Extended the rendered-resource entrypoint contract to cover Karakeep and added
+missing-capability regression cases. Updated the Karakeep operational note;
+reviewed networking, uptime, and storage explanations, which remain accurate.
+October's semantic review is already recorded below.
+
 ## [2026-10-18] revision | Repair Paperless GPT document processing
 
 Bound OCR image rendering for the provider's image limits, configured the vision

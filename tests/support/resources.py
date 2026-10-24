@@ -197,9 +197,11 @@ def assert_resource(doc):
             assert security.get(
                 "runAsNonRoot", pod_security.get("runAsNonRoot", False)
             ), f"non-root: {label}/{container['name']}"
-        if image.startswith("icereed/paperless-gpt:"):
+        if image.startswith(
+            ("icereed/paperless-gpt:", "ghcr.io/karakeep-app/karakeep:")
+        ):
             assert {"CHOWN", "SETUID", "SETGID"} <= set(capabilities.get("add", [])), (
-                "Paperless entrypoint capabilities"
+                "s6 entrypoint capabilities"
             )
         if image.startswith("qmcgaw/gluetun:"):
             assert container.get("livenessProbe", {}).get("httpGet") is not None, (

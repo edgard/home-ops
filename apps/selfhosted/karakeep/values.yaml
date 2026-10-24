@@ -67,6 +67,7 @@ controllers:
             drop:
               - ALL
             add:
+              - CHOWN
               - SETUID
               - SETGID
         resources:
