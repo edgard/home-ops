@@ -190,3 +190,47 @@ def test_loopback_apis_have_independent_ports_and_cleanup(tmp_path):
     for url in connections:
         with pytest.raises(OSError):
             urllib.request.urlopen(url + "/version", timeout=2)
+
+
+def test_loopback_api_starts_without_reverse_dns(tmp_path):
+    import urllib.request
+
+    (tmp_path / "api-state.json").write_text('{"objects": {}, "events": []}')
+    launcher = """import runpy,socket,sys
+def unavailable_dns(*args, **kwargs):
+    raise RuntimeError('reverse DNS must not be required for a loopback fixture')
+socket.getfqdn = unavailable_dns
+sys.argv = [sys.argv[1], sys.argv[2]]
+runpy.run_path(sys.argv[0], run_name='__main__')
+"""
+    process = subprocess.Popen(
+        [
+            str(PYTHON),
+            "-c",
+            launcher,
+            str(ROOT / "tests/support/cluster_api.py"),
+            str(tmp_path),
+        ],
+        env=environment(tmp_path),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        port = tmp_path / "api-port"
+        deadline = time.monotonic() + 5
+        while not port.exists():
+            assert process.poll() is None, process.communicate()
+            assert time.monotonic() < deadline, "loopback API did not start"
+            time.sleep(0.02)
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port.read_text()}/version", timeout=2
+        ) as response:
+            assert response.status == 200
+    finally:
+        (tmp_path / "api-stop").touch()
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()

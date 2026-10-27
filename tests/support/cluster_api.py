@@ -7,6 +7,7 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from socketserver import TCPServer
 from urllib.parse import parse_qs, urlsplit
 
 root = Path(sys.argv[1])
@@ -659,7 +660,15 @@ class Handler(BaseHTTPRequestHandler):
         )
 
 
-server = HTTPServer(("127.0.0.1", 0), Handler)
+class LoopbackHTTPServer(HTTPServer):
+    def server_bind(self):
+        # HTTPServer normally reverse-resolves the bind address. This local-only
+        # fixture must start even when the host's DNS resolver is unavailable.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
+server = LoopbackHTTPServer(("127.0.0.1", 0), Handler)
 server.timeout = 0.2
 (root / "api-port").write_text(str(server.server_address[1]))
 while not (root / "api-stop").exists():

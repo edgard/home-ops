@@ -77,6 +77,21 @@ controllers:
           PAPERLESS_TIKA_ENABLED: "1"
           PAPERLESS_TIKA_ENDPOINT: http://paperless-tika:9998
           PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://paperless-gotenberg:3000
+          PAPERLESS_AI_ENABLED: "true"
+          PAPERLESS_AI_LLM_BACKEND: openai-like
+          # Native suggestions use Chat Completions tools; GPT-6.1 requires Responses.
+          PAPERLESS_AI_LLM_MODEL: gpt-6-sol
+          PAPERLESS_AI_LLM_ENDPOINT: https://api.openai.com/v1
+          PAPERLESS_AI_LLM_OUTPUT_LANGUAGE: English
+          PAPERLESS_AI_LLM_EXTRA_PARAMS: "{\"reasoning_effort\":\"none\",\"temperature\":1}"
+          PAPERLESS_AI_LLM_EMBEDDING_BACKEND: openai-like
+          PAPERLESS_AI_LLM_EMBEDDING_MODEL: text-embedding-3-large
+          PAPERLESS_LLM_INDEX_TASK_CRON: "10 * * * *"
+          PAPERLESS_AI_LLM_API_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: paperless-credentials
+                key: OPENAI_API_KEY
           PAPERLESS_CONSUMER_POLLING_INTERVAL: "60"
           PAPERLESS_CONSUMER_DELETE_DUPLICATES: "true"
           PAPERLESS_CONSUMER_RECURSIVE: "true"
@@ -136,13 +151,18 @@ controllers:
           PGID: "1000"
           LLM_PROVIDER: openai
           # The bundled OpenAI client omits temperature for GPT-5 models only.
-          LLM_MODEL: gpt-5.6-luna
+          LLM_MODEL: gpt-5.6-sol
+          LLM_LANGUAGE: English
+          AUTO_GENERATE_DOCUMENT_TYPE: "false"
+          PRESERVE_EXISTING_METADATA: "true"
+          CREATE_NEW_TAGS: "false"
           AUTO_TAG_COMPLETE: ""
           VISION_LLM_PROVIDER: openai
           VISION_LLM_MODEL: gpt-6.1-sol
           VISION_LLM_TEMPERATURE: "1"
           OCR_PROVIDER: "llm"
           OCR_LIMIT_PAGES: "0"
+          OCR_SKIP_DIGITAL_PAGES: "true"
           IMAGE_MAX_RENDER_DPI: "300"
           IMAGE_MAX_PIXEL_DIMENSION: "4096"
           IMAGE_MAX_TOTAL_PIXELS: "12000000"
