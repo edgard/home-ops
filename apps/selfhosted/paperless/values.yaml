@@ -117,6 +117,13 @@ controllers:
         probes:
           startup:
             enabled: true
+            custom: true
+            spec:
+              tcpSocket:
+                port: 8000
+              periodSeconds: 10
+              failureThreshold: 30
+              timeoutSeconds: 1
           liveness:
             enabled: true
           readiness:

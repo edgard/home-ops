@@ -1,7 +1,7 @@
 # Paperless
 
 Purpose: Paperless manages documents, extraction, and optional AI processing.
-Status: current. Reviewed against: `4f5065a060684bd6f9824bf7f8b7dd1521a31b2e`.
+Status: current. Reviewed against: `757e232266dbc2be725280a696efa476fcdc810e`.
 
 ## Dependencies
 
@@ -11,6 +11,10 @@ OpenAI models separately for OCR and metadata suggestions. Native Paperless AI
 uses the existing OpenAI credential for embeddings, retrieval, document chat, and
 interactive suggestions. GPT owns automatic metadata and custom-field enrichment;
 do not add a second automatic writer for those fields.
+
+The main container's startup probe allows cold AI initialization to finish before
+restarting it. Readiness still gates traffic while it starts; the startup budget
+is owned by the [deployment values](../../../../apps/selfhosted/paperless/values.yaml).
 
 Document-type generation is disabled in GPT. Keep it explicitly disabled in GPT
 workflow overrides and exclude it from any native AI workflow action. Paperless

@@ -101,3 +101,22 @@ def test_gpt_settings_prompts_and_history_survive_pod_replacement(rendered):
         if mount["name"] in persistent and not mount.get("readOnly", False)
     }
     assert {"/app/config", "/app/prompts", "/app/db"} <= durable_paths
+
+
+def test_main_startup_probe_allows_cold_ai_initialization(rendered):
+    deployment = next(
+        doc
+        for doc in rendered
+        if doc.get("kind") == "Deployment"
+        and any(
+            c["image"].startswith("ghcr.io/paperless-ngx/paperless-ngx:")
+            for c in doc["spec"]["template"]["spec"]["containers"]
+        )
+    )
+    container = next(
+        c
+        for c in deployment["spec"]["template"]["spec"]["containers"]
+        if c["name"] == "app"
+    )
+    probe = container["startupProbe"]
+    assert probe["failureThreshold"] * probe["periodSeconds"] >= 300

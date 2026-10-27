@@ -2,7 +2,7 @@
 
 Purpose: configure saved AI behavior and recover document processing while
 preserving original files and manual metadata.
-Status: current. Reviewed against: `4f5065a060684bd6f9824bf7f8b7dd1521a31b2e`.
+Status: current. Reviewed against: `757e232266dbc2be725280a696efa476fcdc810e`.
 
 ## Ownership and saved configuration
 
@@ -122,12 +122,23 @@ models. Run `document_llmindex update` for incremental refresh after enrichment;
 the scheduled task performs incremental updates. The index lives in the existing
 Paperless data volume and includes custom-field values and document text.
 
+After bulk recovery, let native indexing work drain before the final manual
+refresh. Check Celery active and reserved tasks and the broker queue without
+purging work. Per-document jobs carry the document snapshot from scheduling time;
+an older queued job can replace a newer manual refresh. Once idle, update the
+index and compare its document modification timestamps with current documents.
+Check saved configuration and history separately from index insertion counters,
+which can grow while queued jobs finish. See the upstream
+[task payload](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.4/src/documents/tasks.py)
+and [index replacement](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.4/src/paperless_ai/indexing.py).
+
 Validate multilingual retrieval, native suggestions and streaming chat with source
 links, and refresh after an actual content/field change. Native chat retrieves five
 chunks per question and shows at most three document references. It cannot prove
 an exhaustive archive-wide total. For completeness-sensitive work, select the
 documents explicitly, check content/context coverage, and verify structured values
-against the source. Keep ad-hoc GPT analysis available for selected-document work.
+and generated document labels against the source. Keep ad-hoc GPT analysis
+available for selected-document work.
 
 ## Sources
 
