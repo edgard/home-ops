@@ -3,6 +3,23 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-27] revision | Enable Paperless native AI and bounded enrichment
+
+Enabled native AI generation and multilingual embeddings using the existing
+credential and persistent data volume. Disabled GPT document-type generation,
+preserved existing metadata, and enabled clean digital-page reuse. Documented the
+saved custom-field and prompt setup, import/enrichment workflow boundaries,
+provider canaries, failure recovery, conservative reference-link review, and native
+chat/index limitations. Added configuration safeguards and the AI operations
+procedure. Reviewed storage, secrets, and backup/recovery explanations; their
+existing claim-based contracts remain accurate. October's semantic review is
+already recorded below.
+
+The local gate also exposed a reverse-DNS dependency in the synthetic loopback
+Kubernetes server. Bound its server name directly to the loopback address and
+added a regression with reverse DNS unavailable; fixture startup no longer waits
+on an external resolver. This changes test infrastructure, not cluster behavior.
+
 ## [2026-10-23] revision | Restore Karakeep startup after image upgrade
 
 Restored the main container's `CHOWN` capability so its root s6 entrypoint can
