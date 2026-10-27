@@ -51,11 +51,15 @@ transcribe all pages in the source language without summarizing or translating.
 
 ## Import and enrichment workflows
 
-Create a native **Document Added** assignment workflow for all import sources,
-adding the GPT automatic metadata and OCR trigger tags. Leave it disabled until
-the processing canary passes. Do not use an unrestricted Document Updated trigger:
-GPT writes would otherwise repeatedly requeue paid work. Verify converted Office
-files, images, and PDFs through the actual OCR path before enabling all imports.
+Create native **Document Added** assignment workflows for all import sources.
+Run PDF/image OCR routing first, using filename-glob triggers for supported image
+extensions and PDF to add the OCR trigger tag. Then add the automatic metadata
+trigger for every document. Office files go directly to enrichment using Tika's
+existing text: GPT's clean-page router examines original PDFs, not Office files.
+Keep both workflows disabled until the canary passes. Do not use an unrestricted
+Document Updated trigger: GPT writes would repeatedly requeue paid work. Verify
+Office extraction, images, PDFs, case-insensitive filename matching, and workflow
+order before enabling imports.
 The default import pipeline may generate a new title and issue date.
 `PRESERVE_EXISTING_METADATA` guards only correspondents and document types, not
 titles or dates. Do not use the default trigger to recover established documents

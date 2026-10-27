@@ -16,6 +16,9 @@ lookup examines only one substring-match page. Reviewed storage, secrets, and ba
 existing claim-based contracts remain accurate. October's semantic review is
 already recorded below.
 
+Separated PDF/image OCR routing from all-document enrichment so converted Office
+documents retain Tika's digital text instead of being unnecessarily re-OCRed.
+
 The local gate also exposed a reverse-DNS dependency in the synthetic loopback
 Kubernetes server. Bound its server name directly to the loopback address and
 added a regression with reverse DNS unavailable; fixture startup no longer waits
