@@ -3,6 +3,15 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-10-27] revision | Bound Paperless cold starts and index recovery
+
+Extended the main container startup-probe budget for cold AI initialization while
+retaining readiness gating. Added a rendered-probe regression. Updated the AI
+recovery procedure to drain native indexing tasks before a final manual refresh:
+queued jobs carry earlier document snapshots and can replace newer index entries.
+Separated persistence checks from freshness checks and retained source review of
+generated document labels. October's semantic review is already recorded below.
+
 ## [2026-10-27] revision | Enable Paperless native AI and bounded enrichment
 
 Enabled native AI generation and multilingual embeddings using the existing
