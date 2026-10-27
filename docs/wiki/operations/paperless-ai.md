@@ -35,7 +35,8 @@ fields to documents in advance.
 | Related Documents | Document Link | References to other documents, subject to link review |
 
 In GPT Settings, enable custom fields, select the extraction fields, and choose
-**Append**. Select Related Documents only after link-collision acceptance checks.
+**Append**. Keep Related Documents out of automatic selection on the current
+release; use preview/review and additive link merges instead.
 Append skips fields already present, even empty ones; Update overwrites suggested
 field values and Replace discards existing fields. Never use Replace for recovery.
 String is limited to 128 characters; summaries and notice wording need Long Text.
@@ -102,7 +103,10 @@ can preserve valid fields while still requiring review.
 Document linking extracts references and looks them up by exact whole-word match.
 The built-in resolver ignores references shorter than four characters and those
 matching more than three other documents; it does not prove the remaining matches
-identify the same issuer or case. Test collisions and review ambiguous matches.
+identify the same issuer or case. The current lookup examines only the first page
+of substring matches, so it cannot guarantee full ambiguity detection. Keep link
+writes in review mode until upstream lookup coverage and collision tests support
+automatic use. Test collisions and review ambiguous matches.
 After later documents arrive, preview links again. For an existing link field,
 merge the accepted IDs with the current set; Append skips existing fields and
 Update replaces the list. Preserve mirrored links and unrelated fields.
@@ -129,6 +133,7 @@ against the source. Keep ad-hoc GPT analysis available for selected-document wor
 - [GPT workflows and preview API](https://github.com/icereed/paperless-gpt/blob/v0.31.0/docs/workflows.md)
 - [GPT field extraction and reference resolution](https://github.com/icereed/paperless-gpt/blob/v0.31.0/app_llm.go)
 - [GPT field write modes](https://github.com/icereed/paperless-gpt/blob/v0.31.0/paperless.go)
+- [GPT reference lookup coverage](https://github.com/icereed/paperless-gpt/blob/v0.31.0/paperless_search.go)
 - [Native AI workflow actions](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.4/src/documents/workflows/ai.py)
 - [Native field definitions](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.4/src/documents/models.py)
 - [Native index administration](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.4/docs/administration.md#llm-index)

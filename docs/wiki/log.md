@@ -11,7 +11,8 @@ preserved existing metadata, and enabled clean digital-page reuse. Documented th
 saved custom-field and prompt setup, import/enrichment workflow boundaries,
 provider canaries, failure recovery, conservative reference-link review, and native
 chat/index limitations. Added configuration safeguards and the AI operations
-procedure. Reviewed storage, secrets, and backup/recovery explanations; their
+procedure. Kept reference-link writes in review mode because the current upstream
+lookup examines only one substring-match page. Reviewed storage, secrets, and backup/recovery explanations; their
 existing claim-based contracts remain accurate. October's semantic review is
 already recorded below.
 
