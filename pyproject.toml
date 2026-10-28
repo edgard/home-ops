@@ -14,7 +14,7 @@ dev = [
     "requests-oauthlib==2.0.0",
     "jsonschema==4.26.0",
     "json5==0.17.3",
-    "pytest==9.1.1",
+    "pytest==9.2.0",
     "pytest-xdist==3.8.0",
     "filelock==4.2.4",
     "python-hcl2==8.1.4",
