@@ -1,7 +1,7 @@
 # Reloader
 
 Purpose: Reloader restarts workloads when referenced configuration changes.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
 
 ## Dependencies
 
@@ -18,6 +18,11 @@ No routed HTTP endpoint is declared in this app values file; inspect raw manifes
 ## Operational note
 
 A Reloader rollout still needs application-level checks for sensitive or shared-storage changes.
+
+The [shared-data coordinator](../../operations/shared-data.md) records replica
+counts and verifies writer Pods are stopped while configuration and credential
+changes occur. Any independently triggered rollout must remain within that
+maintenance fence.
 
 ## Sources
 

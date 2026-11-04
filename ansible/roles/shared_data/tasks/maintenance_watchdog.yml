@@ -1,0 +1,15 @@
+---
+- name: Inspect API-only watchdog state independently of storage
+  ansible.builtin.include_tasks: maintenance_watchdog_execute.yml
+  args:
+    apply:
+      module_defaults:
+        kubernetes.core.k8s:
+          kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+          context: "{{ kube_context | default(omit) }}"
+        kubernetes.core.k8s_info:
+          kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+          context: "{{ kube_context | default(omit) }}"
+        kubernetes.core.k8s_json_patch:
+          kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+          context: "{{ kube_context | default(omit) }}"

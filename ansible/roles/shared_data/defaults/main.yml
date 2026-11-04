@@ -1,0 +1,41 @@
+---
+shared_data_action: plan
+shared_data_confirm: false
+shared_data_admin_resume: false
+shared_data_apps: []
+shared_data_operation_kind: backup
+shared_data_operation_id: ""
+shared_data_namespace: selfhosted
+shared_data_lease_name: shared-data-operation
+shared_data_journal_name: shared-data-operation
+shared_data_lease_duration: 900
+shared_data_wait_retries: 60
+shared_data_wait_delay: 5
+shared_data_tuppr_namespace: platform-system
+shared_data_tuppr_name: tuppr
+shared_data_pause_budget: 180
+shared_data_drain_enabled: true
+shared_data_registry_file: "{{ role_path }}/files/registry.yaml"
+shared_data_registry: "{{ lookup('ansible.builtin.file', shared_data_registry_file) | from_yaml }}"
+shared_data_root: /data/appdata
+shared_data_staging: /staging
+shared_data_credentials: /run/credentials
+shared_data_python: /usr/local/bin/python
+shared_data_tools: /opt/home-ops/ansible/roles/shared_data/files/data_tools.py
+shared_data_appdata_pvc: restic-appdata
+shared_data_staging_pvc: shared-data-staging
+shared_data_secret: shared-data-credentials
+shared_data_serviceaccount: shared-data
+shared_data_image: ""
+shared_data_postgres_image: docker.io/library/postgres:18.3-trixie@sha256:7e32e9833a6fb1c92c32552794cb6ed569d51b445a54907d35fc112ef39684db
+shared_data_redis_image: docker.io/library/redis:8.10.3@sha256:de1068af6f552240dfab67bcc9bfef99bfc60f776bb4580ef077ea4c8c97e848
+shared_data_restic_repository: rest:http://restic.selfhosted.svc.cluster.local:8000/
+shared_data_restic_host: homelab
+shared_data_restic_tag: appdata
+shared_data_snapshot: latest
+shared_data_recovery_mode: false
+shared_data_job_action: backup
+shared_data_job_timeout: 3600
+shared_data_holder_pod_name: ""
+shared_data_holder_pod_namespace: selfhosted
+shared_data_holder_pod_uid: ""

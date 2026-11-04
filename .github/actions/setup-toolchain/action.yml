@@ -87,6 +87,27 @@ runs:
         install -m 0755 "$tmp/secretspec-x86_64-unknown-linux-gnu/secretspec" "$RUNNER_TEMP/home-ops-bin/secretspec"
         echo "$RUNNER_TEMP/home-ops-bin" >> "$GITHUB_PATH"
 
+    - name: Install Restic
+      if: ${{ inputs.profile == 'test' }}
+      shell: bash
+      env:
+        # renovate: datasource=github-releases depName=restic/restic
+        RESTIC_VERSION: v0.19.1
+      run: |
+        version="${RESTIC_VERSION#v}"
+        archive="restic_${version}_linux_amd64.bz2"
+        release="https://github.com/restic/restic/releases/download/${RESTIC_VERSION}"
+        tmp="$(mktemp -d "$RUNNER_TEMP/restic.XXXXXX")"
+        trap 'rm -rf "$tmp"' EXIT
+        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$archive" "$release/$archive"
+        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/SHA256SUMS" "$release/SHA256SUMS"
+        grep "  ${archive}$" "$tmp/SHA256SUMS" | (cd "$tmp" && sha256sum --check --status)
+        bunzip2 "$tmp/$archive"
+        mkdir -p "$RUNNER_TEMP/home-ops-bin"
+        install -m 0755 "$tmp/${archive%.bz2}" "$RUNNER_TEMP/home-ops-bin/restic"
+        "$RUNNER_TEMP/home-ops-bin/restic" version | grep -F "restic $version compiled with "
+        echo "$RUNNER_TEMP/home-ops-bin" >> "$GITHUB_PATH"
+
     - name: Set Up pluto
       if: ${{ inputs.profile == 'test' }}
       uses: FairwindsOps/pluto/github-action@ac2c42d55d5ff46a1af0f4b15faf3555119eea23 # v5.24.4

@@ -125,6 +125,19 @@ def test_documents(rendered, worker_id, case):
         assert not list((tmp_path / "run").rglob("rendered.json"))
 
 
+def test_native_timeout_reports_last_checkpoint(tmp_path):
+    with pytest.raises(subprocess.TimeoutExpired) as failure:
+        run_command(
+            [
+                str(PYTHON),
+                "-c",
+                'import time; print("checkpoint-before-timeout", flush=True); time.sleep(30)',
+            ],
+            timeout=1,
+        )
+    assert "checkpoint-before-timeout" in "\n".join(failure.value.__notes__)
+
+
 @pytest.mark.parametrize("failure", [TimeoutError, KeyboardInterrupt])
 def test_command_failure_terminates_child_processes(tmp_path, failure, monkeypatch):
     pid_file = tmp_path / "child.pid"

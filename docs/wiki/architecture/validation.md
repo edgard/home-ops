@@ -1,7 +1,7 @@
 # Validation and PR gate
 
 Purpose: distinguish native validation, repository assertions, and deployment evidence.
-Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
+Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
 
 `task check` runs formatting checks, native static checks, and the complete
 pytest suite once. `task fmt` changes formatting, `task fmt:check` verifies the
@@ -52,6 +52,15 @@ Kubernetes collection handles REST operations; pod exec records commands through
 one test-only module. Another case loads the real exec module and reaches its
 connection boundary. This does not prove live websocket transport or restoration.
 
+Native data scenarios additionally require a running Docker engine and Restic.
+They start isolated PostgreSQL/Redis containers with synthetic credentials and
+test selected database recovery, role/ACL restrictions, data types, sequences,
+and expirations. Restic publication uses a disposable local repository. Missing
+native prerequisites fail the tests. The separate path-filtered
+[operations-image workflow](../../../.github/workflows/data-tools.yml) builds and
+smoke-tests the image; its result is not a dependency of the existing Quality
+Gate, so check it explicitly before consuming a published digest.
+
 Operational assertions cover check mode, confidentiality, exact Talos server
 versions, private-material cleanup, CI tool checksum/version rejection, scoped delivery, token rollback,
 committed handoff, original restore state, and failure evidence. Restore failure
@@ -60,6 +69,10 @@ contract. Roles contain no test-only execution branches. Runtime assertions
 continue to protect operator inputs and live state. Injected API-error scenarios
 use a separate bounded budget from deliberate timeout scenarios; a delayed
 synthetic response verifies that the intended target-read fault is reached.
+Whole-role process ceilings include headroom for slower shared CI runners;
+they are separate from the short API polling and deliberate timeout assertions.
+Timed-out child groups are terminated and their last captured output is retained
+as exception diagnostics. CI reports the slowest scenarios for budget review.
 
 The CI SecretSpec installer scenario executes the toolchain action's real shell
 against synthetic release archives. It verifies successful installation, rejected

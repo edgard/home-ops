@@ -51,7 +51,7 @@ jobs:
   tests:
     name: Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check Out Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -62,7 +62,7 @@ jobs:
           profile: test
 
       - name: Run Tests
-        run: task test -- --junitxml=.pytest_cache/junit.xml
+        run: task test -- --junitxml=.pytest_cache/junit.xml --durations=10
 
       - name: Upload Test Results
         if: ${{ always() }}

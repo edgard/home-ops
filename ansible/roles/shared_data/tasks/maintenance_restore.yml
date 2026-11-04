@@ -1,0 +1,80 @@
+---
+- name: Resume fields with fail-closed recovery if any mutation or journal write fails
+  block:
+    - name: Re-fence root and children before restoring any writers
+      ansible.builtin.include_tasks: maintenance_fence.yml
+    - name: Record resuming phase before restoring fields
+      ansible.builtin.set_fact:
+        shared_data_journal: "{{ shared_data_journal | combine({'phase': 'resuming', 'recovery_result': ('admin-resume' if shared_data_admin_resume | default(false) | bool else shared_data_journal.recovery_result)}) }}"
+    - name: Persist resuming phase
+      ansible.builtin.include_tasks: maintenance_save.yml
+    - name: Restore writers then schedules then Tuppr before enabling GitOps
+      ansible.builtin.include_tasks: maintenance_patch.yml
+      loop: >-
+        {{ (shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | reverse | list)
+           + (shared_data_journal.snapshots | selectattr('role', 'equalto', 'cronjob') | reverse | list)
+           + (shared_data_journal.snapshots | selectattr('role', 'equalto', 'tuppr') | list)
+           + (shared_data_journal.snapshots | selectattr('role', 'equalto', 'application') | reverse | list)
+           + (shared_data_journal.snapshots | selectattr('role', 'equalto', 'appset') | list)
+           + (shared_data_journal.snapshots | selectattr('role', 'equalto', 'root') | list) }}
+      loop_control:
+        loop_var: shared_data_target
+        label: "{{ shared_data_target.role }}/{{ shared_data_target.name }}"
+      vars:
+        shared_data_restore_target: true
+    - name: Record completed maintenance transaction
+      ansible.builtin.set_fact:
+        shared_data_journal: "{{ shared_data_journal | combine({'phase': 'complete'}) }}"
+    - name: Persist completion before releasing Lease
+      ansible.builtin.include_tasks: maintenance_save.yml
+    - name: Read current Lease for atomic release
+      kubernetes.core.k8s_info:
+        api_version: coordination.k8s.io/v1
+        kind: Lease
+        name: "{{ shared_data_lease_name | default('shared-data-operation') }}"
+        namespace: "{{ shared_data_namespace | default('selfhosted') }}"
+      register: shared_data_release_lease
+    - name: Release only the exact completed operation Lease
+      kubernetes.core.k8s_json_patch:
+        api_version: coordination.k8s.io/v1
+        kind: Lease
+        name: "{{ shared_data_lease_name | default('shared-data-operation') }}"
+        namespace: "{{ shared_data_namespace | default('selfhosted') }}"
+        patch: "{{ shared_data_release_lease.resources[0] | shared_data_lease_release(shared_data_operation_id ~ ':' ~ shared_data_holder_pod_uid) }}"
+
+  rescue:
+    - name: Re-fence root first after failed resume
+      ansible.builtin.include_tasks: maintenance_fence.yml
+    - name: Record failed resume before stopping resumed writers
+      ansible.builtin.set_fact:
+        shared_data_journal: "{{ shared_data_journal | combine({'phase': 'resume-failed', 'recovery_result': 'resume failed; operator inspection required'}) }}"
+    - name: Persist failed resume with original policies preserved
+      ansible.builtin.include_tasks: maintenance_save.yml
+    - name: Re-suspend schedules before stopping resumed application writers
+      ansible.builtin.include_tasks: maintenance_patch.yml
+      loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'cronjob') | list }}"
+      loop_control:
+        loop_var: shared_data_target
+      vars:
+        shared_data_restore_target: false
+    - name: Wait for already launched schedules to finish
+      ansible.builtin.include_tasks: maintenance_wait_pods.yml
+      vars:
+        shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'cronjob') | list }}"
+    - name: Drain application work before re-holding failed resume
+      ansible.builtin.include_tasks: drain.yml
+      when: shared_data_drain_enabled | default(false) | bool
+    - name: Hold resumed writer controllers for inspection
+      ansible.builtin.include_tasks: maintenance_patch.yml
+      loop: "{{ shared_data_journal.snapshots | selectattr('role', 'in', ['tuppr', 'workload']) | list }}"
+      loop_control:
+        loop_var: shared_data_target
+      vars:
+        shared_data_restore_target: false
+    - name: Verify failed resume writers stopped without forced deletion
+      ansible.builtin.include_tasks: maintenance_wait.yml
+      vars:
+        shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'in', ['tuppr', 'workload', 'cronjob']) | list }}"
+    - name: Keep failed resume visible to the operator
+      ansible.builtin.fail:
+        msg: Resume failed; original journal and GitOps fences retained for operator inspection.

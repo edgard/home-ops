@@ -66,7 +66,7 @@ def run_role(
     env=None,
     after=None,
     rescue=None,
-    timeout=90,
+    timeout=240,
 ):
     directory = Path(directory)
     tasks = [
@@ -133,12 +133,19 @@ def run_command(args, *, cwd=None, env=None, timeout=90, check=False):
         if check:
             result.check_returncode()
         return result
-    except BaseException:
+    except BaseException as error:
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-        process.communicate()
+        stdout, stderr = process.communicate()
+        if isinstance(error, subprocess.TimeoutExpired):
+            error.add_note(
+                "Last captured stdout:\n"
+                + stdout[-4000:]
+                + "\nLast captured stderr:\n"
+                + stderr[-4000:]
+            )
         raise
 
 

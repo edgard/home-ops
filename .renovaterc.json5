@@ -82,6 +82,7 @@
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*kubeconform-version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*YAMLFMT_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*ACTIONLINT_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*RESTIC_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
       ],
     },
 
