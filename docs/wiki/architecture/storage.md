@@ -15,6 +15,11 @@ shared database directories need explicit capture and restore exclusions when
 those services are deployed. NFS PVC requests are not dataset quotas; capacity
 and stable-write behavior require separate NAS checks.
 
+The shared-service definitions retain database and staging claims and omit
+recursive fsGroup ownership changes. Their init checks require the NAS to honor
+numeric UID/GID ownership. The deployed file-backup configuration and restore
+eligibility explicitly exclude these infrastructure directories.
+
 The [shared-media ownership decision](../decisions/shared-media-group.md)
 explains why workloads using `existingClaim: media` must preserve the shared
 volume's group. The policy tests enforce the rule in source and rendered output.

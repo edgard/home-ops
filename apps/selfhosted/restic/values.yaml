@@ -113,6 +113,12 @@ controllers:
           - --tag
           - appdata
           - --verbose
+          - --exclude
+          - /data/appdata/platform-system/postgresql
+          - --exclude
+          - /data/appdata/platform-system/redis
+          - --exclude
+          - /data/appdata/selfhosted/shared-data-staging
         env:
           RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:

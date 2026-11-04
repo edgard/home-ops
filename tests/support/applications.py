@@ -92,9 +92,29 @@ def assert_application(app):
             "runAsNonRoot": False,
             "runAsUser": 0,
         }
+        profiles = [nonroot, root]
+        containers = [
+            container
+            for controller in values.get("controllers", {}).values()
+            for container in controller.get("containers", {}).values()
+        ]
+        if containers and all(
+            container.get("image", {}).get("repository")
+            in {"docker.io/library/postgres", "docker.io/library/redis"}
+            for container in containers
+        ):
+            profiles.append(
+                {
+                    "fsGroup": None,
+                    "fsGroupChangePolicy": None,
+                    "runAsGroup": 999,
+                    "runAsNonRoot": True,
+                    "runAsUser": 999,
+                }
+            )
         assert any(
             all(security.get(key) == value for key, value in profile.items())
-            for profile in (nonroot, root)
+            for profile in profiles
         ), f"pod security profile: {app.path}"
 
 

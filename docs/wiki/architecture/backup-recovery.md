@@ -27,7 +27,10 @@ The [shared-data foundation](../operations/shared-data.md) introduces an API-bac
 maintenance journal and database-aware capture/recovery adapters. Its registry
 tracks adoption separately from the existing file-backup path. Each PostgreSQL
 consumer must pass backup and restore acceptance before its cutover; the first
-foundation stage leaves the deployed file-backup workflow in place.
+foundation stage leaves the deployed file-backup workflow in place. The prepared
+shared-service PVCs and staging area are explicitly excluded from generic file
+capture and destructive restoration. Their operation schedulers stay suspended
+until database-aware recovery is accepted.
 
 ## Sources
 

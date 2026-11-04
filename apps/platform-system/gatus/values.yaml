@@ -41,6 +41,8 @@ gateway:
 envFrom:
   - secretRef:
       name: gatus-credentials
+  - secretRef:
+      name: shared-data-gatus-credentials
 
 persistence:
   enabled: false
@@ -304,3 +306,31 @@ config:
         - "[CONNECTED] == true"
       alerts:
         - type: telegram
+    - name: postgresql
+      group: data
+      url: tcp://postgresql.platform-system.svc.cluster.local:5432
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+      alerts:
+        - type: telegram
+    - name: redis
+      group: data
+      url: tcp://redis.platform-system.svc.cluster.local:6379
+      interval: 1m
+      conditions:
+        - "[CONNECTED] == true"
+      alerts:
+        - type: telegram
+  external-endpoints:
+    - name: shared-data
+      group: backups
+      token: $SHARED_DATA_GATUS_TOKEN
+      heartbeat:
+        interval: 26h
+      alerts:
+        - type: telegram
+          failure-threshold: 1
+          success-threshold: 1
+          send-on-resolved: true
+      enabled: false

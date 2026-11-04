@@ -3,6 +3,19 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-04] revision | Prepare shared PostgreSQL, Redis, and maintenance infrastructure
+
+Added the shared-service definitions, retained claims, independent administrator
+and consumer credential delivery, and paused operations templates. Added service
+and operations app pages, internal TCP monitoring, the inactive backup heartbeat,
+the home-automation secret-store allowance, and the bounded cross-namespace
+AppProject/RBAC explanation. Excluded database persistence and staging from
+legacy file capture and destructive restoration. Documented ownership/bootstrap
+and connection-budget constraints, including Sparky's separate authentication
+pool. Added startup/restart, scope, exclusion, and digest-discovery checks.
+November's semantic review is recorded below; application cutovers remain later
+stages.
+
 ## [2026-11-04] review | November semantic review and shared-data foundation
 
 Reviewed all application pages, architecture, decisions, and operations against

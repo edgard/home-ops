@@ -83,6 +83,30 @@ def test_workload_security_regressions(workload, path, value):
         )
 
 
+def test_storage_ownership_init_does_not_permit_root_database_servers(workload):
+    source = read_yaml(ROOT / "apps/platform-system/postgresql/values.yaml")
+    init = source["controllers"]["main"]["initContainers"]["permissions"]
+    image = init["image"]
+    container = {
+        "name": "permissions",
+        "image": image["repository"] + ":" + image["tag"] + "@" + image["digest"],
+        "securityContext": init["securityContext"],
+    }
+    pod = workload["spec"]["template"]["spec"]
+    pod["initContainers"] = [container]
+    assert_resource(workload)
+    bad = copy.deepcopy(workload)
+    bad["spec"]["template"]["spec"]["initContainers"][0]["securityContext"][
+        "capabilities"
+    ]["add"].append("NET_ADMIN")
+    with pytest.raises(AssertionError):
+        assert_resource(bad)
+    bad = copy.deepcopy(workload)
+    bad["spec"]["template"]["spec"]["containers"].append(container)
+    with pytest.raises(AssertionError):
+        assert_resource(bad)
+
+
 @pytest.mark.parametrize(
     "actual",
     [
@@ -125,7 +149,15 @@ def test_route_coverage_deduplicates_raw_and_rendered_hosts():
             "ClusterSecretStore",
             {
                 "conditions": [
-                    {"namespaces": ["argocd", "media", "platform-system", "selfhosted"]}
+                    {
+                        "namespaces": [
+                            "argocd",
+                            "home-automation",
+                            "media",
+                            "platform-system",
+                            "selfhosted",
+                        ]
+                    }
                 ]
             },
             {"name": "external-secrets-store"},

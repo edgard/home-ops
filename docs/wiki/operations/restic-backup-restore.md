@@ -59,6 +59,8 @@ its first foundation stage does not yet replace this deployed workflow.
   snapshots are not eligible.
 - Restore-all includes Argo-managed `nfs-fast` appdata PVCs and excludes
   shared/static storage: `media`, `restic-repo`, and `restic-appdata`.
+  Shared PostgreSQL, Redis, and maintenance staging claims are also excluded;
+  their recovery must use the database-aware workflow before consumers activate.
 - A confirmed restore creates a temporary `restic-restore` Job, pauses the
   `apps` ApplicationSet, disables automated sync for target apps, scales
   workloads down, deletes existing target contents under `/restore/data/appdata`,
