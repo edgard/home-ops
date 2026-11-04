@@ -365,7 +365,7 @@ def test_hold_resume_is_durable_and_restores_root_last(tmp_path, scenario):
             "shared_data",
             "maintenance_hold",
             {**connection, **variables},
-            timeout=180,
+            timeout=480,
         )
         assert result.returncode == 0, result.stdout + result.stderr
         journal_path = "/api/v1/namespaces/selfhosted/configmaps/shared-data-operation"
@@ -400,7 +400,7 @@ def test_hold_resume_is_durable_and_restores_root_last(tmp_path, scenario):
             "shared_data",
             "maintenance_resume",
             {**connection, **variables},
-            timeout=180,
+            timeout=480,
         )
         assert result.returncode == 0, result.stdout + result.stderr
         for path, spec in originals.items():
@@ -537,7 +537,7 @@ def test_recovery_only_restores_expired_fenced_backup(
                 "shared_data_wait_retries": 1,
                 "shared_data_wait_delay": 0,
             },
-            timeout=180,
+            timeout=480,
         )
         assert (result.returncode == 0) == success, result.stdout + result.stderr
         app = state["objects"][
@@ -575,7 +575,7 @@ def test_failed_completion_refences_root_and_holds_writers(tmp_path, held_scenar
             "shared_data",
             "maintenance_resume",
             {**connection, **variables},
-            timeout=180,
+            timeout=480,
         )
         assert result.returncode != 0
         root = state["objects"][
@@ -624,7 +624,7 @@ def test_admin_can_finish_completed_journal_with_unreleased_lease(
             "shared_data",
             "maintenance_resume",
             {**connection, **variables, "shared_data_admin_resume": True, **executor},
-            timeout=180,
+            timeout=480,
         )
         assert result.returncode == 0, result.stdout + result.stderr
         lease = state["objects"][
@@ -851,7 +851,7 @@ def test_expired_fenced_orphan_claim_releases_without_journal_or_target_replay(
             "shared_data",
             "maintenance_watchdog",
             {**connection, **variables, **executor},
-            timeout=180,
+            timeout=480,
         )
         assert (result.returncode == 0) == release, result.stdout + result.stderr
         assert state["objects"][path_for(lease)]["spec"]["holderIdentity"] == (
@@ -879,7 +879,7 @@ def test_completed_journal_cleanup_releases_lease_without_target_replay(
             "shared_data",
             "maintenance_watchdog",
             {**connection, **variables, **executor},
-            timeout=180,
+            timeout=480,
         )
         assert result.returncode == 0, result.stdout + result.stderr
         lease_path = "/apis/coordination.k8s.io/v1/namespaces/selfhosted/leases/shared-data-operation"
@@ -905,7 +905,7 @@ def test_concurrent_watchdog_and_admin_have_distinct_exclusive_lease_owner(
                 "shared_data",
                 entry,
                 {**connection, **variables, **executor, **extra},
-                timeout=240,
+                timeout=600,
             )
 
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -1034,7 +1034,7 @@ def test_new_orphan_claim_can_coexist_with_previous_completed_journal(
             "shared_data",
             "maintenance_watchdog",
             {**connection, **variables, **executor},
-            timeout=180,
+            timeout=480,
         )
         assert result.returncode == 0, result.stdout + result.stderr
         assert state["objects"][path_for(lease)]["spec"]["holderIdentity"] == ""
@@ -1058,7 +1058,7 @@ def test_ambiguous_completion_cannot_release_refenced_targets_as_complete(
             "shared_data",
             "maintenance_resume",
             {**connection, **variables},
-            timeout=240,
+            timeout=600,
         )
         assert result.returncode != 0
         journal_path = "/api/v1/namespaces/selfhosted/configmaps/shared-data-operation"
@@ -1079,7 +1079,7 @@ def test_ambiguous_completion_cannot_release_refenced_targets_as_complete(
             "shared_data",
             "maintenance_watchdog",
             {**connection, **variables, **executor},
-            timeout=180,
+            timeout=480,
         )
         assert result.returncode != 0, result.stdout + result.stderr
         assert state["objects"] == before

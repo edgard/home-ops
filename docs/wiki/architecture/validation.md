@@ -69,6 +69,10 @@ contract. Roles contain no test-only execution branches. Runtime assertions
 continue to protect operator inputs and live state. Injected API-error scenarios
 use a separate bounded budget from deliberate timeout scenarios; a delayed
 synthetic response verifies that the intended target-read fault is reached.
+Whole-role process ceilings include headroom for slower shared CI runners;
+they are separate from the short API polling and deliberate timeout assertions.
+Timed-out child groups are terminated and their last captured output is retained
+as exception diagnostics. CI reports the slowest scenarios for budget review.
 
 The CI SecretSpec installer scenario executes the toolchain action's real shell
 against synthetic release archives. It verifies successful installation, rejected
