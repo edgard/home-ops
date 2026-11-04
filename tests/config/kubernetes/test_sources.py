@@ -325,3 +325,24 @@ def test_recyclarr_configuration_regressions(path, value):
         assert_recyclarr(
             jsonpatch.apply_patch(config, [{"op": "add", "path": path, "value": value}])
         )
+
+
+def test_database_image_identity_profile_stays_nonroot_and_image_scoped():
+    app = next(app for app in APPS if app.name == "postgresql")
+    assert_application(app)
+    for field, value in [
+        ("runAsNonRoot", False),
+        ("runAsUser", 0),
+        ("runAsGroup", 1000),
+        ("fsGroup", 999),
+    ]:
+        values = copy.deepcopy(app.values)
+        values["defaultPodOptions"]["securityContext"][field] = value
+        with pytest.raises(AssertionError, match="security profile"):
+            assert_application(replace(app, values=values))
+    values = copy.deepcopy(app.values)
+    values["controllers"]["main"]["containers"]["app"]["image"]["repository"] = (
+        "example/other"
+    )
+    with pytest.raises(AssertionError, match="security profile"):
+        assert_application(replace(app, values=values))

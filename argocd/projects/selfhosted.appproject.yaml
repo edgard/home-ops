@@ -11,6 +11,14 @@ spec:
   destinations:
     - namespace: selfhosted
       server: https://kubernetes.default.svc
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+    - namespace: platform-system
+      server: https://kubernetes.default.svc
+    - namespace: media
+      server: https://kubernetes.default.svc
+    - namespace: home-automation
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: "*"
       kind: "*"

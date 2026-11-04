@@ -49,7 +49,7 @@
       description: "Container images in app values files",
       managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/values\\.ya?ml$/"],
       matchStrings: [
-        "repository:\\s*(?<depName>[^\\s\"']+)\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?",
+        "repository:\\s*(?<depName>[^\\s\"']+)\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?(?:\\s*\\n\\s*digest:\\s*[\"']?(?<currentDigest>sha256:[a-f0-9]{64})[\"']?)?",
       ],
       datasourceTemplate: "docker",
     },

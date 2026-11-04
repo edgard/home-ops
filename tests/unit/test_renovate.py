@@ -33,3 +33,26 @@ for(const manager of input.managers){
         },
     )
     assert found == [["github-releases", "cachix/secretspec", version]]
+
+
+def test_pinned_service_images_keep_tag_and_digest_discoverable():
+    path = "apps/platform-system/postgresql/values.yaml"
+    expected = read_yaml(ROOT / path)["controllers"]["main"]["containers"]["app"][
+        "image"
+    ]
+    found = node(
+        """const fs=require('fs'); const i=JSON.parse(fs.readFileSync(0,'utf8'));const found=[];
+for(const manager of i.managers){
+ if(!manager.managerFilePatterns.some(p=>new RegExp(p.slice(1,-1)).test(i.path)))continue;
+ for(const pattern of manager.matchStrings)for(const match of i.source.matchAll(new RegExp(pattern,'g'))){const g=match.groups;if(g.depName)found.push([g.depName,g.currentValue,g.currentDigest||null]);}
+}console.log(JSON.stringify(found));""",
+        {
+            "path": path,
+            "source": (ROOT / path).read_text(),
+            "managers": read_json5(ROOT / ".renovaterc.json5")["customManagers"],
+        },
+    )
+    assert found and all(
+        row == [expected["repository"], expected["tag"], expected["digest"]]
+        for row in found
+    )

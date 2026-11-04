@@ -85,6 +85,8 @@ The app pages describe dependencies and unusual behavior. Read the linked
 - [Istio](apps/platform-system/istio.md)
 - [Istio base](apps/platform-system/istio-base.md)
 - [Reloader](apps/platform-system/reloader.md)
+- [PostgreSQL](apps/platform-system/postgresql.md)
+- [Redis](apps/platform-system/redis.md)
 - [Tailscale router](apps/platform-system/tailscale-router.md)
 - [Tuppr](apps/platform-system/tuppr.md)
 
@@ -98,4 +100,5 @@ The app pages describe dependencies and unusual behavior. Read the linked
 - [Paperless](apps/selfhosted/paperless.md)
 - [Renovate Operator](apps/selfhosted/renovate-operator.md)
 - [Restic](apps/selfhosted/restic.md)
+- [Shared data operations](apps/selfhosted/shared-data.md)
 - [Twitch Drops Miner](apps/selfhosted/twitch-drops-miner.md)

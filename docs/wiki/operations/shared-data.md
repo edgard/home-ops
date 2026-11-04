@@ -9,12 +9,21 @@ The [rollout plan](../../superpowers/plans/2026-11-04-shared-data-services.md)
 introduces shared PostgreSQL and Redis, then new applications and individually
 rehearsed migrations. The first stage supplies a role-owned maintenance
 coordinator, native data adapters, an operations image, and isolated tests.
-Deployment resources and consumer cutovers follow in later PRs. The
+Consumer cutovers and the remaining orchestration follow in later PRs. The
 [registry](../../../ansible/roles/shared_data/files/registry.yaml) records intended
 database ownership, connection budgets, Redis allocations, writers, file paths,
 and encryption-key references. Its adoption flags remain false until each
 application passes its cutover gate. Removing a registry entry does not run SQL
 or delete databases, roles, or persistent files.
+
+The [PostgreSQL](../apps/platform-system/postgresql.md),
+[Redis](../apps/platform-system/redis.md), and
+[operations infrastructure](../apps/selfhosted/shared-data.md) definitions now
+prepare the shared services and storage. All operation schedulers remain paused
+until backup/recovery orchestration is wired and accepted. Prepared consumer
+Secrets do not activate application migrations. The existing daily file backup
+continues for unchanged applications and excludes live database and staging
+directories.
 
 The [existing Restic runbook](restic-backup-restore.md) remains the deployed
 file-recovery procedure. Shared PostgreSQL consumers require database-aware
