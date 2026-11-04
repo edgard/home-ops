@@ -1,7 +1,7 @@
 # k8tz
 
 Purpose: k8tz sets timezone behavior for workloads through an admission webhook.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
 
 ## Dependencies
 
@@ -17,7 +17,12 @@ No routed HTTP endpoint is declared in this app values file; inspect raw manifes
 
 ## Operational note
 
-Its sync wave and webhook failure policy protect bootstrap order and availability.
+Its webhook failure policy protects admission availability. The sync-wave
+annotation records intended order; explicit bootstrap checks provide dependency
+gating across independently reconciled Applications.
+
+The app metadata selects the official upstream Helm repository. Chart versions
+remain pinned independently of the repository URL.
 
 ## Sources
 

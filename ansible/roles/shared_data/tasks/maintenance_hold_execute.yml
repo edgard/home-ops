@@ -1,0 +1,133 @@
+---
+- name: Require confirmation before internal hold can initialize a Lease
+  ansible.builtin.assert:
+    that:
+      - shared_data_confirm | default(false) | bool
+      - not ansible_check_mode
+- name: Load existing transaction
+  ansible.builtin.include_tasks: maintenance_load.yml
+- name: Refuse an already owned maintenance Lease before any mutation
+  ansible.builtin.assert:
+    that:
+      - shared_data_lease.get('spec', {}).get('holderIdentity', '') in ['', shared_data_operation_id ~ ':' ~ shared_data_holder_pod_uid]
+      - shared_data_journal | length == 0 or shared_data_journal.phase == 'complete' or shared_data_journal.holder.uid == shared_data_holder_pod_uid
+    fail_msg: Maintenance Lease or journal is owned by another coordinator.
+- name: Verify current maintenance executor
+  ansible.builtin.include_tasks: maintenance_executor.yml
+- name: Initialize unheld Lease without overwriting a raced owner's spec
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: coordination.k8s.io/v1
+      kind: Lease
+      metadata:
+        name: "{{ shared_data_lease_name | default('shared-data-operation') }}"
+        namespace: "{{ shared_data_namespace | default('selfhosted') }}"
+      spec: {}
+  when: shared_data_lease | length == 0
+- name: Claim or reenter Lease with durable coordinator metadata
+  ansible.builtin.include_tasks: maintenance_takeover.yml
+  vars:
+    shared_data_takeover_expected_identity: "{{ shared_data_lease.get('spec', {}).get('holderIdentity', '') }}"
+    shared_data_takeover_stage: "{{ 'claimed' if shared_data_journal | length == 0 or shared_data_journal.phase == 'complete' else 'journaled' }}"
+- name: Freeze initial journal decision before setting transaction facts
+  ansible.builtin.set_fact:
+    shared_data_new_transaction: "{{ shared_data_journal | length == 0 or shared_data_journal.phase == 'complete' }}"
+- name: Build initial record-before-mutate journal
+  when: shared_data_new_transaction | bool
+  block:
+    - name: Read every original policy and writer field
+      kubernetes.core.k8s_info:
+        api_version: "{{ shared_data_target.api_version }}"
+        kind: "{{ shared_data_target.kind }}"
+        name: "{{ shared_data_target.name }}"
+        namespace: "{{ shared_data_target.namespace }}"
+      loop: "{{ shared_data_targets }}"
+      loop_control:
+        loop_var: shared_data_target
+        label: "{{ shared_data_target.kind }}/{{ shared_data_target.name }}"
+      register: shared_data_original_reads
+    - name: Require every registered resource before mutation
+      ansible.builtin.assert:
+        that: shared_data_original.resources | length == 1
+        fail_msg: A selected maintenance resource is missing or ambiguous.
+      loop: "{{ shared_data_original_reads.results }}"
+      loop_control:
+        loop_var: shared_data_original
+        label: "{{ shared_data_original.shared_data_target.name }}"
+    - name: Initialize immutable originals
+      ansible.builtin.set_fact:
+        shared_data_snapshots: []
+    - name: Capture only nonsecret original fields
+      ansible.builtin.set_fact:
+        shared_data_snapshots: "{{ shared_data_snapshots + [shared_data_original.shared_data_target | shared_data_snapshot(shared_data_original.resources[0])] }}"
+      loop: "{{ shared_data_original_reads.results }}"
+      loop_control:
+        loop_var: shared_data_original
+        label: "{{ shared_data_original.shared_data_target.name }}"
+    - name: Build durable journal record
+      ansible.builtin.set_fact:
+        shared_data_journal:
+          version: 1
+          operation_id: "{{ shared_data_operation_id }}"
+          operation_kind: "{{ shared_data_operation_kind }}"
+          apps: "{{ shared_data_apps }}"
+          holder: "{{ shared_data_executor }}"
+          coordinator: "{{ shared_data_executor }}"
+          epoch: "{{ shared_data_takeover_result.result.spec.leaseTransitions }}"
+          phase: recorded
+          recovery_result: none
+          snapshots: "{{ shared_data_snapshots }}"
+    - name: Persist originals before changing any target
+      ansible.builtin.include_tasks: maintenance_save.yml
+- name: Require same operation scope when reentering hold
+  ansible.builtin.assert:
+    that: shared_data_journal.apps == shared_data_apps
+    fail_msg: Held operation scope differs from selected consumers.
+- name: Fence GitOps in safe dependency order
+  ansible.builtin.include_tasks: maintenance_fence.yml
+- name: Check node upgrade state before holding Tuppr
+  ansible.builtin.include_tasks: maintenance_upgrades.yml
+- name: Hold Tuppr controller
+  ansible.builtin.include_tasks: maintenance_patch.yml
+  loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'tuppr') | list }}"
+  loop_control:
+    loop_var: shared_data_target
+  vars:
+    shared_data_restore_target: false
+- name: Verify Tuppr controller and pods stopped
+  ansible.builtin.include_tasks: maintenance_wait.yml
+  vars:
+    shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'tuppr') | list }}"
+- name: Recheck node upgrades after Tuppr termination closes its race
+  ansible.builtin.include_tasks: maintenance_upgrades.yml
+- name: Suspend registered CronJobs
+  ansible.builtin.include_tasks: maintenance_patch.yml
+  loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'cronjob') | list }}"
+  loop_control:
+    loop_var: shared_data_target
+  vars:
+    shared_data_restore_target: false
+- name: Drain existing CronJob writers before scaling application controllers
+  ansible.builtin.include_tasks: maintenance_wait_pods.yml
+  vars:
+    shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'cronjob') | list }}"
+- name: Drain application-owned background work before stopping controllers
+  ansible.builtin.include_tasks: drain.yml
+  when: shared_data_drain_enabled | default(false) | bool
+- name: Stop registered application writers
+  ansible.builtin.include_tasks: maintenance_patch.yml
+  loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | list }}"
+  loop_control:
+    loop_var: shared_data_target
+  vars:
+    shared_data_restore_target: false
+- name: Verify all selected writers stopped
+  ansible.builtin.include_tasks: maintenance_wait.yml
+  vars:
+    shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'in', ['tuppr', 'workload', 'cronjob']) | list }}"
+- name: Record successful hold
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'phase': 'held'}) }}"
+- name: Persist successful hold
+  ansible.builtin.include_tasks: maintenance_save.yml

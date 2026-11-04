@@ -1,0 +1,66 @@
+---
+- name: Verify live resume executor before any coordination mutation
+  ansible.builtin.include_tasks: maintenance_executor.yml
+- name: Load exact transaction to resume
+  ansible.builtin.include_tasks: maintenance_load.yml
+- name: Require exact durable operation and scope
+  ansible.builtin.assert:
+    that:
+      - shared_data_journal | length > 0
+      - shared_data_journal.operation_id == shared_data_operation_id
+      - shared_data_journal.operation_kind == shared_data_operation_kind
+      - shared_data_journal.apps == shared_data_apps
+    fail_msg: Resume requires the exact original transaction and scope.
+- name: Freeze whether workload restoration is required
+  ansible.builtin.set_fact:
+    shared_data_resume_needs_restore: "{{ shared_data_journal.phase != 'complete' }}"
+- name: Release only a completed journal's exact fenced Lease without replay
+  ansible.builtin.include_tasks: maintenance_cleanup.yml
+  when:
+    - not shared_data_resume_needs_restore | bool
+    - shared_data_admin_resume | default(false) | bool
+- name: Require explicit inspection for a completed but unreleased journal
+  ansible.builtin.assert:
+    that: shared_data_resume_needs_restore | bool or shared_data_admin_resume | default(false) | bool
+- name: Resume incomplete transaction with distinct administrative takeover when needed
+  when: shared_data_resume_needs_restore | bool
+  block:
+    - name: Inspect historical coordinators before administrative takeover
+      when:
+        - shared_data_admin_resume | default(false) | bool
+        - shared_data_lease.get('spec', {}).get('holderIdentity', '') != shared_data_operation_id ~ ':' ~ shared_data_holder_pod_uid
+      block:
+        - name: Read all coordinator and writer Pods
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Pod
+          register: shared_data_resume_pods
+        - name: Read all coordinator and writer Jobs
+          kubernetes.core.k8s_info:
+            api_version: batch/v1
+            kind: Job
+          register: shared_data_resume_jobs
+        - name: Refuse takeover while any previous coordinator or child can write
+          ansible.builtin.assert:
+            that: shared_data_journal | shared_data_recovery_fenced(shared_data_lease, shared_data_resume_pods.resources, shared_data_resume_jobs.resources, shared_data_holder_pod_uid)
+            fail_msg: Fence all original and previous recovery coordinators and child Jobs/Pods before administrative takeover.
+        - name: Claim inspected transaction with this administrator Pod UID
+          ansible.builtin.include_tasks: maintenance_takeover.yml
+          vars:
+            shared_data_takeover_expected_identity: "{{ shared_data_lease.spec.holderIdentity }}"
+        - name: Record new administrative coordinator without changing the original holder
+          ansible.builtin.set_fact:
+            shared_data_journal: "{{ shared_data_journal | combine({'coordinator': shared_data_executor, 'epoch': shared_data_takeover_result.result.spec.leaseTransitions, 'recovery_result': 'admin-resume'}) }}"
+        - name: Persist administrative takeover with compare-and-swap journal transition
+          ansible.builtin.include_tasks: maintenance_save.yml
+    - name: Require current live executor to own this exact journal and Lease
+      ansible.builtin.assert:
+        that:
+          - shared_data_journal.get('coordinator', shared_data_journal.holder).uid == shared_data_holder_pod_uid
+          - shared_data_lease.get('spec', {}).get('holderIdentity', '') == shared_data_operation_id ~ ':' ~ shared_data_holder_pod_uid or shared_data_admin_resume | default(false) | bool
+        fail_msg: Only the current live Lease and journal coordinator may resume targets.
+    - name: Preserve original holder while recording the current legacy coordinator
+      ansible.builtin.set_fact:
+        shared_data_journal: "{{ shared_data_journal | combine({'coordinator': shared_data_executor}) }}"
+    - name: Restore original fields with root last and fail-closed recovery
+      ansible.builtin.include_tasks: maintenance_restore.yml

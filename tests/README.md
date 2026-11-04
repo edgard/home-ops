@@ -29,7 +29,10 @@ committed lock into `.venv`; pinned collections remain in
 selects the interpreter within the supported project range. Machine tools belong
 to Homebrew/Chezmoi, not this repository's dependency installer. Local tools include
 uv, Task, OpenTofu, yamlfmt, actionlint, ShellCheck, Node 24 or newer, Helm,
-kubeconform, Pluto, and SecretSpec matching the CLI role defaults. The installer
+kubeconform, Pluto, Restic, a running Docker engine, and SecretSpec matching the
+CLI role defaults. Native data tests start disposable PostgreSQL and Redis
+containers with synthetic credentials and remove them on exit. Native Restic
+tests use a disposable local repository. The installer
 scenario also needs Bash, tar with xz support, and sha256sum. Python lint, format,
 and schema CLIs come from `.venv`, not global installations. Missing tools fail
 rather than silently skipping required checks.

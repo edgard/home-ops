@@ -22,6 +22,8 @@ dev = [
     "ruff==0.17.3",
     "yamllint==1.38.0",
     "check-jsonschema==0.39.0",
+    "psycopg[binary]==3.3.7",
+    "redis==8.1.0",
 ]
 
 [tool.uv]

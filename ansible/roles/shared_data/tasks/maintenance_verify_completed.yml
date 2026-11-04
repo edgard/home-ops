@@ -1,0 +1,22 @@
+---
+- name: Read every completed transaction target without replaying policy or writer state
+  kubernetes.core.k8s_info:
+    api_version: "{{ shared_data_target.api_version }}"
+    kind: "{{ shared_data_target.kind }}"
+    name: "{{ shared_data_target.name }}"
+    namespace: "{{ shared_data_target.namespace }}"
+  loop: "{{ shared_data_journal.snapshots }}"
+  loop_control:
+    loop_var: shared_data_target
+    label: "{{ shared_data_target.kind }}/{{ shared_data_target.name }}"
+  register: shared_data_completed_reads
+- name: Require exact original target identity and field presence before completed cleanup
+  ansible.builtin.assert:
+    that:
+      - shared_data_completed_read.resources | length == 1
+      - shared_data_completed_read.shared_data_target | shared_data_snapshot_restored(shared_data_completed_read.resources | first | default({}))
+    fail_msg: Completed journal targets differ from original snapshots; retain the Lease for explicit inspection without replaying state.
+  loop: "{{ shared_data_completed_reads.results }}"
+  loop_control:
+    loop_var: shared_data_completed_read
+    label: "{{ shared_data_completed_read.shared_data_target.kind }}/{{ shared_data_completed_read.shared_data_target.name }}"

@@ -1,0 +1,3 @@
+---
+- name: Hold registered data writers
+  ansible.builtin.import_tasks: maintenance_hold.yml

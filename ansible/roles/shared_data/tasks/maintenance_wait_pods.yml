@@ -1,0 +1,14 @@
+---
+- name: Reset joint writer quiescence result
+  ansible.builtin.set_fact:
+    shared_data_writers_idle: false
+- name: Refresh Jobs and Pods together on every bounded quiescence iteration
+  ansible.builtin.include_tasks: maintenance_poll_writers.yml
+  loop: "{{ range(0, (shared_data_wait_retries | default(60) | int) + 1) | list }}"
+  loop_control:
+    loop_var: shared_data_writer_attempt
+  when: not shared_data_writers_idle | bool
+- name: Require a fresh joint Jobs and Pods barrier
+  ansible.builtin.assert:
+    that: shared_data_writers_idle | bool
+    fail_msg: Registered writer Jobs or Pods remain active or restart-capable; maintenance remains held without forced deletion.

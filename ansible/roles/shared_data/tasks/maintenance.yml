@@ -1,0 +1,7 @@
+---
+- name: Validate maintenance action
+  ansible.builtin.assert:
+    that: shared_data_maintenance_action | default('') in ['hold', 'resume', 'recover']
+    fail_msg: Select hold, resume, or recover.
+- name: Dispatch maintenance action
+  ansible.builtin.include_tasks: "maintenance_{{ shared_data_maintenance_action }}.yml"

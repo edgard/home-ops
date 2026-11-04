@@ -1,0 +1,3 @@
+---
+- name: Resume registered data writers
+  ansible.builtin.import_tasks: maintenance_resume.yml

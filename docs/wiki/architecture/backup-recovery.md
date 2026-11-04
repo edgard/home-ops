@@ -1,7 +1,7 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
+Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
 
 The Restic application serves a repository and runs appdata backup and
 maintenance workloads. Restore commands enter the Ansible role in plan-only
@@ -22,6 +22,12 @@ see [secret recovery](../operations/secrets-maintenance.md). The existing Talos
 identity and infrastructure values resolve from Bitwarden through scoped
 SecretSpec. Protected infrastructure-state backups have a separate recovery
 procedure; they do not replace Bitwarden availability.
+
+The [shared-data foundation](../operations/shared-data.md) introduces an API-backed
+maintenance journal and database-aware capture/recovery adapters. Its registry
+tracks adoption separately from the existing file-backup path. Each PostgreSQL
+consumer must pass backup and restore acceptance before its cutover; the first
+foundation stage leaves the deployed file-backup workflow in place.
 
 ## Sources
 

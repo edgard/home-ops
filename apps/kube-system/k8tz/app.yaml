@@ -1,7 +1,7 @@
 ---
 chart:
-  repo: oci://ghcr.io/home-operations/charts-mirror/k8tz
-  path: "."
+  repo: https://k8tz.github.io/k8tz
+  name: k8tz
   version: 0.19.0
 sync:
   wave: "-1"

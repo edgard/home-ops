@@ -1,0 +1,43 @@
+---
+- name: Read queued application controller and shutdown grace
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+    context: "{{ kube_context | default(omit) }}"
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ shared_data_registry.consumers[shared_data_drain_app].namespace }}"
+    name: "{{ shared_data_registry.consumers[shared_data_drain_app].drain.workload }}"
+  register: shared_data_drain_controller
+
+- name: Require graceful shutdown longer than the application task timeout
+  ansible.builtin.assert:
+    that:
+      - shared_data_drain_controller.resources | length == 1
+      - shared_data_drain_controller.resources[0].spec.template.spec.terminationGracePeriodSeconds | default(30) | int >= shared_data_registry.consumers[shared_data_drain_app].drain.minimum_grace_seconds
+      - shared_data_drain_controller.resources[0].spec.selector.matchExpressions | default([]) | length == 0
+    fail_msg: Queue consumers need rehearsed graceful termination before enrollment in coordinated operations.
+
+- name: Read current queued application Pods
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+    context: "{{ kube_context | default(omit) }}"
+    api_version: v1
+    kind: Pod
+    namespace: "{{ shared_data_registry.consumers[shared_data_drain_app].namespace }}"
+    label_selectors: "{{ shared_data_drain_controller.resources[0].spec.selector.matchLabels.items() | map('join', '=') | list }}"
+  register: shared_data_drain_pods
+
+- name: Wait for active and prefetched application work to finish
+  kubernetes.core.k8s_exec:
+    kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+    context: "{{ kube_context | default(omit) }}"
+    namespace: "{{ shared_data_registry.consumers[shared_data_drain_app].namespace }}"
+    pod: "{{ item.metadata.name }}"
+    container: app
+    command: "{{ shared_data_registry.consumers[shared_data_drain_app].drain.command }}"
+  register: shared_data_drain_result
+  until: shared_data_drain_result.return_code | default(1) | int == 0
+  retries: 60
+  delay: 5
+  loop: "{{ shared_data_drain_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list }}"
+  no_log: true

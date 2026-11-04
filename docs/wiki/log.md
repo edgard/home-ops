@@ -3,6 +3,27 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-04] review | November semantic review and shared-data foundation
+
+Reviewed all application pages, architecture, decisions, and operations against
+their current owning sources and source changes since their recorded reviews.
+Corrected the claim that sync-wave annotations on independent ApplicationSet
+children enforce cross-application readiness. Documented the legacy restore
+role's root self-heal limitation and the distinction between its deployed path
+and the new root-aware maintenance foundation. Added the staged shared-data
+operations topic, registry/image sources, secrets/storage/controller
+cross-references, required disposable native database/Restic tests, and the
+separate operations-image build gate.
+
+Repaired k8tz's chart source using its official upstream repository while
+retaining the pinned chart version. Reviewed app dependencies, persistent-data
+boundaries, media ownership, networking, explicit Gatus targets, Bitwarden
+delivery, Talos bootstrap, Terraform, Paperless AI recovery, and dependency
+maintenance. Their remaining explanations match current sources; intervening
+version changes do not require prose updates. App definitions and pages remain
+paired, with no orphan applications. The foundation stage does not represent a
+shared-service deployment or an application migration.
+
 ## [2026-10-27] revision | Bound Paperless cold starts and index recovery
 
 Extended the main container startup-probe budget for cold AI initialization while

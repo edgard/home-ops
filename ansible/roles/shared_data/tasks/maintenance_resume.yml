@@ -1,0 +1,20 @@
+---
+- name: Validate maintenance resume inputs
+  ansible.builtin.include_tasks: maintenance_validate.yml
+- name: Execute confirmed maintenance resume
+  ansible.builtin.include_tasks: maintenance_resume_execute.yml
+  when:
+    - shared_data_confirm | default(false) | bool
+    - not ansible_check_mode
+  args:
+    apply:
+      module_defaults:
+        kubernetes.core.k8s:
+          kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+          context: "{{ kube_context | default(omit) }}"
+        kubernetes.core.k8s_info:
+          kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+          context: "{{ kube_context | default(omit) }}"
+        kubernetes.core.k8s_json_patch:
+          kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+          context: "{{ kube_context | default(omit) }}"

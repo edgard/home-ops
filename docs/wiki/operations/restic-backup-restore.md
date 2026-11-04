@@ -2,7 +2,7 @@
 # Kubernetes Restic Restore Runbook
 
 Purpose: operator procedure for a Kubernetes appdata restore.
-Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
+Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
 
 The `restic` app backs up Kubernetes appdata and serves the same repository used
 by the macOS and Windows workstation backups. Kubernetes owns repository
@@ -42,6 +42,12 @@ The backup and maintenance schedules and retention are defined in
 before relying on a schedule.
 
 ## Rules
+
+The deployed legacy file-restore role pauses the ApplicationSet and target
+Applications. It does not hold the self-healing root, which can restore those
+policies during a restore. The root-aware
+[shared-data coordinator](shared-data.md) is being introduced in stages;
+its first foundation stage does not yet replace this deployed workflow.
 
 - Always preview first. Restore tasks are plan-only unless
   `confirm_restore=true` is set.

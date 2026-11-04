@@ -1,7 +1,7 @@
 # Source catalog
 
 Purpose: locate the evidence used to build and maintain this wiki.
-Status: current. Reviewed against: `6aeb7489ec815222523c414983c8678bb5fd93bc`.
+Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
 
 The immutable starting snapshot is Git commit
 [`2b1488a2`](https://github.com/edgard/home-ops/tree/2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b).
@@ -16,6 +16,7 @@ catalog is a guide to it, not a copy of all tracked files.
 | App discovery and reconciliation | [ApplicationSet](../../argocd/appsets/apps.appset.yaml) | [GitOps delivery](architecture/gitops-delivery.md) |
 | App definitions | [Apps](../../apps) | [App catalog](index.md#applications) |
 | Bootstrap and operations | [Ansible](../../ansible) and [Taskfile](../../Taskfile.yaml) | [Talos](architecture/talos-bootstrap.md), [recovery](architecture/backup-recovery.md) |
+| Shared application data foundation | [Shared-data role](../../ansible/roles/shared_data), [operations image](../../containers/data-tools), and [image workflow](../../.github/workflows/data-tools.yml) | [Shared data operations](operations/shared-data.md) |
 | Secrets and CLI inputs | [SecretSpec](../../secretspec.toml), [CLI role](../../ansible/roles/cli_secrets), [platform playbooks](../../ansible/playbooks) | [Secrets](architecture/secrets.md), [maintenance](operations/secrets-maintenance.md) |
 | External infrastructure | [Terraform](../../terraform) and [provider lock](../../terraform/.terraform.lock.hcl) | [Terraform](architecture/terraform.md) |
 | Enforced contracts | [Test guide](../../tests/README.md), [Python metadata](../../pyproject.toml), [Python lock](../../uv.lock), [assertions and scenarios](../../tests), and [CI](../../.github/workflows/ci.yml) | [Validation](architecture/validation.md) |

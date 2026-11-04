@@ -1,0 +1,11 @@
+**
+!containers/
+!containers/data-tools/
+!containers/data-tools/**
+!ansible/
+!ansible/requirements.yml
+!ansible/playbooks/
+!ansible/playbooks/shared-data.yml
+!ansible/roles/
+!ansible/roles/shared_data/
+!ansible/roles/shared_data/**
