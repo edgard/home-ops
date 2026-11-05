@@ -1,7 +1,7 @@
 # Redis
 
 Purpose: provide persistent shared Redis for explicitly registered queue/cache consumers.
-Status: current. Reviewed against: `34d4c9a9e5ac52047ccd511b102b405039dbe10b`.
+Status: current. Reviewed against: `0f2fb9820f152e526c77dc6dfc16a17d040a5a8f`.
 
 ## Dependencies
 
@@ -29,7 +29,9 @@ preserve other logical database allocations and absolute expirations.
 ## Networking and monitoring
 
 The ClusterIP endpoint is internal. Anonymous access is disabled, and readiness
-requires authenticated PING. Gatus checks TCP reachability. Application users
+requires authenticated PING. The native checks exercise the exact configured
+probe commands for successful and failed authentication; TCP reachability alone
+does not verify them. Gatus checks TCP reachability. Application users
 have separate credentials and Pub/Sub prefixes, but logical databases are not
 an ACL isolation boundary: a user can select another database. The cluster
 remains trusted, without an asserted NetworkPolicy boundary.

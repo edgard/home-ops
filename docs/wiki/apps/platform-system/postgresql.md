@@ -1,7 +1,7 @@
 # PostgreSQL
 
 Purpose: provide the shared PostgreSQL service for explicitly onboarded consumers.
-Status: current. Reviewed against: `34d4c9a9e5ac52047ccd511b102b405039dbe10b`.
+Status: current. Reviewed against: `0f2fb9820f152e526c77dc6dfc16a17d040a5a8f`.
 
 ## Dependencies
 
@@ -15,7 +15,11 @@ database does not establish that application provisioning has completed.
 
 The claim mounts the PostgreSQL parent directory; the major-version-specific
 PGDATA path is owned by UID/GID 999. A narrow root init creates fresh directories
-and checks ownership, without recursively changing an existing cluster.
+and checks ownership, without recursively changing an existing cluster. NAS
+parents can pass setgid to a fresh directory. The init normalizes only an empty,
+correctly owned bootstrap directory; nonempty data with unexpected permissions
+remains rejected for inspection. Linked PGDATA paths are rejected before any
+permission changes.
 The server runs as UID 999 with a read-only root filesystem and separate
 runtime/shared-memory mounts. The NAS must honor numeric ownership and stable
 writes. PVC requests are not NFS quotas or reservations.

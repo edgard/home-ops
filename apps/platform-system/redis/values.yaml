@@ -113,7 +113,7 @@ controllers:
                 command:
                   - /bin/sh
                   - -ec
-                  - test "$(redis-cli -e --no-auth-warning --user admin --host 127.0.0.1 ping)" = PONG
+                  - test "$(redis-cli -e --no-auth-warning --user admin -h 127.0.0.1 ping)" = PONG
               periodSeconds: 10
               timeoutSeconds: 5
               failureThreshold: 30
@@ -125,7 +125,7 @@ controllers:
                 command:
                   - /bin/sh
                   - -ec
-                  - test "$(redis-cli -e --no-auth-warning --user admin --host 127.0.0.1 ping)" = PONG
+                  - test "$(redis-cli -e --no-auth-warning --user admin -h 127.0.0.1 ping)" = PONG
               periodSeconds: 10
               timeoutSeconds: 5
               failureThreshold: 6
@@ -137,7 +137,7 @@ controllers:
                 command:
                   - /bin/sh
                   - -ec
-                  - test "$(redis-cli -e --no-auth-warning --user admin --host 127.0.0.1 ping)" = PONG
+                  - test "$(redis-cli -e --no-auth-warning --user admin -h 127.0.0.1 ping)" = PONG
               periodSeconds: 10
               timeoutSeconds: 5
               failureThreshold: 6
