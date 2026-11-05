@@ -4,6 +4,7 @@ import subprocess
 import time
 import uuid
 
+import pytest
 import yaml
 
 from tests.support.runtime import ROOT
@@ -198,11 +199,33 @@ pg_settings = dict(
 )
 
 
-def test_shared_services_bootstrap_and_restart_persistence():
+@pytest.mark.parametrize("existing_empty", [False, True])
+def test_shared_services_bootstrap_and_restart_persistence(existing_empty):
     try:
         pgdata = volume("pgdata")
         pgrun = volume("pgrun")
         redisdata = volume("redisdata")
+        run(
+            "run",
+            "--rm",
+            "-v",
+            pgdata + ":/data",
+            fullimage("postgresql"),
+            "sh",
+            "-ec",
+            "chmod 2775 /data",
+        )
+        if existing_empty:
+            run(
+                "run",
+                "--rm",
+                "-v",
+                pgdata + ":/data",
+                fullimage("postgresql"),
+                "sh",
+                "-ec",
+                "install -d -m 0700 -o 999 -g 999 /data/18/docker; test \"$(stat -c '%u:%g:%a' /data/18/docker)\" = 999:999:2700",
+            )
         initialize("postgresql", pgdata, pgrun)
         pg = pgstart(pgdata, pgrun)
         assert run("exec", pg, "id", "-u") == "999"
@@ -251,6 +274,10 @@ def test_shared_services_bootstrap_and_restart_persistence():
         initialize("redis", redisdata)
         redis = redisstart(redisdata, config)
         assert run("exec", redis, "id", "-u") == "999"
+        for probe in values["redis"]["controllers"]["main"]["containers"]["app"][
+            "probes"
+        ].values():
+            assert run("exec", redis, *probe["spec"]["exec"]["command"]) == ""
         wrong_probe = subprocess.run(
             [
                 "docker",
@@ -303,6 +330,112 @@ def test_shared_services_bootstrap_and_restart_persistence():
         )
         assert "NOAUTH" in unauth
 
+    finally:
+        for name in containers:
+            run("rm", "-f", name, check=False)
+        for name in volumes:
+            run("volume", "rm", name, check=False)
+
+
+def test_postgresql_init_refuses_to_rewrite_nonempty_data_permissions():
+    try:
+        pgdata = volume("unsafe-pgdata")
+        pgrun = volume("unsafe-pgrun")
+        run(
+            "run",
+            "--rm",
+            "-v",
+            pgdata + ":/data",
+            fullimage("postgresql"),
+            "sh",
+            "-ec",
+            "install -d -m 2700 -o 999 -g 999 /data/18/docker; printf retained > /data/18/docker/PG_VERSION",
+        )
+        with pytest.raises(RuntimeError, match="refusing unsafe startup"):
+            initialize("postgresql", pgdata, pgrun)
+        assert (
+            run(
+                "run",
+                "--rm",
+                "-v",
+                pgdata + ":/data:ro",
+                fullimage("postgresql"),
+                "stat",
+                "-c",
+                "%u:%g:%a",
+                "/data/18/docker",
+            )
+            == "999:999:2700"
+        )
+        assert (
+            run(
+                "run",
+                "--rm",
+                "-v",
+                pgdata + ":/data:ro",
+                fullimage("postgresql"),
+                "cat",
+                "/data/18/docker/PG_VERSION",
+            )
+            == "retained"
+        )
+    finally:
+        for name in containers:
+            run("rm", "-f", name, check=False)
+        for name in volumes:
+            run("volume", "rm", name, check=False)
+
+
+@pytest.mark.parametrize("linked_parent", [False, True])
+def test_postgresql_init_rejects_links_without_changing_the_target(linked_parent):
+    try:
+        pgdata = volume("linked-pgdata")
+        pgrun = volume("linked-pgrun")
+        setup = (
+            "install -d -m 0700 -o 999 -g 999 /data/original/docker; "
+            "printf retained > /data/original/docker/PG_VERSION; "
+            "ln -s original /data/18; chown -h 999:999 /data/18"
+            if linked_parent
+            else "install -d -m 2700 -o 999 -g 999 /data/original; "
+            "printf retained > /data/original/PG_VERSION; install -d /data/18; "
+            "ln -s ../original /data/18/docker; chown -h 999:999 /data/18/docker"
+        )
+        run(
+            "run",
+            "--rm",
+            "-v",
+            pgdata + ":/data",
+            fullimage("postgresql"),
+            "sh",
+            "-ec",
+            setup,
+        )
+        with pytest.raises(RuntimeError, match="refusing unsafe startup"):
+            initialize("postgresql", pgdata, pgrun)
+        target = "/data/original/docker" if linked_parent else "/data/original"
+        assert run(
+            "run",
+            "--rm",
+            "-v",
+            pgdata + ":/data:ro",
+            fullimage("postgresql"),
+            "stat",
+            "-c",
+            "%u:%g:%a",
+            target,
+        ) == ("999:999:700" if linked_parent else "999:999:2700")
+        assert (
+            run(
+                "run",
+                "--rm",
+                "-v",
+                pgdata + ":/data:ro",
+                fullimage("postgresql"),
+                "cat",
+                target + "/PG_VERSION",
+            )
+            == "retained"
+        )
     finally:
         for name in containers:
             run("rm", "-f", name, check=False)

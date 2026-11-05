@@ -1,5 +1,18 @@
 # Wiki log
 
+## 2026-11-05 — Shared database startup corrections
+
+- The NAS passed setgid to the empty new PGDATA directory, so the strict startup
+  check refused it. Normalize only an empty UID/GID999 directory and retain the
+  existing-data refusal. Native tests cover inherited setgid, restart persistence,
+  and unchanged nonempty data on refusal.
+- Reject linked PGDATA paths before changing permissions. Correct Redis probes
+  to use the pinned CLI's supported host flag and test successful authentication
+  with the exact deployed commands.
+- Updated the [PostgreSQL](apps/platform-system/postgresql.md) and
+  [Redis](apps/platform-system/redis.md) pages; related shared data/storage
+  explanations remain accurate.
+
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 

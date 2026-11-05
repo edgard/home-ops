@@ -27,8 +27,20 @@ controllers:
           - |
             set -eu
             # Only create/chown fresh directories; never recursively rewrite a live cluster.
+            if [ -L /var/lib/postgresql/18 ] || [ -L /var/lib/postgresql/18/docker ]; then
+              echo >&2 'PGDATA must use real directories; refusing unsafe startup'
+              exit 1
+            fi
             if [ ! -d /var/lib/postgresql/18/docker ]; then
               install -d -m 0700 -o 999 -g 999 /var/lib/postgresql/18/docker
+            fi
+            # NAS parents can pass setgid to a newly created empty directory.
+            # Normalize only an empty, correctly owned bootstrap directory.
+            if [ "$(stat -c '%u:%g' /var/lib/postgresql/18/docker)" = '999:999' ]; then
+              entries=$(find /var/lib/postgresql/18/docker -mindepth 1 -maxdepth 1 -printf x -quit)
+              if [ -z "$entries" ]; then
+                chmod 00700 /var/lib/postgresql/18/docker
+              fi
             fi
             test "$(stat -c '%u:%g:%a' /var/lib/postgresql/18/docker)" = '999:999:700' || {
               echo >&2 'PGDATA must be NAS-owned by uid/gid 999 with mode 0700; refusing unsafe startup'
