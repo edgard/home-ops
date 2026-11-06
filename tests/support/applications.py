@@ -100,6 +100,20 @@ def assert_application(app):
         ]
         if containers and all(
             container.get("image", {}).get("repository")
+            == "ghcr.io/edgard/home-ops-data-tools"
+            for container in containers
+        ):
+            profiles.append(
+                {
+                    "fsGroup": None,
+                    "fsGroupChangePolicy": None,
+                    "runAsGroup": 0,
+                    "runAsNonRoot": False,
+                    "runAsUser": 0,
+                }
+            )
+        if containers and all(
+            container.get("image", {}).get("repository")
             in {"docker.io/library/postgres", "docker.io/library/redis"}
             for container in containers
         ):

@@ -1,0 +1,16 @@
+---
+- name: Require a unique registered application scope
+  ansible.builtin.assert:
+    that:
+      - shared_data_scope_apps is sequence
+      - shared_data_scope_apps is not string
+      - shared_data_scope_apps | length == shared_data_scope_apps | unique | list | length
+      - shared_data_scope_apps | difference((shared_data_registry.consumers | combine(shared_data_registry.file_consumers | default({}))) | list) | length == 0
+    fail_msg: Select unique registered application names.
+
+- name: Require native consumers for provisioning and capture
+  when: shared_data_scope_action in ['backup', 'provision']
+  ansible.builtin.assert:
+    that:
+      - shared_data_scope_apps | difference(shared_data_registry.consumers | list) | length == 0
+    fail_msg: "Native {{ shared_data_scope_action }} requires registered native consumers from registry.consumers; file-only consumers are unsupported."

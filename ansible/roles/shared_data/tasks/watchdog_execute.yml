@@ -1,0 +1,134 @@
+---
+- name: Inspect durable coordination state without NFS
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ shared_data_namespace }}"
+    name: "{{ item.name }}"
+  loop:
+    - {api: v1, kind: ConfigMap, name: "{{ shared_data_journal_name }}"}
+    - {api: coordination.k8s.io/v1, kind: Lease, name: "{{ shared_data_lease_name }}"}
+  register: shared_data_watchdog_reads
+- name: Decode nonsecret API state
+  ansible.builtin.set_fact:
+    shared_data_watchdog_journal: "{{ (shared_data_watchdog_reads.results[0].resources[0].data['journal.json'] | from_json) if shared_data_watchdog_reads.results[0].resources | length else {} }}"
+    shared_data_watchdog_lease: "{{ shared_data_watchdog_reads.results[1].resources | first | default({}) }}"
+- name: Treat active or absent operations as healthy no-ops
+  ansible.builtin.set_fact:
+    shared_data_watchdog_stale: >-
+      {{ shared_data_watchdog_lease.get('spec', {}).get('holderIdentity', '') | length > 0
+         and shared_data_watchdog_lease | shared_data_lease_expired('' | shared_data_now) }}
+- name: Fence only a confirmed stale operation
+  when: shared_data_watchdog_stale | bool
+  block:
+    - name: Verify distinct live watchdog actor
+      ansible.builtin.include_tasks: maintenance_executor.yml
+    - name: Read actor fencing evidence independently of application storage
+      kubernetes.core.k8s_info:
+        api_version: "{{ item.api }}"
+        kind: "{{ item.kind }}"
+      loop:
+        - {api: v1, kind: Pod}
+        - {api: batch/v1, kind: Job}
+        - {api: v1, kind: Node}
+      register: shared_data_fence_reads
+    - name: Select immutable old actor and child identities
+      ansible.builtin.set_fact:
+        shared_data_fence_plan: >-
+          {{ shared_data_watchdog_journal | shared_data_watchdog_fence(
+             shared_data_watchdog_lease, shared_data_fence_reads.results[0].resources,
+             shared_data_fence_reads.results[1].resources, shared_data_fence_reads.results[2].resources,
+             '' | shared_data_now, shared_data_holder_pod_uid) }}
+        shared_data_watchdog_claim: "{{ shared_data_watchdog_lease | shared_data_lease_record }}"
+    - name: Freeze operation identity before exclusive recovery takeover
+      ansible.builtin.set_fact:
+        shared_data_operation_id: "{{ shared_data_watchdog_claim.operation_id }}"
+        shared_data_operation_kind: "{{ shared_data_watchdog_claim.operation_kind }}"
+        shared_data_apps: "{{ shared_data_watchdog_journal.get('apps', []) }}"
+    - name: CAS take ownership before killing any stale worker
+      kubernetes.core.k8s_json_patch:
+        api_version: coordination.k8s.io/v1
+        kind: Lease
+        name: "{{ shared_data_lease_name }}"
+        namespace: "{{ shared_data_namespace }}"
+        patch: >-
+          {{ shared_data_watchdog_lease | shared_data_fence_claim(
+             shared_data_watchdog_journal, shared_data_executor, '' | shared_data_now,
+             shared_data_lease_duration) }}
+      register: shared_data_fence_takeover
+    - name: Stop recreation by exact historical Job UID
+      ansible.builtin.include_tasks: watchdog_fence_job.yml
+      loop: "{{ shared_data_fence_plan.jobs }}"
+      loop_control:
+        loop_var: shared_data_fence_job
+    - name: Renew ownership before graceful actor deletion
+      ansible.builtin.include_tasks: maintenance_guard.yml
+    - name: Gracefully delete exact old Pod UIDs without force
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: Pod
+        namespace: "{{ item.metadata.namespace }}"
+        name: "{{ item.metadata.name }}"
+        delete_options:
+          preconditions:
+            uid: "{{ item.metadata.uid }}"
+        wait: true
+        wait_timeout: "{{ shared_data_fence_wait_timeout | default(120) }}"
+        wait_sleep: 1
+      loop: "{{ shared_data_fence_plan.pods }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+    - name: Prove stale work cannot continue or recreate
+      ansible.builtin.include_tasks: watchdog_barrier.yml
+    - name: Load journal resource identity under exclusive watchdog ownership
+      ansible.builtin.include_tasks: maintenance_load.yml
+    - name: Release a proven claimed-only orphan without target replay
+      kubernetes.core.k8s_json_patch:
+        api_version: coordination.k8s.io/v1
+        kind: Lease
+        name: "{{ shared_data_lease_name }}"
+        namespace: "{{ shared_data_namespace }}"
+        patch: "{{ shared_data_lease | shared_data_lease_release(shared_data_operation_id ~ ':' ~ shared_data_holder_pod_uid, 'fenced claimed-only orphan') }}"
+      when: shared_data_watchdog_claim.stage == 'claimed'
+    - name: Resolve journaled state only after actor fencing
+      when: shared_data_watchdog_claim.stage == 'journaled'
+      block:
+        - name: Require matching journaled operation
+          ansible.builtin.assert:
+            that:
+              - shared_data_journal.operation_id == shared_data_operation_id
+              - shared_data_journal.operation_kind == shared_data_operation_kind
+        - name: Record watchdog takeover while preserving originals
+          ansible.builtin.set_fact:
+            shared_data_journal: >-
+              {{ shared_data_journal | combine({'coordinator': shared_data_executor,
+                 'epoch': shared_data_fence_takeover.result.spec.leaseTransitions,
+                 'recovery_result': 'old coordinator and children fenced'}) }}
+        - name: Persist fenced recovery ownership in API journal
+          ansible.builtin.include_tasks: maintenance_save.yml
+        - name: Verify completed targets before clearing an interrupted release
+          ansible.builtin.include_tasks: maintenance_verify_completed.yml
+          when: shared_data_journal.phase == 'complete'
+        - name: Refresh completed cleanup Lease after journal guards
+          ansible.builtin.include_tasks: maintenance_load.yml
+          when: shared_data_journal.phase == 'complete'
+        - name: Release verified completed transaction without replay
+          kubernetes.core.k8s_json_patch:
+            api_version: coordination.k8s.io/v1
+            kind: Lease
+            name: "{{ shared_data_lease_name }}"
+            namespace: "{{ shared_data_namespace }}"
+            patch: "{{ shared_data_lease | shared_data_lease_release(shared_data_operation_id ~ ':' ~ shared_data_holder_pod_uid, 'fenced completed-journal cleanup') }}"
+          when: shared_data_journal.phase == 'complete'
+        - name: Resume interrupted backups only
+          ansible.builtin.include_tasks: maintenance_resume.yml
+          when:
+            - shared_data_journal.phase != 'complete'
+            - shared_data_operation_kind == 'backup'
+        - name: Leave destructive operation failures held for inspection
+          ansible.builtin.fail:
+            msg: Prior operation was fenced; destructive failure remains held for inspection.
+          when:
+            - shared_data_journal.phase != 'complete'
+            - shared_data_operation_kind != 'backup'

@@ -1,0 +1,31 @@
+---
+- name: Require the safely recoverable maintenance kind and a bounded cleanup
+  ansible.builtin.assert:
+    that:
+      - shared_data_operation_kind == 'backup'
+      - shared_data_lease_duration | int >= 420
+- name: Clean abandoned pending metadata separately from canonical retention
+  block:
+    - name: Hold reconciliation and schedules while leaving application writers online
+      ansible.builtin.include_tasks: maintenance_hold.yml
+      vars:
+        shared_data_prepare_only: true
+    - name: Forget only inspected pending snapshots older than seven days
+      ansible.builtin.include_tasks: native_step.yml
+      vars:
+        shared_data_native_deadline: "{{ ('' | shared_data_now) | int + 300 }}"
+        shared_data_native_tmp: /tmp
+        shared_data_native_changed: true
+        shared_data_native_argv:
+          - "{{ shared_data_python }}"
+          - "{{ role_path }}/files/pending.py"
+          - --root
+          - "{{ shared_data_snapshot_root }}"
+          - --confirm
+  always:
+    - name: Restore recorded settings only while this actor still owns the hold
+      ansible.builtin.include_tasks: maintenance_resume.yml
+      when:
+        - shared_data_journal is defined
+        - shared_data_journal.operation_id | default('') == shared_data_operation_id
+        - shared_data_journal.phase | default('complete') != 'complete'

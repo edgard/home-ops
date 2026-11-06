@@ -11,8 +11,12 @@ rules:
       - deployments
     resourceNames:
       - bazarr
+      - crosswatch
+      - jellyfin
       - prowlarr
+      - qbittorrent
       - radarr
+      - recyclarr
       - sonarr
     verbs:
       - get

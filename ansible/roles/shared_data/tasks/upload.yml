@@ -1,0 +1,39 @@
+---
+- name: Require an immutable published generation and exact journal digest
+  ansible.builtin.assert:
+    that:
+      - shared_data_operation_id is match('^[a-z0-9][a-z0-9-]{0,51}$')
+      - shared_data_manifest_sha256 is match('^[a-f0-9]{64}$')
+      - shared_data_apps | length > 0
+- name: Construct typed upload arguments
+  ansible.builtin.set_fact:
+    shared_data_upload_argv:
+      - "{{ shared_data_python }}"
+      - "{{ role_path }}/files/upload.py"
+      - --operation
+      - "{{ shared_data_operation_id }}"
+      - --registry
+      - "{{ shared_data_registry_file }}"
+      - --apps
+      - "{{ shared_data_apps | join(',') }}"
+      - --credentials
+      - "{{ shared_data_credentials }}"
+      - --root
+      - "{{ shared_data_root }}"
+      - --generation-root
+      - /generation
+      - --manifest-sha256
+      - "{{ shared_data_manifest_sha256 }}"
+      - --receipt
+      - "{{ shared_data_staging }}/uploaded/{{ shared_data_operation_id }}.json"
+- name: Add explicit unchanged file allocations
+  ansible.builtin.set_fact:
+    shared_data_upload_argv: "{{ shared_data_upload_argv + ['--legacy-pvc', item] }}"
+  loop: "{{ shared_data_legacy_pvcs }}"
+- name: Upload and remotely verify all generation payloads before promotion
+  ansible.builtin.command:
+    argv: "{{ shared_data_upload_argv }}"
+  environment:
+    TMPDIR: /scratch
+  changed_when: true
+  no_log: true

@@ -1,0 +1,12 @@
+---
+- name: Read every selected application image identity
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: "{{ item.1.kind }}"
+    namespace: "{{ item.1.namespace | default(item.0.value.namespace) }}"
+    name: "{{ item.1.name }}"
+  loop: "{{ shared_data_registry.consumers | combine(shared_data_registry.file_consumers | default({})) | dict2items | selectattr('key', 'in', shared_data_apps) | subelements('value.workloads') }}"
+  register: shared_data_image_reads
+- name: Map selected image identities without credentials or rendered pod specs
+  ansible.builtin.set_fact:
+    shared_data_capture_images: "{{ shared_data_image_reads.results | shared_data_image_map }}"

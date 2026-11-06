@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: shared-data-redis-recovery
+  namespace: {{ shared_data_namespace }}
+  labels:
+    app.kubernetes.io/name: shared-data-redis-recovery
+    home-ops/data-operation: {{ shared_data_operation_id }}
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  securityContext:
+    runAsUser: 999
+    runAsGroup: 999
+    runAsNonRoot: true
+  initContainers:
+    - name: verified-rdb
+      image: {{ shared_data_image }}
+      command:
+        - /usr/local/bin/python
+        - /opt/home-ops/ansible/roles/shared_data/files/redis_source.py
+        - --source
+        - /captured/.home-ops/redis.rdb
+        - --destination
+        - /redis
+        - --sha256
+        - {{ shared_data_source_rdb_sha | to_json }}
+        - --password-file
+        - /auth/redis_recovery_password
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        runAsNonRoot: false
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+          add: [CHOWN, DAC_READ_SEARCH]
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+      volumeMounts:
+        - name: staging
+          mountPath: /captured
+          subPath: restores/{{ shared_data_operation_id }}/{{ shared_data_snapshot_root.lstrip('/') }}
+          readOnly: true
+        - name: data
+          mountPath: /redis
+        - name: auth
+          mountPath: /auth
+          readOnly: true
+  containers:
+    - name: redis
+      image: {{ shared_data_redis_image }}
+      command: [redis-server]
+      args:
+        - --dir
+        - /redis
+        - --dbfilename
+        - dump.rdb
+        - --aclfile
+        - /redis/recovery.acl
+        - --appendonly
+        - "no"
+        - --save
+        - ""
+        - --protected-mode
+        - "yes"
+      env:
+        - name: REDISCLI_AUTH
+          valueFrom:
+            secretKeyRef:
+              name: shared-data-redis-recovery
+              key: redis_recovery_password
+      securityContext:
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 1Gi
+      readinessProbe:
+        exec:
+          command: [redis-cli, -h, "127.0.0.1", ping]
+        periodSeconds: 2
+        failureThreshold: 120
+      volumeMounts:
+        - name: data
+          mountPath: /redis
+  volumes:
+    - name: data
+      emptyDir: {}
+    - name: staging
+      persistentVolumeClaim:
+        claimName: {{ shared_data_staging_pvc }}
+    - name: auth
+      secret:
+        secretName: shared-data-redis-recovery

@@ -1,3 +1,35 @@
 ---
-- name: Recover interrupted backup safely
-  ansible.builtin.import_tasks: maintenance_watchdog.yml
+- name: Initialize independent watchdog health
+  ansible.builtin.set_fact:
+    shared_data_watchdog_failed: false
+- name: Recover interrupted backups and always report health
+  block:
+    - name: Execute API-only automatic fencing and backup recovery
+      ansible.builtin.include_tasks: watchdog_execute.yml
+      when:
+        - shared_data_confirm | bool
+        - not ansible_check_mode
+      args:
+        apply:
+          module_defaults:
+            kubernetes.core.k8s:
+              kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+              context: "{{ kube_context | default(omit) }}"
+            kubernetes.core.k8s_info:
+              kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+              context: "{{ kube_context | default(omit) }}"
+            kubernetes.core.k8s_json_patch:
+              kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+              context: "{{ kube_context | default(omit) }}"
+  rescue:
+    - name: Preserve watchdog failure while still delivering health
+      ansible.builtin.set_fact:
+        shared_data_watchdog_failed: true
+  always:
+    - name: Report independent operation and capture health without NFS
+      ansible.builtin.include_tasks: monitor.yml
+      when: shared_data_monitor_enabled | bool
+- name: Preserve failed watchdog status for Kubernetes Job history
+  ansible.builtin.fail:
+    msg: Watchdog recovery failed; inspect the operation journal and Job. Destructive operations remain held.
+  when: shared_data_watchdog_failed | bool

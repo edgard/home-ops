@@ -52,7 +52,7 @@ jobs:
           data_smoke_database=data-tools-postgres
           cleanup() {
             docker stop "$data_smoke_database" >/dev/null 2>&1 || true
-            docker rm "$data_smoke_database" >/dev/null 2>&1 || true
+            docker rm -v "$data_smoke_database" >/dev/null 2>&1 || true
             docker network rm "$data_smoke_network" >/dev/null 2>&1 || true
           }
           trap cleanup EXIT
@@ -71,6 +71,10 @@ jobs:
             psql -v ON_ERROR_STOP=1 -c "DROP TABLE image_smoke"
             pg_restore --exit-on-error --single-transaction --dbname=postgres /tmp/smoke.dump
             test "$(psql -Atc "SELECT value FROM image_smoke")" = preserved
+            export RESTIC_REPOSITORY=/tmp/image-smoke-restic RESTIC_PASSWORD=synthetic-only
+            restic init
+            restic backup /tmp/smoke.dump --host image-smoke
+            restic check --read-data
           '
       - name: Publish immutable commit image
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'

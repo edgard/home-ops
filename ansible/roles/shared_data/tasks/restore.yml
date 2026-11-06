@@ -1,0 +1,73 @@
+---
+- name: Require bounded confirmed recovery with published compatible tooling
+  ansible.builtin.assert:
+    that:
+      - shared_data_operation_kind == 'restore'
+      - shared_data_apps | length > 0
+      - shared_data_operation_id is match('^[a-z0-9][a-z0-9-]{0,51}$')
+      - shared_data_image is search('@sha256:[a-f0-9]{64}$')
+      - shared_data_recovery_budget | int > 0
+      - shared_data_lease_duration | int >= shared_data_recovery_budget | int + 120
+- name: Fence conflicting operations while applications continue serving during staging
+  ansible.builtin.include_tasks: maintenance_hold.yml
+  vars:
+    shared_data_prepare_only: true
+- name: Prepare private recovery scratch without changing existing file ownership
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - "{{ shared_data_staging }}"
+    - "{{ shared_data_staging }}/scratch"
+- name: Read compatible application identities before any replacement
+  ansible.builtin.include_tasks: read_images.yml
+- name: Set one bounded recovery deadline
+  ansible.builtin.set_fact:
+    shared_data_recovery_deadline: "{{ ('' | shared_data_now) | int + shared_data_recovery_budget | int }}"
+- name: Stage selected immutable snapshot and verify files, schema, images, and retained keys
+  ansible.builtin.include_tasks: recovery_step.yml
+  vars:
+    shared_data_recovery_action: stage
+- name: Bind selected snapshot and manifest to the maintenance transaction
+  ansible.builtin.set_fact:
+    shared_data_recovery: "{{ shared_data_native_result.stdout | from_json }}"
+    shared_data_journal: "{{ shared_data_journal | combine({'recovery': shared_data_native_result.stdout | from_json}) }}"
+    shared_data_recovery_needs_redis: "{{ shared_data_registry | shared_data_redis_apps(shared_data_apps) | length > 0 }}"
+- name: Save recovery selection before any destructive database or file action
+  ansible.builtin.include_tasks: maintenance_save.yml
+- name: Start an isolated verified Redis source before stopping live writers
+  ansible.builtin.include_tasks: create_redis_source.yml
+  when: shared_data_recovery_needs_redis | bool
+- name: Drain and stop all selected writers under the original journal
+  ansible.builtin.include_tasks: maintenance_hold.yml
+  vars:
+    shared_data_prepare_only: false
+- name: Select only native database clients for the quiet check
+  ansible.builtin.set_fact:
+    shared_data_recovery_native_apps: "{{ shared_data_apps | select('in', shared_data_registry.consumers) | list }}"
+- name: Verify selected database clients are gone
+  ansible.builtin.include_tasks: native_step.yml
+  vars:
+    shared_data_native_deadline: "{{ shared_data_recovery_deadline }}"
+    shared_data_native_argv:
+      - "{{ shared_data_python }}"
+      - "{{ shared_data_tools }}"
+      - quiet
+      - --registry
+      - "{{ shared_data_registry_file }}"
+      - --apps
+      - "{{ shared_data_recovery_native_apps | join(',') }}"
+      - --credentials
+      - "{{ shared_data_credentials }}"
+  when: shared_data_recovery_native_apps | length > 0
+- name: Restore only selected PostgreSQL databases, file allocations, and Redis database
+  ansible.builtin.include_tasks: recovery_step.yml
+  loop: "{{ ['validate', 'postgres', 'files'] + (['redis'] if shared_data_recovery_needs_redis | bool else []) }}"
+  loop_control:
+    loop_var: shared_data_recovery_action
+- name: Remove isolated source only after selected recovery succeeded
+  ansible.builtin.include_tasks: cleanup_redis_source.yml
+  when: shared_data_recovery_needs_redis | bool
+- name: Resume recorded consumer settings with root reconciliation last
+  ansible.builtin.include_tasks: maintenance_resume.yml

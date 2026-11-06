@@ -1,0 +1,124 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ shared_data_operation_id }}
+  namespace: {{ shared_data_namespace }}
+  labels:
+    app.kubernetes.io/name: shared-data
+    home-ops/data-role: {{ 'watchdog' if shared_data_job_action == 'watchdog' else 'coordinator' }}
+    home-ops/data-operation: {{ shared_data_operation_id }}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ shared_data_job_timeout | int }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: shared-data
+        home-ops/data-operation: {{ shared_data_operation_id }}
+    spec:
+      serviceAccountName: {{ shared_data_serviceaccount }}
+      restartPolicy: Never
+      automountServiceAccountToken: true
+      securityContext:
+        runAsUser: {{ 1000 if shared_data_job_action in ['provision', 'watchdog', 'cleanup'] else 0 }}
+        runAsGroup: {{ 1000 if shared_data_job_action in ['provision', 'watchdog', 'cleanup'] else 0 }}
+        runAsNonRoot: {{ 'true' if shared_data_job_action in ['provision', 'watchdog', 'cleanup'] else 'false' }}
+{% if shared_data_job_action in ['provision', 'watchdog', 'cleanup'] %}
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+{% endif %}
+      containers:
+        - name: operations
+          image: {{ shared_data_image }}
+          args:
+            - --extra-vars
+            - {{ {'shared_data_action': shared_data_job_action, 'shared_data_confirm': true, 'shared_data_apps': shared_data_apps, 'shared_data_operation_id': shared_data_operation_id, 'shared_data_operation_kind': {'watchdog': 'backup', 'cleanup': 'backup'}.get(shared_data_job_action, shared_data_job_action), 'shared_data_image': shared_data_image, 'shared_data_snapshot': shared_data_snapshot, 'shared_data_require_current_registry': shared_data_job_action != 'watchdog', 'shared_data_lease_duration': 3600 if shared_data_job_action == 'restore' else 900} | to_json | to_json }}
+          env:
+            - name: HOME
+              value: /tmp
+            - name: ANSIBLE_LOCAL_TEMP
+              value: /tmp/ansible-local
+            - name: ANSIBLE_REMOTE_TEMP
+              value: /tmp/ansible-remote
+            - name: XDG_CACHE_HOME
+              value: /tmp/cache
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+{% if shared_data_job_action in ['backup', 'restore', 'cleanup'] %}
+            - name: RESTIC_REPOSITORY
+              value: {{ shared_data_restic_repository | to_json }}
+            - name: RESTIC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: restic-credentials
+                  key: RESTIC_PASSWORD
+            - name: RESTIC_REST_USERNAME
+              value: restic
+            - name: RESTIC_REST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: restic-credentials
+                  key: RESTIC_PASSWORD
+{% endif %}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+{% if shared_data_job_action in ['backup', 'restore'] %}
+              add: [CHOWN, DAC_READ_SEARCH, DAC_OVERRIDE, FSETID, FOWNER]
+{% endif %}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+{% if shared_data_job_action not in ['watchdog', 'cleanup'] %}
+            - name: credentials
+              mountPath: /run/credentials
+              readOnly: true
+{% endif %}
+            - name: registry
+              mountPath: /opt/home-ops/ansible/roles/shared_data/files/registry.yaml
+              subPath: registry.yaml
+              readOnly: true
+{% if shared_data_job_action in ['backup', 'restore'] %}
+            - name: appdata
+              mountPath: /data/appdata
+              readOnly: {{ 'true' if shared_data_job_action == 'backup' else 'false' }}
+            - name: staging
+              mountPath: /staging
+{% endif %}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{% if shared_data_job_action not in ['watchdog', 'cleanup'] %}
+        - name: credentials
+          secret:
+            secretName: {{ shared_data_secret }}
+{% endif %}
+        - name: registry
+          configMap:
+            name: shared-data-registry
+{% if shared_data_job_action in ['backup', 'restore'] %}
+        - name: appdata
+          persistentVolumeClaim:
+            claimName: {{ shared_data_appdata_pvc }}
+        - name: staging
+          persistentVolumeClaim:
+            claimName: {{ shared_data_staging_pvc }}
+{% endif %}

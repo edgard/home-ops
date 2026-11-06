@@ -1,0 +1,9 @@
+---
+- name: Prepare a concrete nonsecret database and file plan
+  ansible.builtin.set_fact:
+    shared_data_plan_rows: []
+    shared_data_plan_action: "{{ shared_data_job_action if shared_data_action in ['submit', 'plan'] else shared_data_action }}"
+- name: Describe selected storage allocations and writers
+  ansible.builtin.set_fact:
+    shared_data_plan_rows: "{{ shared_data_plan_rows + [{'application': item.key, 'backend': item.value.backend | default('files'), 'postgresql_databases': (item.value.databases | default([]) | map(attribute='name') | list) if shared_data_plan_action == 'provision' or item.value.backend | default('files') == 'postgresql' else [], 'redis_database': item.value.redis.database if item.value.redis is defined and (shared_data_plan_action == 'provision' or item.value.redis.adopted | default(true)) else none, 'pvcs': item.value.pvcs | default([]), 'workloads': item.value.workloads | default([])}] }}"
+  loop: "{{ (shared_data_registry.consumers | combine(shared_data_registry.file_consumers | default({}))) | dict2items | selectattr('key', 'in', shared_data_selected_apps) | list }}"

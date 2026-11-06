@@ -5,8 +5,11 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 from copy import deepcopy
 from datetime import UTC, datetime
@@ -24,6 +27,23 @@ def validate_registry(registry):
     consumers = registry.get("consumers")
     if not isinstance(consumers, dict):
         raise ValueError("consumer mapping required")
+    file_consumers = registry.get("file_consumers", {})
+    if not isinstance(file_consumers, dict) or set(file_consumers) & set(consumers):
+        raise ValueError("file consumers must have separate registered identities")
+    consumers = {
+        **consumers,
+        **{
+            name: {
+                **app,
+                "enabled": True,
+                "backend": "sqlite",
+                "roles": [],
+                "databases": [],
+            }
+            for name, app in file_consumers.items()
+        },
+    }
+    allocated_pvcs = set()
     databases, roles, redis_dbs, redis_users, prefixes = (
         set(),
         set(),
@@ -39,6 +59,17 @@ def validate_registry(registry):
             raise ValueError("invalid namespace")
         if type(consumer.get("enabled")) is not bool:
             raise ValueError("explicit adoption state required")
+        if consumer.get("backend") not in {"sqlite", "postgresql"}:
+            raise ValueError("unsupported application backend")
+        for path in consumer.get("sqlite_files", []):
+            if (
+                Path(path).is_absolute()
+                or ".." in Path(path).parts
+                or not any(
+                    path.startswith(pvc + "/") for pvc in consumer.get("pvcs", [])
+                )
+            ):
+                raise ValueError("SQLite database must belong to the application PVC")
         owned = set()
         for role in consumer.get("roles", []):
             name = role.get("name", "")
@@ -66,6 +97,17 @@ def validate_registry(registry):
                 raise ValueError("reserved database")
             databases.add(name)
         for pvc in consumer.get("pvcs", []):
+            if pvc in allocated_pvcs:
+                raise ValueError("PVC belongs to more than one consumer")
+            allocated_pvcs.add(pvc)
+            if pvc in {
+                "platform-system/postgresql",
+                "platform-system/redis",
+                "selfhosted/shared-data-staging",
+            }:
+                raise ValueError(
+                    "raw database engines and staging are reserved outside appdata"
+                )
             parts = pvc.split("/")
             if len(parts) != 2 or not all(NAME.fullmatch(part) for part in parts):
                 raise ValueError("invalid PVC path")
@@ -83,7 +125,8 @@ def validate_registry(registry):
                 redis.get("prefix", ""),
             )
             if (
-                type(db) is not int
+                type(redis.get("adopted", True)) is not bool
+                or type(db) is not int
                 or not 1 <= db <= 15
                 or db in redis_dbs
                 or not NAME.fullmatch(user)
@@ -271,16 +314,23 @@ def pg_environment(args):
     }
 
 
+def remaining(deadline=None, default=3600):
+    if deadline is None:
+        deadline = float(
+            os.environ.get("HOME_OPS_DATA_DEADLINE", time.time() + default)
+        )
+    budget = deadline - time.time()
+    if budget <= 0:
+        raise TimeoutError("capture deadline expired before starting native work")
+    return budget
+
+
 def native(command, *, env=None):
     result = subprocess.run(
         command,
         env=env,
         capture_output=True,
-        timeout=max(
-            1,
-            float(os.environ.get("HOME_OPS_DATA_DEADLINE", time.time() + 3600))
-            - time.time(),
-        ),
+        timeout=remaining(),
         check=False,
     )
     if result.returncode:
@@ -290,25 +340,128 @@ def native(command, *, env=None):
     return result.stdout
 
 
+def uses_shared_redis(app):
+    return bool(app.get("redis")) and app["redis"].get("adopted", True)
+
+
+def legacy_pvcs(registry, apps):
+    """Current file consumers plus SQLite applications awaiting enrollment."""
+    selected = {
+        pvc for app in apps for pvc in registry["consumers"][app].get("pvcs", [])
+    }
+    consumers = list(registry.get("file_consumers", {}).values()) + [
+        app
+        for app in registry["consumers"].values()
+        if not app["enabled"] and app["backend"] == "sqlite"
+    ]
+    return sorted({pvc for app in consumers for pvc in app["pvcs"]} - selected)
+
+
+def legacy_consumers(registry, apps):
+    """Record exactly the live file scope covered beside a native generation.
+
+    These mappings carry no stopped-writer, image, key or schema claim.
+    """
+    covered = set(legacy_pvcs(registry, apps))
+    return {
+        name: {
+            "namespace": app["namespace"],
+            "pvcs": list(app["pvcs"]),
+            "backend": app.get("backend", "files"),
+            "sqlite_files": list(app.get("sqlite_files", [])),
+            "mode": "live-files",
+        }
+        for name, app in {
+            **registry["consumers"],
+            **registry.get("file_consumers", {}),
+        }.items()
+        if app.get("pvcs") and set(app["pvcs"]) <= covered
+    }
+
+
 def assert_quiet(args, registry):
     consumers = select_consumers(registry, args.apps)
     databases = [
-        db["name"] for app in consumers.values() for db in app.get("databases", [])
+        db["name"]
+        for app in consumers.values()
+        if app["backend"] == "postgresql"
+        for db in app.get("databases", [])
     ]
-    with connect_pg(args) as connection:
-        if connection.execute(
-            "SELECT count(*) FROM pg_stat_activity WHERE datname=ANY(%s)", [databases]
-        ).fetchone()[0]:
-            raise ValueError("selected database still has connected clients")
-    users = {app["redis"]["username"] for app in consumers.values() if app.get("redis")}
+    if databases:
+        with connect_pg(args) as connection:
+            if connection.execute(
+                "SELECT count(*) FROM pg_stat_activity WHERE datname=ANY(%s)",
+                [databases],
+            ).fetchone()[0]:
+                raise ValueError("selected database still has connected clients")
+    users = {
+        app["redis"]["username"] for app in consumers.values() if uses_shared_redis(app)
+    }
     if users and any(
         client.get("user") in users for client in redis_connection(args).client_list()
     ):
         raise ValueError("selected Redis clients still connected")
 
 
+def estimate_capture(args, registry):
+    """Conservative estimates, not a promise that free space cannot change."""
+    consumers = select_consumers(registry, args.apps)
+    databases = [
+        db["name"]
+        for app in consumers.values()
+        if app["backend"] == "postgresql"
+        for db in app.get("databases", [])
+    ]
+    database_bytes = 0
+    if databases:
+        remaining()
+        with connect_pg(args) as connection:
+            for name in databases:
+                remaining()
+                size = connection.execute(
+                    "SELECT pg_database_size(%s)", [name]
+                ).fetchone()[0]
+                database_bytes += size * 2 + 1024 * 1024
+    redis_bytes = 0
+    if any(uses_shared_redis(app) for app in consumers.values()):
+        remaining()
+        info = redis_connection(args).info("memory")
+        redis_bytes = int(info["used_memory"] * 1.2) + 1024 * 1024
+    return {"database_bytes": database_bytes, "redis_bytes": redis_bytes}
+
+
+def postgres_schema_metadata(args, database):
+    with connect_pg(args, database) as connection:
+        server = int(connection.execute("SHOW server_version_num").fetchone()[0])
+    schema = native(
+        [
+            "pg_dump",
+            "--schema-only",
+            "--no-owner",
+            "--no-privileges",
+            "--restrict-key=homeopsSchemaFingerprint",
+            database,
+        ],
+        env=pg_environment(args),
+    )
+    normalized = b"\n".join(
+        line
+        for line in schema.splitlines()
+        if not line.startswith(
+            (b"-- Dumped from database version", b"-- Dumped by pg_dump version")
+        )
+    )
+    return {
+        "server_version_num": server,
+        "dump_version": native(["pg_dump", "--version"]).decode().strip(),
+        "schema_sha256": hashlib.sha256(normalized).hexdigest(),
+    }
+
+
 def dump_postgres(args, registry):
     for app in select_consumers(registry, args.apps).values():
+        if app.get("backend", "postgresql") != "postgresql":
+            continue
         root = Path(args.root) / app["pvcs"][0] / ".home-ops/databases"
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         for db in app.get("databases", []):
@@ -318,12 +471,21 @@ def dump_postgres(args, registry):
                 env=pg_environment(args),
             )
             native(["pg_restore", "--list", str(destination)])
+            metadata = postgres_schema_metadata(args, db["name"])
+            destination.with_suffix(".schema.json").write_text(
+                json.dumps(metadata) + "\n"
+            )
 
 
 def restore_postgres(args, registry):
     from psycopg import sql
 
     consumers = select_consumers(registry, args.apps)
+    consumers = {
+        name: app for name, app in consumers.items() if app["backend"] == "postgresql"
+    }
+    if not consumers:
+        return
     for app in consumers.values():
         for db in app.get("databases", []):
             source = (
@@ -384,6 +546,14 @@ def restore_postgres(args, registry):
                 )
                 with connect_pg(args, db["name"]) as restored:
                     restored.execute("ANALYZE")
+                expected_schema = json.loads(
+                    source.with_suffix(".schema.json").read_text()
+                )
+                actual_schema = postgres_schema_metadata(args, db["name"])
+                if expected_schema["schema_sha256"] != actual_schema["schema_sha256"]:
+                    raise ValueError(
+                        "restored PostgreSQL schema differs from capture; keep consumers held"
+                    )
 
 
 def redis_connection(args, *, source=False, database=0):
@@ -394,7 +564,12 @@ def redis_connection(args, *, source=False, database=0):
         port=args.redis_source_port if source else args.redis_port,
         db=database,
         username=None if source else "admin",
-        password=None if source else secret(args.credentials, "redis_admin_password"),
+        password=secret(
+            (getattr(args, "redis_source_credentials", None) or args.credentials),
+            "redis_recovery_password",
+        )
+        if source
+        else secret(args.credentials, "redis_admin_password"),
         socket_connect_timeout=10,
         socket_timeout=30,
     )
@@ -474,24 +649,38 @@ def snapshot_redis(args):
 def transfer_redis(args, registry):
     for app in select_consumers(registry, args.apps).values():
         allocation = app.get("redis")
-        if not allocation:
+        if not uses_shared_redis(app):
             continue
         db = allocation["database"]
         source, target = (
             redis_connection(args, source=True, database=db),
             redis_connection(args, database=db),
         )
+        if (args.redis_source_host, args.redis_source_port) == (
+            args.redis_host,
+            args.redis_port,
+        ):
+            raise ValueError("Redis recovery source must be an isolated instance")
+        remaining()
         source.ping()
         target.ping()
+        if source.info("server")["run_id"] == target.info("server")["run_id"]:
+            raise ValueError("Redis recovery source must be an isolated instance")
         # Clear only the selected DB, never FLUSHALL or another application's DB.
         for key in target.scan_iter(count=500):
+            remaining()
             target.delete(key)
         for key in source.scan_iter(count=500):
+            remaining()
             payload, expiry = (
                 source.dump(key),
                 source.execute_command("PEXPIRETIME", key),
             )
-            if payload is None or expiry == -2:
+            if (
+                payload is None
+                or expiry == -2
+                or (expiry > 0 and expiry <= time.time() * 1000)
+            ):
                 continue
             target.restore(
                 key,
@@ -500,21 +689,41 @@ def transfer_redis(args, registry):
                 replace=True,
                 absttl=expiry != -1,
             )
-        if source.dbsize() != target.dbsize():
-            raise ValueError("Redis restore verification failed")
+        for key in source.scan_iter(count=500):
+            remaining()
+            payload = source.dump(key)
+            expiry = source.execute_command("PEXPIRETIME", key)
+            if (
+                payload is None
+                or expiry == -2
+                or (expiry > 0 and expiry <= time.time() * 1000)
+            ):
+                continue
+            if (
+                target.dump(key) != payload
+                or target.execute_command("PEXPIRETIME", key) != expiry
+            ):
+                raise ValueError("Redis restore verification failed")
+        for key in target.scan_iter(count=500):
+            remaining()
+            if target.exists(key) and not source.exists(key):
+                raise ValueError("Redis restore contains an unexpected key")
 
 
-def digest(path):
+def digest(path, *, deadline=None):
     result = hashlib.sha256()
     with path.open("rb") as stream:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
+            remaining(deadline)
             result.update(block)
     return result.hexdigest()
 
 
-def make_manifest(root, registry, apps, operation, images):
+def make_manifest(root, registry, apps, operation, images, *, credentials=None):
     root = Path(root).resolve()
     consumers = select_consumers(registry, apps)
+    if any(app.get("key_refs") for app in consumers.values()) and credentials is None:
+        raise ValueError("mounted retained application key credentials required")
     files, links = {}, {}
     for consumer in consumers.values():
         for pvc in consumer["pvcs"]:
@@ -540,23 +749,105 @@ def make_manifest(root, registry, apps, operation, images):
         "captured_at": datetime.now(UTC).isoformat(),
         "consumers": {
             name: {
-                "backend": "postgresql",
-                "databases": deepcopy(app.get("databases", [])),
+                "backend": app.get("backend", "postgresql"),
+                "databases": deepcopy(app.get("databases", []))
+                if app.get("backend", "postgresql") == "postgresql"
+                else [],
+                "sqlite_files": list(app.get("sqlite_files", []))
+                if app.get("backend") == "sqlite"
+                else [],
                 "redis": {"database": app["redis"]["database"]}
-                if app.get("redis")
+                if uses_shared_redis(app)
                 else None,
                 "pvcs": list(app["pvcs"]),
                 "key_refs": list(app.get("key_refs", [])),
+                "key_fingerprints": {
+                    key: hashlib.sha256(secret(credentials, key).encode()).hexdigest()
+                    for key in app.get("key_refs", [])
+                }
+                if credentials is not None
+                else {},
                 "images": images.get(name, []),
+                "schema_versions": {
+                    db["name"]: json.loads(
+                        (
+                            root
+                            / app["pvcs"][0]
+                            / ".home-ops/databases"
+                            / (db["name"] + ".schema.json")
+                        ).read_text()
+                    )
+                    for db in app.get("databases", [])
+                    if (
+                        root
+                        / app["pvcs"][0]
+                        / ".home-ops/databases"
+                        / (db["name"] + ".schema.json")
+                    ).is_file()
+                }
+                if app.get("backend") == "postgresql"
+                else {
+                    relative: verify_sqlite(root / relative)
+                    for relative in app.get("sqlite_files", [])
+                },
             }
             for name, app in consumers.items()
         },
+        "legacy_consumers": legacy_consumers(registry, list(consumers)),
         "files": files,
         "symlinks": links,
     }
 
 
-def verify_manifest(root, manifest, images=None, *, registry=None, apps=None):
+def verify_sqlite(source):
+    """SQLite reads may modify WAL shared memory; inspect a private disk copy."""
+    suffixes = ["", "-wal", "-shm", "-journal"]
+    sources = [Path(str(source) + suffix) for suffix in suffixes]
+    if any(path.is_symlink() for path in sources):
+        raise ValueError("SQLite database family must not redirect through symlinks")
+    existing = [path for path in sources if path.is_file()]
+    with tempfile.TemporaryDirectory(prefix="home-ops-sqlite-") as scratch:
+        # Recovery/checkpointing can expand the main copy by the journal size.
+        required = int(
+            sum(path.stat().st_size * (1 if path == source else 2) for path in existing)
+            * 1.2
+        )
+        if shutil.disk_usage(scratch).free < required:
+            raise ValueError("insufficient SQLite verification scratch space")
+        for path in existing:
+            remaining()
+            destination = Path(scratch) / path.name
+            with path.open("rb") as incoming, destination.open("wb") as outgoing:
+                for block in iter(lambda: incoming.read(1024 * 1024), b""):
+                    remaining()
+                    outgoing.write(block)
+        try:
+            with sqlite3.connect(Path(scratch) / source.name) as database:
+                database.set_progress_handler(lambda: remaining() and 0, 10000)
+                if database.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
+                    raise ValueError("SQLite integrity verification failed")
+                schema = database.execute(
+                    "SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name,tbl_name"
+                ).fetchall()
+                return {
+                    "client_version": sqlite3.sqlite_version,
+                    "user_version": database.execute("PRAGMA user_version").fetchone()[
+                        0
+                    ],
+                    "schema_version": database.execute(
+                        "PRAGMA schema_version"
+                    ).fetchone()[0],
+                    "schema_sha256": hashlib.sha256(
+                        json.dumps(schema, ensure_ascii=True).encode()
+                    ).hexdigest(),
+                }
+        except sqlite3.DatabaseError as error:
+            raise ValueError("SQLite integrity verification failed") from error
+
+
+def verify_manifest(
+    root, manifest, images=None, *, registry=None, apps=None, credentials=None
+):
     root = Path(root).resolve()
     if (
         manifest.get("version") != 1
@@ -580,11 +871,23 @@ def verify_manifest(root, manifest, images=None, *, registry=None, apps=None):
             data = manifest["consumers"][app]
             expected_redis = (
                 {"database": expected["redis"]["database"]}
-                if expected.get("redis")
+                if uses_shared_redis(expected)
                 else None
             )
+            expected_databases = (
+                expected.get("databases", [])
+                if expected.get("backend", "postgresql") == "postgresql"
+                else []
+            )
+            expected_sqlite = (
+                expected.get("sqlite_files", [])
+                if expected.get("backend") == "sqlite"
+                else []
+            )
             if (
-                data.get("databases") != expected.get("databases", [])
+                data.get("backend") != expected.get("backend", "postgresql")
+                or data.get("databases") != expected_databases
+                or data.get("sqlite_files", []) != expected_sqlite
                 or data.get("pvcs") != expected.get("pvcs", [])
                 or data.get("redis") != expected_redis
                 or data.get("key_refs", []) != expected.get("key_refs", [])
@@ -596,9 +899,9 @@ def verify_manifest(root, manifest, images=None, *, registry=None, apps=None):
     for app, data in manifest["consumers"].items():
         if (
             not NAME.fullmatch(app)
-            or data.get("backend") != "postgresql"
+            or data.get("backend") not in {"postgresql", "sqlite"}
             or not data.get("pvcs")
-            or not data.get("databases")
+            or (data.get("backend") == "postgresql" and not data.get("databases"))
         ):
             raise ValueError("invalid database manifest consumer")
         for pvc in data["pvcs"]:
@@ -609,6 +912,8 @@ def verify_manifest(root, manifest, images=None, *, registry=None, apps=None):
             if pvc in pvcs:
                 raise ValueError("shared manifest PVC allocation")
             pvcs.append(pvc)
+        if data.get("redis") and ".home-ops/redis.rdb" not in inventory:
+            raise ValueError("required Redis snapshot missing from manifest")
         for database in data.get("databases", []):
             if not NAME.fullmatch(database.get("name", "")) or not NAME.fullmatch(
                 database.get("owner", "")
@@ -619,15 +924,66 @@ def verify_manifest(root, manifest, images=None, *, registry=None, apps=None):
             )
             if expected not in inventory:
                 raise ValueError("required database dump missing from manifest")
+            schema_path = (
+                data["pvcs"][0]
+                + "/.home-ops/databases/"
+                + database["name"]
+                + ".schema.json"
+            )
+            metadata = data.get("schema_versions", {}).get(database["name"], {})
+            if (
+                schema_path not in inventory
+                or not isinstance(metadata.get("server_version_num"), int)
+                or metadata["server_version_num"] // 10000 != 18
+                or not re.fullmatch(
+                    r"pg_dump \(PostgreSQL\) 18(?:\.[0-9]+)?(?: .*)?",
+                    metadata.get("dump_version", ""),
+                )
+                or not re.fullmatch("[a-f0-9]{64}", metadata.get("schema_sha256", ""))
+                or (root / schema_path).is_symlink()
+                or not (root / schema_path).is_file()
+                or json.loads((root / schema_path).read_text()) != metadata
+            ):
+                raise ValueError(
+                    "required compatible PostgreSQL schema metadata missing or inconsistent"
+                )
+        if data.get("backend") == "sqlite":
+            if not data.get("sqlite_files") or any(
+                path not in inventory for path in data["sqlite_files"]
+            ):
+                raise ValueError("required SQLite database missing from manifest")
         if data.get("redis") and ".home-ops/redis.rdb" not in inventory:
             raise ValueError("required Redis snapshot missing from manifest")
         if not data.get("images"):
             raise ValueError("required application image identity missing")
+        if data.get("key_refs") and credentials is None:
+            raise ValueError("mounted retained application key credentials required")
+        if credentials is not None:
+            expected_keys = {
+                key: hashlib.sha256(secret(credentials, key).encode()).hexdigest()
+                for key in data.get("key_refs", [])
+            }
+            if data.get("key_fingerprints", {}) != expected_keys:
+                raise ValueError(
+                    "required retained application key differs from captured key"
+                )
     for relative, expected in manifest.get("files", {}).items():
         path = root / relative
         if (
+            Path(relative).is_absolute()
+            or ".." in Path(relative).parts
+            or not any(relative.startswith(pvc + "/") for pvc in pvcs)
+            and relative != ".home-ops/redis.rdb"
+        ):
+            raise ValueError("manifest checksum path outside selected PVC scope")
+        if (
             not path.resolve().is_relative_to(root)
             or path.is_symlink()
+            or any(
+                parent.is_symlink()
+                for parent in path.parents
+                if parent.is_relative_to(root)
+            )
             or not path.is_file()
         ):
             raise ValueError("manifest checksum path invalid or missing")
@@ -646,6 +1002,7 @@ def verify_manifest(root, manifest, images=None, *, registry=None, apps=None):
         location = root / pvc
         if (
             location.is_symlink()
+            or location.parent.is_symlink()
             or not location.is_dir()
             or not location.resolve().is_relative_to(root)
         ):
@@ -662,6 +1019,19 @@ def verify_manifest(root, manifest, images=None, *, registry=None, apps=None):
         actual_files.add(".home-ops/redis.rdb")
     if actual_files != set(inventory) or actual_links != set(links):
         raise ValueError("manifest inventory does not match generation files")
+    for data in manifest["consumers"].values():
+        if data["backend"] == "sqlite":
+            for relative in data["sqlite_files"]:
+                actual_schema = verify_sqlite(root / relative)
+                expected_schema = data.get("schema_versions", {}).get(relative, {})
+                if not re.fullmatch(
+                    r"3\.[0-9]+\.[0-9]+", expected_schema.get("client_version", "")
+                ) or any(
+                    expected_schema.get(key) != value
+                    for key, value in actual_schema.items()
+                    if key != "client_version"
+                ):
+                    raise ValueError("SQLite schema metadata missing or inconsistent")
     if images is not None:
         for app, data in manifest["consumers"].items():
             if images.get(app) != data["images"]:
@@ -688,6 +1058,7 @@ def main():
         "action",
         choices=[
             "validate",
+            "estimate",
             "quiet",
             "provision",
             "dump",
@@ -726,10 +1097,22 @@ def main():
     args = parser.parse_args()
     registry = validate_registry(yaml.safe_load(Path(args.registry).read_text()))
     if (
-        args.action not in {"validate", "quiet", "manifest", "verify"}
+        args.action not in {"validate", "estimate", "quiet", "manifest", "verify"}
         and not args.confirm
     ):
         parser.error("data changes require --confirm after the maintenance gate")
+    if args.action == "estimate":
+        print(
+            json.dumps(
+                {
+                    **estimate_capture(args, registry),
+                    "legacy_pvcs": legacy_pvcs(
+                        registry, args.apps or list(select_consumers(registry))
+                    ),
+                }
+            )
+        )
+        return
     if args.action == "quiet":
         assert_quiet(args, registry)
     elif args.action == "provision":
@@ -737,16 +1120,37 @@ def main():
     elif args.action == "dump":
         dump_postgres(args, registry)
     elif args.action == "restore":
+        verify_manifest(
+            args.root,
+            json.loads((Path(args.root) / ".home-ops/manifest.json").read_text()),
+            json.loads(args.images),
+            registry=registry,
+            apps=args.apps,
+            credentials=args.credentials,
+        )
         restore_postgres(args, registry)
     elif args.action == "redis-provision":
         provision_redis(args, registry)
     elif args.action == "redis-snapshot":
         snapshot_redis(args)
     elif args.action == "redis-restore":
+        verify_manifest(
+            args.root,
+            json.loads((Path(args.root) / ".home-ops/manifest.json").read_text()),
+            json.loads(args.images),
+            registry=registry,
+            apps=args.apps,
+            credentials=args.credentials,
+        )
         transfer_redis(args, registry)
     elif args.action == "manifest":
         manifest = make_manifest(
-            args.root, registry, args.apps, args.operation, json.loads(args.images)
+            args.root,
+            registry,
+            args.apps,
+            args.operation,
+            json.loads(args.images),
+            credentials=args.credentials,
         )
         path = Path(args.root) / ".home-ops/manifest.json"
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -758,6 +1162,7 @@ def main():
             json.loads(args.images) if args.images != "{}" else None,
             registry=registry,
             apps=args.apps,
+            credentials=args.credentials,
         )
     print(json.dumps({"action": args.action, "status": "ok"}))
 

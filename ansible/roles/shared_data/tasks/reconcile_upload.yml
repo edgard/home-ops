@@ -1,0 +1,47 @@
+---
+- name: Read exact historical upload Job
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: Job
+    name: "{{ shared_data_prior_upload.upload_job.name }}"
+    namespace: "{{ shared_data_prior_upload.upload_job.namespace }}"
+  register: shared_data_prior_job
+- name: Read termination and node health without touching NFS payloads
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: "{{ item }}"
+  loop:
+    - Pod
+    - Node
+  register: shared_data_prior_barrier
+- name: Release successful generation for bounded pruning only after exact fencing proof
+  when: shared_data_prior_upload | shared_data_upload_claim_terminal(shared_data_prior_job.resources, shared_data_prior_barrier.results[0].resources, shared_data_prior_barrier.results[1].resources)
+  block:
+    - name: Clear only the exact verified external claim under the Lease
+      ansible.builtin.include_tasks: native_step.yml
+      vars:
+        shared_data_native_changed: true
+        shared_data_native_argv:
+          - "{{ shared_data_python }}"
+          - "{{ role_path }}/files/capture.py"
+          - release-claim
+          - --registry
+          - "{{ shared_data_registry_file }}"
+          - --apps
+          - "{{ shared_data_apps | join(',') }}"
+          - --staging
+          - "{{ shared_data_staging }}"
+          - --operation
+          - "{{ shared_data_prior_upload.operation }}"
+          - --job-uid
+          - "{{ shared_data_prior_upload.upload_job.uid }}"
+    - name: Remove only the completed Job with its captured immutable UID
+      kubernetes.core.k8s:
+        api_version: batch/v1
+        kind: Job
+        name: "{{ shared_data_prior_upload.upload_job.name }}"
+        namespace: "{{ shared_data_prior_upload.upload_job.namespace }}"
+        state: absent
+        delete_options:
+          preconditions:
+            uid: "{{ shared_data_prior_upload.upload_job.uid }}"

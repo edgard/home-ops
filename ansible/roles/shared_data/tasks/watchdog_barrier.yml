@@ -1,0 +1,19 @@
+---
+- name: Verify fencing Pod and controller state without NFS
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+  loop:
+    - {api: v1, kind: Pod}
+    - {api: batch/v1, kind: Job}
+    - {api: v1, kind: Node}
+  register: shared_data_fence_barrier_reads
+- name: Require terminated actors and unrecreatable children on healthy nodes
+  ansible.builtin.assert:
+    that: >-
+      shared_data_fence_plan | shared_data_fence_complete(
+        shared_data_fence_barrier_reads.results[0].resources,
+        shared_data_fence_barrier_reads.results[1].resources,
+        shared_data_fence_barrier_reads.results[2].resources,
+        shared_data_holder_pod_uid)
+    fail_msg: Old work or node/storage state remains uncertain; writers stay held.

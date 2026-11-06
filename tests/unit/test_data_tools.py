@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from tests.support.data_generation import schema_metadata
 from tests.support.runtime import load_module
 
 
@@ -19,6 +20,7 @@ def registry():
             "demo": {
                 "namespace": "selfhosted",
                 "enabled": True,
+                "backend": "postgresql",
                 "databases": [{"name": "demo", "owner": "demo"}],
                 "roles": [
                     {
@@ -36,7 +38,7 @@ def registry():
                 "workloads": [{"kind": "Deployment", "name": "demo"}],
                 "cronjobs": [],
                 "pvcs": ["selfhosted/demo"],
-                "key_refs": ["demo_secret_key"],
+                "key_refs": [],
             }
         },
     }
@@ -85,6 +87,7 @@ def complete_generation(tmp_path, registry):
     (app / ".home-ops/databases").mkdir(parents=True)
     (app / "file").write_bytes(b"payload")
     (app / ".home-ops/databases/demo.dump").write_bytes(b"dump")
+    schema_metadata((app / ".home-ops/databases/demo.dump"))
     (tmp_path / ".home-ops").mkdir()
     (tmp_path / ".home-ops/redis.rdb").write_bytes(b"redis")
     manifest = tools().make_manifest(
@@ -140,6 +143,7 @@ def test_manifest_verification_detects_partial_data_and_image_mismatch(
     (app / "file").write_bytes(b"payload")
     (app / ".home-ops/databases").mkdir(parents=True)
     (app / ".home-ops/databases/demo.dump").write_bytes(b"dump")
+    schema_metadata((app / ".home-ops/databases/demo.dump"))
     (tmp_path / ".home-ops").mkdir()
     (tmp_path / ".home-ops/redis.rdb").write_bytes(b"redis")
     manifest = tools().make_manifest(
@@ -228,8 +232,18 @@ def test_pending_snapshot_cannot_be_promoted_after_partial_upload():
 
 def test_credentials_are_not_embedded_in_manifests(tmp_path, registry):
     (tmp_path / "selfhosted/demo").mkdir(parents=True)
-    manifest = tools().make_manifest(tmp_path, registry, ["demo"], "op", {})
+    registry["consumers"]["demo"]["key_refs"] = ["demo_secret_key"]
+    credentials = tmp_path / "credentials"
+    credentials.mkdir()
+    (credentials / "demo_secret_key").write_text("retained-encryption-key")
+    manifest = tools().make_manifest(
+        tmp_path, registry, ["demo"], "op", {}, credentials=credentials
+    )
     encoded = json.dumps(manifest)
+    assert "retained-encryption-key" not in encoded
+    assert (
+        manifest["consumers"]["demo"]["key_fingerprints"]["demo_secret_key"]
+        == hashlib.sha256(b"retained-encryption-key").hexdigest()
+    )
     assert "demo_db_password" not in encoded
     assert manifest["consumers"]["demo"]["key_refs"] == ["demo_secret_key"]
-    assert hashlib.sha256(b"").hexdigest()

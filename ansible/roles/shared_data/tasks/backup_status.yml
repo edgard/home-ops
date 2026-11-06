@@ -1,0 +1,49 @@
+---
+- name: Read the last verified full-scope capture status
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: shared-data-backup-status
+    namespace: "{{ shared_data_namespace }}"
+  register: shared_data_backup_status_read
+- name: Prepare verified capture metadata
+  ansible.builtin.set_fact:
+    shared_data_backup_status_data:
+      captured_at: "{{ shared_data_upload_receipt.captured_at }}"
+      snapshot: "{{ shared_data_upload_receipt.snapshot }}"
+      operation: "{{ shared_data_operation_id }}"
+      manifest_sha256: "{{ shared_data_generation.manifest_sha256 }}"
+- name: Initialize status with a distinct owner so raced first writers conflict
+  kubernetes.core.k8s:
+    state: present
+    apply: true
+    server_side_apply:
+      field_manager: "shared-data-status-{{ shared_data_operation_id }}"
+      force_conflicts: false
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: shared-data-backup-status
+        namespace: "{{ shared_data_namespace }}"
+      data: "{{ shared_data_backup_status_data }}"
+  when: shared_data_backup_status_read.resources | length == 0
+- name: Advance capture freshness only with exact version and monotonic time
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: ConfigMap
+    name: shared-data-backup-status
+    namespace: "{{ shared_data_namespace }}"
+    patch:
+      - op: test
+        path: /metadata/uid
+        value: "{{ shared_data_backup_status_read.resources[0].metadata.uid }}"
+      - op: test
+        path: /metadata/resourceVersion
+        value: "{{ shared_data_backup_status_read.resources[0].metadata.resourceVersion }}"
+      - op: add
+        path: /data
+        value: "{{ shared_data_backup_status_data }}"
+  when:
+    - shared_data_backup_status_read.resources | length == 1
+    - shared_data_backup_status_read.resources[0] | shared_data_newer_capture(shared_data_backup_status_data)

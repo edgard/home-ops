@@ -1,0 +1,101 @@
+---
+- name: Select the journaled native queue protocol
+  ansible.builtin.set_fact:
+    shared_data_drain_spec: "{{ shared_data_registry.consumers[shared_data_drain_app].drain }}"
+    shared_data_drain_namespace: "{{ shared_data_journal.queue_pauses[shared_data_drain_app].namespace }}"
+- name: Read queued controller before native state restoration
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ shared_data_drain_namespace }}"
+    name: "{{ shared_data_drain_spec.workload }}"
+  register: shared_data_drain_controller
+- name: Require original queue controller before native restoration
+  ansible.builtin.assert:
+    that: shared_data_drain_controller.resources | length == 1
+- name: Read remaining original queue Pods
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ shared_data_drain_namespace }}"
+    label_selectors: "{{ shared_data_drain_controller.resources[0].spec.selector.matchLabels.items() | map('join', '=') | list }}"
+  register: shared_data_queue_resume_pods
+- name: Let an already terminating original Pod finish before attempting native resume
+  when: shared_data_queue_resume_pods.resources | selectattr('metadata.uid', 'in', shared_data_journal.queue_pauses[shared_data_drain_app].pods | map(attribute='uid')) | selectattr('metadata.deletionTimestamp', 'defined') | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | length > 0
+  block:
+    - name: Give an already graceful shutdown its own safe completion deadline
+      ansible.builtin.set_fact:
+        shared_data_queue_deadline: "{{ ('' | shared_data_now) | int + 2000 }}"
+        shared_data_queue_idle: false
+        shared_data_queue_poll_count: 0
+        shared_data_queue_resuming: true
+        shared_data_queue_wait_terminal: true
+    - name: Observe original Pod termination while renewing ownership
+      ansible.builtin.include_tasks: queue_poll.yml
+      loop: "{{ range(0, 20) | list }}"
+      loop_control:
+        loop_var: shared_data_queue_attempt
+    - name: Retain fences if the graceful shutdown cannot be confirmed
+      ansible.builtin.assert:
+        that: shared_data_queue_idle | bool
+        fail_msg: Original terminating queue Pod still runs; retain fences without forced deletion.
+    - name: Use the terminal inventory for native restoration
+      ansible.builtin.set_fact:
+        shared_data_queue_resume_pods: "{{ shared_data_queue_current_pods }}"
+        shared_data_queue_resuming: false
+        shared_data_queue_wait_terminal: false
+- name: Renew ownership before native queue restoration
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Restore reversible native controls or re-quiet Sidekiq before a safe restart
+  kubernetes.core.k8s_exec:
+    kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+    context: "{{ kube_context | default(omit) }}"
+    namespace: "{{ shared_data_drain_namespace }}"
+    pod: "{{ item.metadata.name }}"
+    container: app
+    command: "timeout 30s sh -c {{ (shared_data_drain_spec.pause_command if shared_data_drain_spec.restart_to_resume | default(false) | bool else shared_data_drain_spec.resume_command) | quote }}"
+  loop: "{{ shared_data_queue_resume_pods.resources | selectattr('metadata.uid', 'in', shared_data_journal.queue_pauses[shared_data_drain_app].pods | map(attribute='uid')) | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | list }}"
+  register: shared_data_queue_resume_result
+  failed_when: shared_data_queue_resume_result.rc | default(1) | int != 0
+  no_log: true
+- name: Finish active Sidekiq work before any restart regardless of capture budget
+  when: shared_data_drain_spec.restart_to_resume | default(false) | bool
+  block:
+    - name: Give safe abort its own bounded active-work deadline
+      ansible.builtin.set_fact:
+        shared_data_queue_deadline: "{{ ('' | shared_data_now) | int + 2000 }}"
+        shared_data_queue_idle: false
+        shared_data_queue_poll_count: 0
+        shared_data_queue_poll_command: "{{ shared_data_drain_spec.idle_command }}"
+        shared_data_queue_resuming: true
+    - name: Poll active work without killing it and renew the Lease on every iteration
+      ansible.builtin.include_tasks: queue_poll.yml
+      loop: "{{ range(0, 20) | list }}"
+      loop_control:
+        loop_var: shared_data_queue_attempt
+      when:
+        - not shared_data_queue_idle | bool
+        - ('' | shared_data_now) | int < shared_data_queue_deadline | int
+    - name: Keep GitOps fenced when native active-work safety cannot be established
+      ansible.builtin.assert:
+        that: shared_data_queue_idle | bool
+        fail_msg: Active worker could not be safely restarted; retain original journal and root fence for retry.
+    - name: Stop only idle original Sidekiq Pods so a fresh process can consume again
+      ansible.builtin.include_tasks: maintenance_patch.yml
+      loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | selectattr('name', 'equalto', shared_data_drain_spec.workload) | list }}"
+      loop_control:
+        loop_var: shared_data_target
+      vars:
+        shared_data_restore_target: false
+      when: shared_data_queue_current_pods.resources | selectattr('metadata.uid', 'in', shared_data_journal.queue_pauses[shared_data_drain_app].pods | map(attribute='uid')) | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | length > 0
+    - name: Wait for idle quiet Sidekiq Pods to terminate before original replica restoration
+      ansible.builtin.include_tasks: maintenance_wait.yml
+      vars:
+        shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | selectattr('name', 'equalto', shared_data_drain_spec.workload) | list }}"
+      when: shared_data_queue_current_pods.resources | selectattr('metadata.uid', 'in', shared_data_journal.queue_pauses[shared_data_drain_app].pods | map(attribute='uid')) | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | length > 0
+- name: Record native restoration before restoring controllers and GitOps
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'queue_pauses': shared_data_journal.queue_pauses | combine({shared_data_drain_app: shared_data_journal.queue_pauses[shared_data_drain_app] | combine({'state': 'resumed'})})}) }}"
+    shared_data_queue_resuming: false
+- name: Persist native restoration before root can be resumed
+  ansible.builtin.include_tasks: maintenance_save.yml

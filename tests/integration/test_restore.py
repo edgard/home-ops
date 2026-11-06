@@ -461,3 +461,23 @@ def test_real_pod_exec_module_loads_and_fails_at_connection_boundary(tmp_path):
         result.stdout + result.stderr
     )
     assert "ImportError" not in result.stdout + result.stderr
+
+
+def test_legacy_file_executor_refuses_postgresql_consumers(tmp_path, restore):
+    with cluster_api(tmp_path, restore) as (connection, observed):
+        result = run_role(
+            tmp_path,
+            "restic",
+            "main",
+            {
+                **connection,
+                "restic_restore_app": "paperless",
+                "restic_restore_confirm": True,
+                "restic_restore_registry": {
+                    "consumers": {"paperless": {"backend": "postgresql"}}
+                },
+            },
+        )
+        assert result.returncode != 0
+        assert "Use the database-aware restic-restore playbook" in result.stdout
+        assert all(event["method"] == "GET" for event in observed()["events"])

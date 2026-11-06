@@ -1,0 +1,14 @@
+---
+- name: Renew operation ownership before native data access
+  ansible.builtin.include_tasks: maintenance_guard.yml
+  when: shared_data_native_guard | default(true) | bool
+- name: Run bounded role-owned data adapter
+  ansible.builtin.command:
+    argv: "{{ shared_data_native_argv }}"
+  environment: "{{ {'TMPDIR': shared_data_native_tmp | default(shared_data_staging ~ '/scratch')} | combine({'HOME_OPS_DATA_DEADLINE': shared_data_native_deadline | string} if shared_data_native_deadline | default(0) | float > 0 else {}) }}"
+  register: shared_data_native_result
+  changed_when: shared_data_native_changed | default(false) | bool
+  no_log: true
+- name: Recheck operation ownership after native data access
+  ansible.builtin.include_tasks: maintenance_guard.yml
+  when: shared_data_native_guard | default(true) | bool

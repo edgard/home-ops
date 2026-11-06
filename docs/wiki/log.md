@@ -1,5 +1,20 @@
 # Wiki log
 
+## [2026-11-06] revision | Guard native operation scopes and preserve repository-wide retention
+
+Native backup and provisioning now reject file-only or mixed file/native scopes
+before preview, submission, or direct coordination. Existing SQLite consumers
+remain supported; restore and cleanup retain combined scope. Updated the
+[shared-data procedure](operations/shared-data.md).
+
+Restored retention across every repository family, including workstation
+documents, while explicitly keeping all pending uploads for separate inspected
+cleanup. Updated the [Restic page](apps/selfhosted/restic.md) and
+[backup runbook](operations/restic-backup-restore.md). Native Restic regressions
+cover both workstation hosts, consumer scope groups, future families, and old
+pending snapshots that would otherwise expire. November's semantic review is
+already recorded below.
+
 ## 2026-11-05 — Shared database startup corrections
 
 - The NAS passed setgid to the empty new PGDATA directory, so the strict startup
@@ -337,3 +352,12 @@ checks wiki sources directly and invokes Helm, served-schema export, kubeconform
 and Pluto in its own temporary workspace. Updated the validation architecture,
 decision, contributor workflow, and test guide; operator runtime guards remain
 in Ansible. Reviewed against `df530ab8f6edc603500f39fb634d6c404b64c636`.
+
+## 2026-11-05 — Shared data orchestration and recovery
+
+Updated the shared-data procedure, Restic runbook, backup architecture, restore
+decision, and affected app pages against the new role-owned backup/upload/restore
+and API-only monitoring paths. Documented root-first maintenance, immutable
+generations, capture-time freshness, manifest-bound selective recovery, compatible
+Restic commands, and the published-image/adoption gates. November's semantic
+review was already recorded with the foundation; this is its follow-up ingest.

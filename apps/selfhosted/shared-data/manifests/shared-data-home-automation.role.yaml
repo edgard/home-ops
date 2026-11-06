@@ -11,6 +11,7 @@ rules:
       - deployments
     resourceNames:
       - homeassistant
+      - scrypted
     verbs:
       - get
       - patch

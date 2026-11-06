@@ -1,0 +1,39 @@
+---
+- name: Construct typed selected-recovery arguments
+  ansible.builtin.set_fact:
+    shared_data_recovery_argv:
+      - "{{ shared_data_python }}"
+      - "{{ role_path }}/files/recovery.py"
+      - "{{ shared_data_recovery_action }}"
+      - --registry
+      - "{{ shared_data_registry_file }}"
+      - --apps
+      - "{{ shared_data_apps | join(',') }}"
+      - --operation
+      - "{{ shared_data_operation_id }}"
+      - --snapshot
+      - "{{ shared_data_snapshot }}"
+      - --snapshot-root
+      - "{{ shared_data_snapshot_root }}"
+      - --live-root
+      - "{{ shared_data_root }}"
+      - --staging
+      - "{{ shared_data_staging }}"
+      - --images
+      - "{{ shared_data_capture_images | to_json }}"
+      - --credentials
+      - "{{ shared_data_credentials }}"
+- name: Bind destructive steps to the manifest recorded in the API journal
+  ansible.builtin.set_fact:
+    shared_data_recovery_argv: "{{ shared_data_recovery_argv + ['--selection-sha256', shared_data_recovery.selection_sha256, '--confirm'] + (['--manifest-sha256', shared_data_recovery.manifest_sha256] if shared_data_recovery.manifest_sha256 else []) }}"
+  when: shared_data_recovery_action != 'stage'
+- name: Bind Redis replacement to the authenticated isolated source
+  ansible.builtin.set_fact:
+    shared_data_recovery_argv: "{{ shared_data_recovery_argv + ['--redis-source-host', 'shared-data-redis-recovery.' ~ shared_data_namespace ~ '.svc.cluster.local', '--redis-source-credentials', shared_data_source_credentials] }}"
+  when: shared_data_recovery_action == 'redis'
+- name: Run bounded selected-recovery adapter under the Lease
+  ansible.builtin.include_tasks: native_step.yml
+  vars:
+    shared_data_native_argv: "{{ shared_data_recovery_argv }}"
+    shared_data_native_changed: "{{ shared_data_recovery_action != 'validate' }}"
+    shared_data_native_deadline: "{{ shared_data_recovery_deadline }}"

@@ -1,0 +1,32 @@
+---
+- name: Renew current watchdog ownership before fencing a child controller
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Read current child Job by immutable identity
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: Job
+    namespace: "{{ shared_data_fence_job.metadata.namespace }}"
+    name: "{{ shared_data_fence_job.metadata.name }}"
+  register: shared_data_fence_job_read
+- name: Refuse replacement child identities
+  ansible.builtin.assert:
+    that: >-
+      shared_data_fence_job_read.resources | length == 0 or
+      shared_data_fence_job_read.resources[0].metadata.uid == shared_data_fence_job.metadata.uid
+- name: Suspend only the exact inspected historical Job
+  kubernetes.core.k8s_json_patch:
+    api_version: batch/v1
+    kind: Job
+    namespace: "{{ shared_data_fence_job.metadata.namespace }}"
+    name: "{{ shared_data_fence_job.metadata.name }}"
+    patch:
+      - op: test
+        path: /metadata/uid
+        value: "{{ shared_data_fence_job.metadata.uid }}"
+      - op: test
+        path: /metadata/resourceVersion
+        value: "{{ shared_data_fence_job_read.resources[0].metadata.resourceVersion }}"
+      - op: add
+        path: /spec/suspend
+        value: true
+  when: shared_data_fence_job_read.resources | length > 0

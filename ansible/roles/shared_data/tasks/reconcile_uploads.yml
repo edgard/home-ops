@@ -1,0 +1,24 @@
+---
+- name: Inspect completed upload claims while this new capture owns the Lease
+  ansible.builtin.include_tasks: native_step.yml
+  vars:
+    shared_data_native_argv:
+      - "{{ shared_data_python }}"
+      - "{{ role_path }}/files/capture.py"
+      - claims
+      - --registry
+      - "{{ shared_data_registry_file }}"
+      - --apps
+      - "{{ shared_data_apps | join(',') }}"
+      - --staging
+      - "{{ shared_data_staging }}"
+      - --operation
+      - "{{ shared_data_operation_id }}"
+- name: Retain successful-receipt candidates without touching pending captures
+  ansible.builtin.set_fact:
+    shared_data_prior_uploads: "{{ shared_data_native_result.stdout | from_json }}"
+- name: Reconcile only exact terminal upload actors on healthy nodes
+  ansible.builtin.include_tasks: reconcile_upload.yml
+  loop: "{{ shared_data_prior_uploads }}"
+  loop_control:
+    loop_var: shared_data_prior_upload

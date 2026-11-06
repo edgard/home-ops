@@ -1,0 +1,61 @@
+---
+- name: Poll only while native work remains and its absolute deadline is open
+  when:
+    - not shared_data_queue_idle | bool
+    - ('' | shared_data_now) | int < shared_data_queue_deadline | int
+  block:
+    - name: Renew Lease before every short native queue poll
+      ansible.builtin.include_tasks: maintenance_guard.yml
+    - name: Refresh queue Pod identities during native polling
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+        context: "{{ kube_context | default(omit) }}"
+        api_version: v1
+        kind: Pod
+        namespace: "{{ shared_data_drain_namespace }}"
+        label_selectors: "{{ shared_data_drain_controller.resources[0].spec.selector.matchLabels.items() | map('join', '=') | list }}"
+      register: shared_data_queue_current_read
+    - name: Retain the last successful inventory across skipped poll batches
+      ansible.builtin.set_fact:
+        shared_data_queue_current_pods: "{{ shared_data_queue_current_read }}"
+    - name: Refuse unjournaled replacement writers during capture drain
+      ansible.builtin.assert:
+        that: shared_data_queue_current_pods.resources | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | map(attribute='metadata.uid') | difference(shared_data_journal.queue_pauses[shared_data_drain_app].pods | map(attribute='uid')) | length == 0
+        fail_msg: Queue Pod changed during pause; capture remains blocked.
+      when: not shared_data_queue_resuming | default(false) | bool
+    - name: Poll only the original live native consumers without terminating them
+      kubernetes.core.k8s_exec:
+        kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+        context: "{{ kube_context | default(omit) }}"
+        namespace: "{{ shared_data_drain_namespace }}"
+        pod: "{{ item.metadata.name }}"
+        container: app
+        command: "timeout 30s sh -c {{ shared_data_queue_poll_command | quote }}"
+      register: shared_data_queue_poll_result
+      failed_when: false
+      loop: "{{ shared_data_queue_current_pods.resources | selectattr('metadata.uid', 'in', shared_data_journal.queue_pauses[shared_data_drain_app].pods | map(attribute='uid')) | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | list }}"
+      no_log: true
+      when: not shared_data_queue_wait_terminal | default(false) | bool
+    - name: Accept idle only from every successful native reply or terminated original Pod
+      ansible.builtin.set_fact:
+        shared_data_queue_idle: >-
+          {{ (shared_data_queue_current_pods.resources | selectattr('metadata.uid', 'in',
+             shared_data_journal.queue_pauses[shared_data_drain_app].pods | map(attribute='uid')) |
+             rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | length == 0)
+             if shared_data_queue_wait_terminal | default(false) | bool else
+             (shared_data_queue_poll_result.results | default([]) | selectattr('rc', 'defined') |
+             selectattr('rc', 'equalto', 0) | length ==
+             shared_data_queue_poll_result.results | default([]) | length) }}
+    - name: Delay only while active native work remains inside the absolute deadline
+      ansible.builtin.pause:
+        seconds: "{{ [shared_data_wait_delay | int, [0, shared_data_queue_deadline | int - ('' | shared_data_now) | int] | max] | min }}"
+      when: not shared_data_queue_idle | bool
+    - name: Advance the bounded native poll count
+      ansible.builtin.set_fact:
+        shared_data_queue_poll_count: "{{ shared_data_queue_poll_count | int + 1 }}"
+    - name: Continue a short poll batch without pre-expanding hundreds of includes
+      ansible.builtin.include_tasks: queue_poll.yml
+      when:
+        - not shared_data_queue_idle | bool
+        - shared_data_queue_poll_count | int % 20 != 0
+        - ('' | shared_data_now) | int < shared_data_queue_deadline | int

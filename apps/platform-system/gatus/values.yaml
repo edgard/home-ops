@@ -334,3 +334,14 @@ config:
           success-threshold: 1
           send-on-resolved: true
       enabled: false
+    - name: shared-data
+      group: operations
+      token: $SHARED_DATA_GATUS_TOKEN
+      heartbeat:
+        interval: 10m
+      alerts:
+        - type: telegram
+          failure-threshold: 1
+          success-threshold: 1
+          send-on-resolved: true
+      enabled: false

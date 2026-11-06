@@ -2,7 +2,7 @@
 - name: Validate shared data operation
   ansible.builtin.assert:
     that:
-      - shared_data_action in ['plan', 'watchdog', 'hold', 'resume']
+      - shared_data_action in ['plan', 'watchdog', 'hold', 'resume', 'backup', 'upload', 'provision', 'restore', 'cleanup', 'submit']
       - shared_data_registry.version == 1
     fail_msg: Invalid shared data operation or registry.
 
@@ -10,17 +10,37 @@
   ansible.builtin.set_fact:
     shared_data_selected_apps: >-
       {{ shared_data_apps if shared_data_apps | length > 0 else
+         ((shared_data_registry.consumers | dict2items | selectattr('value.enabled', 'equalto', true) | map(attribute='key') | list)
+         + (shared_data_registry.consumers | dict2items | selectattr('value.backend', 'defined') | selectattr('value.backend', 'equalto', 'sqlite') | map(attribute='key') | list)
+         + (shared_data_registry.file_consumers | default({}) | list)) | unique | list if shared_data_scope_all | bool else
+         shared_data_requested_apps.split(',') if shared_data_requested_apps | length > 0 else
          shared_data_registry.consumers | dict2items | selectattr('value.enabled', 'equalto', true) | map(attribute='key') | list }}
     shared_data_holder_pod_name: "{{ lookup('ansible.builtin.env', 'POD_NAME') | default(shared_data_holder_pod_name, true) }}"
     shared_data_holder_pod_namespace: "{{ lookup('ansible.builtin.env', 'POD_NAMESPACE') | default(shared_data_holder_pod_namespace, true) }}"
     shared_data_holder_pod_uid: "{{ lookup('ansible.builtin.env', 'POD_UID') | default(shared_data_holder_pod_uid, true) }}"
 
+- name: Validate action scope before preview or cluster access
+  ansible.builtin.include_tasks: operation_scope.yml
+  vars:
+    shared_data_scope_apps: "{{ shared_data_selected_apps }}"
+    shared_data_scope_action: "{{ shared_data_job_action if shared_data_action in ['submit', 'plan'] else shared_data_action }}"
+
+- name: Resolve a local submission plan without contacting the cluster
+  ansible.builtin.include_tasks: submit_plan.yml
+  when: shared_data_action == 'submit'
+
+- name: Build the reviewable storage plan
+  ansible.builtin.include_tasks: plan.yml
+  when: shared_data_action == 'plan' or not shared_data_confirm | bool or ansible_check_mode
+
 - name: Preview data operation
   when: shared_data_action == 'plan' or not shared_data_confirm | bool or ansible_check_mode
   ansible.builtin.debug:
     msg:
-      action: "{{ shared_data_action }}"
+      action: "{{ shared_data_job_action if shared_data_action == 'submit' else shared_data_action }}"
       consumers: "{{ shared_data_selected_apps }}"
+      allocations: "{{ shared_data_plan_rows }}"
+      snapshot: "{{ shared_data_snapshot }}"
       confirmation_required: true
       services:
         - postgresql.platform-system.svc.cluster.local:5432
@@ -36,5 +56,26 @@
       ansible.builtin.set_fact:
         shared_data_apps: "{{ shared_data_selected_apps }}"
 
+    - name: Verify the captured registry is still current for a self-contained data job
+      ansible.builtin.include_tasks: current_registry.yml
+      when:
+        - shared_data_require_current_registry | bool
+        - shared_data_action in ['backup', 'provision', 'restore', 'cleanup']
+
     - name: Run chosen operation
       ansible.builtin.include_tasks: "{{ shared_data_action }}.yml"
+      args:
+        apply:
+          module_defaults:
+            kubernetes.core.k8s:
+              kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+              context: "{{ kube_context | default(omit) }}"
+            kubernetes.core.k8s_info:
+              kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+              context: "{{ kube_context | default(omit) }}"
+            kubernetes.core.k8s_json_patch:
+              kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+              context: "{{ kube_context | default(omit) }}"
+            kubernetes.core.k8s_exec:
+              kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+              context: "{{ kube_context | default(omit) }}"

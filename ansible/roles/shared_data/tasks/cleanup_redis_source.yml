@@ -1,0 +1,20 @@
+---
+- name: Guard isolated-source cleanup before resuming consumers
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Gracefully remove only the exact recorded temporary recovery resources
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: "{{ item.kind }}"
+    namespace: "{{ shared_data_namespace }}"
+    name: "shared-data-redis-recovery"
+    delete_options:
+      preconditions:
+        uid: "{{ item.uid }}"
+    wait: true
+    wait_timeout: 240
+  loop: "{{ shared_data_source_resources }}"
+- name: Remove private recovery authentication only after its source Pod is gone
+  ansible.builtin.file:
+    path: "{{ shared_data_source_credentials }}"
+    state: absent

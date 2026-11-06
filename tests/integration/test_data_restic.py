@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.support.data_generation import schema_metadata
 from tests.support.runtime import load_module
 
 
@@ -26,6 +27,7 @@ def test_real_upload_publication_identity_and_partial_snapshot_exclusion(
     (root / "selfhosted/demo/.home-ops/databases/demo.dump").write_bytes(
         b"synthetic dump"
     )
+    schema_metadata((root / "selfhosted/demo/.home-ops/databases/demo.dump"))
     (root / "selfhosted/demo/file").write_bytes(b"recoverable")
     (root / "platform-system/postgresql").mkdir(parents=True)
     (root / "platform-system/postgresql/PG_VERSION").write_text("18")
@@ -36,6 +38,7 @@ def test_real_upload_publication_identity_and_partial_snapshot_exclusion(
             "demo": {
                 "namespace": "selfhosted",
                 "enabled": True,
+                "backend": "postgresql",
                 "roles": [
                     {
                         "name": "demo",
@@ -56,8 +59,18 @@ def test_real_upload_publication_identity_and_partial_snapshot_exclusion(
     subprocess.run([restic, "init"], capture_output=True, check=True)
     with patch.dict(sys.modules, {"data_tools": tools}):
         upload = load_module("shared_data/files/upload.py")
-    first = upload.upload("op", manifest, root=str(root))
-    second = upload.upload("op", manifest, root=str(root))
+    first = upload.upload(
+        "op",
+        manifest,
+        root=str(root),
+        manifest_sha256=tools.digest(root / ".home-ops/manifest.json"),
+    )
+    second = upload.upload(
+        "op",
+        manifest,
+        root=str(root),
+        manifest_sha256=tools.digest(root / ".home-ops/manifest.json"),
+    )
     assert first != second
     snapshots = json.loads(
         subprocess.run(
@@ -88,10 +101,25 @@ def test_real_upload_publication_identity_and_partial_snapshot_exclusion(
         assert raw.returncode != 0
     unreadable = root / "selfhosted/demo/unreadable"
     unreadable.write_bytes(b"cannot be captured")
-    unreadable.chmod(0)
+    manifest = tools.make_manifest(
+        root, registry, ["demo"], "op", {"demo": ["example/demo:1"]}
+    )
+    (root / ".home-ops/manifest.json").write_text(json.dumps(manifest))
+
+    def late_permission_failure(command):
+        if "backup" in command:
+            unreadable.chmod(0)
+        return upload.run_native(command)
+
     try:
         with pytest.raises(ValueError, match="incomplete"):
-            upload.upload("op", manifest, root=str(root))
+            upload.upload(
+                "op",
+                manifest,
+                run=late_permission_failure,
+                root=str(root),
+                manifest_sha256=tools.digest(root / ".home-ops/manifest.json"),
+            )
         pending = json.loads(
             subprocess.run(
                 [restic, "snapshots", "--json", "--tag", "appdata-pending"],

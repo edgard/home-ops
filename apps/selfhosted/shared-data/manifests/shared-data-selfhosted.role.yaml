@@ -12,6 +12,10 @@ rules:
     resourceNames:
       - atuin
       - bambuddy
+      - changedetection
+      - karakeep-chrome
+      - karakeep-main
+      - karakeep-meilisearch
       - paperless-gpt
       - paperless-main
       - sparkyfitness-garmin
@@ -19,6 +23,7 @@ rules:
       - sparkyfitness-server
       - sure-main
       - sure-worker
+      - twitch-drops-miner
     verbs:
       - get
       - patch
@@ -46,6 +51,7 @@ rules:
     resourceNames:
       - shared-data-operation
       - shared-data-status
+      - shared-data-backup-status
     verbs:
       - get
       - patch
@@ -90,3 +96,33 @@ rules:
     verbs:
       - get
       - create
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - secrets
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - secrets
+    resourceNames:
+      - shared-data-redis-recovery
+    verbs:
+      - get
+      - delete
+  - apiGroups:
+      - batch
+    resources:
+      - cronjobs
+    resourceNames:
+      - shared-data-main
+      - shared-data-provision
+      - restic-backup
+      - restic-maintenance
+    verbs:
+      - get
+      - patch

@@ -1,0 +1,126 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ shared_data_operation_id }}-upload
+  namespace: {{ shared_data_namespace }}
+  labels:
+    app.kubernetes.io/name: shared-data
+    home-ops/data-role: upload
+    home-ops/data-operation: {{ shared_data_operation_id }}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 7200
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: shared-data
+        home-ops/data-operation: {{ shared_data_operation_id }}
+    spec:
+      serviceAccountName: {{ shared_data_serviceaccount }}
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        runAsNonRoot: false
+      containers:
+        - name: upload
+          image: {{ shared_data_image }}
+          args:
+            - --extra-vars
+            - {{ {'shared_data_action': 'upload', 'shared_data_confirm': true, 'shared_data_operation_id': shared_data_operation_id, 'shared_data_apps': shared_data_apps, 'shared_data_manifest_sha256': shared_data_generation.manifest_sha256, 'shared_data_legacy_pvcs': shared_data_legacy_pvcs} | to_json | to_json }}
+          env:
+            - name: HOME
+              value: /tmp
+            - name: ANSIBLE_LOCAL_TEMP
+              value: /tmp/ansible-local
+            - name: ANSIBLE_REMOTE_TEMP
+              value: /tmp/ansible-remote
+            - name: XDG_CACHE_HOME
+              value: /tmp/cache
+            - name: RESTIC_REPOSITORY
+              value: {{ shared_data_restic_repository | to_json }}
+            - name: RESTIC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: restic-credentials
+                  key: RESTIC_PASSWORD
+            - name: RESTIC_REST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: restic-credentials
+                  key: RESTIC_PASSWORD
+            - name: RESTIC_REST_USERNAME
+              value: restic
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              add: [DAC_READ_SEARCH]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: canonical
+              mountPath: /data/appdata
+            - name: staging
+              mountPath: /generation
+              subPath: generations/{{ shared_data_operation_id }}
+              readOnly: true
+            - name: staging
+              mountPath: /data/appdata/.home-ops
+              subPath: generations/{{ shared_data_operation_id }}/.home-ops
+              readOnly: true
+{% for pvc in shared_data_legacy_pvcs %}
+            - name: appdata
+              mountPath: /data/appdata/{{ pvc }}
+              subPath: {{ pvc }}
+              readOnly: true
+{% endfor %}
+{% for app in shared_data_apps %}
+{% for pvc in shared_data_registry.consumers[app].pvcs %}
+            - name: staging
+              mountPath: /data/appdata/{{ pvc }}
+              subPath: generations/{{ shared_data_operation_id }}/{{ pvc }}
+              readOnly: true
+{% endfor %}
+{% endfor %}
+            - name: staging
+              mountPath: /staging/uploaded
+              subPath: uploaded
+            - name: staging
+              mountPath: /scratch
+              subPath: scratch
+            - name: credentials
+              mountPath: /run/credentials
+              readOnly: true
+            - name: registry
+              mountPath: /opt/home-ops/ansible/roles/shared_data/files/registry.yaml
+              subPath: registry.yaml
+              readOnly: true
+      volumes:
+        - name: canonical
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: appdata
+          persistentVolumeClaim:
+            claimName: {{ shared_data_appdata_pvc }}
+        - name: staging
+          persistentVolumeClaim:
+            claimName: {{ shared_data_staging_pvc }}
+        - name: credentials
+          secret:
+            secretName: {{ shared_data_secret }}
+        - name: registry
+          configMap:
+            name: shared-data-registry

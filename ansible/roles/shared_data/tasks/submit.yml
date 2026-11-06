@@ -1,0 +1,62 @@
+---
+- name: Validate operation scope before submitting a Job
+  ansible.builtin.include_tasks: operation_scope.yml
+  vars:
+    shared_data_scope_apps: "{{ shared_data_apps }}"
+    shared_data_scope_action: "{{ shared_data_job_action }}"
+
+- name: Validate immutable operations image and action
+  ansible.builtin.assert:
+    that:
+      - shared_data_image is match('^ghcr.io/edgard/home-ops-data-tools:[a-f0-9]+@sha256:[a-f0-9]{64}$')
+      - shared_data_job_action in ['provision', 'backup', 'restore', 'watchdog', 'cleanup']
+    fail_msg: Publish and digest-pin the operations image before launching jobs.
+
+- name: Allocate operation identity
+  ansible.builtin.set_fact:
+    shared_data_operation_id: >-
+      {{ shared_data_operation_id if shared_data_operation_id | length > 0 else
+         'shared-data-' ~ now(utc=true, fmt='%Y%m%d%H%M%S') ~ '-' ~ lookup('ansible.builtin.password', '/dev/null', length=6, chars=['ascii_lowercase', 'digits']) }}
+
+- name: Refuse reuse of any prior coordinator Job
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: Job
+    namespace: "{{ shared_data_namespace }}"
+    name: "{{ shared_data_operation_id }}"
+  register: shared_data_submit_previous
+- name: Require a new coordinator identity
+  ansible.builtin.assert:
+    that: shared_data_submit_previous.resources | length == 0
+- name: Create scoped operations job
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+    context: "{{ kube_context | default(omit) }}"
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'coordinator-job.yaml.j2') | from_yaml }}"
+  register: shared_data_submitted_job
+
+- name: Wait for operation to finish
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+    context: "{{ kube_context | default(omit) }}"
+    api_version: batch/v1
+    kind: Job
+    namespace: "{{ shared_data_namespace }}"
+    name: "{{ shared_data_operation_id }}"
+  register: shared_data_operation_job
+  until: >-
+    shared_data_operation_job.resources | length != 1 or
+    shared_data_operation_job.resources[0].metadata.uid != shared_data_submitted_job.result.metadata.uid or
+    (shared_data_operation_job.resources[0].status.succeeded | default(0) | int > 0 or
+     shared_data_operation_job.resources[0].status.failed | default(0) | int > 0)
+  retries: "{{ (shared_data_job_timeout | int / 5) | int }}"
+  delay: 5
+
+- name: Require successful operation
+  ansible.builtin.assert:
+    that:
+      - shared_data_operation_job.resources | length == 1
+      - shared_data_operation_job.resources[0].metadata.uid == shared_data_submitted_job.result.metadata.uid
+      - shared_data_operation_job.resources[0].status.succeeded | default(0) | int == 1
+    fail_msg: Shared data job failed. Inspect its redacted status and maintenance journal before resuming writers.

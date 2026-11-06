@@ -1,0 +1,227 @@
+---
+- name: Validate native capture scope before starting coordination
+  ansible.builtin.include_tasks: operation_scope.yml
+  vars:
+    shared_data_scope_apps: "{{ shared_data_apps }}"
+    shared_data_scope_action: backup
+
+- name: Require enrolled scope, bounded budgets, and a published coordinator image
+  ansible.builtin.assert:
+    that:
+      - shared_data_apps | length > 0
+      - shared_data_operation_kind == 'backup'
+      - shared_data_operation_id | length <= 52
+      - shared_data_operation_id is match('^[a-z0-9][a-z0-9-]*$')
+      - shared_data_image is search('@sha256:[a-f0-9]{64}$')
+      - shared_data_lease_duration | int >= shared_data_online_budget | int + shared_data_pause_budget | int + 120
+- name: Capture under one durable maintenance transaction
+  block:
+    - name: Fence producers while leaving application writers online for pre-copy
+      ansible.builtin.include_tasks: maintenance_hold.yml
+      vars:
+        shared_data_prepare_only: true
+    - name: Prepare private operation scratch without recursive ownership changes
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0700"
+      loop:
+        - "{{ shared_data_staging }}"
+        - "{{ shared_data_staging }}/scratch"
+        - "{{ shared_data_staging }}/uploads"
+        - "{{ shared_data_staging }}/uploaded"
+    - name: Reconcile prior verified uploads under this exclusive transaction
+      ansible.builtin.include_tasks: reconcile_uploads.yml
+    - name: Record one online deadline including engine estimates and pre-copy
+      ansible.builtin.set_fact:
+        shared_data_online_deadline: "{{ ('' | shared_data_now) | int + shared_data_online_budget | int }}"
+    - name: Estimate SQL and RDB capture space under the same online deadline
+      ansible.builtin.include_tasks: native_step.yml
+      vars:
+        shared_data_native_deadline: "{{ shared_data_online_deadline }}"
+        shared_data_native_argv:
+          - "{{ shared_data_python }}"
+          - "{{ shared_data_tools }}"
+          - estimate
+          - --registry
+          - "{{ shared_data_registry_file }}"
+          - --apps
+          - "{{ shared_data_apps | join(',') }}"
+          - --credentials
+          - "{{ shared_data_credentials }}"
+    - name: Retain nonsecret capacity estimates
+      ansible.builtin.set_fact:
+        shared_data_capture_estimate: "{{ shared_data_native_result.stdout | from_json }}"
+        shared_data_legacy_pvcs: "{{ (shared_data_native_result.stdout | from_json).legacy_pvcs }}"
+    - name: Pre-copy application files while writers are online
+      ansible.builtin.include_tasks: native_step.yml
+      vars:
+        shared_data_native_deadline: "{{ shared_data_online_deadline }}"
+        shared_data_native_changed: true
+        shared_data_native_argv:
+          - "{{ shared_data_python }}"
+          - "{{ role_path }}/files/capture.py"
+          - preseed
+          - --registry
+          - "{{ shared_data_registry_file }}"
+          - --apps
+          - "{{ shared_data_apps | join(',') }}"
+          - --credentials
+          - "{{ shared_data_credentials }}"
+          - --root
+          - "{{ shared_data_root }}"
+          - --staging
+          - "{{ shared_data_staging }}"
+          - --operation
+          - "{{ shared_data_operation_id }}"
+          - --deadline
+          - "{{ shared_data_online_deadline }}"
+          - --database-bytes
+          - "{{ shared_data_capture_estimate.database_bytes | string }}"
+          - --redis-bytes
+          - "{{ shared_data_capture_estimate.redis_bytes | string }}"
+    - name: Start the pause budget before stopping producers and draining work
+      ansible.builtin.set_fact:
+        shared_data_capture_deadline: "{{ ('' | shared_data_now) | int + shared_data_pause_budget | int }}"
+    - name: Drain and stop every selected writer before final capture
+      ansible.builtin.include_tasks: maintenance_hold.yml
+      vars:
+        shared_data_prepare_only: false
+    - name: Require no remaining selected database clients
+      ansible.builtin.include_tasks: native_step.yml
+      vars:
+        shared_data_native_deadline: "{{ shared_data_capture_deadline }}"
+        shared_data_native_argv:
+          - "{{ shared_data_python }}"
+          - "{{ shared_data_tools }}"
+          - quiet
+          - --registry
+          - "{{ shared_data_registry_file }}"
+          - --apps
+          - "{{ shared_data_apps | join(',') }}"
+          - --credentials
+          - "{{ shared_data_credentials }}"
+    - name: Capture final file contents with content comparison
+      ansible.builtin.include_tasks: native_step.yml
+      vars:
+        shared_data_native_deadline: "{{ shared_data_capture_deadline }}"
+        shared_data_native_changed: true
+        shared_data_native_argv:
+          - "{{ shared_data_python }}"
+          - "{{ role_path }}/files/capture.py"
+          - final
+          - --registry
+          - "{{ shared_data_registry_file }}"
+          - --apps
+          - "{{ shared_data_apps | join(',') }}"
+          - --credentials
+          - "{{ shared_data_credentials }}"
+          - --root
+          - "{{ shared_data_root }}"
+          - --staging
+          - "{{ shared_data_staging }}"
+          - --operation
+          - "{{ shared_data_operation_id }}"
+          - --deadline
+          - "{{ shared_data_capture_deadline }}"
+    - name: Capture custom PostgreSQL dumps and consistent Redis snapshot
+      ansible.builtin.include_tasks: native_step.yml
+      loop: "{{ ['dump'] + (['redis-snapshot'] if shared_data_registry | shared_data_redis_apps(shared_data_apps) | length > 0 else []) }}"
+      loop_control:
+        loop_var: shared_data_engine_capture
+      vars:
+        shared_data_native_deadline: "{{ shared_data_capture_deadline }}"
+        shared_data_native_changed: true
+        shared_data_native_argv:
+          - "{{ shared_data_python }}"
+          - "{{ shared_data_tools }}"
+          - "{{ shared_data_engine_capture }}"
+          - --registry
+          - "{{ shared_data_registry_file }}"
+          - --apps
+          - "{{ shared_data_apps | join(',') }}"
+          - --credentials
+          - "{{ shared_data_credentials }}"
+          - --root
+          - "{{ shared_data_staging }}/in-progress/{{ shared_data_operation_id }}"
+          - --confirm
+    - name: Read captured application image identities
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: "{{ item.1.kind }}"
+        namespace: "{{ item.1.namespace | default(item.0.value.namespace) }}"
+        name: "{{ item.1.name }}"
+      loop: "{{ shared_data_registry.consumers | dict2items | selectattr('key', 'in', shared_data_apps) | subelements('value.workloads') }}"
+      register: shared_data_image_reads
+    - name: Build captured image mapping
+      ansible.builtin.set_fact:
+        shared_data_capture_images: "{{ shared_data_image_reads.results | shared_data_image_map }}"
+    - name: Create checksummed generation manifest with retained key fingerprints
+      ansible.builtin.include_tasks: native_step.yml
+      vars:
+        shared_data_native_deadline: "{{ shared_data_capture_deadline }}"
+        shared_data_native_changed: true
+        shared_data_native_argv:
+          - "{{ shared_data_python }}"
+          - "{{ shared_data_tools }}"
+          - manifest
+          - --registry
+          - "{{ shared_data_registry_file }}"
+          - --apps
+          - "{{ shared_data_apps | join(',') }}"
+          - --credentials
+          - "{{ shared_data_credentials }}"
+          - --root
+          - "{{ shared_data_staging }}/in-progress/{{ shared_data_operation_id }}"
+          - --operation
+          - "{{ shared_data_operation_id }}"
+          - --images
+          - "{{ shared_data_capture_images | to_json }}"
+    - name: Publish only a fully validated durable generation
+      ansible.builtin.include_tasks: native_step.yml
+      vars:
+        shared_data_native_deadline: "{{ shared_data_capture_deadline }}"
+        shared_data_native_changed: true
+        shared_data_native_argv:
+          - "{{ shared_data_python }}"
+          - "{{ role_path }}/files/capture.py"
+          - publish
+          - --registry
+          - "{{ shared_data_registry_file }}"
+          - --apps
+          - "{{ shared_data_apps | join(',') }}"
+          - --credentials
+          - "{{ shared_data_credentials }}"
+          - --staging
+          - "{{ shared_data_staging }}"
+          - --operation
+          - "{{ shared_data_operation_id }}"
+          - --deadline
+          - "{{ shared_data_capture_deadline }}"
+    - name: Bind exact published bytes into API journal
+      ansible.builtin.set_fact:
+        shared_data_generation: "{{ shared_data_native_result.stdout | from_json }}"
+        shared_data_journal: "{{ shared_data_journal | combine({'manifest_sha256': (shared_data_native_result.stdout | from_json).manifest_sha256}) }}"
+    - name: Persist published digest before launching any uploader
+      ansible.builtin.include_tasks: maintenance_save.yml
+    - name: Register an upload claim before the generation can be pruned
+      ansible.builtin.copy:
+        content: "{{ {'operation': shared_data_operation_id, 'manifest_sha256': shared_data_generation.manifest_sha256, 'coordinator': shared_data_executor} | to_json }}\n"
+        dest: "{{ shared_data_staging }}/uploads/{{ shared_data_operation_id }}.json"
+        mode: "0600"
+    - name: Create a new uploader against the already published generation
+      ansible.builtin.include_tasks: create_upload.yml
+    - name: Restore original application settings with root reconciliation last
+      ansible.builtin.include_tasks: maintenance_resume.yml
+  rescue:
+    - name: Resume failed backup only while this live actor still owns the transaction
+      ansible.builtin.include_tasks: maintenance_resume.yml
+      when:
+        - shared_data_journal is defined
+        - shared_data_journal.operation_id | default('') == shared_data_operation_id
+        - shared_data_journal.phase | default('complete') != 'complete'
+    - name: Stop without promoting unfinished capture
+      ansible.builtin.fail:
+        msg: Capture failed; no incomplete generation is a recovery candidate. Inspect the journal if safe resumption was impossible.
+- name: Wait for verified upload after writers have resumed
+  ansible.builtin.include_tasks: wait_upload.yml

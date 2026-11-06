@@ -8,6 +8,11 @@
         shared_data_journal: "{{ shared_data_journal | combine({'phase': 'resuming', 'recovery_result': ('admin-resume' if shared_data_admin_resume | default(false) | bool else shared_data_journal.recovery_result)}) }}"
     - name: Persist resuming phase
       ansible.builtin.include_tasks: maintenance_save.yml
+    - name: Restore journaled internal queue pauses before restoring workloads or root
+      ansible.builtin.include_tasks: queue_resume.yml
+      loop: "{{ shared_data_journal.queue_pauses | default({}) | dict2items | rejectattr('value.state', 'equalto', 'resumed') | map(attribute='key') | list }}"
+      loop_control:
+        loop_var: shared_data_drain_app
     - name: Restore writers then schedules then Tuppr before enabling GitOps
       ansible.builtin.include_tasks: maintenance_patch.yml
       loop: >-
@@ -63,10 +68,15 @@
         shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'cronjob') | list }}"
     - name: Drain application work before re-holding failed resume
       ansible.builtin.include_tasks: drain.yml
-      when: shared_data_drain_enabled | default(false) | bool
+      when:
+        - shared_data_drain_enabled | default(false) | bool
+        - shared_data_journal.writers_touched | default(true) | bool
     - name: Hold resumed writer controllers for inspection
       ansible.builtin.include_tasks: maintenance_patch.yml
-      loop: "{{ shared_data_journal.snapshots | selectattr('role', 'in', ['tuppr', 'workload']) | list }}"
+      loop: >-
+        {{ (shared_data_journal.snapshots | selectattr('role', 'equalto', 'tuppr') | list) +
+           ((shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | list)
+           if shared_data_journal.writers_touched | default(true) | bool else []) }}
       loop_control:
         loop_var: shared_data_target
       vars:
@@ -74,7 +84,10 @@
     - name: Verify failed resume writers stopped without forced deletion
       ansible.builtin.include_tasks: maintenance_wait.yml
       vars:
-        shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'in', ['tuppr', 'workload', 'cronjob']) | list }}"
+        shared_data_wait_targets: >-
+          {{ (shared_data_journal.snapshots | selectattr('role', 'in', ['tuppr', 'cronjob']) | list) +
+             ((shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | list)
+             if shared_data_journal.writers_touched | default(true) | bool else []) }}
     - name: Keep failed resume visible to the operator
       ansible.builtin.fail:
         msg: Resume failed; original journal and GitOps fences retained for operator inspection.

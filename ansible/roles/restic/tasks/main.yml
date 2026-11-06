@@ -2,6 +2,12 @@
 - name: Build restic restore plan
   ansible.builtin.import_tasks: plan.yml
 
+- name: Refuse database consumers in the legacy file-only executor
+  ansible.builtin.assert:
+    that:
+      - (restic_restore_plan | map(attribute='app') | list) | intersect(restic_restore_registry.consumers | dict2items | selectattr('value.backend', 'defined') | selectattr('value.backend', 'equalto', 'postgresql') | map(attribute='key') | list) | length == 0
+    fail_msg: Use the database-aware restic-restore playbook for PostgreSQL applications.
+
 - name: Stop after plan when restore is not confirmed
   when:
     - not (restic_restore_confirm | bool) or ansible_check_mode

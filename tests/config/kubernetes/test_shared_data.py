@@ -102,3 +102,45 @@ def test_database_volume_ownership_is_not_rewritten_by_kubelet():
         security = values["defaultPodOptions"]["securityContext"]
         assert "fsGroup" not in security
         assert "fsGroupChangePolicy" not in security
+
+
+def test_operations_do_not_rewrite_retained_file_ownership_on_mount():
+    values = read_yaml(ROOT / "apps/selfhosted/shared-data/values.yaml")
+    security = values["defaultPodOptions"]["securityContext"]
+    assert "fsGroup" not in security
+    assert "fsGroupChangePolicy" not in security
+
+
+def test_every_registered_maintenance_target_has_scoped_api_permissions():
+    from tests.support.runtime import load_module
+
+    registry = read_yaml(ROOT / "ansible/roles/shared_data/files/registry.yaml")
+    filters = load_module("shared_data/filter_plugins/maintenance.py")
+    roles = [
+        read_yaml(path)
+        for path in (ROOT / "apps/selfhosted/shared-data/manifests").glob("*.role.yaml")
+    ]
+    for app in [*registry["consumers"], *registry.get("file_consumers", {})]:
+        for target in filters.shared_data_targets(
+            registry, [app], "permission-proof", "backup"
+        ):
+            group = target["api_version"].split("/")[0]
+            resource = {
+                "Application": "applications",
+                "ApplicationSet": "applicationsets",
+                "Deployment": "deployments",
+                "StatefulSet": "statefulsets",
+                "CronJob": "cronjobs",
+            }[target["kind"]]
+            matching = [
+                rule
+                for role in roles
+                if role["metadata"]["namespace"] == target["namespace"]
+                for rule in role["rules"]
+                if group in rule["apiGroups"]
+                and resource in rule["resources"]
+                and target["name"] in rule.get("resourceNames", [])
+            ]
+            assert any({"get", "patch"} <= set(rule["verbs"]) for rule in matching), (
+                target
+            )

@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import jsonpatch
 import pytest
@@ -19,7 +19,13 @@ import yaml
 from tests.support.runtime import load_module, run_role
 
 RESOURCES = {
-    "v1": {"ConfigMap": "configmaps", "Pod": "pods", "Node": "nodes"},
+    "v1": {
+        "ConfigMap": "configmaps",
+        "Pod": "pods",
+        "Node": "nodes",
+        "Secret": "secrets",
+        "Service": "services",
+    },
     "apps/v1": {"Deployment": "deployments", "StatefulSet": "statefulsets"},
     "batch/v1": {"Job": "jobs", "CronJob": "cronjobs"},
     "argoproj.io/v1alpha1": {
@@ -137,11 +143,16 @@ def maintenance_api(tmp_path, objects):
                     state["objects"][path_for(late)] = deepcopy(late)
                 state["late_cron_injected"] = True
             state["events"].append({"method": "GET", "path": path})
+            if state.get("on_get"):
+                state["on_get"](path, state)
             if path in state["objects"]:
                 return self.respond(state["objects"][path])
             if path.rsplit("/", 1)[-1] in {
                 plural for rows in RESOURCES.values() for plural in rows.values()
             }:
+                selector = parse_qs(urlsplit(self.path).query).get(
+                    "labelSelector", [""]
+                )[0]
                 values = [
                     obj
                     for key, obj in state["objects"].items()
@@ -149,6 +160,16 @@ def maintenance_api(tmp_path, objects):
                     or (
                         "/namespaces/" not in path
                         and key.rsplit("/", 2)[-2] == path.rsplit("/", 1)[-1]
+                    )
+                ]
+                values = [
+                    obj
+                    for obj in values
+                    if all(
+                        obj["metadata"].get("labels", {}).get(k) == v
+                        for k, v in (
+                            part.split("=", 1) for part in selector.split(",") if part
+                        )
                     )
                 ]
                 return self.respond(
@@ -164,6 +185,17 @@ def maintenance_api(tmp_path, objects):
             state["events"].append(
                 {"method": method, "path": path, "body": deepcopy(body)}
             )
+            if (
+                state.get("fail_scale_path") == path
+                and isinstance(body, list)
+                and any(
+                    row.get("path") == "/spec/replicas" and row.get("value") == 0
+                    for row in body
+                )
+            ):
+                return self.respond(
+                    {"kind": "Status", "reason": "Forbidden", "code": 403}, 403
+                )
             journal_payload = (
                 body.get("data", {}).get("journal.json")
                 if isinstance(body, dict)
@@ -194,6 +226,22 @@ def maintenance_api(tmp_path, objects):
                     uid="created-" + body["metadata"]["name"], resourceVersion="1"
                 )
                 state["objects"][path] = body
+                if state.get("created"):
+                    state["created"](body, state)
+                if body["kind"] == "Job" and state.get("job_created"):
+                    state["job_created"](body, state)
+                return self.respond(body, 201)
+            if (
+                method == "PATCH"
+                and path not in state["objects"]
+                and self.headers.get("Content-Type", "").startswith(
+                    "application/apply-patch"
+                )
+            ):
+                body["metadata"].update(
+                    uid="created-" + body["metadata"]["name"], resourceVersion="1"
+                )
+                state["objects"][path] = body
                 return self.respond(body, 201)
             try:
                 value = state["objects"][path]
@@ -218,6 +266,8 @@ def maintenance_api(tmp_path, objects):
                     replicas = value["spec"].get("replicas", 1)
                     value["status"] = {"replicas": replicas, "readyReplicas": replicas}
                 state["objects"][path] = value
+                if state.get("patched"):
+                    state["patched"](path, value, state)
                 if (
                     state.get("ambiguous_completion")
                     and journal_payload
@@ -232,6 +282,29 @@ def maintenance_api(tmp_path, objects):
                 return self.respond(
                     {"kind": "Status", "reason": "Conflict", "code": 409}, 409
                 )
+
+        def do_DELETE(self):
+            path = urlsplit(self.path).path
+            size = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(size)) if size else {}
+            state["events"].append({"method": "DELETE", "path": path, "body": body})
+            current = state["objects"].get(path)
+            if not current:
+                return self.respond(
+                    {"kind": "Status", "reason": "NotFound", "code": 404}, 404
+                )
+            expected = body.get("preconditions", {}).get("uid")
+            if not expected or current["metadata"]["uid"] != expected:
+                return self.respond(
+                    {"kind": "Status", "reason": "Conflict", "code": 409}, 409
+                )
+            if state.get("hang_pods") and current["kind"] == "Pod":
+                current["metadata"]["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+                return self.respond(current)
+            del state["objects"][path]
+            return self.respond(
+                {"apiVersion": "v1", "kind": "Status", "status": "Success", "code": 200}
+            )
 
         def do_POST(self):
             self.mutate("POST")
@@ -288,8 +361,7 @@ def obj(kind, name, namespace, spec=None, version=None):
     }
 
 
-@pytest.fixture
-def scenario():
+def scenario_objects():
     policy = {"automated": {"selfHeal": True, "prune": True}, "retry": {"limit": 2}}
     objects = [
         obj("Application", name, "argocd", {"syncPolicy": deepcopy(policy)})
@@ -337,6 +409,11 @@ def scenario():
         },
     }
     return objects, variables
+
+
+@pytest.fixture
+def scenario():
+    return scenario_objects()
 
 
 @pytest.mark.parametrize("check,confirm", [(True, True), (False, False)])

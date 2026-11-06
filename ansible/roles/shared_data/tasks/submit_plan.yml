@@ -1,0 +1,15 @@
+---
+- name: Load the repository-pinned published operations image for local submissions
+  when: shared_data_image | length == 0
+  block:
+    - name: Read source-owned deployment image settings
+      ansible.builtin.set_fact:
+        shared_data_submit_values: "{{ lookup('ansible.builtin.file', (repo_root | default(playbook_dir ~ '/../..')) ~ '/apps/selfhosted/shared-data/values.yaml') | from_yaml }}"
+    - name: Resolve immutable operations image
+      ansible.builtin.set_fact:
+        shared_data_image: "{{ shared_data_submit_values.controllers.main.containers.operations.image.repository }}:{{ shared_data_submit_values.controllers.main.containers.operations.image.tag }}@{{ shared_data_submit_values.controllers.main.containers.operations.image.digest }}"
+- name: Require an implemented coordinator action and immutable published image
+  ansible.builtin.assert:
+    that:
+      - shared_data_job_action in ['backup', 'provision', 'restore', 'watchdog', 'cleanup']
+      - shared_data_image is match('^ghcr.io/edgard/home-ops-data-tools:[a-f0-9]{40}@sha256:[a-f0-9]{64}$')

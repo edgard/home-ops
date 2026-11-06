@@ -154,10 +154,11 @@ controllers:
           allowPrivilegeEscalation: false
         command:
           - /bin/sh
-          - -c
+          - -ec
           - |
             echo "Running forget with retention policy..."
             restic --retry-lock 30m forget \
+              --keep-tag appdata-pending \
               --group-by host,paths,tags \
               --keep-daily 14 \
               --keep-weekly 8 \

@@ -13,15 +13,25 @@ rules:
       - atuin
       - bambuddy
       - bazarr
+      - changedetection
+      - crosswatch
       - homeassistant
+      - jellyfin
+      - karakeep
       - paperless
       - prowlarr
+      - qbittorrent
       - radarr
+      - recyclarr
+      - restic
       - root
+      - scrypted
+      - shared-data
       - sonarr
       - sparkyfitness
       - sure
       - tuppr
+      - twitch-drops-miner
     verbs:
       - get
       - patch

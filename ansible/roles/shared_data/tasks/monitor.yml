@@ -1,0 +1,38 @@
+---
+- name: Read health evidence without application storage
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+    context: "{{ kube_context | default(omit) }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ shared_data_namespace }}"
+    name: "{{ item.name | default(omit) }}"
+  loop:
+    - {api: v1, kind: ConfigMap, name: "{{ shared_data_journal_name }}"}
+    - {api: coordination.k8s.io/v1, kind: Lease, name: "{{ shared_data_lease_name }}"}
+    - {api: v1, kind: ConfigMap, name: shared-data-backup-status}
+    - {api: batch/v1, kind: Job}
+  register: shared_data_monitor_reads
+- name: Evaluate independent operation and verified capture health
+  ansible.builtin.set_fact:
+    shared_data_monitor_results:
+      operations_shared-data: >-
+        {{ ((shared_data_monitor_reads.results[0].resources[0].data['journal.json'] | from_json)
+           if shared_data_monitor_reads.results[0].resources | length else {})
+           | shared_data_operation_health(
+             shared_data_monitor_reads.results[1].resources | first | default({}),
+             shared_data_monitor_reads.results[3].resources, '' | shared_data_now,
+             shared_data_watchdog_failed | default(false)) }}
+      backups_shared-data: >-
+        {{ (shared_data_monitor_reads.results[2].resources | first | default({}))
+           | shared_data_backup_health('' | shared_data_now) }}
+- name: Deliver separate authenticated operation and backup results
+  ansible.builtin.uri:
+    url: "{{ shared_data_monitor_url }}/api/v1/endpoints/{{ item.key }}/external?success={{ item.value | bool | ternary('true', 'false') }}"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ lookup('ansible.builtin.file', shared_data_monitor_token_file) | trim }}"
+    timeout: 10
+    status_code: 200
+  loop: "{{ shared_data_monitor_results | dict2items }}"
+  no_log: true

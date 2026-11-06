@@ -3,6 +3,9 @@ shared_data_action: plan
 shared_data_confirm: false
 shared_data_admin_resume: false
 shared_data_apps: []
+shared_data_requested_apps: ""
+shared_data_scope_all: false
+shared_data_require_current_registry: false
 shared_data_operation_kind: backup
 shared_data_operation_id: ""
 shared_data_namespace: selfhosted
@@ -14,6 +17,9 @@ shared_data_wait_delay: 5
 shared_data_tuppr_namespace: platform-system
 shared_data_tuppr_name: tuppr
 shared_data_pause_budget: 180
+shared_data_online_budget: 600
+shared_data_prepare_only: false
+shared_data_legacy_pvcs: []
 shared_data_drain_enabled: true
 shared_data_registry_file: "{{ role_path }}/files/registry.yaml"
 shared_data_registry: "{{ lookup('ansible.builtin.file', shared_data_registry_file) | from_yaml }}"
@@ -33,9 +39,14 @@ shared_data_restic_repository: rest:http://restic.selfhosted.svc.cluster.local:8
 shared_data_restic_host: homelab
 shared_data_restic_tag: appdata
 shared_data_snapshot: latest
+shared_data_snapshot_root: /data/appdata
 shared_data_recovery_mode: false
+shared_data_recovery_budget: 3000
 shared_data_job_action: backup
 shared_data_job_timeout: 3600
 shared_data_holder_pod_name: ""
 shared_data_holder_pod_namespace: selfhosted
 shared_data_holder_pod_uid: ""
+shared_data_monitor_enabled: false
+shared_data_monitor_url: http://gatus.platform-system.svc.cluster.local
+shared_data_monitor_token_file: /run/gatus/token

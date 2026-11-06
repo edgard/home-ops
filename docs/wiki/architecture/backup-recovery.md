@@ -1,15 +1,15 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
+Status: current. Reviewed against: `cbcaf293696411c9289743a5882f08ead0967689`.
 
-The Restic application serves a repository and runs appdata backup and
-maintenance workloads. Restore commands enter the Ansible role in plan-only
-mode by default. A confirmed restore selects eligible appdata PVCs, pauses
-Argo-managed updates, stops target workloads, restores data, and resumes the
-original policy. Shared media and repository storage are outside the appdata
-restore set. Check mode never enters the restore transaction, including when
-confirmation is supplied. The [runbook](../operations/restic-backup-restore.md) is the
+The Restic application serves the shared repository. Existing Restic restore
+commands now enter the shared-data role in plan-only mode by default. Confirmed
+operations use registered consumer scope, hold root/ApplicationSet/application
+reconciliation, drain writers, restore selected databases and files, validate,
+and resume recorded settings with root last. Shared infrastructure PVCs and media
+are excluded from destructive file recovery. Check mode never enters the
+transaction. The [runbook](../operations/restic-backup-restore.md) contains the
 operator procedure; this page is an architectural map.
 
 The transaction and failure behavior are documented in the
@@ -23,21 +23,27 @@ identity and infrastructure values resolve from Bitwarden through scoped
 SecretSpec. Protected infrastructure-state backups have a separate recovery
 procedure; they do not replace Bitwarden availability.
 
-The [shared-data foundation](../operations/shared-data.md) introduces an API-backed
-maintenance journal and database-aware capture/recovery adapters. Its registry
-tracks adoption separately from the existing file-backup path. Each PostgreSQL
-consumer must pass backup and restore acceptance before its cutover; the first
-foundation stage leaves the deployed file-backup workflow in place. The prepared
-shared-service PVCs and staging area are explicitly excluded from generic file
-capture and destructive restoration. Their operation schedulers stay suspended
-until database-aware recovery is accepted.
+The [shared-data coordinator](../operations/shared-data.md) uses an API-backed
+Lease and journal. Capture publishes immutable checksummed generations;
+a newly created upload Pod mounts that exact generation at canonical Restic
+paths. Only successful, remotely verified uploads receive the canonical tag.
+Capture time determines backup freshness, independently of operation health.
+Unchanged consumers retain file coverage through explicit registry mappings.
+
+The registry tracks backend and shared-service adoption separately. PostgreSQL
+consumers require complete database manifests, compatible application images,
+and retained encryption material. A historical file snapshot cannot replace a
+PostgreSQL database. Each consumer must pass backup and recovery acceptance
+before cutover. Operation schedulers remain suspended until the new orchestration
+image is published, pinned, and accepted; the existing file backup continues
+during this stage.
 
 ## Sources
 
 - [Restic values](../../../apps/selfhosted/restic/values.yaml)
-- [Restore planning tasks](../../../ansible/roles/restic/tasks/plan.yml)
-- [Restore entry point](../../../ansible/roles/restic/tasks/main.yml)
-- [Restore execution tasks](../../../ansible/roles/restic/tasks/execute.yml)
+- [Restore planning tasks](../../../ansible/roles/shared_data/tasks/plan.yml)
+- [Restore entry point](../../../ansible/playbooks/restic-restore.yml)
+- [Restore execution tasks](../../../ansible/roles/shared_data/tasks/restore.yml)
 - [Restore Taskfile entry points](../../../Taskfile.yaml)
 
 ## Related pages

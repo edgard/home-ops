@@ -1,43 +1,129 @@
 ---
-- name: Read queued application controller and shutdown grace
+- name: Select native queue protocol
+  ansible.builtin.set_fact:
+    shared_data_drain_spec: "{{ shared_data_registry.consumers[shared_data_drain_app].drain }}"
+    shared_data_drain_namespace: "{{ shared_data_registry.consumers[shared_data_drain_app].namespace }}"
+- name: Read queued application controller and shutdown protection
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path | default(omit) }}"
     context: "{{ kube_context | default(omit) }}"
     api_version: apps/v1
     kind: Deployment
-    namespace: "{{ shared_data_registry.consumers[shared_data_drain_app].namespace }}"
-    name: "{{ shared_data_registry.consumers[shared_data_drain_app].drain.workload }}"
+    namespace: "{{ shared_data_drain_namespace }}"
+    name: "{{ shared_data_drain_spec.workload }}"
   register: shared_data_drain_controller
-
-- name: Require graceful shutdown longer than the application task timeout
+- name: Require rehearsed queue controller and explicit selector
   ansible.builtin.assert:
     that:
       - shared_data_drain_controller.resources | length == 1
-      - shared_data_drain_controller.resources[0].spec.template.spec.terminationGracePeriodSeconds | default(30) | int >= shared_data_registry.consumers[shared_data_drain_app].drain.minimum_grace_seconds
+      - shared_data_drain_controller.resources[0].spec.template.spec.terminationGracePeriodSeconds | default(30) | int >= shared_data_drain_spec.minimum_grace_seconds
+      - shared_data_drain_controller.resources[0].spec.selector.matchLabels | default({}) | length > 0
       - shared_data_drain_controller.resources[0].spec.selector.matchExpressions | default([]) | length == 0
     fail_msg: Queue consumers need rehearsed graceful termination before enrollment in coordinated operations.
-
-- name: Read current queued application Pods
+- name: Read actual queue Pods rather than trusting a newer template
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path | default(omit) }}"
     context: "{{ kube_context | default(omit) }}"
     api_version: v1
     kind: Pod
-    namespace: "{{ shared_data_registry.consumers[shared_data_drain_app].namespace }}"
+    namespace: "{{ shared_data_drain_namespace }}"
     label_selectors: "{{ shared_data_drain_controller.resources[0].spec.selector.matchLabels.items() | map('join', '=') | list }}"
   register: shared_data_drain_pods
-
-- name: Wait for active and prefetched application work to finish
+- name: Verify every live Pod has the proven native shutdown and probe settings
+  ansible.builtin.assert:
+    that:
+      - item.spec.terminationGracePeriodSeconds | default(30) | int >= shared_data_drain_spec.minimum_grace_seconds
+      - (shared_data_drain_live_env | combine(shared_data_drain_spec.required_env | default({}))) == shared_data_drain_live_env
+      - shared_data_drain_spec.required_liveness_command is not defined or shared_data_drain_container.livenessProbe.exec.command | default([]) == shared_data_drain_spec.required_liveness_command
+      - shared_data_drain_spec.image is not defined or shared_data_drain_container.image == shared_data_drain_spec.image
+      - item.status.phase == 'Running'
+      - item.metadata.deletionTimestamp is not defined
+    fail_msg: Live queue Pod lacks rehearsed shutdown protection; enroll old Pods safely before coordinated maintenance.
+  vars:
+    shared_data_drain_container: "{{ item.spec.containers | selectattr('name', 'equalto', 'app') | first }}"
+    shared_data_drain_live_env: "{{ shared_data_drain_container.env | default([]) | selectattr('value', 'defined') | items2dict(key_name='name', value_name='value') }}"
+  loop: "{{ shared_data_drain_pods.resources | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | list }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+- name: Require every bounded native call to fit safely inside the Lease
+  ansible.builtin.assert:
+    that:
+      - shared_data_lease_duration | int >= 900
+      - shared_data_lease_duration | int >= 120 + 30 * (shared_data_drain_pods.resources | length)
+    fail_msg: Native queue waits require at least a 900-second Lease and bounded native calls.
+- name: Reset per-application native original collection
+  ansible.builtin.set_fact:
+    shared_data_queue_originals: []
+- name: Read original native producer and queue state before mutation
   kubernetes.core.k8s_exec:
     kubeconfig: "{{ kubeconfig_path | default(omit) }}"
     context: "{{ kube_context | default(omit) }}"
-    namespace: "{{ shared_data_registry.consumers[shared_data_drain_app].namespace }}"
+    namespace: "{{ shared_data_drain_namespace }}"
     pod: "{{ item.metadata.name }}"
     container: app
-    command: "{{ shared_data_registry.consumers[shared_data_drain_app].drain.command }}"
-  register: shared_data_drain_result
-  until: shared_data_drain_result.return_code | default(1) | int == 0
-  retries: 60
-  delay: 5
+    command: "timeout 30s sh -c {{ shared_data_drain_spec.inspect_command | quote }}"
   loop: "{{ shared_data_drain_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list }}"
+  register: shared_data_queue_original_reads
+  failed_when: shared_data_queue_original_reads.rc | default(1) | int != 0
+  when: shared_data_journal.queue_pauses | default({}) | dict2items | selectattr('key', 'equalto', shared_data_drain_app) | length == 0 or shared_data_journal.queue_pauses[shared_data_drain_app].state == 'resumed'
   no_log: true
+- name: Collect nonsecret native originals and immutable Pod identities
+  ansible.builtin.set_fact:
+    shared_data_queue_originals: "{{ shared_data_queue_originals | default([]) + [{'name': item.item.metadata.name, 'uid': item.item.metadata.uid, 'original': item.stdout.splitlines()[-1] | from_json}] }}"
+  loop: "{{ shared_data_queue_original_reads.results | default([]) | rejectattr('skipped', 'defined') | list }}"
+  no_log: true
+- name: Record internal pause intent before stopping producers or quieting workers
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'queue_pauses': (shared_data_journal.queue_pauses | default({})) | combine({shared_data_drain_app: {'state': 'pause-intent', 'namespace': shared_data_drain_namespace, 'workload': shared_data_drain_spec.workload, 'pods': shared_data_queue_originals | default([])}})}) }}"
+  when: shared_data_journal.queue_pauses | default({}) | dict2items | selectattr('key', 'equalto', shared_data_drain_app) | length == 0 or shared_data_journal.queue_pauses[shared_data_drain_app].state == 'resumed'
+- name: Persist internal pause intent before every native pause attempt
+  ansible.builtin.include_tasks: maintenance_save.yml
+- name: Stop separate producer controllers before quieting native consumers
+  ansible.builtin.include_tasks: maintenance_patch.yml
+  loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | selectattr('name', 'in', shared_data_drain_spec.producer_workloads | default([])) | list }}"
+  loop_control:
+    loop_var: shared_data_target
+  vars:
+    shared_data_restore_target: false
+- name: Verify separate producer Pods have terminated naturally
+  ansible.builtin.include_tasks: maintenance_wait.yml
+  vars:
+    shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | selectattr('name', 'in', shared_data_drain_spec.producer_workloads | default([])) | list }}"
+- name: Renew ownership immediately before native producer pause
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Pause native producers and new queue dispatch without interrupting active tasks
+  kubernetes.core.k8s_exec:
+    kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+    context: "{{ kube_context | default(omit) }}"
+    namespace: "{{ shared_data_drain_namespace }}"
+    pod: "{{ item.metadata.name }}"
+    container: app
+    command: "timeout 30s sh -c {{ shared_data_drain_spec.pause_command | quote }}"
+  loop: "{{ shared_data_drain_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list }}"
+  register: shared_data_queue_pause_result
+  failed_when: shared_data_queue_pause_result.rc | default(1) | int != 0
+  no_log: true
+- name: Establish one absolute queue drain deadline
+  ansible.builtin.set_fact:
+    shared_data_queue_deadline: "{{ shared_data_capture_deadline | default(('' | shared_data_now) | int + (shared_data_pause_budget if shared_data_operation_kind == 'backup' else 2000) | int) }}"
+    shared_data_queue_idle: false
+    shared_data_queue_poll_count: 0
+    shared_data_queue_poll_command: "{{ shared_data_drain_spec.idle_command }}"
+- name: Poll native active and prefetched work with renewed ownership each time
+  ansible.builtin.include_tasks: queue_poll.yml
+  loop: "{{ range(0, 20) | list }}"
+  loop_control:
+    loop_var: shared_data_queue_attempt
+  when:
+    - not shared_data_queue_idle | bool
+    - ('' | shared_data_now) | int < shared_data_queue_deadline | int
+- name: Refuse capture when native tasks outlast the normal pause budget
+  ansible.builtin.assert:
+    that: shared_data_queue_idle | bool
+    fail_msg: Native work remains active; abort capture and safely resume without killing active tasks.
+- name: Record native queue pause only after producers and dispatch are quiet
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'queue_pauses': shared_data_journal.queue_pauses | combine({shared_data_drain_app: shared_data_journal.queue_pauses[shared_data_drain_app] | combine({'state': 'paused'})})}) }}"
+    shared_data_queue_originals: []
+- name: Persist completed queue pause
+  ansible.builtin.include_tasks: maintenance_save.yml

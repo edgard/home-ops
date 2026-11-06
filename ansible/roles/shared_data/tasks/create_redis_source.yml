@@ -1,0 +1,107 @@
+---
+- name: Guard recovery source creation under the current Lease
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Refuse reuse of previous recovery actors or credentials
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: "{{ item }}"
+    namespace: "{{ shared_data_namespace }}"
+    name: "shared-data-redis-recovery"
+  loop:
+    - Secret
+    - Service
+    - Pod
+  register: shared_data_source_previous
+- name: Require new isolated recovery resources
+  ansible.builtin.assert:
+    that: shared_data_source_previous.results | map(attribute='resources') | flatten | length == 0
+- name: Create private source credentials beside the staged recovery
+  ansible.builtin.file:
+    path: "{{ shared_data_staging }}/restores/{{ shared_data_operation_id }}/credentials"
+    state: directory
+    mode: "0700"
+- name: Retain private source credential path
+  ansible.builtin.set_fact:
+    shared_data_source_credentials: "{{ shared_data_staging }}/restores/{{ shared_data_operation_id }}/credentials"
+- name: Generate isolated recovery authentication without exposing it in command arguments
+  ansible.builtin.set_fact:
+    shared_data_source_password: "{{ lookup('ansible.builtin.password', shared_data_source_credentials ~ '/redis_recovery_password', chars=['hexdigits'], length=64) }}"
+  no_log: true
+- name: Create ephemeral namespace-local recovery credentials
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "shared-data-redis-recovery"
+        namespace: "{{ shared_data_namespace }}"
+        labels:
+          home-ops/data-operation: "{{ shared_data_operation_id }}"
+      type: Opaque
+      data:
+        redis_recovery_password: "{{ shared_data_source_password | b64encode }}"
+  register: shared_data_source_secret
+  no_log: true
+- name: Read the immutable selected recovery manifest
+  ansible.builtin.slurp:
+    src: "{{ shared_data_recovery.root }}/.home-ops/manifest.json"
+  register: shared_data_source_manifest
+- name: Bind recovery RDB hash to the selected manifest
+  ansible.builtin.set_fact:
+    shared_data_source_rdb_sha: "{{ (shared_data_source_manifest.content | b64decode | from_json).files['.home-ops/redis.rdb'] }}"
+- name: Create an isolated read-only RDB source on ephemeral storage
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'redis-source-pod.yaml.j2') | from_yaml }}"
+  register: shared_data_source_pod
+- name: Create the private in-cluster recovery service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "shared-data-redis-recovery"
+        namespace: "{{ shared_data_namespace }}"
+        labels:
+          home-ops/data-operation: "{{ shared_data_operation_id }}"
+      spec:
+        type: ClusterIP
+        selector:
+          app.kubernetes.io/name: shared-data-redis-recovery
+          home-ops/data-operation: "{{ shared_data_operation_id }}"
+        ports:
+          - name: redis
+            port: 6379
+            targetPort: 6379
+  register: shared_data_source_service
+- name: Record all isolated recovery resource identities before destructive replacement
+  ansible.builtin.set_fact:
+    shared_data_source_resources:
+      - {kind: Pod, uid: "{{ shared_data_source_pod.result.metadata.uid }}"}
+      - {kind: Service, uid: "{{ shared_data_source_service.result.metadata.uid }}"}
+      - {kind: Secret, uid: "{{ shared_data_source_secret.result.metadata.uid }}"}
+- name: Bind recovery resources into the durable transaction journal
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'redis_source': shared_data_source_resources}) }}"
+- name: Save recovery actor identities
+  ansible.builtin.include_tasks: maintenance_save.yml
+- name: Wait for authenticated source readiness
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    name: "shared-data-redis-recovery"
+    namespace: "{{ shared_data_namespace }}"
+    wait: true
+    wait_sleep: 2
+    wait_timeout: 240
+    wait_condition:
+      type: Ready
+      status: "True"
+  register: shared_data_source_ready
+- name: Verify readiness belongs to the same isolated Pod
+  ansible.builtin.assert:
+    that:
+      - shared_data_source_ready.resources | length == 1
+      - shared_data_source_ready.resources[0].metadata.uid == shared_data_source_pod.result.metadata.uid

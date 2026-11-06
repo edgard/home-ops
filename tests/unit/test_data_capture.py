@@ -39,40 +39,59 @@ def test_publish_requires_manifest_and_never_reuses_generation(tmp_path):
     dump = stage / "selfhosted/demo/.home-ops/databases/demo.dump"
     dump.parent.mkdir(parents=True)
     dump.write_bytes(b"dump")
-    (stage / ".home-ops/manifest.json").write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "consumers": {
-                    "demo": {
-                        "backend": "postgresql",
-                        "databases": [{"name": "demo", "owner": "demo"}],
-                        "pvcs": ["selfhosted/demo"],
-                        "images": ["example/demo:1"],
+    from tests.support.data_generation import schema_metadata
+
+    schema_metadata(dump)
+    registry = {
+        "version": 1,
+        "consumers": {
+            "demo": {
+                "namespace": "selfhosted",
+                "enabled": True,
+                "backend": "postgresql",
+                "roles": [
+                    {
+                        "name": "demo",
+                        "password_key": "demo_password",
+                        "connection_limit": 10,
                     }
-                },
-                "files": {
-                    "selfhosted/demo/.home-ops/databases/demo.dump": hashlib.sha256(
-                        b"dump"
-                    ).hexdigest()
-                },
+                ],
+                "databases": [{"name": "demo", "owner": "demo"}],
+                "workloads": [],
+                "pvcs": ["selfhosted/demo"],
             }
-        )
+        },
+    }
+    tools = load_module("shared_data/files/data_tools.py")
+    manifest = tools.make_manifest(
+        stage, registry, ["demo"], "op", {"demo": ["example/demo:1"]}
     )
+    (stage / ".home-ops/manifest.json").write_text(json.dumps(manifest))
     module().publish(stage, published)
     assert published.is_dir() and not stage.exists()
-    stage.mkdir()
+    import shutil
+
+    shutil.copytree(published, stage)
     with pytest.raises(ValueError):
         module().publish(stage, published)
 
 
 def test_cleanup_does_not_remove_unuploaded_generations(tmp_path):
-    for name in ["one", "two", "pending"]:
-        p = tmp_path / name
+    generations = tmp_path / "generations"
+    uploaded = tmp_path / "uploaded"
+    uploaded.mkdir()
+    for name in ["one", "two", "three", "four", "pending"]:
+        p = generations / name
         (p / ".home-ops").mkdir(parents=True)
         (p / ".home-ops/manifest.json").write_text("{}")
         if name != "pending":
-            (p / ".home-ops/uploaded.json").write_text("{}")
-    module().prune_generations(tmp_path)
-    assert (tmp_path / "pending").exists()
-    assert len(list(tmp_path.iterdir())) == 2
+            (uploaded / (name + ".json")).write_text(
+                json.dumps(
+                    {
+                        "snapshot": "a" * 64,
+                        "manifest_sha256": hashlib.sha256(b"{}").hexdigest(),
+                    }
+                )
+            )
+    module().prune_generations(generations)
+    assert {path.name for path in generations.iterdir()} == {"three", "four", "pending"}

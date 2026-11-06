@@ -2,7 +2,7 @@
 # Kubernetes Restic Restore Runbook
 
 Purpose: operator procedure for a Kubernetes appdata restore.
-Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
+Status: current. Reviewed against: `20ab0bc1d62963bbe4abcb439ec491e2e9074403`.
 
 The `restic` app backs up Kubernetes appdata and serves the same repository used
 by the macOS and Windows workstation backups. Kubernetes owns repository
@@ -39,35 +39,34 @@ using a workstation entry.
 
 The backup and maintenance schedules and retention are defined in
 [Restic values](../../../apps/selfhosted/restic/values.yaml); consult that file
-before relying on a schedule.
+before relying on a schedule. Kubernetes owns repository-wide retention and
+pruning, including workstation snapshots; clients only create backups. Retention
+groups snapshots by host, paths, and tags and explicitly keeps all
+`appdata-pending` snapshots for the separate inspected cleanup command.
 
 ## Rules
 
-The deployed legacy file-restore role pauses the ApplicationSet and target
-Applications. It does not hold the self-healing root, which can restore those
-policies during a restore. The root-aware
-[shared-data coordinator](shared-data.md) is being introduced in stages;
-its first foundation stage does not yet replace this deployed workflow.
+The Task entry points use the shared-data coordinator for database and file
+recovery. Activation requires its published, digest-pinned orchestration image;
+operation schedulers remain paused until recovery acceptance.
 
-- Always preview first. Restore tasks are plan-only unless
-  `confirm_restore=true` is set.
-- Ansible check mode remains plan-only even when confirmation is supplied.
-  The role guards both transaction entry and individual pod exec tasks because
-  pod commands require an explicit check-mode guard.
-- `snapshot` defaults to `latest`.
-- `latest` is filtered to the Kubernetes snapshot family, so workstation
-  snapshots are not eligible.
-- Restore-all includes Argo-managed `nfs-fast` appdata PVCs and excludes
-  shared/static storage: `media`, `restic-repo`, and `restic-appdata`.
-  Shared PostgreSQL, Redis, and maintenance staging claims are also excluded;
-  their recovery must use the database-aware workflow before consumers activate.
-- A confirmed restore creates a temporary `restic-restore` Job, pauses the
-  `apps` ApplicationSet, disables automated sync for target apps, scales
-  workloads down, deletes existing target contents under `/restore/data/appdata`,
-  restores with `--exclude-xattr '*'`, resumes workloads/sync policy, and
-  removes the restore Job.
-- If a confirmed restore fails, inspect the data before manually resuming apps or
-  clearing the restore Job.
+- Preview first. Existing commands retain `confirm_restore=true`; the new
+  `data:restore` commands use `confirm=true`. Check mode always previews.
+- `latest` selects a canonical `appdata` snapshot for host `homelab` covering
+  every selected consumer. Pending uploads and workstation snapshots are excluded.
+- Restore-all includes registered consumers; review the printed registry scope.
+  Shared media, repository storage, live PostgreSQL, Redis persistence, and
+  staging claims are excluded from destructive file restoration.
+- PostgreSQL consumers require complete database manifests and compatible images
+  and encryption keys. Historical manifest-less snapshots are eligible only for
+  consumers still on file/SQLite backends.
+- The coordinator holds root reconciliation first, then ApplicationSet and child
+  updates, schedules, and registered writers. It stages and validates data,
+  restores only the selected databases and files, verifies writes, and resumes
+  recorded settings with root last. A temporary authenticated Redis source
+  restores only selected adopted allocations and preserves absolute expirations.
+- Destructive failure remains held. Inspect the journal and data before explicit
+  recovery or resumption; clearing a failed Job does not establish consistency.
 
 ## Restore One App
 
@@ -89,9 +88,8 @@ task restic:restore app=homeassistant
 task restic:restore app=homeassistant confirm_restore=true
 ```
 
-The plan shows the app, namespace, source paths, restore paths, and workloads
-that will be stopped and resumed. A single-PVC restore is the same command:
-restore the Argo CD app that owns the PVC.
+The plan shows each consumer's backend, databases, Redis allocation, PVCs,
+and workloads. Restore the registered application that owns the data.
 
 ## Restore All Appdata
 
@@ -108,34 +106,34 @@ task restic:restore-all snapshot=<snapshot-id> confirm_restore=true
 
 ## Cluster DR
 
-1. Rebuild Talos/Kubernetes.
-2. Restore or reattach `/mnt/dpool/restic`.
-3. Recreate `/mnt/spool/appdata`.
-4. Let Argo CD deploy External Secrets and `restic`.
-5. Run `task restic:restore-all` first without confirmation.
-6. Review the plan.
-7. Run `task restic:restore-all confirm_restore=true`.
-8. Verify apps.
-9. Run a fresh backup.
+Rebuild Talos/Kubernetes and reattach the repository and application storage.
+Recover External Secrets and the required encryption keys, then recovery tooling,
+Restic, PostgreSQL, and Redis. Keep root reconciliation, consumer Applications,
+consumer workloads, and operation schedules held while restoring. Do not allow
+ordinary bootstrap reconciliation to start consumers against empty databases.
 
-## CLI Fallback
+Preview `task restic:restore-all`, review snapshot compatibility and scope, then
+restore with confirmation. Validate databases, files, authentication, and queues
+before enabling consumers and resuming root last. Existing zero-replica and
+held-policy settings remain held after restore. Automated cold infrastructure
+bootstrap is a separate acceptance gate before PostgreSQL consumer activation.
+Run a fresh backup after recovery.
 
-Use the Ansible role for normal restores. If manual debugging is required, keep
-these constraints:
+## CLI fallback
 
-- Restore into `/restore`.
-- Include only paths under `/data/appdata/<namespace>/<pvc-name>`.
-- Delete only contents under `/restore/data/appdata/<namespace>/<pvc-name>`.
-- Use `--exclude-xattr '*'` for NFS-backed appdata.
-- Filter `latest` with `--host homelab --tag appdata --path /data/appdata`.
+Use the role for normal recovery. A manual Restic file extraction cannot restore
+a PostgreSQL-era application consistently. For inspection, extract into a private
+staging directory, select explicit canonical snapshot identities and registered
+paths, and preserve the source snapshot. Never restore raw PostgreSQL or Redis
+persistence over shared live services.
 
 ## Sources
 
 - [Restic deployment](../../../apps/selfhosted/restic/values.yaml)
 - [Restore task entry points](../../../Taskfile.yaml)
-- [Restore role](../../../ansible/roles/restic/tasks/execute.yml)
-- [Restore entry point](../../../ansible/roles/restic/tasks/main.yml)
-- [Restore planning role](../../../ansible/roles/restic/tasks/plan.yml)
+- [Database-aware restore role](../../../ansible/roles/shared_data/tasks/restore.yml)
+- [Compatible restore entry point](../../../ansible/playbooks/restic-restore.yml)
+- [Registry restore planning](../../../ansible/roles/shared_data/tasks/plan.yml)
 - [Restore automation PR](https://github.com/edgard/home-ops/pull/261)
 
 ## Related pages

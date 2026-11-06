@@ -1,0 +1,38 @@
+---
+- name: Validate native provisioning scope before holding clients
+  ansible.builtin.include_tasks: operation_scope.yml
+  vars:
+    shared_data_scope_apps: "{{ shared_data_apps }}"
+    shared_data_scope_action: provision
+
+- name: Require an explicit consumer selection and provisioning transaction
+  ansible.builtin.assert:
+    that:
+      - shared_data_apps | length > 0
+      - shared_data_operation_kind == 'provision'
+- name: Hold selected clients and reconciliation before provisioning
+  ansible.builtin.include_tasks: maintenance_hold.yml
+- name: Provision isolated roles, databases, and persistent Redis ACLs
+  ansible.builtin.include_tasks: native_step.yml
+  loop:
+    - quiet
+    - provision
+    - redis-provision
+  loop_control:
+    loop_var: shared_data_provision_step
+  vars:
+    shared_data_native_tmp: /tmp
+    shared_data_native_changed: "{{ shared_data_provision_step != 'quiet' }}"
+    shared_data_native_argv:
+      - "{{ shared_data_python }}"
+      - "{{ shared_data_tools }}"
+      - "{{ shared_data_provision_step }}"
+      - --registry
+      - "{{ shared_data_registry_file }}"
+      - --apps
+      - "{{ shared_data_apps | join(',') }}"
+      - --credentials
+      - "{{ shared_data_credentials }}"
+      - --confirm
+- name: Restore original settings only after all provisioning steps succeeded
+  ansible.builtin.include_tasks: maintenance_resume.yml

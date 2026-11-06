@@ -99,7 +99,7 @@ def native_services(tmp_path_factory):
         args.pg_container = names[0]
         yield directory, args, password
     finally:
-        subprocess.run([docker, "rm", "-f", *names], capture_output=True, check=False)
+        subprocess.run([docker, "rm", "-fv", *names], capture_output=True, check=False)
 
 
 def native_registry():
@@ -109,6 +109,7 @@ def native_registry():
             name: {
                 "namespace": "selfhosted",
                 "enabled": True,
+                "backend": "postgresql",
                 "databases": [{"name": name, "owner": name}],
                 "roles": [
                     {
@@ -237,7 +238,7 @@ def test_real_postgres_restore_preserves_types_sequences_and_other_database(
         command = list(command)
         payload = None
         destination = None
-        if command[0] == "pg_dump":
+        if command[0] == "pg_dump" and "--file" in command:
             position = command.index("--file")
             destination = Path(command[position + 1])
             del command[position : position + 2]
@@ -343,12 +344,16 @@ def test_provision_rejects_existing_privilege_or_connection_escape(
             admin.execute(undo)
 
 
-def test_real_redis_restore_leaves_another_database_untouched(native_services):
+def test_real_redis_restore_rejects_live_instance_alias_before_deletion(
+    native_services,
+):
     import redis
 
     directory, args, password = native_services
     adapter = load_module("shared_data/files/data_tools.py")
-    # Use a second logical DB as the isolated source, mapped by a test-only constructor.
+    # A hostname alias and logical DB do not make an isolated recovery instance.
+    args.redis_source_host = "localhost"
+    args.redis_source_port = args.redis_port
     source = redis.Redis(host=args.redis_host, port=args.redis_port, db=3)
     target = redis.Redis(host=args.redis_host, port=args.redis_port, db=1)
     other = redis.Redis(host=args.redis_host, port=args.redis_port, db=2)
@@ -361,10 +366,11 @@ def test_real_redis_restore_leaves_another_database_untouched(native_services):
         host=args.redis_host, port=args.redis_port, db=3 if source else database
     )
     try:
-        adapter.transfer_redis(args, native_registry())
+        with pytest.raises(ValueError, match="isolated"):
+            adapter.transfer_redis(args, native_registry())
     finally:
         adapter.redis_connection = original
-    assert target.get("demo:pending") == b"job"
-    assert target.get("stale") is None
-    assert target.execute_command("PEXPIRETIME", "demo:pending") == expiry
+    assert source.get("demo:pending") == b"job"
+    assert target.get("stale") == b"remove"
+    assert source.execute_command("PEXPIRETIME", "demo:pending") == expiry
     assert other.get("paperless:keep") == b"untouched"

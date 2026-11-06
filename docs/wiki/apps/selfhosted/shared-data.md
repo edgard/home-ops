@@ -1,7 +1,7 @@
 # Shared data operations
 
 Purpose: supply storage, credentials, and Kubernetes permissions for coordinated data maintenance.
-Status: current. Reviewed against: `34d4c9a9e5ac52047ccd511b102b405039dbe10b`.
+Status: current. Reviewed against: `cbcaf293696411c9289743a5882f08ead0967689`.
 
 ## Dependencies
 
@@ -35,8 +35,12 @@ operation-object management. They do not list Secrets. The selfhosted
 AppProject explicitly permits these Roles in the affected namespaces; this
 also expands that GitOps project's permitted destination namespaces.
 
-Gatus has shared-service TCP checks and a separately delivered heartbeat token.
-Status publication and freshness become active with the verified backup path.
+Gatus has shared-service TCP checks and separate external endpoints for
+operation health and verified capture freshness. The watchdog receives only its
+heartbeat token, without database credentials or application storage. Freshness
+advances only after a verified full-scope upload and uses capture time, so a
+successful provisioning job or delayed older upload cannot reset it. Endpoint
+activation accompanies the accepted backup path.
 See the [operations procedure](../../operations/shared-data.md) for transaction
 ownership, failure holds, and staged delivery.
 

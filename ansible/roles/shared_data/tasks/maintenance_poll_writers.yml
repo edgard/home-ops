@@ -1,4 +1,9 @@
 ---
+- name: Renew existing operation ownership during each bounded quiescence poll
+  ansible.builtin.include_tasks: maintenance_guard.yml
+  when:
+    - shared_data_journal is defined
+    - shared_data_journal.operation_id | default('') == shared_data_operation_id
 - name: Read Jobs at the beginning of this quiescence iteration
   kubernetes.core.k8s_info:
     api_version: batch/v1
@@ -18,7 +23,11 @@
   ansible.builtin.set_fact:
     shared_data_writers_idle: >-
       {{ shared_data_wait_targets | shared_data_writers_stopped(shared_data_poll_pods.resources,
-         shared_data_poll_jobs_before.resources + shared_data_poll_jobs_after.resources) }}
+         shared_data_poll_jobs_before.resources + shared_data_poll_jobs_after.resources,
+         shared_data_holder_pod_uid | default('')) and
+         (shared_data_poll_pods.resources | shared_data_operation_jobs_stopped(
+         shared_data_poll_jobs_before.resources + shared_data_poll_jobs_after.resources,
+         shared_data_holder_pod_uid | default(''), shared_data_namespace)) }}
 - name: Delay only before a remaining quiescence retry
   ansible.builtin.pause:
     seconds: "{{ shared_data_wait_delay | default(5) | int }}"

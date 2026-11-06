@@ -35,3 +35,4 @@ restic_restore_excluded_pvcs:
   - media/media
   - selfhosted/restic-repo
   - selfhosted/restic-appdata
+restic_restore_registry: "{{ lookup('ansible.builtin.file', role_path ~ '/../shared_data/files/registry.yaml') | from_yaml }}"

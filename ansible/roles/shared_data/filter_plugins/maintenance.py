@@ -28,6 +28,10 @@ def shared_data_targets(
         raise ValueError("unsupported maintenance operation kind")
     if registry.get("version") != 1 or not isinstance(registry.get("consumers"), dict):
         raise ValueError("registry version 1 and consumers mapping are required")
+    registry = {
+        **registry,
+        "consumers": {**registry["consumers"], **registry.get("file_consumers", {})},
+    }
     if not isinstance(apps, list) or not apps or len(set(apps)) != len(apps):
         raise ValueError("select a nonempty unique list of registered consumers")
     targets = [
@@ -46,8 +50,21 @@ def shared_data_targets(
             "role": "appset",
         },
     ]
-    for app in dict.fromkeys([*apps, "tuppr"]):
-        if app != "tuppr" and app not in registry["consumers"]:
+    maintenance = registry.get("maintenance", {})
+    if not isinstance(maintenance, dict):
+        raise ValueError("maintenance registry must be a mapping")
+    operation_apps = maintenance.get("applications", [])
+    if not isinstance(operation_apps, list) or any(
+        not isinstance(app, str) or not _OPERATION.fullmatch(app)
+        for app in operation_apps
+    ):
+        raise ValueError("operation application names must be registered DNS names")
+    for app in dict.fromkeys([*apps, *operation_apps, "tuppr"]):
+        if (
+            app != "tuppr"
+            and app not in registry["consumers"]
+            and app not in operation_apps
+        ):
             raise ValueError("unknown selected consumer")
         targets.append(
             {
@@ -88,6 +105,21 @@ def shared_data_targets(
                         "role": role,
                     }
                 )
+    for cron in maintenance.get("cronjobs", []):
+        if not isinstance(cron, dict) or not all(
+            isinstance(cron.get(key), str) and _OPERATION.fullmatch(cron[key])
+            for key in ["name", "namespace"]
+        ):
+            raise ValueError("operation schedulers require explicit namespace/name")
+        targets.append(
+            {
+                "api_version": "batch/v1",
+                "kind": "CronJob",
+                "namespace": cron["namespace"],
+                "name": cron["name"],
+                "role": "cronjob",
+            }
+        )
     identities = [(row["kind"], row["namespace"], row["name"]) for row in targets]
     if len(set(identities)) != len(identities):
         raise ValueError("duplicate maintenance target")
@@ -402,6 +434,101 @@ def _job_complete(job):
     )
 
 
+def shared_data_operation_jobs_stopped(
+    pods, jobs, executor_uid, namespace="selfhosted"
+):
+    """Fence manual coordinators/uploaders as well as registered CronJob work."""
+    own_jobs = {
+        owner.get("uid")
+        for pod in pods
+        if pod.get("metadata", {}).get("uid") == executor_uid
+        for owner in pod.get("metadata", {}).get("ownerReferences", [])
+        if owner.get("kind") == "Job"
+    }
+    selected = set()
+    for job in jobs:
+        metadata = job.get("metadata", {})
+        labels = metadata.get("labels", {})
+        if not (
+            labels.get(_LABEL) or labels.get("app.kubernetes.io/name") == "shared-data"
+        ):
+            continue
+        if metadata.get("namespace") == namespace and any(
+            owner.get("kind") == "CronJob"
+            and owner.get("name") == "shared-data-watchdog"
+            for owner in metadata.get("ownerReferences", [])
+        ):
+            continue
+        uid = metadata.get("uid")
+        if not uid:
+            return False
+        selected.add(uid)
+        if uid not in own_jobs and (
+            job.get("status", {}).get("active", 0)
+            or job.get("status", {}).get("terminating", 0)
+        ):
+            return False
+        if (
+            uid not in own_jobs
+            and not _job_complete(job)
+            and not (
+                job.get("spec", {}).get("suspend")
+                and not job.get("status", {}).get("active", 0)
+            )
+        ):
+            return False
+    return all(
+        _terminal(pod) or pod.get("metadata", {}).get("uid") == executor_uid
+        for pod in pods
+        if any(
+            owner.get("uid") in selected
+            for owner in pod.get("metadata", {}).get("ownerReferences", [])
+        )
+    )
+
+
+def shared_data_upload_claim_terminal(claim, jobs, pods, nodes):
+    expected = claim.get("upload_job", {})
+    if len(jobs) != 1 or not nodes:
+        return False
+    job = jobs[0]
+    metadata = job.get("metadata", {})
+    if any(
+        metadata.get(key) != expected.get(key) for key in ["uid", "name", "namespace"]
+    ) or metadata.get("labels", {}).get(_LABEL) != claim.get("operation"):
+        return False
+    if (
+        not any(
+            row.get("type") == "Complete" and row.get("status") == "True"
+            for row in job.get("status", {}).get("conditions", [])
+        )
+        or job.get("status", {}).get("active", 0)
+        or job.get("status", {}).get("terminating", 0)
+    ):
+        return False
+    if any(
+        not any(
+            row.get("type") == "Ready" and row.get("status") == "True"
+            for row in node.get("status", {}).get("conditions", [])
+        )
+        or any(
+            taint.get("key")
+            in {"node.kubernetes.io/unreachable", "node.kubernetes.io/not-ready"}
+            for taint in node.get("spec", {}).get("taints", [])
+        )
+        for node in nodes
+    ):
+        return False
+    return all(
+        _terminal(pod)
+        for pod in pods
+        if any(
+            owner.get("uid") == expected["uid"]
+            for owner in pod.get("metadata", {}).get("ownerReferences", [])
+        )
+    )
+
+
 def shared_data_recovery_fenced(journal, lease, pods, jobs, executor_uid=""):
     coordinator = _effective_coordinator(journal, lease)
     return bool(coordinator) and shared_data_coordinator_fenced(
@@ -521,7 +648,16 @@ def _matches(selector, labels):
     return True
 
 
-def shared_data_writers_stopped(snapshots, pods, jobs):
+def shared_data_writers_stopped(snapshots, pods, jobs, executor_uid=""):
+    executor_owners = {
+        owner.get("uid")
+        for pod in pods
+        if pod.get("metadata", {}).get("uid") == executor_uid
+        and pod.get("status", {}).get("phase") == "Running"
+        and not pod.get("metadata", {}).get("deletionTimestamp")
+        for owner in pod.get("metadata", {}).get("ownerReferences", [])
+        if owner.get("kind") == "Job"
+    }
     for row in snapshots:
         for pod in pods:
             metadata = pod.get("metadata", {})
@@ -542,11 +678,16 @@ def shared_data_writers_stopped(snapshots, pods, jobs):
                     for owner in job.get("metadata", {}).get("ownerReferences", [])
                 )
             ]
-            if any(not _job_complete(job) for job in owned_jobs):
+            if any(
+                not _job_complete(job)
+                for job in owned_jobs
+                if job.get("metadata", {}).get("uid") not in executor_owners
+            ):
                 return False
             job_uids = {job.get("metadata", {}).get("uid") for job in owned_jobs}
             if any(
                 not _terminal(pod)
+                and pod.get("metadata", {}).get("uid") != executor_uid
                 and any(
                     owner.get("uid") in job_uids
                     for owner in pod.get("metadata", {}).get("ownerReferences", [])
@@ -639,3 +780,171 @@ class FilterModule:
             for name, value in globals().items()
             if name.startswith("shared_data_") and callable(value)
         }
+
+
+def shared_data_watchdog_fence(journal, lease, pods, jobs, nodes, now, executor_uid):
+    """Plan only identity-checked stale actor fencing; tasks own API mutations.
+
+    Healthy nodes are required both before deletion and after the disappearance
+    barrier. No force deletion or name-only Pod replacement is accepted.
+    """
+    if not shared_data_lease_expired(lease, now):
+        return {"jobs": [], "pods": [], "expired": False}
+    record = shared_data_lease_record(lease)
+    if not record:
+        raise ValueError("stale Lease lacks an immutable coordinator claim")
+    if journal and journal.get("phase") != "complete":
+        actor = _effective_coordinator(journal, lease)
+        if not actor:
+            raise ValueError("Lease and journal ownership conflict")
+        operation = journal["operation_id"]
+        actors = [
+            journal["holder"],
+            journal.get("coordinator", journal["holder"]),
+            actor,
+        ]
+    else:
+        actor = record["actor"]
+        operation = record["operation_id"]
+        actors = [actor]
+    actors += record.get("fence_actors", [])
+    actor_uids = {row["uid"] for row in actors}
+    if not executor_uid or executor_uid in actor_uids:
+        raise ValueError("watchdog must be distinct from historical coordinators")
+    healthy = {
+        node["metadata"]["name"]
+        for node in nodes
+        if any(
+            row.get("type") == "Ready" and row.get("status") == "True"
+            for row in node.get("status", {}).get("conditions", [])
+        )
+        and not any(
+            row.get("key")
+            in {"node.kubernetes.io/unreachable", "node.kubernetes.io/not-ready"}
+            for row in node.get("spec", {}).get("taints", [])
+        )
+    }
+    if not nodes or len(healthy) != len(nodes):
+        raise ValueError("node health is uncertain; do not infer storage work stopped")
+    watchdog_owners = {
+        owner.get("uid")
+        for pod in pods
+        if pod.get("metadata", {}).get("uid") == executor_uid
+        for owner in pod.get("metadata", {}).get("ownerReferences", [])
+    }
+    actor_owners = {owner["uid"] for row in actors for owner in row.get("owners", [])}
+    if actor_owners & watchdog_owners:
+        raise ValueError("watchdog cannot fence its own controller")
+    selected_jobs = [
+        job
+        for job in jobs
+        if job.get("metadata", {}).get("uid") in actor_owners
+        or (
+            job.get("metadata", {}).get("labels", {}).get(_LABEL) == operation
+            and job.get("metadata", {}).get("uid") not in watchdog_owners
+        )
+    ]
+    job_uids = {job["metadata"]["uid"] for job in selected_jobs}
+    selected_pods = []
+    for pod in pods:
+        meta = pod.get("metadata", {})
+        if meta.get("uid") == executor_uid:
+            continue
+        for historical in actors:
+            if (meta.get("name"), meta.get("namespace")) == (
+                historical["name"],
+                historical["namespace"],
+            ) and meta.get("uid") != historical["uid"]:
+                raise ValueError(
+                    "coordinator name was replaced with a different immutable identity"
+                )
+        if (
+            meta.get("uid") in actor_uids
+            or meta.get("labels", {}).get(_LABEL) == operation
+            or any(
+                owner.get("uid") in job_uids
+                for owner in meta.get("ownerReferences", [])
+            )
+        ):
+            if pod.get("spec", {}).get("nodeName") not in healthy and not _terminal(
+                pod
+            ):
+                # Pending unscheduled Pods are safely deletable, provided they
+                # cannot be recreated by an unsuspended controller.
+                if (
+                    pod.get("spec", {}).get("nodeName")
+                    or pod.get("status", {}).get("phase") != "Pending"
+                ):
+                    raise ValueError("coordinator node is not proven healthy")
+            selected_pods.append(pod)
+    for row in selected_jobs + selected_pods:
+        if not all(
+            row.get("metadata", {}).get(key)
+            for key in ["name", "namespace", "uid", "resourceVersion"]
+        ):
+            raise ValueError("fencing requires complete immutable resource identity")
+    return {
+        "jobs": selected_jobs,
+        "pods": selected_pods,
+        "expired": True,
+        "actors": actors,
+        "operation_id": operation,
+    }
+
+
+def shared_data_fence_claim(lease, journal, actor, now, duration=300):
+    """CAS stale ownership while retaining actors across every crash window."""
+    if not shared_data_lease_expired(lease, now):
+        raise ValueError("only an expired Lease permits automatic fencing takeover")
+    record = shared_data_lease_record(lease)
+    if not record:
+        raise ValueError("stale Lease lacks a verified claim")
+    actors = list(record.get("fence_actors", [])) + [record["actor"]]
+    if journal and journal.get("phase") != "complete":
+        if not _effective_coordinator(journal, lease):
+            raise ValueError("Lease and journal ownership conflict")
+        actors += [journal["holder"], journal.get("coordinator", journal["holder"])]
+    unique = {row["uid"]: deepcopy(row) for row in actors}
+    if actor["uid"] in unique:
+        raise ValueError("fencing actor must be a distinct live Pod")
+    patch = shared_data_lease_takeover(
+        lease,
+        lease["spec"]["holderIdentity"],
+        record["operation_id"],
+        record["operation_kind"],
+        actor,
+        now,
+        duration,
+        record["stage"],
+    )
+    annotations = patch[-1]["value"]
+    claimed = json.loads(annotations[_LEASE_RECORD])
+    claimed["fence_actors"] = list(unique.values())
+    annotations[_LEASE_RECORD] = json.dumps(claimed, sort_keys=True)
+    return patch
+
+
+def shared_data_fence_complete(plan, pods, jobs, nodes, executor_uid):
+    if not plan.get("expired") or not nodes:
+        return False
+    for node in nodes:
+        if not any(
+            row.get("type") == "Ready" and row.get("status") == "True"
+            for row in node.get("status", {}).get("conditions", [])
+        ):
+            return False
+        if any(
+            row.get("key")
+            in {"node.kubernetes.io/unreachable", "node.kubernetes.io/not-ready"}
+            for row in node.get("spec", {}).get("taints", [])
+        ):
+            return False
+    return all(
+        shared_data_coordinator_fenced(
+            {"operation_id": plan["operation_id"], "holder": actor},
+            pods,
+            jobs,
+            executor_uid,
+        )
+        for actor in plan["actors"]
+    )

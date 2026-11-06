@@ -5,8 +5,6 @@ defaultPodOptions:
   automountServiceAccountToken: true
   terminationGracePeriodSeconds: 120
   securityContext:
-    fsGroup: 0
-    fsGroupChangePolicy: OnRootMismatch
     runAsUser: 0
     runAsGroup: 0
     runAsNonRoot: false
@@ -35,7 +33,7 @@ controllers:
           digest: sha256:6e5919fa72ad11e9217e26f574730b04e986181d8553bf93b508d0e791ab566f
         args:
           - --extra-vars
-          - "{\"shared_data_action\":\"backup\",\"shared_data_confirm\":true,\"shared_data_image\":\"ghcr.io/edgard/home-ops-data-tools:34d4c9a9e5ac52047ccd511b102b405039dbe10b@sha256:6e5919fa72ad11e9217e26f574730b04e986181d8553bf93b508d0e791ab566f\",\"shared_data_operation_kind\":\"backup\",\"shared_data_operation_id\":\"$(POD_NAME)\"}"
+          - "{\"shared_data_action\":\"backup\",\"shared_data_confirm\":true,\"shared_data_image\":\"ghcr.io/edgard/home-ops-data-tools:34d4c9a9e5ac52047ccd511b102b405039dbe10b@sha256:6e5919fa72ad11e9217e26f574730b04e986181d8553bf93b508d0e791ab566f\",\"shared_data_operation_kind\":\"backup\",\"shared_data_operation_id\":\"$(POD_NAME)\",\"shared_data_require_current_registry\":true}"
         env:
           POD_NAME:
             valueFrom:
@@ -77,6 +75,8 @@ controllers:
             add:
               - CHOWN
               - DAC_READ_SEARCH
+              - DAC_OVERRIDE
+              - FSETID
               - FOWNER
         resources:
           requests:
@@ -115,7 +115,7 @@ controllers:
           digest: sha256:6e5919fa72ad11e9217e26f574730b04e986181d8553bf93b508d0e791ab566f
         args:
           - --extra-vars
-          - "{\"shared_data_action\":\"provision\",\"shared_data_confirm\":true,\"shared_data_image\":\"ghcr.io/edgard/home-ops-data-tools:34d4c9a9e5ac52047ccd511b102b405039dbe10b@sha256:6e5919fa72ad11e9217e26f574730b04e986181d8553bf93b508d0e791ab566f\",\"shared_data_operation_kind\":\"provision\",\"shared_data_operation_id\":\"$(POD_NAME)\",\"shared_data_apps\":[\"sure\",\"sparkyfitness\"]}"
+          - "{\"shared_data_action\":\"provision\",\"shared_data_confirm\":true,\"shared_data_image\":\"ghcr.io/edgard/home-ops-data-tools:34d4c9a9e5ac52047ccd511b102b405039dbe10b@sha256:6e5919fa72ad11e9217e26f574730b04e986181d8553bf93b508d0e791ab566f\",\"shared_data_operation_kind\":\"provision\",\"shared_data_operation_id\":\"$(POD_NAME)\",\"shared_data_apps\":[\"sure\",\"sparkyfitness\"],\"shared_data_require_current_registry\":true}"
         env:
           POD_NAME:
             valueFrom:
@@ -188,7 +188,7 @@ controllers:
           digest: sha256:6e5919fa72ad11e9217e26f574730b04e986181d8553bf93b508d0e791ab566f
         args:
           - --extra-vars
-          - "{\"shared_data_action\":\"watchdog\",\"shared_data_confirm\":true,\"shared_data_image\":\"ghcr.io/edgard/home-ops-data-tools:34d4c9a9e5ac52047ccd511b102b405039dbe10b@sha256:6e5919fa72ad11e9217e26f574730b04e986181d8553bf93b508d0e791ab566f\"}"
+          - "{\"shared_data_action\":\"watchdog\",\"shared_data_confirm\":true,\"shared_data_monitor_enabled\":true,\"shared_data_image\":\"ghcr.io/edgard/home-ops-data-tools:34d4c9a9e5ac52047ccd511b102b405039dbe10b@sha256:6e5919fa72ad11e9217e26f574730b04e986181d8553bf93b508d0e791ab566f\"}"
         env:
           POD_NAME:
             valueFrom:
@@ -267,3 +267,11 @@ persistence:
       main:
         operations:
           - path: /staging
+  gatus-token:
+    type: secret
+    name: shared-data-gatus-credentials
+    advancedMounts:
+      watchdog:
+        operations:
+          - path: /run/gatus
+            readOnly: true

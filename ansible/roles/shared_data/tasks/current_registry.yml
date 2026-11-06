@@ -1,0 +1,16 @@
+---
+- name: Read live registry before a delayed coordinator can act on older settings
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path | default(omit) }}"
+    context: "{{ kube_context | default(omit) }}"
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ shared_data_namespace }}"
+    name: shared-data-registry
+  register: shared_data_live_registry
+- name: Refuse a stale registry before claiming maintenance or touching data
+  ansible.builtin.assert:
+    that:
+      - shared_data_live_registry.resources | length == 1
+      - shared_data_live_registry.resources[0].data['registry.yaml'] | from_yaml == shared_data_registry
+    fail_msg: Live registry differs from this coordinator's captured revision. Submit a fresh operation from the deployed configuration.

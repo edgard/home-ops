@@ -1,13 +1,29 @@
 ---
 version: 1
+maintenance:
+  applications:
+    - shared-data
+    - restic
+  cronjobs:
+    - {namespace: selfhosted, name: shared-data-main}
+    - {namespace: selfhosted, name: shared-data-provision}
+    - {namespace: selfhosted, name: restic-backup}
+    - {namespace: selfhosted, name: restic-maintenance}
 consumers:
   sure:
     namespace: selfhosted
     enabled: false
+    backend: postgresql
     drain:
       workload: sure-worker
       minimum_grace_seconds: 1900
-      command: bundle exec rails runner 'require "sidekiq/api"; abort "busy" unless Sidekiq::ProcessSet.new.sum { |process| process["busy"] }.zero?'
+      image: ghcr.io/we-promise/sure:0.7.6@sha256:61cd4c1fa9917200f8db4434b45d968235f375c52cdbdc81bf4a4df555a2f090
+      producer_workloads:
+        - sure-main
+      restart_to_resume: true
+      inspect_command: "bundle exec rails runner 'require \"json\"; require \"socket\"; require \"sidekiq/api\"; ps=Sidekiq::ProcessSet.new.select { |p| p[\"hostname\"]==Socket.gethostname }; abort \"worker missing or already quiet\" unless ps.size==1 && !ps.first.stopping?; puts JSON.generate({identity: ps.first[\"identity\"], quiet: false})'"
+      pause_command: kill -TSTP 1
+      idle_command: bundle exec rails runner 'require "socket"; require "sidekiq/api"; ps=Sidekiq::ProcessSet.new.select { |p| p["hostname"]==Socket.gethostname }; abort "worker not quiet and idle" unless ps.size==1 && ps.first.stopping? && ps.first["busy"].zero?'
     databases:
       - name: sure
         owner: sure
@@ -33,6 +49,7 @@ consumers:
       - sure_encryption_deterministic_key
       - sure_encryption_salt
     redis:
+      adopted: false
       database: 1
       username: sure
       password_key: sure_redis_password
@@ -40,6 +57,7 @@ consumers:
   sparkyfitness:
     namespace: selfhosted
     enabled: false
+    backend: postgresql
     databases:
       - name: sparkyfitness_db
         owner: sparky_admin
@@ -69,10 +87,83 @@ consumers:
   paperless:
     namespace: selfhosted
     enabled: false
+    backend: sqlite
+    sqlite_files:
+      - selfhosted/paperless/data/db.sqlite3
     drain:
       workload: paperless-main
       minimum_grace_seconds: 2000
-      command: python3 -c 'from paperless.celery import app; inspector=app.control.inspect(timeout=10); batches=[inspector.active(), inspector.reserved()]; assert all(batch and all(not tasks for tasks in batch.values()) for batch in batches)'
+      image: ghcr.io/paperless-ngx/paperless-ngx:3.3.4@sha256:9bc6e8248891bcfa6f52fffe8b81e4ea8cae75790c3ec1b9906961a7ba55c969
+      required_env:
+        PAPERLESS_WORKER_TIMEOUT: "1800"
+        S6_KILL_GRACETIME: "3000"
+      required_liveness_command:
+        - sh
+        - -c
+        - test "$(s6-svstat -o up /run/service/svc-worker)" = true
+      producer_workloads:
+        - paperless-gpt
+      restart_to_resume: false
+      inspect_command: |-
+        python3 -c 'import json,os,socket,subprocess,time
+        from paperless.celery import app
+        name='"'"'celery@'"'"'+socket.gethostname()
+        services=['"'"'svc-webserver'"'"','"'"'svc-consumer'"'"','"'"'svc-scheduler'"'"']
+        def status(service,fields='"'"'up'"'"'):
+            return subprocess.check_output(['"'"'s6-svstat'"'"','"'"'-o'"'"',fields,'"'"'/run/service/'"'"'+service],text=True).strip()
+        assert app.conf.task_time_limit == 1800
+        assert not os.environ.get('"'"'REMAP_SIGTERM'"'"')
+        states={service:status(service,'"'"'up,wantedup'"'"') for service in services+['"'"'svc-worker'"'"']}
+        assert all(value=='"'"'true true'"'"' for value in states.values()), states
+        queues=app.control.inspect(destination=[name],timeout=3).active_queues()
+        assert queues and [q['"'"'name'"'"'] for q in queues[name]]==['"'"'celery'"'"'], queues
+        print(json.dumps({'"'"'services'"'"':states,'"'"'queues'"'"':['"'"'celery'"'"'],'"'"'hard_timeout_seconds'"'"':app.conf.task_time_limit}))
+        '
+      pause_command: |-
+        python3 -c 'import json,os,socket,subprocess,time
+        from paperless.celery import app
+        name='"'"'celery@'"'"'+socket.gethostname()
+        services=['"'"'svc-webserver'"'"','"'"'svc-consumer'"'"','"'"'svc-scheduler'"'"']
+        def status(service,fields='"'"'up'"'"'):
+            return subprocess.check_output(['"'"'s6-svstat'"'"','"'"'-o'"'"',fields,'"'"'/run/service/'"'"'+service],text=True).strip()
+        for service in services:
+            subprocess.check_call(['"'"'s6-svc'"'"','"'"'-d'"'"','"'"'/run/service/'"'"'+service])
+        reply=app.control.cancel_consumer('"'"'celery'"'"',destination=[name],reply=True,timeout=3)
+        assert reply and '"'"'ok'"'"' in reply[0].get(name,{}), reply
+        '
+      idle_command: |-
+        python3 -c 'import json,os,socket,subprocess,time
+        from paperless.celery import app
+        name='"'"'celery@'"'"'+socket.gethostname()
+        services=['"'"'svc-webserver'"'"','"'"'svc-consumer'"'"','"'"'svc-scheduler'"'"']
+        def status(service,fields='"'"'up'"'"'):
+            return subprocess.check_output(['"'"'s6-svstat'"'"','"'"'-o'"'"',fields,'"'"'/run/service/'"'"'+service],text=True).strip()
+        assert all(status(service)=='"'"'false'"'"' for service in services)
+        assert status('"'"'svc-worker'"'"','"'"'up,wantedup'"'"')=='"'"'true true'"'"'
+        inspector=app.control.inspect(destination=[name],timeout=3)
+        assert inspector.active_queues()=={name:[]}
+        assert inspector.scheduled()=={name:[]}
+        assert inspector.reserved()=={name:[]}
+        assert inspector.active()=={name:[]}
+        '
+      resume_command: |-
+        python3 -c 'import json,os,socket,subprocess,time
+        from paperless.celery import app
+        name='"'"'celery@'"'"'+socket.gethostname()
+        services=['"'"'svc-webserver'"'"','"'"'svc-consumer'"'"','"'"'svc-scheduler'"'"']
+        def status(service,fields='"'"'up'"'"'):
+            return subprocess.check_output(['"'"'s6-svstat'"'"','"'"'-o'"'"',fields,'"'"'/run/service/'"'"'+service],text=True).strip()
+        reply=app.control.add_consumer('"'"'celery'"'"',destination=[name],reply=True,timeout=3)
+        assert reply and '"'"'ok'"'"' in reply[0].get(name,{}), reply
+        for service in services:
+            subprocess.check_call(['"'"'s6-svc'"'"','"'"'-u'"'"','"'"'/run/service/'"'"'+service])
+        deadline=time.monotonic()+15
+        while not all(status(service,'"'"'up,wantedup'"'"')=='"'"'true true'"'"' for service in services+['"'"'svc-worker'"'"']):
+            assert time.monotonic()<deadline, '"'"'native producer restart timeout'"'"'
+            time.sleep(.2)
+        queues=app.control.inspect(destination=[name],timeout=3).active_queues()
+        assert queues and [q['"'"'name'"'"'] for q in queues[name]]==['"'"'celery'"'"'], queues
+        '
     databases:
       - name: paperless
         owner: paperless
@@ -93,6 +184,7 @@ consumers:
     key_refs:
       - paperless_secret_key
     redis:
+      adopted: false
       database: 2
       username: paperless
       password_key: paperless_redis_password
@@ -100,6 +192,9 @@ consumers:
   bambuddy:
     namespace: selfhosted
     enabled: false
+    backend: sqlite
+    sqlite_files:
+      - selfhosted/bambuddy/bambuddy.db
     databases:
       - name: bambuddy
         owner: bambuddy
@@ -120,6 +215,9 @@ consumers:
   atuin:
     namespace: selfhosted
     enabled: false
+    backend: sqlite
+    sqlite_files:
+      - selfhosted/atuin/atuin.db
     databases:
       - name: atuin
         owner: atuin
@@ -139,6 +237,10 @@ consumers:
   sonarr:
     namespace: media
     enabled: false
+    backend: sqlite
+    sqlite_files:
+      - media/sonarr/sonarr.db
+      - media/sonarr/logs.db
     databases:
       - name: sonarr-main
         owner: sonarr
@@ -160,6 +262,10 @@ consumers:
   radarr:
     namespace: media
     enabled: false
+    backend: sqlite
+    sqlite_files:
+      - media/radarr/radarr.db
+      - media/radarr/logs.db
     databases:
       - name: radarr-main
         owner: radarr
@@ -181,6 +287,10 @@ consumers:
   prowlarr:
     namespace: media
     enabled: false
+    backend: sqlite
+    sqlite_files:
+      - media/prowlarr/prowlarr.db
+      - media/prowlarr/logs.db
     databases:
       - name: prowlarr-main
         owner: prowlarr
@@ -202,6 +312,9 @@ consumers:
   bazarr:
     namespace: media
     enabled: false
+    backend: sqlite
+    sqlite_files:
+      - media/bazarr/db/bazarr.db
     databases:
       - name: bazarr
         owner: bazarr
@@ -221,6 +334,9 @@ consumers:
   homeassistant:
     namespace: home-automation
     enabled: false
+    backend: sqlite
+    sqlite_files:
+      - home-automation/homeassistant/home-assistant_v2.db
     databases:
       - name: homeassistant
         owner: homeassistant
@@ -237,3 +353,72 @@ consumers:
     migration:
       adapter: fresh
     key_refs: []
+file_consumers:
+  scrypted:
+    namespace: home-automation
+    pvcs:
+      - home-automation/scrypted
+    workloads:
+      - kind: Deployment
+        name: scrypted
+    cronjobs: []
+  crosswatch:
+    namespace: media
+    pvcs:
+      - media/crosswatch-config
+    workloads:
+      - kind: Deployment
+        name: crosswatch
+    cronjobs: []
+  jellyfin:
+    namespace: media
+    pvcs:
+      - media/jellyfin
+    workloads:
+      - kind: Deployment
+        name: jellyfin
+    cronjobs: []
+  qbittorrent:
+    namespace: media
+    pvcs:
+      - media/qbittorrent
+    workloads:
+      - kind: Deployment
+        name: qbittorrent
+    cronjobs: []
+  recyclarr:
+    namespace: media
+    pvcs:
+      - media/recyclarr
+    workloads:
+      - kind: Deployment
+        name: recyclarr
+    cronjobs: []
+  changedetection:
+    namespace: selfhosted
+    pvcs:
+      - selfhosted/changedetection
+    workloads:
+      - kind: Deployment
+        name: changedetection
+    cronjobs: []
+  karakeep:
+    namespace: selfhosted
+    pvcs:
+      - selfhosted/karakeep
+    workloads:
+      - kind: Deployment
+        name: karakeep-chrome
+      - kind: Deployment
+        name: karakeep-main
+      - kind: Deployment
+        name: karakeep-meilisearch
+    cronjobs: []
+  twitch-drops-miner:
+    namespace: selfhosted
+    pvcs:
+      - selfhosted/twitch-drops-miner
+    workloads:
+      - kind: Deployment
+        name: twitch-drops-miner
+    cronjobs: []

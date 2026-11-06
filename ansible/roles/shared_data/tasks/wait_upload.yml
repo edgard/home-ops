@@ -1,0 +1,38 @@
+---
+- name: Observe the exact upload actor after application service has resumed
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: Job
+    name: "{{ shared_data_upload_job.name }}"
+    namespace: "{{ shared_data_upload_job.namespace }}"
+  register: shared_data_upload_observed
+  until: >-
+    shared_data_upload_observed.resources | length != 1 or
+    shared_data_upload_observed.resources[0].metadata.uid != shared_data_upload_job.uid or
+    shared_data_upload_observed.resources[0].status.conditions | default([]) | selectattr('status', 'equalto', 'True') | selectattr('type', 'in', ['Complete', 'Failed']) | list | length > 0
+  retries: "{{ (shared_data_job_timeout | int / 5) | round(0, 'ceil') | int }}"
+  delay: 5
+- name: Require successful completion of the same new upload Job
+  ansible.builtin.assert:
+    that:
+      - shared_data_upload_observed.resources | length == 1
+      - shared_data_upload_observed.resources[0].metadata.uid == shared_data_upload_job.uid
+      - shared_data_upload_observed.resources[0].status.conditions | default([]) | selectattr('status', 'equalto', 'True') | selectattr('type', 'equalto', 'Complete') | list | length == 1
+    fail_msg: Upload failed or its actor changed. Applications are resumed; retain the generation and pending snapshot for inspection.
+- name: Read the externally published verified-upload receipt
+  ansible.builtin.slurp:
+    src: "{{ shared_data_staging }}/uploaded/{{ shared_data_operation_id }}.json"
+  register: shared_data_upload_receipt_raw
+- name: Verify receipt binding before reporting recoverability
+  ansible.builtin.set_fact:
+    shared_data_upload_receipt: "{{ shared_data_upload_receipt_raw.content | b64decode | from_json }}"
+- name: Require the exact verified immutable snapshot receipt
+  ansible.builtin.assert:
+    that:
+      - shared_data_upload_receipt.status == 'ok'
+      - shared_data_upload_receipt.operation == shared_data_operation_id
+      - shared_data_upload_receipt.manifest_sha256 == shared_data_generation.manifest_sha256
+      - shared_data_upload_receipt.snapshot is match('^[a-f0-9]{64}$')
+- name: Record full-scope backup freshness independently of partial operations
+  ansible.builtin.include_tasks: backup_status.yml
+  when: shared_data_registry.consumers | dict2items | selectattr('value.enabled', 'equalto', true) | map(attribute='key') | difference(shared_data_apps) | length == 0

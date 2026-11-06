@@ -370,6 +370,80 @@ tasks:
     cmds:
       - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/argo-refresh.yml {{if .app}}--extra-vars {{dict \"app\" .app | toJson | shellQuote}}{{end}}"
 
+  data:backup:
+    desc: Plan or run a coordinated application backup
+    cmds:
+      - task: data:_operate
+        vars:
+          operation: backup
+          app: "{{.app | default \"\"}}"
+          confirm: "{{.confirm | default \"false\"}}"
+
+  data:provision:
+    desc: Plan or provision explicit PostgreSQL and Redis consumers
+    requires:
+      vars:
+        - app
+    cmds:
+      - task: data:_operate
+        vars:
+          operation: provision
+          app: "{{.app}}"
+          confirm: "{{.confirm | default \"false\"}}"
+
+  data:restore:
+    desc: Plan or restore one registered application's databases and files
+    requires:
+      vars:
+        - app
+    cmds:
+      - task: data:_operate
+        vars:
+          operation: restore
+          app: "{{.app}}"
+          snapshot: "{{.snapshot | default \"latest\"}}"
+          confirm: "{{.confirm | default \"false\"}}"
+
+  data:restore-all:
+    desc: Plan or restore all enrolled databases and registered application files
+    cmds:
+      - task: data:_operate
+        vars:
+          operation: restore
+          all: "true"
+          snapshot: "{{.snapshot | default \"latest\"}}"
+          confirm: "{{.confirm | default \"false\"}}"
+
+  data:cleanup:
+    desc: Plan or remove abandoned pending uploads under a maintenance hold
+    cmds:
+      - task: data:_operate
+        vars:
+          operation: cleanup
+          all: "true"
+          confirm: "{{.confirm | default \"false\"}}"
+
+  data:watchdog:
+    desc: Plan or run API-only shared data recovery and status checks
+    cmds:
+      - task: data:_operate
+        vars:
+          operation: watchdog
+          confirm: "{{.confirm | default \"false\"}}"
+
+  data:_operate:
+    internal: true
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    vars:
+      app: "{{.app | default \"\"}}"
+      all: "{{.all | default \"false\"}}"
+      snapshot: "{{.snapshot | default \"latest\"}}"
+      confirm: "{{.confirm | default \"false\"}}"
+    cmds:
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/shared-data.yml --extra-vars {{dict \"shared_data_action\" \"submit\" \"shared_data_job_action\" .operation \"shared_data_requested_apps\" .app \"shared_data_scope_all\" .all \"shared_data_snapshot\" .snapshot \"shared_data_confirm\" .confirm | toJson | shellQuote}}"
+
   restic:restore:
     desc: Plan or run a restic restore for one Argo CD app
     interactive: true

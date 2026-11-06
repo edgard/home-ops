@@ -1,6 +1,19 @@
 ---
-- name: Restore Kubernetes appdata from shared restic repo
+- name: Restore application databases and files from the shared Restic repository
   hosts: localhost
   gather_facts: false
+  pre_tasks:
+    - name: Require a supported legacy command scope
+      ansible.builtin.assert:
+        that:
+          - restic_restore_mode | default('app') in ['app', 'all']
+          - restic_restore_mode | default('app') == 'all' or restic_restore_app | default('') | length > 0
   roles:
-    - role: restic
+    - role: shared_data
+      vars:
+        shared_data_action: submit
+        shared_data_job_action: restore
+        shared_data_requested_apps: "{{ restic_restore_app | default('') }}"
+        shared_data_scope_all: "{{ restic_restore_mode | default('app') == 'all' }}"
+        shared_data_snapshot: "{{ restic_restore_snapshot | default('latest', true) }}"
+        shared_data_confirm: "{{ restic_restore_confirm | default(false) | bool }}"

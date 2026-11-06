@@ -1,7 +1,7 @@
 # Restic
 
 Purpose: Restic serves the shared backup repository and runs appdata backup and maintenance jobs.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `20ab0bc1d62963bbe4abcb439ec491e2e9074403`.
 
 ## Dependencies
 
@@ -22,7 +22,13 @@ changing how workstation clients reach the repository.
 
 ## Operational note
 
-The repository is a recovery dependency; successful deployment alone does not prove recent usable snapshots.
+The repository is a recovery dependency; successful deployment alone does not
+prove recent usable snapshots. Existing restore commands enter the database-aware
+shared-data role. Normal retention applies repository-wide, including workstation
+documents and canonical appdata, with separate host/path/tag groups preserving
+consumer scopes. Its explicit `appdata-pending` keep rule protects every pending
+upload from ordinary forgetting; abandoned uploads require separate inspected
+cleanup.
 
 ## Sources
 

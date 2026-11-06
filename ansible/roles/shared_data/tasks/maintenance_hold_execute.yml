@@ -76,6 +76,7 @@
           coordinator: "{{ shared_data_executor }}"
           epoch: "{{ shared_data_takeover_result.result.spec.leaseTransitions }}"
           phase: recorded
+          writers_touched: false
           recovery_result: none
           snapshots: "{{ shared_data_snapshots }}"
     - name: Persist originals before changing any target
@@ -112,22 +113,34 @@
   ansible.builtin.include_tasks: maintenance_wait_pods.yml
   vars:
     shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'cronjob') | list }}"
-- name: Drain application-owned background work before stopping controllers
-  ansible.builtin.include_tasks: drain.yml
-  when: shared_data_drain_enabled | default(false) | bool
-- name: Stop registered application writers
-  ansible.builtin.include_tasks: maintenance_patch.yml
-  loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | list }}"
-  loop_control:
-    loop_var: shared_data_target
-  vars:
-    shared_data_restore_target: false
-- name: Verify all selected writers stopped
-  ansible.builtin.include_tasks: maintenance_wait.yml
-  vars:
-    shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'in', ['tuppr', 'workload', 'cronjob']) | list }}"
+- name: Drain and stop writers only when capture is ready
+  when: not shared_data_prepare_only | default(false) | bool
+  block:
+    - name: Require native queue draining for every registered queue consumer
+      ansible.builtin.assert:
+        that: shared_data_drain_enabled | default(false) | bool or shared_data_registry.consumers | dict2items | selectattr('key', 'in', shared_data_apps) | selectattr('value.drain', 'defined') | length == 0
+        fail_msg: Registered native queue draining cannot be bypassed.
+    - name: Record durable writer-hold intent before any producer or workload mutation
+      ansible.builtin.set_fact:
+        shared_data_journal: "{{ shared_data_journal | combine({'writers_touched': true}) }}"
+    - name: Persist writer-hold intent before native queue pause or controller changes
+      ansible.builtin.include_tasks: maintenance_save.yml
+    - name: Pause application producers and native dispatch before draining active work
+      ansible.builtin.include_tasks: drain.yml
+      when: shared_data_drain_enabled | default(false) | bool
+    - name: Stop registered application writers
+      ansible.builtin.include_tasks: maintenance_patch.yml
+      loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | list }}"
+      loop_control:
+        loop_var: shared_data_target
+      vars:
+        shared_data_restore_target: false
+    - name: Verify all selected writers stopped
+      ansible.builtin.include_tasks: maintenance_wait.yml
+      vars:
+        shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'in', ['tuppr', 'workload', 'cronjob']) | list }}"
 - name: Record successful hold
   ansible.builtin.set_fact:
-    shared_data_journal: "{{ shared_data_journal | combine({'phase': 'held'}) }}"
+    shared_data_journal: "{{ shared_data_journal | combine({'phase': 'prepared' if shared_data_prepare_only | default(false) | bool else 'held'}) }}"
 - name: Persist successful hold
   ansible.builtin.include_tasks: maintenance_save.yml

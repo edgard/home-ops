@@ -1,0 +1,40 @@
+---
+- name: Renew operation ownership before creating upload actor
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Refuse to reuse any preexisting uploader identity
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: Job
+    namespace: "{{ shared_data_namespace }}"
+    name: "{{ shared_data_operation_id }}-upload"
+  register: shared_data_previous_upload
+- name: Require a new Job created after this exact publication
+  ansible.builtin.assert:
+    that:
+      - shared_data_previous_upload.resources | length == 0
+      - shared_data_generation.manifest_sha256 is match('^[a-f0-9]{64}$')
+- name: Record a durable claim before Kubernetes can start the uploader
+  ansible.builtin.copy:
+    content: "{{ {'operation': shared_data_operation_id, 'manifest_sha256': shared_data_generation.manifest_sha256, 'coordinator': shared_data_executor} | to_json }}\n"
+    dest: "{{ shared_data_staging }}/uploads/{{ shared_data_operation_id }}.json"
+    mode: "0600"
+- name: Launch a new upload Job mounting the immutable generation
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'upload-job.yaml.j2') | from_yaml }}"
+  register: shared_data_upload_created
+- name: Bind the exact uploader identity into the transaction
+  ansible.builtin.set_fact:
+    shared_data_upload_job:
+      kind: Job
+      namespace: "{{ shared_data_namespace }}"
+      name: "{{ shared_data_upload_created.result.metadata.name }}"
+      uid: "{{ shared_data_upload_created.result.metadata.uid }}"
+    shared_data_journal: "{{ shared_data_journal | combine({'upload_job': {'kind': 'Job', 'namespace': shared_data_namespace, 'name': shared_data_upload_created.result.metadata.name, 'uid': shared_data_upload_created.result.metadata.uid}}) }}"
+- name: Persist upload actor in API journal before releasing maintenance
+  ansible.builtin.include_tasks: maintenance_save.yml
+- name: Complete the external upload claim with exact Job identity
+  ansible.builtin.copy:
+    content: "{{ {'operation': shared_data_operation_id, 'manifest_sha256': shared_data_generation.manifest_sha256, 'coordinator': shared_data_executor, 'upload_job': shared_data_upload_job} | to_json }}\n"
+    dest: "{{ shared_data_staging }}/uploads/{{ shared_data_operation_id }}.json"
+    mode: "0600"
