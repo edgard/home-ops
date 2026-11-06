@@ -10,7 +10,11 @@ pytest discovery. Focus tests with `task test -- <path or pytest options>`.
 The [test guide](../../../tests/README.md) describes ownership and prerequisites.
 CI runs the same commands in Format, Lint, and one full Tests job; the required
 `Quality Gate` rejects failed, cancelled, or skipped dependencies. Tests publish
-JUnit results, including on failure. New pytest directories need no CI edits.
+generated JUnit results, including on failure. Hard job cancellation can prevent
+publication. New pytest directories need no CI edits. Its explicit lower worker
+limit and bounded load-scheduler queues let a failure finish without draining
+large queues of unrelated native scenarios; verbose case names identify the
+failing case before the summary. Successful runs still execute every test.
 
 YAML formatting uses yamlfmt alone, including quote style. Ruff formats Python
 and imports and checks a focused correctness/import rule set. Native yamllint,
@@ -30,8 +34,10 @@ pins, OpenTofu registry identities, and checksums for macOS ARM64/Linux AMD64 st
 reviewable. `tf:clean` preserves the lock. Renovate manages dependency/lock updates;
 configuration validation alone does not prove discovery or artifact generation.
 
-All pytest invocations inherit automatic parallelism capped at four workers
+Local pytest invocations inherit automatic parallelism capped at four workers
 and work-stealing scheduling from [pytest configuration](../../../pyproject.toml).
+The [CI workflow](../../../.github/workflows/ci.yml) supplies its bounded queue
+and worker settings explicitly.
 Every test participates; resource isolation belongs to fixtures rather than
 test eligibility lists. Use `PYTEST_ADDOPTS="-n 0" task test` for serial debugging.
 
@@ -112,6 +118,7 @@ are not evidence that a synced application functions in the running cluster.
 - [Native Kubernetes pipeline](../../../tests/support/kubernetes.py)
 - [Rendering fixture](../../../tests/config/kubernetes/conftest.py)
 - [Parallel resource regression scenarios](../../../tests/integration/test_parallel.py)
+- [CI failure-queue regression](../../../tests/integration/test_ci_failfast.py)
 - [CI tool installation scenarios](../../../tests/integration/test_ci_tools.py)
 - [Python dependencies, lint, and pytest configuration](../../../pyproject.toml)
 - [Python lock](../../../uv.lock)

@@ -1,5 +1,15 @@
 # Wiki log
 
+## [2026-11-07] revision | Bound CI failure queues and expose case names
+
+The expanded native test suite reached the job budget after a failure while
+other workers drained previously assigned work. CI now uses a lower worker
+limit, bounded load queues, verbose case names and a larger overall job budget.
+An executable subprocess regression proves early failure leaves most unrelated
+cases unstarted and a successful invocation still executes every case. Updated
+the validation page, contributor workflow and test guide; local defaults and
+production operation deadlines remain unchanged.
+
 ## [2026-11-06] revision | Add held Paperless enrollment
 
 Documented bounded operator sessions, source and actor identity checks, draining

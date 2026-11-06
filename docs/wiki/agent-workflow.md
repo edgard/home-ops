@@ -14,7 +14,7 @@ Gatus • Helm • Ansible • Terraform
 - Format check: `task fmt:check`
 - Dependencies: `task deps` uses Python 3.14 by default (`PYTHON_BIN` override) and synchronizes locked Python dependencies into `.venv` and installs pinned Ansible collections; uv never downloads Python
 - Tests: `task test` runs all pytest configuration, unit, and isolated integration cases
-- All pytest invocations use global parallel defaults capped at four workers; `PYTEST_ADDOPTS="-n 0" task test` runs serially for debugging
+- Local pytest invocations use global parallel defaults capped at four workers; CI uses an explicit lower worker limit and bounded queues. `PYTEST_ADDOPTS="-n 0" task test` runs serially for debugging
 - Lint: `task lint` runs native YAML/Python/schema/workflow/Ansible/OpenTofu checks only
 - Complete gate: `task check` runs formatting checks, lint, then the full pytest suite once
 - Focused native checks: `task lint:yaml`, `task lint:python`, `task lint:config`, `task lint:workflows`, `task lint:ansible`, `task lint:terraform`; focus pytest with `task test -- <path or options>`

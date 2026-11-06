@@ -47,19 +47,24 @@ remote backend. The tracked provider lock supports macOS ARM64 and Linux AMD64;
 
 CI runs Format, Lint, and one full Tests job. Tests use ordinary pytest discovery,
 so new directories participate automatically. Quality Gate requires all three
-jobs to succeed, and CI retains JUnit results even when tests fail.
-The CI test command stops after a failure so its traceback and JUnit report
-are emitted before a later timeout; a successful run still executes the full suite.
+jobs to succeed, and CI uploads generated JUnit results on success or failure.
+Its test command uses two workers and bounded load-scheduler queues: after a
+failure, other workers finish only a small amount of already assigned work.
+Verbose case names identify failures before the final traceback and JUnit report.
+The job budget includes native database and recovery scenarios; a successful run
+still executes the full suite. A hard job timeout can prevent report publication.
 Toolchain setup uses locked Python dependencies, role-owned SecretSpec compatibility,
 and checksum/version validation of the staged installer. Isolated installer
 scenarios cover success, rejected checksums/versions, binary preservation, and
 staging cleanup. These offline checks may download charts/providers/packages;
 they require no live cluster or cloud credentials.
 
-All pytest commands, including focused checks and direct invocations, use the
-parallel defaults in [pyproject.toml](../pyproject.toml): automatic worker
-selection capped at four, with the standard work-stealing scheduler. Every test
-participates without eligibility markers or file lists. Use
+Local pytest commands, including focused checks and direct invocations, inherit
+the parallel defaults in [pyproject.toml](../pyproject.toml): automatic worker
+selection capped at four, with the standard work-stealing scheduler. The
+[CI workflow](../.github/workflows/ci.yml) overrides these with its lower worker
+limit and bounded queues. Every test participates in a successful run without
+eligibility markers or file lists. Use
 `.venv/bin/python -m pytest -n 0` or `PYTEST_ADDOPTS="-n 0" task test` for serial
 debugging. The same environment override works with `task check`.
 
