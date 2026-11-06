@@ -1,0 +1,35 @@
+---
+- name: Read durable journal before source verification
+  ansible.builtin.include_tasks: maintenance_load.yml
+- name: Read the original registered Paperless Application
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: argocd
+    name: paperless
+  register: shared_data_source_application
+- name: Require one current registered Paperless source
+  ansible.builtin.assert:
+    that: shared_data_source_application.resources | length == 1
+- name: Require held enrollment before deriving protected application
+  ansible.builtin.assert:
+    that:
+      - shared_data_journal.enrollment.state in ['held', 'apply-intent', 'applied']
+      - shared_data_journal.get('coordinator', shared_data_journal.holder).uid == shared_data_holder_pod_uid
+  when: shared_data_operator_step == 'apply'
+- name: Resolve registered desired source and render its exact clean Git revision
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - "{{ role_path }}/files/enrollment_source.py"
+      - "{{ repo_root | default(playbook_dir ~ '/../..') }}"
+      - "{{ shared_data_source_revision if shared_data_journal.enrollment is not defined else shared_data_journal.enrollment.source_revision }}"
+      - "{{ shared_data_source_revision if shared_data_operator_step == 'enroll' and shared_data_journal.enrollment is not defined else shared_data_target_revision if shared_data_operator_step == 'apply' else '' }}"
+      - "{{ shared_data_source_application.resources[0] | to_json }}"
+  register: shared_data_source_render
+  changed_when: false
+  no_log: true
+- name: Accept only independently derived source proof
+  ansible.builtin.set_fact:
+    shared_data_enrollment_proof: "{{ shared_data_source_render.stdout | from_json }}"
+  no_log: true

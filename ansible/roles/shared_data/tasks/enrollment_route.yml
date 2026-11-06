@@ -1,0 +1,20 @@
+---
+- name: Renew ownership before changing the registered HTTP route
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Read exact original HTTP Service
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    namespace: "{{ shared_data_journal.enrollment.service.namespace }}"
+    name: "{{ shared_data_journal.enrollment.service.name }}"
+  register: shared_data_enrollment_service
+- name: Require original Service before route mutation
+  ansible.builtin.assert:
+    that: shared_data_enrollment_service.resources | length == 1
+- name: Fence or restore only the journaled Service selector with UID and version guards
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: Service
+    namespace: "{{ shared_data_journal.enrollment.service.namespace }}"
+    name: "{{ shared_data_journal.enrollment.service.name }}"
+    patch: "{{ shared_data_enrollment_service.resources[0] | shared_data_enrollment_service_patch(shared_data_journal.enrollment.service, shared_data_operation_id, shared_data_enrollment_restore_route | bool) }}"

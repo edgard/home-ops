@@ -12,6 +12,7 @@ remain authoritative; verify the running system separately.
 - [Agent and contributor workflow](agent-workflow.md) — change, validation, and repository conventions.
 - [Restic backup and restore runbook](operations/restic-backup-restore.md) — operator recovery procedure.
 - [Shared application data operations](operations/shared-data.md) — staged PostgreSQL/Redis rollout and maintenance foundation.
+- [Paperless shutdown enrollment](operations/paperless-enrollment.md) — held old-Pod drain and source-bound template transition.
 - [Secrets maintenance and recovery](operations/secrets-maintenance.md) — provisioning, scoped commands, rotation, and recovery.
 - [Paperless AI configuration and recovery](operations/paperless-ai.md) — enrichment, import routing, canaries, and index validation.
 - [Wiki log](log.md) — substantial ingests and revisions.

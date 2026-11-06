@@ -1,0 +1,16 @@
+---
+- name: Read the original private Paperless broker without mutation
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: selfhosted
+    name: paperless-redis
+  register: shared_data_enrollment_redis
+- name: Retain the original private broker identity replicas and template
+  ansible.builtin.assert:
+    that:
+      - shared_data_enrollment_redis.resources | length == 1
+      - shared_data_enrollment_redis.resources[0].metadata.uid == shared_data_journal.enrollment.redis.uid
+      - shared_data_enrollment_redis.resources[0].spec.replicas | default(1) == shared_data_journal.enrollment.redis.replicas
+      - shared_data_enrollment_redis.resources[0].spec.template | shared_data_enrollment_digest == shared_data_journal.enrollment.redis.template_sha256
+    fail_msg: Private Paperless Redis changed; enrollment remains held for inspection.

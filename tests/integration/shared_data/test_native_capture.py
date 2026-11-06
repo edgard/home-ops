@@ -12,7 +12,7 @@ import psycopg
 import pytest
 import redis
 
-from tests.support.data_generation import schema_metadata
+from tests.support.data_generation import fixture_actor, schema_metadata
 from tests.support.runtime import ROOT
 
 PG = "postgres:18.3-trixie@sha256:7e32e9833a6fb1c92c32552794cb6ed569d51b445a54907d35fc112ef39684db"
@@ -116,7 +116,7 @@ def services(tmp_path, adapters, monkeypatch):
                 name = names[1]
                 command[command.index("-p") + 1] = "6379"
                 keys = ["REDISCLI_AUTH"]
-            prefix = ["docker", "exec"]
+            prefix = ["docker", "exec", *fixture_actor()]
             for key in keys:
                 prefix += ["-e", key + "=" + environment[key]]
             return original(prefix + [name] + command)
@@ -356,6 +356,7 @@ def test_linux_rsync_preseed_final_publish_and_selected_files(
                 "docker",
                 "run",
                 "--rm",
+                *fixture_actor(),
                 "--entrypoint",
                 "python",
                 "-v",
@@ -419,6 +420,7 @@ def test_linux_rsync_preseed_final_publish_and_selected_files(
         docker(
             "run",
             "--rm",
+            *fixture_actor(),
             "--entrypoint",
             "python",
             "-v",

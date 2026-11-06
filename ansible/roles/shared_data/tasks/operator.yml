@@ -1,0 +1,87 @@
+---
+- name: Validate explicitly confirmed bounded operator session
+  ansible.builtin.assert:
+    that:
+      - shared_data_confirm | bool
+      - not ansible_check_mode
+      - shared_data_operator_step in ['create', 'hold', 'prepare', 'renew', 'enroll', 'apply', 'resume', 'abort']
+      - shared_data_operation_id is match('^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$')
+      - shared_data_operation_kind in ['migration', 'rotation', 'backup']
+      - shared_data_image is match('^ghcr.io/edgard/home-ops-data-tools:[a-f0-9]{40}@sha256:[a-f0-9]{64}$')
+      - shared_data_operator_lifetime | int >= 3600
+      - shared_data_operator_lifetime | int <= 43200
+      - shared_data_lease_duration | int >= 900
+      - shared_data_lease_duration | int <= shared_data_operator_lifetime | int
+- name: Create a new bounded immutable standalone actor
+  when: shared_data_operator_step == 'create'
+  block:
+    - name: Refuse reuse of an existing actor name
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ shared_data_namespace }}"
+        label_selectors:
+          - "home-ops/data-operation={{ shared_data_operation_id }}"
+      register: shared_data_operator_existing
+    - name: Require a never-used current actor name
+      ansible.builtin.assert:
+        that: shared_data_operator_existing.resources | length == 0
+    - name: Create bounded operator Pod without credentials or data mounts
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('ansible.builtin.template', 'operator-pod.yaml.j2') | from_yaml }}"
+      register: shared_data_operator_created
+    - name: Wait for this exact actor to be running
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ shared_data_namespace }}"
+        name: "{{ shared_data_operator_created.result.metadata.name }}"
+      register: shared_data_operator_ready
+      until: shared_data_operator_ready.resources | length == 1 and shared_data_operator_ready.resources[0].metadata.uid == shared_data_operator_created.result.metadata.uid and shared_data_operator_ready.resources[0].status.phase | default('') == 'Running'
+      retries: 60
+      delay: 5
+    - name: Print nonsecret immutable actor receipt for subsequent explicit operations
+      ansible.builtin.debug:
+        msg:
+          operation_id: "{{ shared_data_operation_id }}"
+          actor_name: "{{ shared_data_operator_created.result.metadata.name }}"
+          actor_uid: "{{ shared_data_operator_created.result.metadata.uid }}"
+          image: "{{ shared_data_image }}"
+          lifetime_seconds: "{{ shared_data_operator_lifetime }}"
+- name: Execute only within the original live actor
+  when: shared_data_operator_step != 'create'
+  block:
+    - name: Select named original actor
+      ansible.builtin.set_fact:
+        shared_data_holder_pod_namespace: "{{ shared_data_namespace }}"
+    - name: Verify original actor before exec
+      ansible.builtin.include_tasks: operator_actor.yml
+    - name: Load current journal for source-safe resume detection
+      ansible.builtin.include_tasks: maintenance_load.yml
+    - name: Derive source binding locally for enrollment or protected application
+      ansible.builtin.include_tasks: enrollment_source.yml
+      when: shared_data_operator_step in ['enroll', 'apply'] or (shared_data_operator_step in ['resume', 'abort'] and shared_data_journal.enrollment is defined)
+    - name: Build explicit nonsecret operation inputs
+      ansible.builtin.set_fact:
+        shared_data_operator_inputs:
+          shared_data_action: operator_execute
+          shared_data_confirm: true
+          shared_data_operator_step: "{{ shared_data_operator_step }}"
+          shared_data_operation_id: "{{ shared_data_operation_id }}"
+          shared_data_operation_kind: "{{ shared_data_operation_kind }}"
+          shared_data_apps: "{{ shared_data_apps }}"
+          shared_data_image: "{{ shared_data_image }}"
+          shared_data_lease_duration: "{{ shared_data_lease_duration }}"
+          shared_data_holder_pod_uid: "{{ shared_data_holder_pod_uid }}"
+          shared_data_enrollment_proof: "{{ shared_data_enrollment_proof | default({}) }}"
+          shared_data_enrollment_budget: "{{ shared_data_enrollment_budget }}"
+    - name: Run one serialized named operation inside the immutable actor
+      kubernetes.core.k8s_exec:
+        namespace: "{{ shared_data_namespace }}"
+        pod: "{{ shared_data_holder_pod_name }}"
+        container: operations
+        command: "python3 /opt/home-ops/ansible/roles/shared_data/files/operator_session.py {{ shared_data_operator_inputs | to_json | quote }}"
+      register: shared_data_operator_result
+      failed_when: shared_data_operator_result.rc | default(1) | int != 0
+      no_log: true

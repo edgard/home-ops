@@ -1,4 +1,18 @@
 ---
+- name: Require proven reversible original state for enrollment native recovery
+  ansible.builtin.assert:
+    that:
+      - shared_data_journal.queue_pauses[shared_data_drain_app].protocol == 'paperless-enrollment-v1'
+      - shared_data_drain_app == 'paperless'
+      - shared_data_journal.enrollment.native_sha256 == lookup('ansible.builtin.file', role_path ~ '/files/paperless_enrollment.py') | hash('sha256')
+      - shared_data_journal.enrollment.resume_sha256 == shared_data_registry.consumers.paperless.drain.resume_command | hash('sha256')
+      - shared_data_journal.queue_pauses[shared_data_drain_app].pods | length == 1
+      - shared_data_journal.queue_pauses[shared_data_drain_app].pods[0].original.queues == ['celery']
+      - shared_data_journal.queue_pauses[shared_data_drain_app].pods[0].original.services.keys() | sort == ['svc-consumer', 'svc-scheduler', 'svc-webserver', 'svc-worker']
+      - shared_data_journal.queue_pauses[shared_data_drain_app].pods[0].original.hard_timeout_seconds == 1800
+      - shared_data_journal.queue_pauses[shared_data_drain_app].pods[0].original.services.values() | unique | list == ['true true']
+    fail_msg: Original native enrollment pause cannot be proved safe; retain fences.
+  when: shared_data_journal.queue_pauses[shared_data_drain_app].protocol | default('') == 'paperless-enrollment-v1'
 - name: Select the journaled native queue protocol
   ansible.builtin.set_fact:
     shared_data_drain_spec: "{{ shared_data_registry.consumers[shared_data_drain_app].drain }}"

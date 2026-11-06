@@ -47,8 +47,10 @@ remote backend. The tracked provider lock supports macOS ARM64 and Linux AMD64;
 
 CI runs Format, Lint, and one full Tests job. Tests use ordinary pytest discovery,
 so new directories participate automatically. Quality Gate requires all three
-jobs to succeed, and CI retains JUnit results even when tests fail. Toolchain
-setup uses locked Python dependencies, role-owned SecretSpec compatibility,
+jobs to succeed, and CI retains JUnit results even when tests fail.
+The CI test command stops after a failure so its traceback and JUnit report
+are emitted before a later timeout; a successful run still executes the full suite.
+Toolchain setup uses locked Python dependencies, role-owned SecretSpec compatibility,
 and checksum/version validation of the staged installer. Isolated installer
 scenarios cover success, rejected checksums/versions, binary preservation, and
 staging cleanup. These offline checks may download charts/providers/packages;
@@ -85,6 +87,12 @@ and runs schema/deprecation checks. Chart caching and Helm paths are isolated
 per run; local served schemas take precedence over default/catalog schemas.
 The [xdist fixture recipe](https://pytest-xdist.readthedocs.io/en/stable/how-to.html#making-session-scoped-fixtures-execute-only-once)
 explains why session scope alone does not coordinate multiple workers.
+
+Bind-backed native adapter fixtures use the pytest coordinator's numeric UID
+and GID inside their client containers, so private staging and receipt files
+remain accessible to the same fixture actor on Linux and macOS. They retain
+their private modes. Dedicated ownership and capability tests keep their explicit
+root/server profiles and inspect their numeric metadata inside Linux volumes.
 
 Ansible tests use temporary HOME/config paths, sanitized environments, bounded
 subprocesses, explicit fake CLIs, and a loopback Kubernetes API. The actual

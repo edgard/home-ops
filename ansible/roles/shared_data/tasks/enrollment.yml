@@ -1,0 +1,208 @@
+---
+- name: Require the narrow old-Pod enrollment scope and bounded drain
+  ansible.builtin.assert:
+    that:
+      - shared_data_apps == ['paperless']
+      - shared_data_operation_kind in ['migration', 'backup']
+      - shared_data_enrollment_budget | int >= 30
+      - shared_data_enrollment_budget | int <= 7200
+      - shared_data_lease_duration | int >= 900
+      - shared_data_enrollment_proof.source_revision is match('^[a-f0-9]{40}$')
+      - shared_data_enrollment_proof.registered_desired_verified | default(false) | bool
+- name: Fence root AppSet Paperless Tuppr and schedules before inspecting old writers
+  ansible.builtin.include_tasks: maintenance_hold.yml
+  vars:
+    shared_data_prepare_only: true
+- name: Bind the frozen native Paperless protocol
+  ansible.builtin.set_fact:
+    shared_data_drain_app: paperless
+    shared_data_drain_namespace: "{{ shared_data_registry.consumers.paperless.namespace }}"
+    shared_data_drain_spec: "{{ shared_data_registry.consumers.paperless.drain }}"
+    shared_data_enrollment_native: "{{ lookup('ansible.builtin.file', role_path ~ '/files/paperless_enrollment.py') }}"
+- name: Read original main Deployment
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ shared_data_drain_namespace }}"
+    name: "{{ shared_data_drain_spec.workload }}"
+  register: shared_data_drain_controller
+- name: Require one registered original controller
+  ansible.builtin.assert:
+    that:
+      - shared_data_drain_controller.resources | length == 1
+      - shared_data_drain_controller.resources[0].spec.selector.matchLabels | length > 0
+      - shared_data_drain_controller.resources[0].spec.selector.matchExpressions | default([]) | length == 0
+- name: Read all current original main Pods
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ shared_data_drain_namespace }}"
+    label_selectors: "{{ shared_data_drain_controller.resources[0].spec.selector.matchLabels.items() | map('join', '=') | list }}"
+  register: shared_data_enrollment_pods
+- name: Freeze initial enrollment decision before recording native state
+  ansible.builtin.set_fact:
+    shared_data_enrollment_new: "{{ shared_data_journal.enrollment is not defined }}"
+- name: Capture initial enrollment only once before any writer or route mutation
+  when: shared_data_enrollment_new | bool
+  block:
+    - name: Require one live old writer with its original web probe
+      ansible.builtin.assert:
+        that:
+          - shared_data_enrollment_pods.resources | length == 1
+          - shared_data_enrollment_pods.resources[0].status.phase == 'Running'
+          - shared_data_enrollment_pods.resources[0].metadata.deletionTimestamp is not defined
+          - shared_data_enrollment_pods.resources[0].spec.containers | selectattr('name', 'equalto', 'app') | length == 1
+          - shared_data_old_container.image.split('@')[0] == shared_data_drain_spec.image.split('@')[0]
+          - shared_data_old_container.livenessProbe.get('httpGet', shared_data_old_container.livenessProbe.get('tcpSocket', {})).get('port', 0) | int == 8000
+          - shared_data_drain_controller.resources[0].spec.replicas == 1
+          - shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | map(attribute='name') | sort == ['paperless-gpt', 'paperless-main']
+      vars:
+        shared_data_old_container: "{{ shared_data_enrollment_pods.resources[0].spec.containers | selectattr('name', 'equalto', 'app') | first }}"
+    - name: Inventory every Service before fencing the registered HTTP entry
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        namespace: "{{ shared_data_drain_namespace }}"
+      register: shared_data_enrollment_services
+    - name: Select only Services targeting the original writer
+      ansible.builtin.set_fact:
+        shared_data_enrollment_routes: "{{ shared_data_enrollment_services.resources | shared_data_enrollment_services(shared_data_enrollment_pods.resources[0].metadata.labels) }}"
+    - name: Refuse unknown alternate HTTP Services
+      ansible.builtin.assert:
+        that:
+          - shared_data_enrollment_routes | map(attribute='metadata.name') | list == ['paperless-main']
+          - shared_data_enrollment_routes[0].spec.selector | length > 0
+    - name: Read original private broker identity without changing it
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: selfhosted
+        name: paperless-redis
+      register: shared_data_enrollment_private_broker
+    - name: Require a running private broker retained throughout enrollment
+      ansible.builtin.assert:
+        that:
+          - shared_data_enrollment_private_broker.resources | length == 1
+          - shared_data_enrollment_private_broker.resources[0].spec.replicas | default(1) == 1
+    - name: Inspect original native state without stopping HTTP liveness
+      kubernetes.core.k8s_exec:
+        namespace: "{{ shared_data_drain_namespace }}"
+        pod: "{{ shared_data_enrollment_pods.resources[0].metadata.name }}"
+        container: app
+        command: "timeout 30s python3 -c {{ shared_data_enrollment_native | quote }} inspect"
+      register: shared_data_enrollment_original
+      failed_when: shared_data_enrollment_original.rc | default(1) | int != 0
+      no_log: true
+    - name: Record native route and shutdown originals before mutation
+      ansible.builtin.set_fact:
+        shared_data_journal: >-
+          {{ shared_data_journal | combine({'writers_touched': true,
+             'enrollment': {'state': 'pause-intent', 'source_revision': shared_data_enrollment_proof.source_revision,
+             'source_template_sha256': shared_data_enrollment_proof.original_sha256,
+             'controller_uid': shared_data_drain_controller.resources[0].metadata.uid,
+             'original_settings': shared_data_drain_controller.resources[0].spec.template | shared_data_enrollment_settings,
+             'redis': {'uid': shared_data_enrollment_private_broker.resources[0].metadata.uid,
+             'replicas': shared_data_enrollment_private_broker.resources[0].spec.replicas | default(1),
+             'template_sha256': shared_data_enrollment_private_broker.resources[0].spec.template | shared_data_enrollment_digest},
+             'native_sha256': shared_data_enrollment_native | hash('sha256'),
+             'resume_sha256': shared_data_drain_spec.resume_command | hash('sha256'),
+             'service': {'name': shared_data_enrollment_routes[0].metadata.name,
+             'namespace': shared_data_drain_namespace, 'uid': shared_data_enrollment_routes[0].metadata.uid,
+             'selector': shared_data_enrollment_routes[0].spec.selector}},
+             'queue_pauses': {'paperless': {'state': 'pause-intent', 'protocol': 'paperless-enrollment-v1',
+             'namespace': shared_data_drain_namespace, 'workload': shared_data_drain_spec.workload,
+             'pods': [{'name': shared_data_enrollment_pods.resources[0].metadata.name,
+             'uid': shared_data_enrollment_pods.resources[0].metadata.uid,
+             'original': shared_data_enrollment_original.stdout.splitlines()[-1] | from_json}]}}}) }}
+    - name: Persist every original before producer or route changes
+      ansible.builtin.include_tasks: maintenance_save.yml
+- name: Require unchanged original operation and native protocol for reentry
+  ansible.builtin.assert:
+    that:
+      - shared_data_journal.enrollment.target_revision is not defined
+      - shared_data_journal.enrollment.source_revision == shared_data_enrollment_proof.source_revision
+      - shared_data_journal.enrollment.native_sha256 == shared_data_enrollment_native | hash('sha256')
+      - shared_data_journal.enrollment.state in ['pause-intent', 'draining', 'stop-intent', 'held', 'native-restored', 'resume-intent']
+      - shared_data_enrollment_pods.resources | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | map(attribute='metadata.uid') | difference(shared_data_journal.queue_pauses.paperless.pods | map(attribute='uid')) | length == 0
+- name: Freeze whether native-only recovery needs a renewed pause
+  ansible.builtin.set_fact:
+    shared_data_enrollment_repause: "{{ shared_data_journal.enrollment.state in ['native-restored', 'resume-intent'] }}"
+- name: Record renewed pause intent after a native-only backup recovery
+  when: shared_data_enrollment_repause | bool
+  block:
+    - name: Preserve originals while recording renewed native pause
+      ansible.builtin.set_fact:
+        shared_data_journal: "{{ shared_data_journal | combine({'enrollment': shared_data_journal.enrollment | combine({'state': 'pause-intent'}), 'queue_pauses': {'paperless': shared_data_journal.queue_pauses.paperless | combine({'state': 'pause-intent'})}}) }}"
+    - name: Persist renewed pause before repeating any native mutation
+      ansible.builtin.include_tasks: maintenance_save.yml
+- name: Freeze whether this attempt must drain before recording idle state
+  ansible.builtin.set_fact:
+    shared_data_enrollment_needs_drain: "{{ shared_data_journal.enrollment.state in ['pause-intent', 'draining'] }}"
+- name: Drain only an original old writer not already admitted for shutdown
+  when: shared_data_enrollment_needs_drain | bool
+  block:
+    - name: Hold registered HTTP Service before draining existing accepted requests
+      ansible.builtin.include_tasks: enrollment_route.yml
+      vars:
+        shared_data_enrollment_restore_route: false
+    - name: Stop separate producer controllers while keeping the old web alive
+      ansible.builtin.include_tasks: maintenance_patch.yml
+      loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | selectattr('name', 'in', shared_data_drain_spec.producer_workloads) | list }}"
+      loop_control:
+        loop_var: shared_data_target
+      vars:
+        shared_data_restore_target: false
+    - name: Wait for separate producers to terminate naturally
+      ansible.builtin.include_tasks: maintenance_wait.yml
+      vars:
+        shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | selectattr('name', 'in', shared_data_drain_spec.producer_workloads) | list }}"
+    - name: Pause inbox beat and queue dispatch without stopping web or worker
+      kubernetes.core.k8s_exec:
+        namespace: "{{ shared_data_drain_namespace }}"
+        pod: "{{ item.metadata.name }}"
+        container: app
+        command: "timeout 30s python3 -c {{ shared_data_enrollment_native | quote }} pause"
+      loop: "{{ shared_data_enrollment_pods.resources | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | list }}"
+      register: shared_data_enrollment_pause
+      failed_when: shared_data_enrollment_pause.rc | default(1) | int != 0
+      no_log: true
+    - name: Record draining with a separate bounded enrollment deadline
+      ansible.builtin.set_fact:
+        shared_data_journal: "{{ shared_data_journal | combine({'enrollment': shared_data_journal.enrollment | combine({'state': 'draining'})}) }}"
+        shared_data_queue_deadline: "{{ ('' | shared_data_now) | int + shared_data_enrollment_budget | int }}"
+        shared_data_queue_idle: false
+        shared_data_queue_poll_count: 0
+        shared_data_queue_resuming: false
+        shared_data_queue_poll_command: "python3 -c {{ shared_data_enrollment_native | quote }} idle"
+    - name: Persist native pause before bounded waiting
+      ansible.builtin.include_tasks: maintenance_save.yml
+    - name: Observe route withdrawal native work and HTTP drain with Lease renewal
+      ansible.builtin.include_tasks: enrollment_poll.yml
+      loop: "{{ range(0, 40) | list }}"
+      loop_control:
+        loop_var: shared_data_enrollment_attempt
+    - name: Retain the old live Pod if work or requests remain
+      ansible.builtin.assert:
+        that: shared_data_queue_idle | bool
+        fail_msg: Enrollment drain expired with work or HTTP activity; old Pod and web remain alive, fenced for explicit abort or retry.
+    - name: Record idle before any old main writer termination
+      ansible.builtin.set_fact:
+        shared_data_journal: "{{ shared_data_journal | combine({'enrollment': shared_data_journal.enrollment | combine({'state': 'stop-intent'}), 'queue_pauses': {'paperless': shared_data_journal.queue_pauses.paperless | combine({'state': 'paused'})}}) }}"
+    - name: Persist idle shutdown intent
+      ansible.builtin.include_tasks: maintenance_save.yml
+- name: Stop only the idle old main controller
+  ansible.builtin.include_tasks: maintenance_patch.yml
+  loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | selectattr('name', 'equalto', shared_data_drain_spec.workload) | list }}"
+  loop_control:
+    loop_var: shared_data_target
+  vars:
+    shared_data_restore_target: false
+- name: Wait for all enrolled old writers to terminate without force deletion
+  ansible.builtin.include_tasks: maintenance_wait.yml
+  vars:
+    shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | list }}"
+- name: Record durable held boundary across local CLI exit CI and merge
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'phase': 'held', 'enrollment': shared_data_journal.enrollment | combine({'state': 'held'})}) }}"
+- name: Persist held old-Pod enrollment
+  ansible.builtin.include_tasks: maintenance_save.yml

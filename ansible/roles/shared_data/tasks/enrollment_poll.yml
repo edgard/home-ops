@@ -1,0 +1,67 @@
+---
+- name: Poll only during the bounded old-Pod drain
+  when:
+    - not shared_data_queue_idle | bool
+    - ('' | shared_data_now) | int < shared_data_queue_deadline | int
+  block:
+    - name: Renew ownership before every native and HTTP observation
+      ansible.builtin.include_tasks: maintenance_guard.yml
+    - name: Recheck every original live queue Pod before admission
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ shared_data_drain_namespace }}"
+        label_selectors: "{{ shared_data_drain_controller.resources[0].spec.selector.matchLabels.items() | map('join', '=') | list }}"
+      register: shared_data_enrollment_current_pods
+    - name: Reject replacement disappearance or premature old-Pod termination
+      ansible.builtin.assert:
+        that:
+          - shared_data_enrollment_current_pods.resources | length == 1
+          - shared_data_enrollment_current_pods.resources[0].metadata.uid == shared_data_journal.queue_pauses.paperless.pods[0].uid
+          - shared_data_enrollment_current_pods.resources[0].status.phase == 'Running'
+          - shared_data_enrollment_current_pods.resources[0].metadata.deletionTimestamp is not defined
+    - name: Verify registered route remains fenced
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        namespace: "{{ shared_data_drain_namespace }}"
+        name: "{{ shared_data_journal.enrollment.service.name }}"
+      register: shared_data_enrollment_current_service
+    - name: Reject lost route fence or changed Service identity
+      ansible.builtin.assert:
+        that:
+          - shared_data_enrollment_current_service.resources | length == 1
+          - shared_data_enrollment_current_service.resources[0].metadata.uid == shared_data_journal.enrollment.service.uid
+          - "shared_data_enrollment_current_service.resources[0].spec.selector == {'home-ops/enrollment-fence': shared_data_operation_id}"
+    - name: Read every EndpointSlice for the fenced Service
+      kubernetes.core.k8s_info:
+        api_version: discovery.k8s.io/v1
+        kind: EndpointSlice
+        namespace: "{{ shared_data_drain_namespace }}"
+        label_selectors:
+          - "kubernetes.io/service-name={{ shared_data_journal.enrollment.service.name }}"
+      register: shared_data_enrollment_endpoints
+    - name: Poll existing HTTP connections and upstream native work after endpoint withdrawal
+      kubernetes.core.k8s_exec:
+        namespace: "{{ shared_data_drain_namespace }}"
+        pod: "{{ shared_data_enrollment_current_pods.resources[0].metadata.name }}"
+        container: app
+        command: "timeout 30s python3 -c {{ shared_data_enrollment_native | quote }} idle"
+      register: shared_data_enrollment_idle_reply
+      failed_when: false
+      when: shared_data_enrollment_endpoints.resources | map(attribute='endpoints') | flatten | length == 0
+      no_log: true
+    - name: Accept native idle only from a successful original live Pod reply
+      ansible.builtin.set_fact:
+        shared_data_queue_idle: "{{ shared_data_enrollment_idle_reply.rc | default(1) | int == 0 }}"
+        shared_data_queue_poll_count: "{{ shared_data_queue_poll_count | int + 1 }}"
+    - name: Wait without stopping the old web while work remains
+      ansible.builtin.pause:
+        seconds: "{{ [shared_data_wait_delay | int, [0, shared_data_queue_deadline | int - ('' | shared_data_now) | int] | max] | min }}"
+      when: not shared_data_queue_idle | bool
+    - name: Continue a short bounded poll batch
+      ansible.builtin.include_tasks: enrollment_poll.yml
+      when:
+        - not shared_data_queue_idle | bool
+        - shared_data_queue_poll_count | int % 20 != 0
+        - ('' | shared_data_now) | int < shared_data_queue_deadline | int

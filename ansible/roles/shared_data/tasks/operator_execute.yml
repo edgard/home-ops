@@ -1,0 +1,47 @@
+---
+- name: Require execution inside this original actor rather than local UID impersonation
+  ansible.builtin.assert:
+    that:
+      - lookup('ansible.builtin.env', 'POD_UID') == shared_data_holder_pod_uid
+      - shared_data_holder_pod_uid | length > 0
+      - shared_data_operator_step in ['hold', 'prepare', 'renew', 'enroll', 'apply', 'resume', 'abort']
+      - not shared_data_admin_resume | bool
+- name: Recheck exact actor and image
+  ansible.builtin.include_tasks: operator_actor.yml
+- name: Prepare or fully hold selected consumers
+  ansible.builtin.include_tasks: maintenance_hold.yml
+  vars:
+    shared_data_prepare_only: "{{ shared_data_operator_step == 'prepare' }}"
+  when: shared_data_operator_step in ['hold', 'prepare']
+- name: Load exact durable transaction for subsequent operations
+  ansible.builtin.include_tasks: maintenance_load.yml
+  when: shared_data_operator_step not in ['hold', 'prepare', 'enroll']
+- name: Guard same immutable actor and scope before subsequent operations
+  when: shared_data_operator_step not in ['hold', 'prepare', 'enroll']
+  block:
+    - name: Require exact durable live ownership and unchanged application scope
+      ansible.builtin.assert:
+        that:
+          - shared_data_journal.operation_id == shared_data_operation_id
+          - shared_data_journal.operation_kind == shared_data_operation_kind
+          - shared_data_journal.apps == shared_data_apps
+          - shared_data_journal.get('coordinator', shared_data_journal.holder).uid == shared_data_holder_pod_uid
+          - shared_data_lease.spec.holderIdentity == shared_data_operation_id ~ ':' ~ shared_data_holder_pod_uid
+    - name: Renew before every explicit bounded long step
+      ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Safely enroll the old Paperless Pod and retain hold across merge
+  ansible.builtin.include_tasks: enrollment.yml
+  when: shared_data_operator_step == 'enroll'
+- name: Apply the reviewed exact source template while writers remain zero
+  ansible.builtin.include_tasks: enrollment_apply.yml
+  when: shared_data_operator_step == 'apply'
+- name: Explicitly resume or abort using enrolled native state
+  ansible.builtin.include_tasks: enrollment_resume.yml
+  when:
+    - shared_data_operator_step in ['resume', 'abort']
+    - shared_data_journal.enrollment is defined
+- name: Resume a generic held operator session
+  ansible.builtin.include_tasks: maintenance_resume.yml
+  when:
+    - shared_data_operator_step == 'resume'
+    - shared_data_journal.enrollment is not defined

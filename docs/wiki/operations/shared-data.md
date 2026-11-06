@@ -57,9 +57,12 @@ or uncertain termination keep reconciliation held.
 
 Preflight checks the actual Pod's grace, image, and relevant settings. Updating
 a Deployment template does not extend an existing Pod's shutdown grace.
-Paperless's old-Pod enrollment needs a separately tested transition before its
-new grace/probe template or database cutover is applied; the normal capture
-protocol refuses an incompatible Pod. A prepare-only hold records that writers
+Paperless's [old-Pod enrollment procedure](paperless-enrollment.md) provides a
+bounded operator session across the shutdown-template merge. Publish its image
+and scoped RBAC first, then hold and drain the original Pod before merging the
+separate values change. Source-bound application at zero replicas and actual
+new-Pod checks precede resumption. The normal capture protocol refuses an
+incompatible Pod. A prepare-only hold records that writers
 remain untouched. If resumption then fails, recovery preserves that boundary;
 transactions that touched writers retain the stricter fail-closed behavior.
 

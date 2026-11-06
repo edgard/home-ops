@@ -46,6 +46,11 @@ The app values configure a route through the shared Gateway. Check [Gatus values
 
 ## Operational note
 
+Before changing shutdown grace or probes on an existing Pod, follow the
+[held enrollment procedure](../../operations/paperless-enrollment.md).
+Its tooling image and RBAC must be available before the separate values merge;
+the template change alone cannot protect work running on the original Pod.
+
 Document import, OCR, AI behavior, and recovery have distinct failure modes; test the requested path directly.
 
 The [values](../../../../apps/selfhosted/paperless/values.yaml) bound rendered

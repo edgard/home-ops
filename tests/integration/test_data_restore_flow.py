@@ -13,7 +13,7 @@ import yaml
 
 from tests.integration import test_data_maintenance as api
 from tests.integration.shared_data.test_recovery import load_adapter
-from tests.support.data_generation import operations_image
+from tests.support.data_generation import fixture_actor, operations_image
 from tests.support.runtime import ROOT, run_role
 
 
@@ -90,7 +90,7 @@ def test_selected_restore_and_failed_validation_hold(tmp_path, monkeypatch, mode
         + "\n"
         + f"""
 import os,subprocess,sys
-cmd=['docker','run','--rm','--network','none','--entrypoint','python','-v',{str(directory) + ":" + str(directory)!r},'-v',{str(ROOT / "ansible/roles/shared_data") + ":" + str(ROOT / "ansible/roles/shared_data") + ":ro"!r}]
+cmd=['docker','run','--rm', *{fixture_actor()!r},'--network','none','--entrypoint','python','-v',{str(directory) + ":" + str(directory)!r},'-v',{str(ROOT / "ansible/roles/shared_data") + ":" + str(ROOT / "ansible/roles/shared_data") + ":ro"!r}]
 for name in ['TMPDIR','HOME_OPS_DATA_DEADLINE','RESTIC_REPOSITORY','RESTIC_PASSWORD','RESTIC_CACHE_DIR']:
     if name in os.environ:cmd += ['-e',name+'='+os.environ[name]]
 r=subprocess.run(cmd+[{operations_image()!r}]+sys.argv[1:],capture_output=True)

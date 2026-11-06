@@ -1,6 +1,7 @@
 """Synthetic metadata for intentionally fake PostgreSQL archives in contract tests."""
 
 import json
+import os
 from pathlib import Path
 
 
@@ -20,8 +21,6 @@ def schema_metadata(dump):
 
 def operations_image(*, native=True):
     """Use the published clients in CI; permit an explicit same-Dockerfile native local build."""
-    import os
-
     import yaml
 
     from tests.support.runtime import ROOT
@@ -33,3 +32,18 @@ def operations_image(*, native=True):
     return (
         os.environ.get("HOME_OPS_DATA_TOOLS_TEST_IMAGE", pinned) if native else pinned
     )
+
+
+def fixture_actor():
+    """Share private bind artifacts with the pytest coordinator's numeric identity.
+
+    Dedicated numeric-ownership/capability cases retain their explicit root
+    profile. General adapter fixtures must use one identity on both sides of
+    the bind; Linux preserves ownership where macOS file sharing can mask it.
+    """
+    return [
+        "--user",
+        f"{os.geteuid()}:{os.getegid()}",
+        "--env",
+        "HOME=/tmp",
+    ]

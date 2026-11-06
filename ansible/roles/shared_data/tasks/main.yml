@@ -2,7 +2,7 @@
 - name: Validate shared data operation
   ansible.builtin.assert:
     that:
-      - shared_data_action in ['plan', 'watchdog', 'hold', 'resume', 'backup', 'upload', 'provision', 'restore', 'cleanup', 'submit']
+      - shared_data_action in ['plan', 'watchdog', 'hold', 'resume', 'backup', 'upload', 'provision', 'restore', 'cleanup', 'submit', 'operator', 'operator_execute']
       - shared_data_registry.version == 1
     fail_msg: Invalid shared data operation or registry.
 
@@ -41,6 +41,7 @@
       consumers: "{{ shared_data_selected_apps }}"
       allocations: "{{ shared_data_plan_rows }}"
       snapshot: "{{ shared_data_snapshot }}"
+      operator_session: "{{ {'step': shared_data_operator_step, 'operation_id': shared_data_operation_id, 'actor_name': shared_data_holder_pod_name, 'actor_uid': shared_data_holder_pod_uid, 'image': shared_data_image, 'source_revision': shared_data_source_revision, 'target_revision': shared_data_target_revision} if shared_data_action == 'operator' else omit }}"
       confirmation_required: true
       services:
         - postgresql.platform-system.svc.cluster.local:5432

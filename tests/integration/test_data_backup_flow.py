@@ -13,7 +13,7 @@ import pytest
 import yaml
 
 from tests.integration import test_data_maintenance as api
-from tests.support.data_generation import operations_image
+from tests.support.data_generation import fixture_actor, operations_image
 from tests.support.runtime import ROOT, run_role
 
 
@@ -59,7 +59,7 @@ def test_backup_captures_then_resumes_before_fresh_upload(tmp_path, broken_image
         + "\n"
         + f"""
 import os, subprocess, sys
-command = ['docker', 'run', '--rm', '--network', 'none', '--entrypoint', 'python', '-v', {str(directory) + ":" + str(directory)!r}, '-v', {str(ROOT / "ansible/roles/shared_data") + ":" + str(ROOT / "ansible/roles/shared_data") + ":ro"!r}]
+command = ['docker', 'run', '--rm', *{fixture_actor()!r}, '--network', 'none', '--entrypoint', 'python', '-v', {str(directory) + ":" + str(directory)!r}, '-v', {str(ROOT / "ansible/roles/shared_data") + ":" + str(ROOT / "ansible/roles/shared_data") + ":ro"!r}]
 for name in ['TMPDIR', 'HOME_OPS_DATA_DEADLINE']:
     if name in os.environ:
         command += ['-e', name + '=' + os.environ[name]]
@@ -105,7 +105,8 @@ raise SystemExit(result.returncode)
                     if time.monotonic() > until:
                         raise AssertionError("writers never resumed before upload")
                     time.sleep(0.1)
-                # Simulate only kubelet/controller mounts; run the real upload role.
+                # Replay the Pod mounts with one bind-fixture identity. Explicit
+                # production UID/capability behavior has separate Linux coverage.
                 mounts = [
                     "-v",
                     str(ROOT / "ansible/roles/shared_data")
@@ -145,6 +146,7 @@ raise SystemExit(result.returncode)
                     "docker",
                     "run",
                     "--rm",
+                    *fixture_actor(),
                     "--network",
                     "none",
                     "-v",
@@ -158,6 +160,7 @@ raise SystemExit(result.returncode)
                         "docker",
                         "run",
                         "--rm",
+                        *fixture_actor(),
                         "--network",
                         "none",
                         "--entrypoint",

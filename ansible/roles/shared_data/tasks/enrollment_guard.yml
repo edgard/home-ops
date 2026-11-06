@@ -1,0 +1,24 @@
+---
+- name: Verify the original bounded live actor at enrollment transition
+  ansible.builtin.include_tasks: operator_actor.yml
+- name: Reload the exact durable enrollment transaction
+  ansible.builtin.include_tasks: maintenance_load.yml
+- name: Require same actor scope and exact operation ownership
+  ansible.builtin.assert:
+    that:
+      - shared_data_confirm | bool
+      - not ansible_check_mode
+      - not shared_data_admin_resume | bool
+      - shared_data_apps == ['paperless']
+      - shared_data_journal.apps == shared_data_apps
+      - shared_data_journal.operation_id == shared_data_operation_id
+      - shared_data_journal.operation_kind == shared_data_operation_kind
+      - shared_data_journal.get('coordinator', shared_data_journal.holder).uid == shared_data_holder_pod_uid
+      - shared_data_lease.spec.holderIdentity == shared_data_operation_id ~ ':' ~ shared_data_holder_pod_uid
+      - shared_data_journal.enrollment is defined
+- name: Renew ownership before a bounded enrollment transition
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Re-fence root before any enrollment transition
+  ansible.builtin.include_tasks: maintenance_fence.yml
+- name: Verify the private Redis deployment remains unchanged
+  ansible.builtin.include_tasks: enrollment_redis.yml

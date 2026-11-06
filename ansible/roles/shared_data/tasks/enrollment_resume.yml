@@ -1,0 +1,96 @@
+---
+- name: Guard the exact original held actor before enrollment resume
+  ansible.builtin.include_tasks: enrollment_guard.yml
+- name: Require freshly verified desired source before any writer restoration
+  ansible.builtin.assert:
+    that:
+      - shared_data_enrollment_proof.registered_desired_verified | default(false) | bool
+      - shared_data_enrollment_proof.source_revision == shared_data_journal.enrollment.source_revision
+      - shared_data_enrollment_proof.original_sha256 == shared_data_journal.enrollment.source_template_sha256
+      - shared_data_journal.enrollment.state in ['pause-intent', 'draining', 'stop-intent', 'held', 'applied', 'resume-intent', 'native-restored']
+      - >-
+        (shared_data_journal.enrollment.target_revision is defined and
+         shared_data_enrollment_proof.target_revision == shared_data_journal.enrollment.target_revision and
+         shared_data_enrollment_proof.desired_sha256 == shared_data_journal.enrollment.target_source_template_sha256)
+        or (shared_data_journal.enrollment.target_revision is not defined and
+         shared_data_enrollment_proof.desired_sha256 == shared_data_journal.enrollment.source_template_sha256)
+    fail_msg: Desired source changed while old Pods were held; keep root fenced and finish enroll/apply before resume. Never restore an old 30-second Pod into a pending rollout.
+- name: Record source-verified restoration intent before native routes or replicas change
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'phase': 'resuming', 'enrollment': shared_data_journal.enrollment | combine({'state': 'resume-intent'})}) }}"
+- name: Persist source-verified restoration intent
+  ansible.builtin.include_tasks: maintenance_save.yml
+- name: Restore an applied protected main Pod before opening routes or starting GPT
+  when: shared_data_journal.enrollment.target_revision is defined
+  block:
+    - name: Require the reviewed protected source before new main startup
+      ansible.builtin.assert:
+        that:
+          - shared_data_journal.enrollment.state in ['applied', 'resume-intent', 'native-restored']
+          - shared_data_enrollment_proof.template | shared_data_enrollment_protected(shared_data_registry.consumers.paperless.drain)
+    - name: Read exact protected controller before starting any replacement Pod
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: selfhosted
+        name: paperless-main
+      register: shared_data_enrollment_resume_controller
+    - name: Verify the exact journaled protected live template
+      ansible.builtin.assert:
+        that:
+          - shared_data_enrollment_resume_controller.resources | length == 1
+          - shared_data_enrollment_resume_controller.resources[0].metadata.uid == shared_data_journal.enrollment.controller_uid
+          - shared_data_enrollment_resume_controller.resources[0].spec.template | shared_data_enrollment_digest == shared_data_journal.enrollment.applied_template_sha256
+          - shared_data_enrollment_resume_controller.resources[0].spec.template | shared_data_enrollment_protected(shared_data_registry.consumers.paperless.drain)
+    - name: Record intended protected startup before restoring main replicas
+      ansible.builtin.set_fact:
+        shared_data_journal: "{{ shared_data_journal | combine({'enrollment': shared_data_journal.enrollment | combine({'state': 'resume-intent'})}) }}"
+    - name: Persist protected startup intent
+      ansible.builtin.include_tasks: maintenance_save.yml
+    - name: Restore main first while GPT schedules routes and root remain held
+      ansible.builtin.include_tasks: maintenance_patch.yml
+      loop: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | selectattr('name', 'equalto', 'paperless-main') | list }}"
+      loop_control:
+        loop_var: shared_data_target
+      vars:
+        shared_data_restore_target: true
+    - name: Initialize bounded replacement readiness validation
+      ansible.builtin.set_fact:
+        shared_data_enrollment_ready: false
+        shared_data_enrollment_ready_count: 0
+        shared_data_enrollment_ready_deadline: "{{ ('' | shared_data_now) | int + 600 }}"
+    - name: Verify actual replacement native protection before any downstream restoration
+      ansible.builtin.include_tasks: enrollment_ready.yml
+      loop: "{{ range(0, 10) | list }}"
+      loop_control:
+        loop_var: shared_data_enrollment_ready_batch
+    - name: Retain all downstream fences if protected replacement is not verified
+      ansible.builtin.assert:
+        that: shared_data_enrollment_ready | bool
+        fail_msg: Protected replacement was not verified; retain routes GPT schedules and root for inspection.
+    - name: Verify effective native worker timeout and services in the actual replacement
+      kubernetes.core.k8s_exec:
+        namespace: selfhosted
+        pod: "{{ shared_data_enrollment_replacement.resources[0].metadata.name }}"
+        container: app
+        command: "timeout 30s sh -c {{ shared_data_registry.consumers.paperless.drain.inspect_command | quote }}"
+      register: shared_data_enrollment_native_ready
+      failed_when: shared_data_enrollment_native_ready.rc | default(1) | int != 0
+      no_log: true
+- name: Restore only proven original native pause state before root restoration
+  ansible.builtin.include_tasks: queue_resume.yml
+  vars:
+    shared_data_drain_app: paperless
+- name: Record native restoration before reopening registered routes
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'enrollment': shared_data_journal.enrollment | combine({'state': 'native-restored'})}) }}"
+- name: Persist native restoration
+  ansible.builtin.include_tasks: maintenance_save.yml
+- name: Restore exact original Service selector before dependency-ordered restoration
+  ansible.builtin.include_tasks: enrollment_route.yml
+  vars:
+    shared_data_enrollment_restore_route: true
+- name: Allow only this verified same-actor path to restore enrollment fields with root last
+  ansible.builtin.include_tasks: maintenance_restore.yml
+  vars:
+    shared_data_enrollment_resume_validated: true

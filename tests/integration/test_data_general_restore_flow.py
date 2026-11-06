@@ -15,7 +15,7 @@ import yaml
 
 from tests.integration import test_data_maintenance as api
 from tests.integration.shared_data.test_general_recovery import adapters, registry
-from tests.support.data_generation import operations_image
+from tests.support.data_generation import fixture_actor, operations_image
 from tests.support.runtime import ROOT, run_role
 
 HERE = ROOT / ".pytest_cache" / "general-restore"
@@ -147,6 +147,7 @@ def test_registered_restore_and_sql_then_file_failure(tmp_path, monkeypatch, mod
         return docker(
             "run",
             "--rm",
+            *fixture_actor(),
             "--network",
             network,
             "--entrypoint",
@@ -271,7 +272,7 @@ def test_registered_restore_and_sql_then_file_failure(tmp_path, monkeypatch, mod
             + "\n"
             + f"""
 import os,subprocess,sys
-cmd=['docker','run','--rm','--network',{network!r},'--entrypoint','python','-v',{str(directory) + ":" + str(directory)!r},'-v',{str(ROLE) + ":" + str(ROLE) + ":ro"!r}]
+cmd=['docker','run','--rm', *{fixture_actor()!r},'--network',{network!r},'--entrypoint','python','-v',{str(directory) + ":" + str(directory)!r},'-v',{str(ROLE) + ":" + str(ROLE) + ":ro"!r}]
 for name in ['TMPDIR','HOME_OPS_DATA_DEADLINE','RESTIC_REPOSITORY','RESTIC_PASSWORD','RESTIC_CACHE_DIR']:
     if name in os.environ:cmd += ['-e',name+'='+os.environ[name]]
 args=sys.argv[1:]

@@ -50,3 +50,10 @@ shared_data_holder_pod_uid: ""
 shared_data_monitor_enabled: false
 shared_data_monitor_url: http://gatus.platform-system.svc.cluster.local
 shared_data_monitor_token_file: /run/gatus/token
+
+# Explicit operator sessions survive local CLI exit and remain bounded.
+shared_data_operator_step: create
+shared_data_operator_lifetime: 21600
+shared_data_enrollment_budget: 3600
+shared_data_source_revision: ""
+shared_data_target_revision: ""

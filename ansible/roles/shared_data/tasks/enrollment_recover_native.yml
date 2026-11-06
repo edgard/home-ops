@@ -1,0 +1,27 @@
+---
+- name: Recover only reversible interrupted backup native pauses
+  ansible.builtin.assert:
+    that:
+      - shared_data_journal.operation_kind == 'backup'
+      - shared_data_journal.enrollment.state in ['pause-intent', 'draining', 'native-restored']
+      - shared_data_journal.enrollment.target_revision is not defined
+      - shared_data_journal.queue_pauses.paperless.protocol == 'paperless-enrollment-v1'
+    fail_msg: Destructive or post-shutdown enrollment remains held for explicit source-aware recovery.
+- name: Record native-only recovery intent before restoring any producer
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'phase': 'enrollment-native-recovering', 'enrollment': shared_data_journal.enrollment | combine({'native_recovery_intent': true})}) }}"
+- name: Persist native-only recovery intent
+  ansible.builtin.include_tasks: maintenance_save.yml
+- name: Restore only the proven original reversible native pause
+  ansible.builtin.include_tasks: queue_resume.yml
+  vars:
+    shared_data_drain_app: paperless
+- name: Restore the exact original registered HTTP selector
+  ansible.builtin.include_tasks: enrollment_route.yml
+  vars:
+    shared_data_enrollment_restore_route: true
+- name: Record native-only recovery without restoring controllers or root
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'phase': 'enrollment-native-restored', 'recovery_result': 'original native pause restored; source-aware operator resume required', 'enrollment': shared_data_journal.enrollment | combine({'state': 'native-restored'})}) }}"
+- name: Persist native-only recovery while reconciliation remains held
+  ansible.builtin.include_tasks: maintenance_save.yml

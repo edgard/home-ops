@@ -431,6 +431,19 @@ tasks:
           operation: watchdog
           confirm: "{{.confirm | default \"false\"}}"
 
+  data:operator:
+    desc: Preview or execute one named step in a bounded maintenance session
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    requires:
+      vars:
+        - settings
+    vars:
+      confirm: "{{.confirm | default \"false\"}}"
+    cmds:
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/shared-data.yml --extra-vars {{printf \"@%s\" .settings | shellQuote}} --extra-vars {{dict \"shared_data_action\" \"operator\" \"shared_data_confirm\" .confirm | toJson | shellQuote}}"
+
   data:_operate:
     internal: true
     dir: "{{.TASKFILE_DIR}}"

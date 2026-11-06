@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.support.data_generation import schema_metadata
+from tests.support.data_generation import fixture_actor, schema_metadata
 from tests.support.runtime import ROOT
 
 from .test_safety import generation, registry
@@ -32,6 +32,7 @@ def linux_files(operations_image):
                 "docker",
                 "run",
                 "--rm",
+                *fixture_actor(),
                 "--entrypoint",
                 "python",
                 "-v",

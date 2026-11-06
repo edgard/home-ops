@@ -1,0 +1,43 @@
+---
+- name: Poll protected readiness only during its bounded deadline
+  when:
+    - not shared_data_enrollment_ready | bool
+    - ('' | shared_data_now) | int < shared_data_enrollment_ready_deadline | int
+  block:
+    - name: Renew ownership before each bounded readiness observation
+      ansible.builtin.include_tasks: maintenance_guard.yml
+    - name: Read the actual replacement Pod specification
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: selfhosted
+        label_selectors: "{{ shared_data_enrollment_resume_controller.resources[0].spec.selector.matchLabels.items() | map('join', '=') | list }}"
+      register: shared_data_enrollment_replacement_read
+    - name: Preserve the last successful replacement inventory across skipped poll batches
+      ansible.builtin.set_fact:
+        shared_data_enrollment_replacement: "{{ shared_data_enrollment_replacement_read }}"
+    - name: Verify every nonterminal replacement has rehearsed shutdown protection
+      ansible.builtin.assert:
+        that:
+          - item.metadata.uid not in shared_data_journal.queue_pauses.paperless.pods | map(attribute='uid') | list
+          - item | shared_data_enrollment_protected(shared_data_registry.consumers.paperless.drain)
+      loop: "{{ shared_data_enrollment_replacement.resources | rejectattr('status.phase', 'in', ['Succeeded', 'Failed']) | list }}"
+    - name: Accept only one fully Ready live replacement
+      ansible.builtin.set_fact:
+        shared_data_enrollment_ready: >-
+          {{ shared_data_enrollment_replacement.resources | length == 1 and
+             shared_data_enrollment_replacement.resources[0].status.phase == 'Running' and
+             shared_data_enrollment_replacement.resources[0].metadata.deletionTimestamp is not defined and
+             shared_data_enrollment_replacement.resources[0].status.conditions | default([]) |
+             selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | length == 1 }}
+        shared_data_enrollment_ready_count: "{{ shared_data_enrollment_ready_count | int + 1 }}"
+    - name: Delay while protected replacement starts
+      ansible.builtin.pause:
+        seconds: "{{ shared_data_wait_delay | int }}"
+      when: not shared_data_enrollment_ready | bool
+    - name: Continue a short bounded readiness batch
+      ansible.builtin.include_tasks: enrollment_ready.yml
+      when:
+        - not shared_data_enrollment_ready | bool
+        - shared_data_enrollment_ready_count | int % 20 != 0
+        - ('' | shared_data_now) | int < shared_data_enrollment_ready_deadline | int

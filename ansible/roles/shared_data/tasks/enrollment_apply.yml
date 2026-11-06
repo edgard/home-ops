@@ -1,0 +1,62 @@
+---
+- name: Guard the exact held original actor before protected application
+  ansible.builtin.include_tasks: enrollment_guard.yml
+- name: Require an independently rendered exact desired shutdown-only revision
+  ansible.builtin.assert:
+    that:
+      - shared_data_operation_kind == 'migration'
+      - shared_data_journal.enrollment.state in ['held', 'apply-intent', 'applied']
+      - shared_data_enrollment_proof.registered_desired_verified | default(false) | bool
+      - shared_data_enrollment_proof.source_revision == shared_data_journal.enrollment.source_revision
+      - shared_data_enrollment_proof.original_sha256 == shared_data_journal.enrollment.source_template_sha256
+      - shared_data_enrollment_proof.target_revision is match('^[a-f0-9]{40}$')
+      - shared_data_enrollment_proof.source_template | shared_data_enrollment_delta(shared_data_enrollment_proof.template) | length > 0
+      - shared_data_enrollment_proof.template | shared_data_enrollment_protected(shared_data_registry.consumers.paperless.drain)
+      - shared_data_journal.enrollment.target_revision | default(shared_data_enrollment_proof.target_revision) == shared_data_enrollment_proof.target_revision
+    fail_msg: Protected application requires the exact verified registered desired revision and rehearsed shutdown settings.
+- name: Confirm every enrolled writer is still zero and terminal before template application
+  ansible.builtin.include_tasks: maintenance_wait.yml
+  vars:
+    shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | list }}"
+- name: Read the original zero-replica main controller
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: selfhosted
+    name: paperless-main
+  register: shared_data_enrollment_apply_controller
+- name: Require the original controller and approved original or already-applied settings
+  ansible.builtin.assert:
+    that:
+      - shared_data_enrollment_apply_controller.resources | length == 1
+      - shared_data_enrollment_apply_controller.resources[0].metadata.uid == shared_data_journal.enrollment.controller_uid
+      - shared_data_enrollment_apply_controller.resources[0].spec.replicas == 0
+      - shared_data_enrollment_apply_controller.resources[0].spec.template | shared_data_enrollment_settings in [shared_data_journal.enrollment.original_settings, shared_data_enrollment_proof.template | shared_data_enrollment_settings]
+- name: Derive a minimal protected live template preserving every unrelated field
+  ansible.builtin.set_fact:
+    shared_data_enrollment_apply_template: "{{ shared_data_enrollment_apply_controller.resources[0].spec.template | shared_data_enrollment_overlay(shared_data_enrollment_proof.template) }}"
+- name: Record exact source and resulting template before application
+  ansible.builtin.set_fact:
+    shared_data_journal: >-
+      {{ shared_data_journal | combine({'enrollment': shared_data_journal.enrollment | combine({
+         'state': 'apply-intent', 'target_revision': shared_data_enrollment_proof.target_revision,
+         'target_source_template_sha256': shared_data_enrollment_proof.desired_sha256,
+         'applied_template_sha256': shared_data_enrollment_apply_template | shared_data_enrollment_digest})}) }}
+- name: Persist source binding before protected template mutation
+  ansible.builtin.include_tasks: maintenance_save.yml
+- name: Apply only the protected template with an atomic zero-replica precondition
+  kubernetes.core.k8s_json_patch:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: selfhosted
+    name: paperless-main
+    patch: "{{ shared_data_enrollment_apply_controller.resources[0] | shared_data_enrollment_patch(shared_data_journal.enrollment.controller_uid, shared_data_enrollment_apply_template) }}"
+- name: Recheck no enrolled writer started during application
+  ansible.builtin.include_tasks: maintenance_wait.yml
+  vars:
+    shared_data_wait_targets: "{{ shared_data_journal.snapshots | selectattr('role', 'equalto', 'workload') | list }}"
+- name: Record protected template applied while all enrolled consumers remain zero
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'enrollment': shared_data_journal.enrollment | combine({'state': 'applied'})}) }}"
+- name: Persist protected application before any explicit resume
+  ansible.builtin.include_tasks: maintenance_save.yml

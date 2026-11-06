@@ -1,4 +1,14 @@
 ---
+- name: Recover proven interrupted backup native controls without guessing desired source
+  ansible.builtin.include_tasks: enrollment_recover_native.yml
+  when:
+    - shared_data_journal.enrollment is defined
+    - not shared_data_enrollment_resume_validated | default(false) | bool
+    - shared_data_journal.operation_kind == 'backup'
+- name: Prevent generic or automatic root restoration of an unverified enrollment
+  ansible.builtin.assert:
+    that: shared_data_journal.enrollment is not defined or shared_data_enrollment_resume_validated | default(false) | bool
+    fail_msg: Enrollment requires explicit same-actor source verification and native recovery before root can resume.
 - name: Resume fields with fail-closed recovery if any mutation or journal write fails
   block:
     - name: Re-fence root and children before restoring any writers

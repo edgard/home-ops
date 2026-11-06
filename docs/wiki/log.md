@@ -1,5 +1,14 @@
 # Wiki log
 
+## [2026-11-06] revision | Add held Paperless enrollment
+
+Documented bounded operator sessions, source and actor identity checks, draining
+the original Pod before the separate shutdown-template merge, application at
+zero replicas, and source-aware resume/abort. Added the
+[enrollment runbook](operations/paperless-enrollment.md) and updated the
+shared-data and Paperless pages. This supplies tooling; production enrollment
+and database cutovers remain separate acceptance steps.
+
 ## [2026-11-06] revision | Guard native operation scopes and preserve repository-wide retention
 
 Native backup and provisioning now reject file-only or mixed file/native scopes
@@ -361,3 +370,11 @@ and API-only monitoring paths. Documented root-first maintenance, immutable
 generations, capture-time freshness, manifest-bound selective recovery, compatible
 Restic commands, and the published-image/adoption gates. November's semantic
 review was already recorded with the foundation; this is its follow-up ingest.
+
+## 2026-11-06 — Native fixture ownership and CI diagnostics
+
+Aligned bind-backed adapter clients with their test coordinator's numeric
+identity so Linux can inspect and clean private artifacts without loosening
+production permissions. Dedicated root/server ownership and capability fixtures
+retain their explicit profiles. Updated the test guide and made CI stop after a
+failure so its diagnostic report is emitted before a later job timeout.

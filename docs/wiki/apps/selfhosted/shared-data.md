@@ -35,6 +35,13 @@ operation-object management. They do not list Secrets. The selfhosted
 AppProject explicitly permits these Roles in the affected namespaces; this
 also expands that GitOps project's permitted destination namespaces.
 
+Bounded standalone operator Pods support a held transition across a source
+merge. Their scoped exec and Service/EndpointSlice permissions implement the
+[Paperless enrollment procedure](../../operations/paperless-enrollment.md).
+They use frozen image-owned logic and temporary storage without application
+data or database credentials. Actor UID, desired source and rendered template
+checks prevent adopting a replacement actor or resuming an incompatible Pod.
+
 Gatus has shared-service TCP checks and separate external endpoints for
 operation health and verified capture freshness. The watchdog receives only its
 heartbeat token, without database credentials or application storage. Freshness
