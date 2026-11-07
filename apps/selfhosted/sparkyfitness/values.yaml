@@ -88,11 +88,6 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
-    pod:
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        runAsNonRoot: true
     containers:
       app:
         image:
