@@ -19,8 +19,8 @@ controllers:
       permissions:
         image:
           repository: docker.io/library/postgres
-          tag: 18.3-trixie
-          digest: sha256:7e32e9833a6fb1c92c32552794cb6ed569d51b445a54907d35fc112ef39684db
+          tag: 18.6-trixie
+          digest: sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         command:
           - /bin/sh
           - -ec
@@ -64,8 +64,8 @@ controllers:
       app:
         image:
           repository: docker.io/library/postgres
-          tag: 18.3-trixie
-          digest: sha256:7e32e9833a6fb1c92c32552794cb6ed569d51b445a54907d35fc112ef39684db
+          tag: 18.6-trixie
+          digest: sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         args:
           - postgres
           - -c
