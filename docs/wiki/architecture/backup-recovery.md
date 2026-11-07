@@ -23,10 +23,12 @@ identity and infrastructure values resolve from Bitwarden through scoped
 SecretSpec. Protected infrastructure-state backups have a separate recovery
 procedure; they do not replace Bitwarden availability.
 
-Sure uses an app-local PostgreSQL dump CronJob. Restic captures its published
+Sure and SparkyFitness use app-local PostgreSQL dump CronJobs. Restic captures their published
 dumps and application files while excluding live PostgreSQL and Redis storage.
-Its [app procedure](../apps/selfhosted/sure.md) adds the SQL-restore step before
-writers resume; ordinary file restoration alone does not recover its database.
+Their [Sure](../apps/selfhosted/sure.md) and
+[SparkyFitness](../apps/selfhosted/sparkyfitness.md) procedures add SQL restoration before
+writers resume; ordinary file restoration alone does not recover their databases.
+The global runbook carries these prerequisites into restore-all and cluster DR.
 
 ## Sources
 

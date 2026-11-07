@@ -13,6 +13,7 @@ catalog is a guide to it, not a copy of all tracked files.
 
 | Area | Primary source | Wiki synthesis |
 | --- | --- | --- |
+| Standalone SparkyFitness stack | [SparkyFitness values](../../apps/selfhosted/sparkyfitness/values.yaml), [credentials](../../apps/selfhosted/sparkyfitness/manifests/sparkyfitness-credentials.externalsecret.yaml) | [SparkyFitness](apps/selfhosted/sparkyfitness.md) |
 | Standalone Sure stack | [Sure values](../../apps/selfhosted/sure/values.yaml), [credentials](../../apps/selfhosted/sure/manifests/sure-credentials.externalsecret.yaml), [Restic backup](../../apps/selfhosted/restic/values.yaml) | [Sure](apps/selfhosted/sure.md) |
 | App discovery and reconciliation | [ApplicationSet](../../argocd/appsets/apps.appset.yaml) | [GitOps delivery](architecture/gitops-delivery.md) |
 | App definitions | [Apps](../../apps) | [App catalog](index.md#applications) |

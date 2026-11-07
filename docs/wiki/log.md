@@ -3,6 +3,18 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] revision | Add standalone SparkyFitness and verify shell programs
+
+Added SparkyFitness with its own PostgreSQL, native frontend/backend/Garmin,
+private credentials and app-local SQL dumps. Documented file-plus-dump recovery
+and added the explicit Gatus route. Existing application databases remain local.
+Corrected Sure's temporary-directory startup and preserved shell programs as
+literal YAML blocks. Executable command tests cover Redis launch, dump publication,
+failure cleanup and seven-generation retention for both apps. November's semantic
+review is already recorded below. The Kubernetes target matches the running
+patch version so the temporary downgrade-prevention suspension can be cleared
+without scheduling node maintenance.
+
 ## [2026-11-07] review | November semantic review and standalone Sure
 
 Compared the restored baseline explanations with current source metadata,
