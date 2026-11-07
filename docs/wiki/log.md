@@ -3,6 +3,17 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] revision | Preserve application contracts during major upgrades
+
+Retained the compatible Gotenberg API major, updated to its final security
+release, and constrained Renovate until Paperless's bundled conversion client
+supports the replacement request fields. Explicitly disabled Unpackerr's new
+default HTTP listener while retaining secret-backed Sonarr/Radarr configuration.
+Added compatibility and rendered-listener regression checks; documented the
+Paperless upgrade gate and Unpackerr's headless, nonpersistent configuration.
+Reviewed Karakeep, networking, storage and validation explanations; they remain
+accurate. November's semantic review is already recorded below.
+
 ## [2026-11-07] revision | Preserve SparkyFitness volume-group inheritance
 
 Removed the backend's redundant pod security-context override so the chart

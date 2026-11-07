@@ -48,6 +48,15 @@ The app values configure a route through the shared Gateway. Check [Gatus values
 
 Document import, OCR, AI behavior, and recovery have distinct failure modes; test the requested path directly.
 
+Keep Gotenberg within the compatible major constrained in
+[Renovate](../../../../.renovaterc.json5). Paperless's bundled client sends the
+Gotenberg 8 `pdfa` form field for Office-document PDF/A conversion; Gotenberg 9
+rejects that field with HTTP 400. Lift the constraint only after checking the
+bundled client and validating an Office-document import with PDF/A output.
+See the [Paperless conversion caller](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.4/src/paperless/parsers/tika.py),
+[client serializer](https://github.com/stumpylog/gotenberg-client/blob/1.0.0/src/gotenberg_client/options.py),
+and [Gotenberg upgrade guide](https://gotenberg.dev/docs/getting-started/upgrade).
+
 The [values](../../../../apps/selfhosted/paperless/values.yaml) bound rendered
 page dimensions and DPI before vision requests. Large images can exceed the
 provider's per-image patch limit even when their compressed file size is small.

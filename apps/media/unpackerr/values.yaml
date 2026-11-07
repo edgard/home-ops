@@ -18,10 +18,9 @@ controllers:
       app:
         image:
           repository: golift/unpackerr
-          tag: v0.16.1
+          tag: v1.0.1
         env:
-          PUID: "1000"
-          PGID: "1000"
+          UN_WEBSERVER_LISTEN_ADDR: ""
           UN_RADARR_0_URL: http://radarr.media.svc.cluster.local:7878
           UN_SONARR_0_URL: http://sonarr.media.svc.cluster.local:8989
         envFrom:
