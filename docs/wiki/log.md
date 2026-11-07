@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] revision | Close SparkyFitness registration
+
+Closed new account registration after initial administrator onboarding. Existing
+accounts and native AI settings remain available. Updated the application page
+to document the closed-registration default and explicit GitOps reopening.
+
 ## [2026-11-07] revision | Correct SparkyFitness runtime directories
 
 Live startup identified the frontend PID directory and backend restore-upload
