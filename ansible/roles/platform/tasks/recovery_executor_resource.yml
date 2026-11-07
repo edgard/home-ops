@@ -1,0 +1,18 @@
+---
+- name: Renew the common gate before each executor-only resource
+  ansible.builtin.include_tasks: recovery_dispatch_guard.yml
+- name: Create only this new Job's owned execution artifact
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    definition: "{{ (platform_recovery_artifact | combine({'metadata': platform_recovery_artifact.metadata | combine({'labels': {'home-ops/cold-job-uid': platform_recovery_dispatch_owner_uid}})})) | cold_bound_apply([]) }}"
+  register: platform_recovery_artifact_created
+  no_log: true
+- name: Record only nonsecret exact artifact identities for later owned cleanup
+  ansible.builtin.set_fact:
+    platform_recovery_journal: "{{ platform_recovery_journal | combine({'executor': platform_recovery_journal.executor | combine({'artifacts': platform_recovery_journal.executor.artifacts + ([platform_recovery_artifact_created.result] | cold_inventory)})}) }}"
+  no_log: true
+- name: Persist execution artifact identity before preparing the next one
+  ansible.builtin.include_tasks: recovery_save.yml

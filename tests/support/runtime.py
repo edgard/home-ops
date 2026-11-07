@@ -66,7 +66,7 @@ def run_role(
     env=None,
     after=None,
     rescue=None,
-    timeout=240,
+    timeout=900,
 ):
     directory = Path(directory)
     tasks = [

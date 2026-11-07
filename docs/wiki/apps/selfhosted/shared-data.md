@@ -1,7 +1,7 @@
 # Shared data operations
 
 Purpose: supply storage, credentials, and Kubernetes permissions for coordinated data maintenance.
-Status: current. Reviewed against: `cbcaf293696411c9289743a5882f08ead0967689`.
+Status: current. Reviewed against: `1b080d18e9d8e06deef71c2b8b37afda73d92c3c`.
 
 ## Dependencies
 
@@ -31,7 +31,9 @@ storage failure does not hide the recovery record.
 
 Cluster RBAC is read-only for Pods, Jobs, Nodes, and upgrade resources.
 Namespace Roles grant the required named workload/Application mutations and
-operation-object management. They do not list Secrets. The selfhosted
+operation-object management. Named Application grants include PostgreSQL and
+Redis so their independent reconciliation can be held without stopping engine
+servers or exposing raw database volumes. They do not list Secrets. The selfhosted
 AppProject explicitly permits these Roles in the affected namespaces; this
 also expands that GitOps project's permitted destination namespaces.
 

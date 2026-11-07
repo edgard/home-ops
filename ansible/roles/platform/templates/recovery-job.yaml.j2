@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ platform_recovery_job_name }}
+  namespace: {{ platform_recovery_executor_namespace }}
+  labels:
+    home-ops/cold-recovery: {{ platform_recovery_token }}
+spec:
+  suspend: true
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ platform_recovery_job_deadline | int }}
+  template:
+    metadata:
+      labels:
+        home-ops/cold-recovery: {{ platform_recovery_token }}
+    spec:
+      serviceAccountName: {{ platform_recovery_job_name }}
+      automountServiceAccountToken: true
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+      containers:
+        - name: bootstrap
+          image: {{ platform_recovery_image }}
+          command:
+            - /bin/sh
+            - -ec
+            - |-
+              python /opt/home-ops/ansible/roles/platform/files/cold_bundle.py unpack --root /opt/home-ops --revision "$HOME_OPS_RECOVERY_REVISION" --input /bootstrap-input/bundle.tar.gz --destination /source --sha256 "$HOME_OPS_RECOVERY_BUNDLE_SHA256" --source-sha256 "$HOME_OPS_RECOVERY_SOURCE_SHA256" --code-sha256 "$HOME_OPS_RECOVERY_CODE_SHA256"
+              exec ansible-playbook ansible/playbooks/platform-recovery-executor.yml
+          env:
+            - {name: HOME, value: /tmp}
+            - {name: ANSIBLE_LOCAL_TEMP, value: /tmp/ansible-local}
+            - {name: ANSIBLE_REMOTE_TEMP, value: /tmp/ansible-remote}
+            - {name: XDG_CACHE_HOME, value: /tmp/cache}
+            - {name: HOME_OPS_RECOVERY_REVISION, value: {{ platform_bootstrap_revision | to_json }}}
+            - {name: HOME_OPS_RECOVERY_SOURCE_SHA256, value: {{ platform_recovery_source_sha256 | to_json }}}
+            - {name: HOME_OPS_RECOVERY_CODE_SHA256, value: {{ platform_recovery_bundle.code_sha256 | to_json }}}
+            - {name: HOME_OPS_RECOVERY_BUNDLE_SHA256, value: {{ platform_recovery_bundle.bundle_sha256 | to_json }}}
+            - {name: HOME_OPS_RECOVERY_IMAGE, value: {{ platform_recovery_image | to_json }}}
+            - {name: HOME_OPS_RECOVERY_APPS, value: {{ platform_recovery_apps | join(',') | to_json }}}
+            - {name: HOME_OPS_RECOVERY_OPERATION, value: {{ platform_recovery_operation | to_json }}}
+            - {name: HOME_OPS_RECOVERY_JOB_NAME, value: {{ platform_recovery_job_name | to_json }}}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef: {fieldPath: metadata.name}
+            - name: POD_UID
+              valueFrom:
+                fieldRef: {fieldPath: metadata.uid}
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef: {fieldPath: metadata.namespace}
+            - name: ESO_BWS_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: bitwarden-credentials
+                  key: token
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 2Gi}
+          volumeMounts:
+            - {name: source, mountPath: /source}
+            - {name: tmp, mountPath: /tmp}
+            - {name: bundle, mountPath: /bootstrap-input, readOnly: true}
+      volumes:
+        - {name: source, emptyDir: {}}
+        - {name: tmp, emptyDir: {}}
+        - name: bundle
+          configMap:
+            name: {{ platform_recovery_job_name }}

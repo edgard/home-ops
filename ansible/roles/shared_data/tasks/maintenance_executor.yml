@@ -22,10 +22,32 @@
       - shared_data_executor_read.resources[0].metadata.deletionTimestamp is not defined
       - shared_data_executor_read.resources[0].metadata.ownerReferences | default([]) | rejectattr('kind', 'equalto', 'Job') | list | length == 0
     fail_msg: A live immutable standalone or Job-owned executor Pod is required.
-- name: Capture nonsecret execution identity without impersonating the original holder
+- name: Read API authenticated projected-token identity
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: authentication.k8s.io/v1
+      kind: SelfSubjectReview
+      metadata:
+        generateName: shared-data-executor-
+  register: shared_data_executor_authenticated
+- name: Read actual executor ServiceAccount and assigned node
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: "{{ item.kind }}"
+    name: "{{ item.name }}"
+    namespace: "{{ item.namespace | default(omit) }}"
+  loop:
+    - {kind: ServiceAccount, namespace: "{{ shared_data_holder_pod_namespace }}", name: "{{ shared_data_executor_read.resources[0].spec.serviceAccountName }}"}
+    - {kind: Node, name: "{{ shared_data_executor_read.resources[0].spec.nodeName }}"}
+  register: shared_data_executor_bindings
+- name: Require exact assigned executor identities
+  ansible.builtin.assert:
+    that: item.resources | length == 1
+  loop: "{{ shared_data_executor_bindings.results }}"
+- name: Capture authenticated original node identity before any ownership claim
   ansible.builtin.set_fact:
-    shared_data_executor:
-      uid: "{{ shared_data_holder_pod_uid }}"
-      name: "{{ shared_data_holder_pod_name }}"
-      namespace: "{{ shared_data_holder_pod_namespace }}"
-      owners: "{{ shared_data_executor_read.resources[0].metadata.ownerReferences | default([]) }}"
+    shared_data_executor: >-
+      {{ shared_data_executor_read.resources[0] | shared_data_executor_actor(
+         shared_data_executor_bindings.results[1].resources[0],
+         shared_data_executor_bindings.results[0].resources[0], shared_data_executor_authenticated.result) }}

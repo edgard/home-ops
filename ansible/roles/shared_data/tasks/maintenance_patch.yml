@@ -12,6 +12,13 @@
   ansible.builtin.assert:
     that: shared_data_patch_read.resources | length == 1
     fail_msg: Maintenance target is missing; transaction remains held for inspection.
+- name: Require idle held reconciliation immediately before restoring its policy
+  ansible.builtin.assert:
+    that: shared_data_target | shared_data_application_held(shared_data_patch_read.resources[0])
+    fail_msg: Application hold changed or a sync was queued; transaction remains held for inspection.
+  when:
+    - shared_data_restore_target | default(false) | bool
+    - shared_data_target.role in ['root', 'application']
 - name: Apply identity-checked policy or writer state
   kubernetes.core.k8s_json_patch:
     api_version: "{{ shared_data_target.api_version }}"

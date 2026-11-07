@@ -33,14 +33,14 @@ shared_data_staging_pvc: shared-data-staging
 shared_data_secret: shared-data-credentials
 shared_data_serviceaccount: shared-data
 shared_data_image: ""
-shared_data_postgres_image: docker.io/library/postgres:18.3-trixie@sha256:7e32e9833a6fb1c92c32552794cb6ed569d51b445a54907d35fc112ef39684db
-shared_data_redis_image: docker.io/library/redis:8.10.3@sha256:de1068af6f552240dfab67bcc9bfef99bfc60f776bb4580ef077ea4c8c97e848
+shared_data_postgres_image: docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+shared_data_redis_image: docker.io/library/redis:8.10.3@sha256:f245f4c83b84a9e9a0588da1c9456e579455310f0945d5db52cd2ba27f2000cc
 shared_data_restic_repository: rest:http://restic.selfhosted.svc.cluster.local:8000/
 shared_data_restic_host: homelab
 shared_data_restic_tag: appdata
 shared_data_snapshot: latest
 shared_data_snapshot_root: /data/appdata
-shared_data_recovery_mode: false
+shared_data_recovery_mode: "{{ lookup('ansible.builtin.env', 'HOME_OPS_COLD_RESTORE') | default('false', true) | bool }}"
 shared_data_recovery_budget: 3000
 shared_data_job_action: backup
 shared_data_job_timeout: 3600
@@ -57,3 +57,5 @@ shared_data_operator_lifetime: 21600
 shared_data_enrollment_budget: 3600
 shared_data_source_revision: ""
 shared_data_target_revision: ""
+
+shared_data_cold_image_root: /opt/home-ops

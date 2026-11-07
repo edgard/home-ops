@@ -16,6 +16,7 @@ def state():
         "namespace": "selfhosted",
         "uid": "actor-uid",
         "owners": [{"uid": "job-uid", "kind": "Job"}],
+        "fence_nodes": [{"name": "node", "uid": "node-original"}],
     }
     journal = {
         "operation_id": "capture",
@@ -62,7 +63,7 @@ def state():
         "spec": {},
     }
     node = {
-        "metadata": {"name": "node"},
+        "metadata": {"name": "node", "uid": "node-original"},
         "status": {"conditions": [{"type": "Ready", "status": "True"}]},
     }
     return journal, lease, [pod], [job], [node]
@@ -131,6 +132,7 @@ def test_fence_claim_is_atomic_and_preserves_prior_actor_chain():
         "namespace": "selfhosted",
         "uid": "watchdog-uid",
         "owners": [],
+        "fence_nodes": [{"name": "node", "uid": "node-original"}],
     }
     patch = m.shared_data_fence_claim(lease, journal, actor, 1_000_000_000, 300)
     claimed = jsonpatch.apply_patch(lease, patch)
@@ -290,7 +292,13 @@ def test_watchdog_stays_independent_of_normal_job_barriers():
 def test_generation_claim_requires_same_successful_job_and_healthy_termination():
     claim = {
         "operation": "old",
-        "upload_job": {"uid": "job", "name": "upload", "namespace": "selfhosted"},
+        "upload_job": {
+            "uid": "job",
+            "name": "upload",
+            "namespace": "selfhosted",
+            "node_binding": "coordinator-assigned-before-start",
+            "fence_nodes": [{"name": "node", "uid": "node-original"}],
+        },
     }
     job = {
         "metadata": {
@@ -301,7 +309,11 @@ def test_generation_claim_requires_same_successful_job_and_healthy_termination()
         },
         "status": {"conditions": [{"type": "Complete", "status": "True"}]},
     }
-    node = {"status": {"conditions": [{"type": "Ready", "status": "True"}]}}
+    job["spec"] = {"template": {"spec": {"nodeName": "node"}}}
+    node = {
+        "metadata": {"name": "node", "uid": "node-original"},
+        "status": {"conditions": [{"type": "Ready", "status": "True"}]},
+    }
     safe = m.shared_data_upload_claim_terminal
     assert safe(claim, [job], [], [node])
     assert not safe(claim, [], [], [node])
@@ -314,6 +326,7 @@ def test_generation_claim_requires_same_successful_job_and_healthy_termination()
     }
     assert not safe(claim, [job], [pod], [node])
     pod["status"]["phase"] = "Succeeded"
+    pod["spec"] = {"nodeName": "node"}
     assert safe(claim, [job], [pod], [node])
     node["status"]["conditions"][0]["status"] = "Unknown"
     assert not safe(claim, [job], [pod], [node])

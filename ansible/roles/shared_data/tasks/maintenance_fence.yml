@@ -29,3 +29,9 @@
     label: "{{ shared_data_target.role }}/{{ shared_data_target.name }}"
   vars:
     shared_data_restore_target: false
+- name: Freeze idle Application reconciliation with a fresh identity and operation guard
+  ansible.builtin.include_tasks: maintenance_skip.yml
+  loop: "{{ shared_data_journal.snapshots | selectattr('role', 'in', ['root', 'application']) | list }}"
+  loop_control:
+    loop_var: shared_data_target
+    label: "{{ shared_data_target.name }}"

@@ -351,6 +351,26 @@ tasks:
           scope: platform
           playbook: platform-bootstrap.yml
 
+  platform:recover:
+    desc: Bootstrap cold recovery infrastructure with every consumer held
+    dir: "{{.TASKFILE_DIR}}"
+    requires:
+      vars:
+        - app
+        - operation
+    deps:
+      - task: ansible:check
+    env:
+      HOME_OPS_RECOVERY_APPS: "{{.app}}"
+      HOME_OPS_RECOVERY_OPERATION: "{{.operation}}"
+      HOME_OPS_RECOVERY_IMAGE: "{{.image | default \"\"}}"
+      HOME_OPS_RECOVERY_FENCE: "{{.fence | default \"false\"}}"
+    cmds:
+      - task: secrets:invoke
+        vars:
+          scope: platform
+          playbook: platform-recovery.yml
+
   platform:destroy:
     desc: Destroy platform components via Ansible
     interactive: true

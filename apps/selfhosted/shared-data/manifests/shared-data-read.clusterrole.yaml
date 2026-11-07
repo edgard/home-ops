@@ -30,3 +30,9 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - selfsubjectreviews
+    verbs:
+      - create

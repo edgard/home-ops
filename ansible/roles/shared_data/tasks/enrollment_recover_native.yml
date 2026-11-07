@@ -7,6 +7,8 @@
       - shared_data_journal.enrollment.target_revision is not defined
       - shared_data_journal.queue_pauses.paperless.protocol == 'paperless-enrollment-v1'
     fail_msg: Destructive or post-shutdown enrollment remains held for explicit source-aware recovery.
+- name: Verify every affected Application remains held and idle before native producers or routes resume
+  ansible.builtin.include_tasks: maintenance_verify_applications.yml
 - name: Record native-only recovery intent before restoring any producer
   ansible.builtin.set_fact:
     shared_data_journal: "{{ shared_data_journal | combine({'phase': 'enrollment-native-recovering', 'enrollment': shared_data_journal.enrollment | combine({'native_recovery_intent': true})}) }}"

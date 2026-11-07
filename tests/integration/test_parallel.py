@@ -9,6 +9,50 @@ from tests.support.api import cluster_api
 from tests.support.runtime import PYTHON, ROOT, environment, run_command
 
 
+@pytest.mark.parametrize("workers", [0, 2])
+def test_inherited_git_context_cannot_redirect_fixture_repositories(tmp_path, workers):
+    outer = tmp_path / "outer"
+    (outer / "terraform").mkdir(parents=True)
+    sentinel = outer / "terraform/original.tf"
+    sentinel.write_text('provider "original" {}\n')
+    redirected = tmp_path / "redirected-worktree"
+    (redirected / "terraform").mkdir(parents=True)
+    (redirected / "terraform/original.tf").write_text('provider "redirected" {}\n')
+    clean_env = environment(tmp_path)
+    for args in [("init", "-q"), ("add", ".")]:
+        run_command(["git", "-C", str(outer), *args], env=clean_env, check=True)
+    metadata = {
+        name: (outer / ".git" / name).read_bytes()
+        for name in ["config", "index", "HEAD"]
+    }
+    result = run_command(
+        [
+            str(PYTHON),
+            "-m",
+            "pytest",
+            "-n",
+            str(workers),
+            "-q",
+            "tests/config/repository/test_conventions.py::test_tracked_hcl_boundary_and_duplicate_json5",
+            "tests/config/repository/test_conventions.py::test_terraform_compatibility_and_retired_provider[missing]",
+        ],
+        cwd=ROOT,
+        env={
+            **clean_env,
+            "GIT_DIR": str(outer / ".git"),
+            "GIT_WORK_TREE": str(redirected),
+            "GIT_INDEX_FILE": str(outer / ".git/index"),
+        },
+        timeout=60,
+    )
+    assert {
+        name: (outer / ".git" / name).read_bytes() for name in metadata
+    } == metadata, "fixture Git commands changed the inherited repository metadata"
+    assert sentinel.read_text() == 'provider "original" {}\n'
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "2 passed" in result.stdout
+
+
 @pytest.mark.parametrize("workers", [0, 4])
 @pytest.mark.parametrize(
     "scenario", ["success", "tool-failure", "incomplete", "terminated"]

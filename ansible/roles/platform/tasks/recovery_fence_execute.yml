@@ -1,0 +1,63 @@
+---
+- name: Recheck reserved shared ownership before stopping old execution
+  ansible.builtin.include_tasks: recovery_dispatch_guard.yml
+- name: Delete exact old Job UIDs so old dispatchers cannot unsuspend/recreate them
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: absent
+    api_version: batch/v1
+    kind: Job
+    namespace: "{{ item.metadata.namespace }}"
+    name: "{{ item.metadata.name }}"
+    delete_options:
+      preconditions: {uid: "{{ item.metadata.uid }}"}
+      propagationPolicy: Foreground
+    wait: true
+    wait_timeout: 180
+  loop: "{{ platform_recovery_fence_plan.jobs }}"
+- name: Recheck reserved shared ownership before graceful old Pod removal
+  ansible.builtin.include_tasks: recovery_dispatch_guard.yml
+- name: Delete remaining exact old Pods without force
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: absent
+    api_version: v1
+    kind: Pod
+    namespace: "{{ item.metadata.namespace }}"
+    name: "{{ item.metadata.name }}"
+    delete_options:
+      preconditions: {uid: "{{ item.metadata.uid }}"}
+    wait: true
+    wait_timeout: 180
+  loop: "{{ platform_recovery_fence_plan.pods }}"
+- name: Re-read authoritative old executor and node state after fencing
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+  loop:
+    - {api: batch/v1, kind: Job}
+    - {api: v1, kind: Pod}
+    - {api: v1, kind: Node}
+  register: platform_recovery_fenced_reads
+- name: Refuse replacement work until no old executor can write or recreate
+  ansible.builtin.assert:
+    that: platform_recovery_fence_plan | cold_fenced(platform_recovery_fenced_reads.results[0].resources, platform_recovery_fenced_reads.results[1].resources, platform_recovery_fenced_reads.results[2].resources)
+
+- name: Revoke only exact old execution artifacts after real fencing
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: absent
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace if item.namespace | length > 0 else omit }}"
+    name: "{{ item.name }}"
+    delete_options:
+      preconditions: {uid: "{{ item.uid }}"}
+    wait: true
+    wait_timeout: 120
+  loop: "{{ platform_recovery_fence_artifacts | default([]) | reverse | list }}"

@@ -2,7 +2,7 @@
 # Kubernetes Restic Restore Runbook
 
 Purpose: operator procedure for a Kubernetes appdata restore.
-Status: current. Reviewed against: `20ab0bc1d62963bbe4abcb439ec491e2e9074403`.
+Status: current. Reviewed against: `1b080d18e9d8e06deef71c2b8b37afda73d92c3c`.
 
 The `restic` app backs up Kubernetes appdata and serves the same repository used
 by the macOS and Windows workstation backups. Kubernetes owns repository
@@ -61,9 +61,13 @@ operation schedulers remain paused until recovery acceptance.
   and encryption keys. Historical manifest-less snapshots are eligible only for
   consumers still on file/SQLite backends.
 - The coordinator holds root reconciliation first, then ApplicationSet and child
-  updates, schedules, and registered writers. It stages and validates data,
+  updates, including the independent PostgreSQL and Redis Applications. It
+  disables new automatic sync, drains existing syncs, then skips idle
+  reconciliation before schedules and registered consumer writers are stopped.
+  Shared engine servers remain running. It stages and validates data,
   restores only the selected databases and files, verifies writes, and resumes
-  recorded settings with root last. A temporary authenticated Redis source
+  exact recorded policies and skip annotations with root last. A queued manual
+  sync while held blocks resumption for inspection. A temporary authenticated Redis source
   restores only selected adopted allocations and preserves absolute expirations.
 - Destructive failure remains held. Inspect the journal and data before explicit
   recovery or resumption; clearing a failed Job does not establish consistency.
@@ -126,6 +130,21 @@ a PostgreSQL-era application consistently. For inspection, extract into a privat
 staging directory, select explicit canonical snapshot identities and registered
 paths, and preserve the source snapshot. Never restore raw PostgreSQL or Redis
 persistence over shared live services.
+
+## Cold infrastructure prerequisite
+
+A fresh-cluster restore needs the [held cold infrastructure path](shared-data.md#cold-infrastructure-recovery-and-admission-boundary)
+before the database-aware coordinator can run. Ordinary platform bootstrap
+immediately hands off to GitOps and must not be used to start recovery consumers.
+The cold bootstrap worker uses the common maintenance Lease and durable journal;
+unfinished execution must be fenced through its exact Job/Pod and node barriers
+before retry. Cold restore verifies the original registry/source checksum against
+its actual registry before provisioning. It uses the same selected scope and
+retained credentials, provisions
+registered PostgreSQL roles and Redis ACLs under maintenance, and leaves original
+zero replicas and suspended schedules unchanged after validation. The executable
+runtime admission finalizer has not shipped; neither a successful restore receipt
+nor `confirm=true` authorizes consumer or global root reconciliation.
 
 ## Sources
 

@@ -1,0 +1,79 @@
+---
+- name: Require the checked cold initialization boundary
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_mode | bool
+      - platform_recovery_worker | bool
+      - platform_recovery_executor_verified | default(false) | bool
+      - platform_recovery_token | length == 32
+- name: Build recovery release specs from source metadata
+  ansible.builtin.set_fact:
+    platform_bootstrap_release_specs: []
+- name: Load native recovery infrastructure releases
+  ansible.builtin.include_tasks: build_release.yml
+  loop: "{{ platform_recovery_releases }}"
+  loop_control:
+    loop_var: platform_release
+- name: Load selected registered consumer releases
+  ansible.builtin.include_tasks: build_release.yml
+  loop: "{{ platform_recovery_apps }}"
+  loop_control:
+    loop_var: platform_recovery_app
+  vars:
+    platform_recovery_entry: "{{ platform_recovery_registry.consumers | combine(platform_recovery_registry.file_consumers | default({})) }}"
+    platform_recovery_app_namespace: "{{ platform_recovery_entry[platform_recovery_app].namespace }}"
+    platform_release:
+      name: "{{ platform_recovery_app }}"
+      namespace: "{{ platform_recovery_app_namespace }}"
+      phase: recovery
+      app_metadata: "apps/{{ platform_recovery_app_namespace }}/{{ platform_recovery_app }}/app.yaml"
+      values_file: "apps/{{ platform_recovery_app_namespace }}/{{ platform_recovery_app }}/values.yaml"
+      manifests_dir: "apps/{{ platform_recovery_app_namespace }}/{{ platform_recovery_app }}/manifests"
+- name: Construct held root and empty ApplicationSet before their first apply
+  ansible.builtin.set_fact:
+    platform_recovery_definitions: "{{ (lookup('ansible.builtin.file', repo_root ~ '/' ~ platform_argocd_root_application_manifest) | from_yaml) | cold_gitops(lookup('ansible.builtin.file', repo_root ~ '/argocd/appsets/apps.appset.yaml') | from_yaml, platform_bootstrap_release_specs, platform_bootstrap_revision, platform_recovery_token) }}"
+- name: Render and validate every resource before applying recovery objects
+  ansible.builtin.include_tasks: recovery_render.yml
+  loop: "{{ platform_bootstrap_release_specs }}"
+  loop_control:
+    loop_var: platform_release_spec
+- name: Recheck real shared ownership before selected namespace setup
+  ansible.builtin.include_tasks: recovery_guard.yml
+- name: Ensure selected namespaces before recovery inventory
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ item }}"
+  loop: "{{ ([platform_recovery_namespace, 'platform-system', 'argocd'] + (platform_recovery_registry.consumers | combine(platform_recovery_registry.file_consumers | default({})) | dict2items | selectattr('key', 'in', platform_recovery_apps) | map(attribute='value.namespace') | list)) | unique | list }}"
+- name: Initialize record-before-apply nonsecret inventory
+  ansible.builtin.set_fact:
+    platform_recovery_journal: "{{ platform_recovery_journal | combine({'inventory': platform_recovery_journal.inventory | cold_plan_inventory(platform_recovery_definitions), 'phase': 'bootstrapping'}) }}"
+- name: Persist inventory before creating any recovery workload or GitOps resource
+  ansible.builtin.include_tasks: recovery_save.yml
+- name: Apply recovery objects held from their first creation
+  ansible.builtin.include_tasks: recovery_apply.yml
+  loop: "{{ platform_recovery_definitions }}"
+  loop_control:
+    loop_var: platform_recovery_definition
+    label: "{{ platform_recovery_definition.kind }}/{{ platform_recovery_definition.metadata.name }}"
+- name: Wait for recovery database and Restic services without starting Tuppr or consumers
+  ansible.builtin.include_tasks: wait_condition.yml
+  loop: "{{ platform_recovery_definitions | selectattr('kind', 'equalto', 'Deployment') | selectattr('metadata.namespace', 'in', ['platform-system', 'selfhosted']) | rejectattr('metadata.name', 'equalto', 'tuppr') | selectattr('spec.replicas', 'defined') | rejectattr('spec.replicas', 'equalto', 0) | list }}"
+  loop_control:
+    loop_var: platform_recovery_ready_resource
+  vars:
+    platform_wait_api_version: apps/v1
+    platform_wait_kind: Deployment
+    platform_wait_name: "{{ platform_recovery_ready_resource.metadata.name }}"
+    platform_wait_namespace: "{{ platform_recovery_ready_resource.metadata.namespace }}"
+    platform_wait_condition_type: Available
+- name: Record infrastructure-ready held recovery phase
+  ansible.builtin.set_fact:
+    platform_recovery_journal: "{{ platform_recovery_journal | combine({'phase': 'held'}) }}"
+- name: Persist held recovery phase without admitting consumers
+  ansible.builtin.include_tasks: recovery_save.yml

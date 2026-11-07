@@ -1,0 +1,48 @@
+---
+- name: Renew real cold executor ownership before this mutation boundary
+  ansible.builtin.include_tasks: recovery_guard.yml
+  when: platform_recovery_mode | bool
+- name: Read recovery object before mutation
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ platform_recovery_definition.apiVersion }}"
+    kind: "{{ platform_recovery_definition.kind }}"
+    name: "{{ platform_recovery_definition.metadata.name }}"
+    namespace: "{{ platform_recovery_definition.metadata.namespace | default(omit) }}"
+  register: platform_recovery_object
+- name: Require an existing object to belong to this exact cold recovery
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_object.resources | length == 0 or platform_recovery_object.resources[0].metadata.labels['home-ops/cold-recovery'] | default('') == platform_recovery_token
+      - platform_recovery_object.resources | length == 0 or platform_recovery_old_uid | length == 0 or platform_recovery_object.resources[0].metadata.uid == platform_recovery_old_uid
+  vars:
+    platform_recovery_old_uid: "{{ (platform_recovery_journal.inventory | selectattr('kind', 'equalto', platform_recovery_definition.kind) | selectattr('name', 'equalto', platform_recovery_definition.metadata.name) | selectattr('namespace', 'equalto', platform_recovery_definition.metadata.namespace | default('')) | first).uid | default('') }}"
+- name: Refuse a missing or replaced previously journaled identity
+  ansible.builtin.assert:
+    that: platform_recovery_old_uid | length == 0 or (platform_recovery_object.resources | length == 1 and platform_recovery_object.resources[0].metadata.uid == platform_recovery_old_uid)
+  vars:
+    platform_recovery_old_uid: "{{ (platform_recovery_journal.inventory | selectattr('kind', 'equalto', platform_recovery_definition.kind) | selectattr('name', 'equalto', platform_recovery_definition.metadata.name) | selectattr('namespace', 'equalto', platform_recovery_definition.metadata.namespace | default('')) | first).uid | default('') }}"
+- name: Apply only recovery-owned objects already held
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: "{{ 'patched' if platform_recovery_old_uid | length > 0 else 'present' }}"
+    apply: "{{ platform_recovery_old_uid | length == 0 }}"
+    definition: "{{ platform_recovery_definition | cold_bound_apply(platform_recovery_object.resources) }}"
+  register: platform_recovery_applied
+  vars:
+    platform_recovery_old_uid: "{{ (platform_recovery_journal.inventory | selectattr('kind', 'equalto', platform_recovery_definition.kind) | selectattr('name', 'equalto', platform_recovery_definition.metadata.name) | selectattr('namespace', 'equalto', platform_recovery_definition.metadata.namespace | default('')) | first).uid | default('') }}"
+- name: Bind immutable identity after successful first apply
+  ansible.builtin.set_fact:
+    platform_recovery_journal: "{{ platform_recovery_journal | combine({'inventory': platform_recovery_journal.inventory | cold_record(platform_recovery_applied.result)}) }}"
+- name: Persist resource identity before applying the next object
+  ansible.builtin.include_tasks: recovery_save.yml
+- name: Wait for recovery CRD establishment before dependent I/O
+  ansible.builtin.include_tasks: wait_condition.yml
+  vars:
+    platform_wait_api_version: apiextensions.k8s.io/v1
+    platform_wait_kind: CustomResourceDefinition
+    platform_wait_name: "{{ platform_recovery_definition.metadata.name }}"
+    platform_wait_condition_type: Established
+  when: platform_recovery_definition.kind == 'CustomResourceDefinition'

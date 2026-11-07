@@ -1,0 +1,15 @@
+---
+- name: Read old real executor controllers, Pods and node barriers
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+  loop:
+    - {api: batch/v1, kind: Job}
+    - {api: v1, kind: Pod}
+    - {api: v1, kind: Node}
+  register: platform_recovery_old_reads
+- name: Require exact known cold ownership and explicit fencing for expired active work
+  ansible.builtin.set_fact:
+    platform_recovery_fence_plan: "{{ platform_recovery_initial_lease.resources[0] | cold_fence_plan(platform_recovery_journal, platform_recovery_old_reads.results[0].resources, platform_recovery_old_reads.results[1].resources, platform_recovery_old_reads.results[2].resources, now().timestamp(), platform_recovery_fence_requested | bool) }}"

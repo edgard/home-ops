@@ -1,0 +1,112 @@
+---
+- name: Materialize only the exact owned executor resources under the shared gate
+  ansible.builtin.include_tasks: recovery_executor_resource.yml
+  loop:
+    - apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ platform_recovery_job_name }}"
+        namespace: "{{ platform_recovery_executor_namespace }}"
+    - apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: "{{ platform_recovery_job_name }}"
+      rules:
+        - apiGroups:
+            - ""
+            - apps
+            - batch
+            - rbac.authorization.k8s.io
+            - apiextensions.k8s.io
+            - admissionregistration.k8s.io
+            - storage.k8s.io
+            - networking.k8s.io
+            - cert-manager.io
+            - acme.cert-manager.io
+            - external-secrets.io
+            - argoproj.io
+            - k8s.cni.cncf.io
+          resources:
+            - "*"
+          verbs:
+            - get
+            - list
+            - watch
+            - create
+            - patch
+            - update
+            - delete
+        - apiGroups:
+            - rbac.authorization.k8s.io
+          resources:
+            - roles
+            - clusterroles
+          verbs:
+            - bind
+            - escalate
+        - apiGroups:
+            - coordination.k8s.io
+          resources:
+            - leases
+          verbs:
+            - get
+            - list
+            - create
+            - patch
+            - update
+        - apiGroups:
+            - authentication.k8s.io
+          resources:
+            - selfsubjectreviews
+          verbs:
+            - create
+    - apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: "{{ platform_recovery_job_name }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: "{{ platform_recovery_job_name }}"
+      subjects:
+        - kind: ServiceAccount
+          name: "{{ platform_recovery_job_name }}"
+          namespace: "{{ platform_recovery_executor_namespace }}"
+    - apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ platform_recovery_job_name }}"
+        namespace: "{{ platform_recovery_executor_namespace }}"
+      immutable: true
+      binaryData:
+        bundle.tar.gz: "{{ platform_recovery_bundle.bundle_base64 }}"
+  loop_control:
+    loop_var: platform_recovery_artifact
+    label: "{{ platform_recovery_artifact.kind }}/{{ platform_recovery_artifact.metadata.name }}"
+- name: Recheck common ownership before existing scoped ESO credential delivery
+  ansible.builtin.include_tasks: recovery_dispatch_guard.yml
+- name: Read the namespace-local existing ESO credential identity
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Secret
+    namespace: "{{ platform_recovery_executor_namespace }}"
+    name: bitwarden-credentials
+  register: platform_recovery_existing_credential
+  no_log: true
+- name: Materialize only the existing platform-scope ESO token for the real Job
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: "{{ 'patched' if platform_recovery_existing_credential.resources | length > 0 else 'present' }}"
+    apply: "{{ platform_recovery_existing_credential.resources | length == 0 }}"
+    definition: "{{ {'apiVersion': 'v1', 'kind': 'Secret', 'metadata': {'name': 'bitwarden-credentials', 'namespace': platform_recovery_executor_namespace}, 'stringData': {'token': platform_bitwarden_access_token}} | cold_bound_apply(platform_recovery_existing_credential.resources) }}"
+  register: platform_recovery_delivered_credential
+  no_log: true
+- name: Preserve the canonical ESO Secret identity without making it an ephemeral cleanup target
+  ansible.builtin.set_fact:
+    platform_recovery_journal: "{{ platform_recovery_journal | combine({'inventory': platform_recovery_journal.inventory | cold_record(platform_recovery_delivered_credential.result)}) }}"
+  no_log: true
+- name: Persist the canonical credential identity before starting the worker
+  ansible.builtin.include_tasks: recovery_save.yml

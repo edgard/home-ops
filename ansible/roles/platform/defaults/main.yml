@@ -134,3 +134,66 @@ platform_external_secrets_store_waits:
     name: external-secrets-store
     condition_type: Ready
     retries: 60
+
+# Cold bootstrap is a separate, explicit entry point; normal bootstrap is unchanged.
+platform_recovery_mode: false
+platform_recovery_apps: []
+platform_recovery_operation: ""
+platform_recovery_journal_name: shared-data-cold-recovery
+platform_recovery_namespace: selfhosted
+platform_recovery_registry_file: "{{ repo_root }}/ansible/roles/shared_data/files/registry.yaml"
+platform_recovery_registry: "{{ lookup('ansible.builtin.file', platform_recovery_registry_file) | from_yaml }}"
+platform_recovery_releases:
+  - name: tuppr
+    namespace: platform-system
+    phase: recovery
+    app_metadata: apps/platform-system/tuppr/app.yaml
+    values_file: apps/platform-system/tuppr/values.yaml
+    manifests_dir: apps/platform-system/tuppr/manifests
+  - name: postgresql
+    namespace: platform-system
+    phase: recovery
+    app_metadata: apps/platform-system/postgresql/app.yaml
+    values_file: apps/platform-system/postgresql/values.yaml
+    manifests_dir: apps/platform-system/postgresql/manifests
+  - name: redis
+    namespace: platform-system
+    phase: recovery
+    app_metadata: apps/platform-system/redis/app.yaml
+    values_file: apps/platform-system/redis/values.yaml
+    manifests_dir: apps/platform-system/redis/manifests
+  - name: restic
+    namespace: selfhosted
+    phase: recovery
+    app_metadata: apps/selfhosted/restic/app.yaml
+    values_file: apps/selfhosted/restic/values.yaml
+    manifests_dir: apps/selfhosted/restic/manifests
+  - name: shared-data
+    namespace: selfhosted
+    phase: recovery
+    app_metadata: apps/selfhosted/shared-data/app.yaml
+    values_file: apps/selfhosted/shared-data/values.yaml
+    manifests_dir: apps/selfhosted/shared-data/manifests
+
+# A bounded real Job is the sole cold writer; the local CLI only dispatches it.
+platform_recovery_worker: false
+platform_recovery_executor_namespace: platform-system
+platform_recovery_lease_name: shared-data-operation
+platform_recovery_lease_duration: 900
+platform_recovery_job_deadline: 7200
+platform_recovery_job_timeout: 7320
+platform_recovery_fence_expired: false
+platform_recovery_image_root: /opt/home-ops
+platform_recovery_image: "{{ lookup('ansible.builtin.env', 'HOME_OPS_RECOVERY_IMAGE') | default('', true) }}"
+platform_recovery_fence_requested: "{{ lookup('ansible.builtin.env', 'HOME_OPS_RECOVERY_FENCE') | default('false', true) | bool }}"
+
+# The cold worker owns hook I/O directly; no detached chart Job may outlive it.
+platform_cold_helm_values:
+  argocd:
+    server:
+      httproute:
+        enabled: false
+    redisSecretInit:
+      enabled: false
+    redis:
+      existingSecret: argocd-redis

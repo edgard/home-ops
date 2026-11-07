@@ -137,6 +137,7 @@ class Handler(BaseHTTPRequestHandler):
             resources = (
                 [
                     ("secrets", "Secret", True),
+                    ("configmaps", "ConfigMap", True),
                     ("pods", "Pod", True),
                     ("persistentvolumeclaims", "PersistentVolumeClaim", True),
                     ("nodes", "Node", False),

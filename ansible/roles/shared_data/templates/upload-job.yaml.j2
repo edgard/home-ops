@@ -8,6 +8,7 @@ metadata:
     home-ops/data-role: upload
     home-ops/data-operation: {{ shared_data_operation_id }}
 spec:
+  suspend: true
   backoffLimit: 0
   activeDeadlineSeconds: 7200
   template:
@@ -16,6 +17,7 @@ spec:
         app.kubernetes.io/name: shared-data
         home-ops/data-operation: {{ shared_data_operation_id }}
     spec:
+      nodeName: {{ shared_data_executor.fence_nodes[0].name | to_json }}
       serviceAccountName: {{ shared_data_serviceaccount }}
       restartPolicy: Never
       automountServiceAccountToken: false

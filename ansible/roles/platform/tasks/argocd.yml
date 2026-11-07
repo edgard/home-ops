@@ -1,8 +1,18 @@
 ---
+- name: Renew real cold executor ownership before this mutation boundary
+  ansible.builtin.include_tasks: recovery_guard.yml
+  when: platform_recovery_mode | bool
+- name: Materialize the cold Argo cache credential under journaled worker ownership
+  ansible.builtin.include_tasks: recovery_argocd_cache.yml
+  when: platform_recovery_mode | bool
 - name: Install argocd bootstrap release
   ansible.builtin.include_tasks: install_release.yml
   vars:
     platform_release_spec: "{{ platform_bootstrap_release_specs | selectattr('phase', 'equalto', 'argocd') | first }}"
+
+- name: Recheck cold ownership after Helm completed before Argo resource writes
+  ansible.builtin.include_tasks: recovery_guard.yml
+  when: platform_recovery_mode | bool
 
 - name: Apply Argo CD repo credentials ExternalSecret
   kubernetes.core.k8s:
@@ -17,7 +27,25 @@
   vars:
     platform_wait_items: "{{ platform_argocd_waits }}"
 
+- name: Prevent ordinary bootstrap from bypassing held cold recovery admission
+  when: not platform_recovery_mode | bool
+  block:
+    - name: Read cold recovery gate before enabling root
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: ConfigMap
+        namespace: "{{ platform_recovery_namespace }}"
+        name: "{{ platform_recovery_journal_name }}"
+      register: platform_normal_cold_gate
+    - name: Refuse an active cold recovery through the normal bootstrap entry point
+      ansible.builtin.assert:
+        that: (platform_normal_cold_gate.resources[0].data['journal.json'] | from_json if platform_normal_cold_gate.resources | length == 1 else {}) | cold_normal_bootstrap
+        fail_msg: Cold recovery exists; complete its validated runtime admission before using normal bootstrap.
+
 - name: Apply Argo CD root application
+  when: not platform_recovery_mode | bool
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -26,4 +54,9 @@
     src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
 
 - name: Verify committed GitOps handoff and fresh application secrets
+  when: not platform_recovery_mode | bool
   ansible.builtin.include_tasks: handoff.yml
+
+- name: Bootstrap cold recovery resources already held
+  ansible.builtin.include_tasks: recovery.yml
+  when: platform_recovery_mode | bool

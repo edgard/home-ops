@@ -113,7 +113,7 @@ def test_destructive_recovery_is_held_for_operator(maintenance, kind):
     journal = {
         "operation_id": "op",
         "operation_kind": kind,
-        "holder": {"uid": "old", "namespace": "selfhosted", "name": "coordinator"},
+        "holder": {**actor("old"), "name": "coordinator"},
     }
     lease = {
         "spec": {
@@ -131,7 +131,7 @@ def test_expired_backup_requires_old_coordinator_and_children_fenced(maintenance
     journal = {
         "operation_id": "op",
         "operation_kind": "backup",
-        "holder": {"uid": "old", "namespace": "selfhosted", "name": "coordinator"},
+        "holder": {**actor("old"), "name": "coordinator"},
     }
     lease = {
         "spec": {
@@ -161,9 +161,12 @@ def test_expired_backup_requires_old_coordinator_and_children_fenced(maintenance
     )["resume"]
     child["spec"]["suspend"] = True
     child["status"]["active"] = 0
-    assert maintenance.shared_data_recovery(journal, lease, [], [child], 1000000000)[
-        "resume"
-    ]
+    assert not maintenance.shared_data_recovery(
+        journal, lease, [], [child], 1000000000, nodes=nodes()
+    )["resume"]
+    assert maintenance.shared_data_recovery(
+        journal, lease, [], [], 1000000000, nodes=nodes()
+    )["resume"]
     lease["spec"]["renewTime"] = "2100-01-01T00:00:00Z"
     assert not maintenance.shared_data_recovery(journal, lease, [], [], 1000000000)[
         "resume"
@@ -243,12 +246,15 @@ def test_terminated_coordinator_job_must_not_be_able_to_restart(maintenance):
             "name": "coordinator",
             "namespace": "selfhosted",
             "owners": [{"kind": "Job", "uid": "job-uid"}],
+            "fence_nodes": [{"name": "node", "uid": "node-original"}],
         },
     }
     job = {"metadata": {"uid": "job-uid"}, "spec": {}, "status": {"active": 0}}
-    assert not maintenance.shared_data_coordinator_fenced(journal, [], [job])
+    assert not maintenance.shared_data_coordinator_fenced(
+        journal, [], [job], nodes=nodes()
+    )
     job["spec"]["suspend"] = True
-    assert maintenance.shared_data_coordinator_fenced(journal, [], [job])
+    assert maintenance.shared_data_coordinator_fenced(journal, [], [job], nodes=nodes())
 
 
 def test_unlabelled_child_pod_of_selected_job_blocks_recovery(maintenance):
@@ -259,6 +265,7 @@ def test_unlabelled_child_pod_of_selected_job_blocks_recovery(maintenance):
             "name": "coordinator",
             "namespace": "selfhosted",
             "owners": [{"kind": "Job", "uid": "job-uid"}],
+            "fence_nodes": [{"name": "node", "uid": "node-original"}],
         },
     }
     job = {
@@ -281,7 +288,7 @@ def test_recovery_does_not_renew_unexpired_lease_or_live_owner(maintenance):
     journal = {
         "operation_id": "op",
         "operation_kind": "backup",
-        "holder": {"uid": "old", "name": "coordinator", "namespace": "selfhosted"},
+        "holder": {**actor("old"), "name": "coordinator"},
     }
     lease = {
         "spec": {
@@ -299,7 +306,7 @@ def test_expired_fenced_destructive_recovery_records_operator_hold(maintenance):
     journal = {
         "operation_id": "op",
         "operation_kind": "restore",
-        "holder": {"uid": "old", "name": "coordinator", "namespace": "selfhosted"},
+        "holder": {**actor("old"), "name": "coordinator"},
     }
     lease = {
         "spec": {
@@ -308,7 +315,9 @@ def test_expired_fenced_destructive_recovery_records_operator_hold(maintenance):
             "leaseDurationSeconds": 1,
         }
     }
-    result = maintenance.shared_data_recovery(journal, lease, [], [], 1000000000)
+    result = maintenance.shared_data_recovery(
+        journal, lease, [], [], 1000000000, nodes=nodes()
+    )
     assert result["record"] and not result["resume"]
 
 
@@ -434,7 +443,13 @@ def test_owner_only_renewal_cannot_reclaim_released_lease(maintenance):
 
 
 def actor(uid="recoverer"):
-    return {"uid": uid, "name": uid, "namespace": "selfhosted", "owners": []}
+    return {
+        "uid": uid,
+        "name": uid,
+        "namespace": "selfhosted",
+        "owners": [],
+        "fence_nodes": [{"name": "node", "uid": "node-original"}],
+    }
 
 
 def test_recovery_takeover_is_distinct_uid_and_only_one_cas_wins(maintenance):
@@ -447,6 +462,18 @@ def test_recovery_takeover_is_distinct_uid_and_only_one_cas_wins(maintenance):
             "renewTime": "2000-01-01T00:00:00Z",
             "leaseDurationSeconds": 1,
         },
+    }
+    import json
+
+    lease["metadata"]["annotations"] = {
+        maintenance._LEASE_RECORD: json.dumps(
+            {
+                "operation_id": "op",
+                "operation_kind": "backup",
+                "actor": actor("old"),
+                "stage": "journaled",
+            }
+        )
     }
     patch = maintenance.shared_data_lease_takeover(
         lease, "op:old", "op", "backup", actor("new-1"), 1000000000, 60, "journaled"
@@ -483,7 +510,9 @@ def test_orphan_claim_records_identity_before_journal_and_requires_fenced_expiry
         ),
     )
     assert not maintenance.shared_data_orphan_releasable(lease, [], [], 1000000001)
-    assert maintenance.shared_data_orphan_releasable(lease, [], [], 1000000100)
+    assert maintenance.shared_data_orphan_releasable(
+        lease, [], [], 1000000100, nodes=nodes()
+    )
     pod = {
         "metadata": {"uid": "old", "name": "old", "namespace": "selfhosted"},
         "status": {"phase": "Running"},
@@ -494,7 +523,9 @@ def test_orphan_claim_records_identity_before_journal_and_requires_fenced_expiry
     import json
 
     lease["metadata"]["annotations"]["home-ops/data-coordinator"] = json.dumps(payload)
-    assert not maintenance.shared_data_orphan_releasable(lease, [], [], 1000000100)
+    assert not maintenance.shared_data_orphan_releasable(
+        lease, [], [], 1000000100, nodes=nodes()
+    )
 
 
 def test_recovery_checks_last_takeover_actor_as_well_as_original_holder(maintenance):
@@ -533,3 +564,159 @@ def test_completed_cleanup_requires_exact_original_identity_and_field_presence(
     assert maintenance.shared_data_snapshot_restored(snapshot, original)
     original["metadata"]["uid"] = "root-recreated"
     assert not maintenance.shared_data_snapshot_restored(snapshot, original)
+
+
+def nodes():
+    return [
+        {
+            "metadata": {"name": "node", "uid": "node-original"},
+            "status": {"conditions": [{"type": "Ready", "status": "True"}]},
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "annotations",
+    [
+        None,
+        {},
+        {"unrelated": "preserve"},
+        {"argocd.argoproj.io/skip-reconcile": "false"},
+        {"argocd.argoproj.io/skip-reconcile": "true"},
+    ],
+)
+def test_application_skip_is_restored_exactly_after_idle_hold(maintenance, annotations):
+    import jsonpatch
+
+    original = resource(spec={"syncPolicy": {"automated": {"selfHeal": True}}})
+    if annotations is not None:
+        original["metadata"]["annotations"] = annotations
+    snapshot = maintenance.shared_data_snapshot({"role": "application"}, original)
+    held = jsonpatch.apply_patch(
+        original, maintenance.shared_data_patch(snapshot, original)
+    )
+    held = jsonpatch.apply_patch(
+        held, maintenance.shared_data_skip_patch(snapshot, held)
+    )
+    assert (
+        held["metadata"]["annotations"]["argocd.argoproj.io/skip-reconcile"] == "true"
+    )
+    assert not maintenance.shared_data_snapshot_restored(snapshot, held)
+    restored = jsonpatch.apply_patch(
+        held, maintenance.shared_data_patch(snapshot, held, True)
+    )
+    assert restored["metadata"] == original["metadata"]
+    assert restored["spec"] == original["spec"]
+    assert maintenance.shared_data_snapshot_restored(snapshot, restored)
+
+
+@pytest.mark.parametrize("phase", ["Running", "Terminating"])
+def test_skip_refuses_inflight_sync_and_unrecorded_identity(maintenance, phase):
+    original = resource()
+    snapshot = maintenance.shared_data_snapshot({"role": "application"}, original)
+    original["status"] = {"operationState": {"phase": phase}}
+    with pytest.raises(ValueError, match="sync"):
+        maintenance.shared_data_skip_patch(snapshot, original)
+    original.pop("status")
+    original["operation"] = {"sync": {"revision": "new-manual-operation"}}
+    with pytest.raises(ValueError, match="sync"):
+        maintenance.shared_data_skip_patch(snapshot, original)
+    original.pop("operation")
+    original["metadata"]["uid"] = "replaced"
+    with pytest.raises(ValueError, match="identity"):
+        maintenance.shared_data_skip_patch(snapshot, original)
+
+
+def test_idle_skip_cas_rejects_raced_manual_operation(maintenance):
+    import jsonpatch
+
+    original = resource()
+    snapshot = maintenance.shared_data_snapshot({"role": "application"}, original)
+    patch = maintenance.shared_data_skip_patch(snapshot, original)
+    original["operation"] = {"sync": {"revision": "raced-manual-operation"}}
+    original["metadata"]["resourceVersion"] = "9"
+    with pytest.raises(jsonpatch.JsonPatchTestFailed):
+        jsonpatch.apply_patch(original, patch)
+    assert "annotations" not in original["metadata"]
+
+
+def test_altered_automation_or_recorded_skip_cannot_pass_hold_guard(maintenance):
+    import jsonpatch
+
+    original = resource()
+    snapshot = maintenance.shared_data_snapshot({"role": "application"}, original)
+    held = jsonpatch.apply_patch(
+        original, maintenance.shared_data_skip_patch(snapshot, original)
+    )
+    assert maintenance.shared_data_application_held(snapshot, held)
+    for mutate in [
+        lambda row: row["spec"].update(syncPolicy={"automated": {}}),
+        lambda row: row["metadata"]["annotations"].update(
+            {"argocd.argoproj.io/skip-reconcile": "false"}
+        ),
+        lambda row: row.update(operation={"sync": {}}),
+        lambda row: row["metadata"].update(uid="replacement"),
+    ]:
+        changed = deepcopy(held)
+        mutate(changed)
+        assert not maintenance.shared_data_application_held(snapshot, changed)
+    held["spec"]["syncPolicy"] = {"automated": {}}
+    with pytest.raises(ValueError, match="automation fence"):
+        maintenance.shared_data_skip_patch(snapshot, held)
+
+
+def test_skip_requires_an_observed_resource_version(maintenance):
+    original = resource()
+    snapshot = maintenance.shared_data_snapshot({"role": "application"}, original)
+    original["metadata"].pop("resourceVersion")
+    with pytest.raises(ValueError, match="resourceVersion"):
+        maintenance.shared_data_skip_patch(snapshot, original)
+
+
+def test_hold_only_patch_preserves_foreign_request_and_existing_skip(maintenance):
+    import jsonpatch
+
+    current = resource(spec={"syncPolicy": {"automated": {"selfHeal": True}}})
+    snapshot = maintenance.shared_data_snapshot({"role": "application"}, current)
+    current["metadata"]["annotations"] = {"argocd.argoproj.io/skip-reconcile": "true"}
+    current["operation"] = {"sync": {"revision": "foreign"}}
+    held = jsonpatch.apply_patch(
+        current, maintenance.shared_data_patch(snapshot, current)
+    )
+    assert "automated" not in held["spec"]["syncPolicy"]
+    assert held["operation"] == current["operation"]
+    assert held["metadata"]["annotations"] == current["metadata"]["annotations"]
+    with pytest.raises(ValueError, match="sync"):
+        maintenance.shared_data_patch(snapshot, held, True)
+    with pytest.raises(ValueError, match="sync"):
+        maintenance.shared_data_skip_patch(snapshot, held)
+
+
+def test_compensation_preserves_skipped_request_without_treating_it_as_idle(
+    maintenance,
+):
+    import jsonpatch
+
+    original = resource()
+    snapshot = maintenance.shared_data_snapshot({"role": "application"}, original)
+    original["metadata"]["annotations"] = {"argocd.argoproj.io/skip-reconcile": "true"}
+    original["operation"] = {"sync": {"revision": "foreign"}}
+    assert not maintenance.shared_data_sync_idle([original])
+    assert maintenance.shared_data_compensation_ready([original])
+    held = jsonpatch.apply_patch(
+        original, maintenance.shared_data_compensation_skip_patch(snapshot, original)
+    )
+    assert held["operation"] == original["operation"]
+    assert held["metadata"]["annotations"] == original["metadata"]["annotations"]
+    original["metadata"]["annotations"].clear()
+    assert not maintenance.shared_data_compensation_ready([original])
+    with pytest.raises(ValueError, match="sync"):
+        maintenance.shared_data_compensation_skip_patch(snapshot, original)
+    original["operation"].clear()
+    assert maintenance.shared_data_compensation_ready([original])
+    held = jsonpatch.apply_patch(
+        original, maintenance.shared_data_compensation_skip_patch(snapshot, original)
+    )
+    assert (
+        held["metadata"]["annotations"]["argocd.argoproj.io/skip-reconcile"] == "true"
+    )

@@ -1,0 +1,37 @@
+---
+- name: Read exact completed cold journal and remaining executor Pods
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace | default(omit) }}"
+    name: "{{ item.name | default(omit) }}"
+  loop:
+    - {api: v1, kind: ConfigMap, namespace: "{{ platform_recovery_namespace }}", name: "{{ platform_recovery_journal_name }}"}
+    - {api: v1, kind: Pod, namespace: "{{ platform_recovery_executor_namespace }}"}
+    - {api: v1, kind: Node}
+  register: platform_recovery_cleanup_reads
+- name: Freeze nonsecret completed execution artifact identities
+  ansible.builtin.set_fact:
+    platform_recovery_cleanup_journal: "{{ platform_recovery_cleanup_reads.results[0].resources[0].data['journal.json'] | from_json }}"
+- name: Require terminal exact Job execution before revoking only its temporary privileges
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_cleanup_journal.phase == 'held'
+      - platform_recovery_cleanup_journal.executor.job_uid == platform_recovery_dispatch_owner_uid
+      - platform_recovery_cleanup_reads.results[1].resources | cold_executor_terminal(platform_recovery_dispatch_owner_uid, platform_recovery_cleanup_reads.results[2].resources)
+- name: Delete only exact owned immutable executor artifacts after terminal execution
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: absent
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace if item.namespace | length > 0 else omit }}"
+    name: "{{ item.name }}"
+    delete_options:
+      preconditions: {uid: "{{ item.uid }}"}
+    wait: true
+    wait_timeout: 120
+  loop: "{{ platform_recovery_cleanup_journal.executor.artifacts | reverse | list }}"

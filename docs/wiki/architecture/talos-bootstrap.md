@@ -14,6 +14,17 @@ revision and ApplicationSet children within 300 seconds and fresh application
 secrets within 600 seconds. See the [maintenance and recovery runbook](../operations/secrets-maintenance.md)
 for external prerequisites and the limits of disposable versus production tests.
 
+A [separate cold recovery entry point](../../../ansible/playbooks/platform-recovery.yml)
+dispatches a bounded in-cluster Job under the shared maintenance Lease and a
+durable source-bound journal before chart work. A real bound-token Pod executes
+the mutations; retries require exact Job/Pod fencing and Ready-node/absence
+barriers. It keeps root/ApplicationSet/consumer reconciliation held from first
+creation while recovery infrastructure starts. Base scheduling, CNI, DNS, and
+registry access must already work. Normal bootstrap refuses an unfinished cold
+API journal before foundational mutations. Successful global admission must record its bound
+completion before normal bootstrap is available again. The runtime admission
+finalizer remains an activation blocker; see the [exact recovery boundary](../operations/shared-data.md#cold-infrastructure-recovery-and-admission-boundary).
+
 The [Image Factory installer decision](../decisions/talos-image-factory.md)
 explains why upgrades must preserve the configured installer and its extensions.
 An upgrade requires current node and snapshot preflight; this page does not

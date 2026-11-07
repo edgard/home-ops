@@ -40,6 +40,8 @@ def held(kind="backup", expired=True):
         "uid": "coordinator-uid",
         "name": "coordinator",
         "namespace": "selfhosted",
+        "kind": "Pod",
+        "fence_nodes": [{"name": "node", "uid": "node-uid"}],
         "owners": [
             {
                 "uid": "capture-job-uid",
@@ -92,6 +94,7 @@ def held(kind="backup", expired=True):
     objects += [lease, cm]
     v.update(
         shared_data_holder_pod_name="watchdog",
+        kube_context="fixture-watchdog",
         shared_data_holder_pod_uid="watchdog-uid",
         shared_data_operation_kind=kind,
         shared_data_fence_wait_timeout=1,
@@ -117,7 +120,7 @@ def test_unexpired_watchdog_is_nonmutating_success(tmp_path):
     objects, v, _ = held(expired=False)
     result, state = run(tmp_path, objects, v)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert not any(e["method"] != "GET" for e in state["events"])
+    assert not any(e["method"] not in {"GET", "IDENTITY"} for e in state["events"])
 
 
 def test_stale_backup_fences_job_and_pod_before_resuming_root_last(tmp_path):
@@ -177,7 +180,7 @@ def test_unhealthy_node_prevents_any_automatic_mutation(tmp_path):
     ] = "Unknown"
     result, state = run(tmp_path, objects, v)
     assert result.returncode != 0
-    assert not any(e["method"] != "GET" for e in state["events"])
+    assert not any(e["method"] not in {"GET", "IDENTITY"} for e in state["events"])
 
 
 def test_nfs_hung_pod_never_causes_forced_delete_or_writer_resumption(tmp_path):
@@ -511,6 +514,7 @@ def test_quiescence_iteration_renews_existing_operation_ownership(tmp_path):
     )
     variables.update(
         shared_data_holder_pod_name="coordinator",
+        kube_context="fixture-coordinator",
         shared_data_holder_pod_uid="coordinator-uid",
         shared_data_journal=journal,
         shared_data_wait_targets=[],
@@ -521,8 +525,16 @@ def test_quiescence_iteration_renews_existing_operation_ownership(tmp_path):
         result = run_role(
             tmp_path,
             "shared_data",
-            "maintenance_poll_writers",
+            "maintenance_executor",
             {**connection, **variables},
+            after=[
+                {
+                    "ansible.builtin.include_role": {
+                        "name": "shared_data",
+                        "tasks_from": "maintenance_poll_writers",
+                    }
+                }
+            ],
             env={
                 "K8S_AUTH_KUBECONFIG": connection["kubeconfig_path"],
                 "K8S_AUTH_CONTEXT": "fixture",

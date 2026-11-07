@@ -1,0 +1,23 @@
+---
+- name: Read cold recovery inventory and completed database-aware restore evidence
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ item }}"
+  loop:
+    - "{{ platform_recovery_journal_name }}"
+    - shared-data-operation
+  register: platform_recovery_admission_reads
+- name: Require both exact API journals
+  ansible.builtin.assert:
+    that: item.resources | length == 1
+  loop: "{{ platform_recovery_admission_reads.results }}"
+- name: Build explicit admission capability only from validated completed restoration
+  ansible.builtin.set_fact:
+    platform_recovery_admission: "{{ (platform_recovery_admission_reads.results[0].resources[0].data['journal.json'] | from_json) | cold_admission(platform_recovery_admission_reads.results[1].resources[0].data['journal.json'] | from_json, platform_recovery_registry) }}"
+- name: Show source-bound runtime admission interface without enabling reconciliation
+  ansible.builtin.debug:
+    var: platform_recovery_admission

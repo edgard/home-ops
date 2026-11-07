@@ -35,7 +35,10 @@ containers with synthetic credentials and remove them on exit. Native Restic
 tests use a disposable local repository. The installer
 scenario also needs Bash, tar with xz support, and sha256sum. Python lint, format,
 and schema CLIs come from `.venv`, not global installations. Missing tools fail
-rather than silently skipping required checks.
+rather than silently skipping required checks. Cold API fixtures start with only
+the resources explicitly supplied by their scenario; they do not inherit the
+ordinary maintenance fixture's default executor ServiceAccount. Explicitly supplied
+foreign objects remain present so ownership guards must still reject them.
 
 Checks never synchronize the environment or change a lockfile. `lint:python`
 verifies Python lock freshness; update dependencies deliberately with `uv lock`,
@@ -103,10 +106,14 @@ Whole-scenario subprocess ceilings include control-plane hold, capture, resume,
 and publication on shared CI runners. They do not extend production capture
 budgets or deliberate timeout assertions. Upload fixture workers also stop
 waiting when their coordinator exits, so a failed scenario cannot publish later.
+The shared role-runner ceiling covers complete maintenance hold/resume cycles;
+deliberate timeout scenarios retain their explicit shorter budgets.
 
 Ansible tests use temporary HOME/config paths, sanitized environments, bounded
-subprocesses, explicit fake CLIs, and a loopback Kubernetes API. The actual
-Kubernetes collection handles reads, patches, scaling, waits, and deletion.
+subprocesses, explicit fake CLIs, and a loopback Kubernetes API. The
+pytest session clears inherited Git context variables before starting fixtures
+or workers, so fixture Git commands cannot target an outside repository.
+The actual Kubernetes collection handles reads, patches, scaling, waits, and deletion.
 Only pod exec substitutes a module: destructive command strings are recorded,
 never executed on the host. A separate real-module connection test guards its
 import boundary. Native dry-run requests retain fixture state. Production roles

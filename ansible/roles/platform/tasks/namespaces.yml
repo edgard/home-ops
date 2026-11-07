@@ -1,4 +1,7 @@
 ---
+- name: Renew real cold executor ownership before this mutation boundary
+  ansible.builtin.include_tasks: recovery_guard.yml
+  when: platform_recovery_mode | bool
 - name: Ensure bootstrap namespaces exist
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"

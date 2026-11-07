@@ -6,6 +6,17 @@
       - not ansible_check_mode
 - name: Load existing transaction
   ansible.builtin.include_tasks: maintenance_load.yml
+- name: Refuse unfinished or ambiguous cold initialization even if its Lease was cleared
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ shared_data_namespace | default('selfhosted') }}"
+    name: shared-data-cold-recovery
+  register: shared_data_initial_cold_gate
+- name: Require cold infrastructure to be durably held or globally admitted
+  ansible.builtin.assert:
+    that: shared_data_initial_cold_gate.resources | length == 0 or (shared_data_initial_cold_gate.resources[0].data['journal.json'] | from_json).phase in ['held','admitted']
+    fail_msg: Cold initialization is unfinished or ambiguous; data coordinators cannot acquire it as ordinary maintenance.
 - name: Refuse an already owned maintenance Lease before any mutation
   ansible.builtin.assert:
     that:

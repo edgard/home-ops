@@ -21,9 +21,14 @@
     api_version: batch/v1
     kind: Job
   register: shared_data_recovery_jobs
+- name: Read current original node identities for historical fencing
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+  register: shared_data_recovery_nodes
 - name: Decide backup-only recovery from expiry and immutable fencing evidence
   ansible.builtin.set_fact:
-    shared_data_recovery_decision: "{{ shared_data_journal | shared_data_recovery(shared_data_lease, shared_data_recovery_pods.resources, shared_data_recovery_jobs.resources, '' | shared_data_now, shared_data_holder_pod_uid) }}"
+    shared_data_recovery_decision: "{{ shared_data_journal | shared_data_recovery(shared_data_lease, shared_data_recovery_pods.resources, shared_data_recovery_jobs.resources, '' | shared_data_now, shared_data_holder_pod_uid, shared_data_recovery_nodes.resources) }}"
 - name: Explain recovery decision
   ansible.builtin.debug:
     var: shared_data_recovery_decision

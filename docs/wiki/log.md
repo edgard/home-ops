@@ -1,5 +1,56 @@
 # Wiki log
 
+## 2026-11-07 — Keep cold API fixtures empty by default
+
+Separated the ordinary executor fixture's default ServiceAccount from cold
+bootstrap fixtures. Cold scenarios retain explicitly supplied foreign resources;
+the production ownership checks remain unchanged. Native cold rendering remains
+part of the full gate before operations delivery.
+
+## 2026-11-07 — Refresh rollout against merged dependencies
+
+Incorporated the separately merged dependency update before operations delivery.
+Temporary recovery-engine pins and disposable native checks now use the same
+PostgreSQL and Redis images as the shared service manifests. Existing migration
+rehearsals must be refreshed against the currently deployed application versions
+before any private-data cutover.
+
+## [2026-11-07] revision | Isolate fixture Git repositories
+
+Clear inherited Git context before pytest starts fixtures or workers. A real
+nested-run regression exercises repository creation and removal while checking
+that an outside repository's configuration, index and files remain unchanged.
+Updated the test guide and validation architecture.
+
+## [2026-11-07] revision | Fence original nodes and shared engine reconciliation
+
+Ordinary maintenance now records the native authenticated coordinator's original
+node name and UID, and checks historical node identity before recovery fencing
+and its absence barrier. Missing bindings and same-name replacements stay held.
+Every operation also holds the independent PostgreSQL and Redis Applications
+without stopping their server workloads or treating raw engine storage as
+application files. Automatic sync is disabled before in-flight work drains;
+fresh identity/version guards then skip idle reconciliation. Resumption restores
+original policies and skip annotations with root last and refuses queued manual
+syncs. Partial-resume compensation preserves foreign requests while re-holding
+all remaining targets and writers; interrupted enrollment checks the same holds
+before native producer or route restoration. Updated shared-data, PostgreSQL,
+Redis, operations infrastructure and Restic
+explanations against the public base and current role sources. Frozen operator
+images still require compatible inventory/code before activation; adoption and
+operation schedules remain paused. November's semantic review is recorded below.
+
+## [2026-11-07] revision | Bind cold bootstrap to a real fenced executor
+
+Documented a suspended, digest-pinned Job claiming the shared maintenance Lease
+and durable journal before grants or platform mutations. Actual bound-token Pod
+identity, source assets, runtime code, deleted-resource refusal, exact old-worker
+fencing, and restore/admission registry checks now define the held recovery
+boundary. Updated the [shared-data procedure](operations/shared-data.md),
+[Talos architecture](architecture/talos-bootstrap.md), and [Restic runbook](operations/restic-backup-restore.md).
+Executable runtime admission remains a separate mandatory activation blocker.
+November's semantic review is already recorded below.
+
 ## [2026-11-07] revision | Bound CI failure queues and expose case names
 
 The expanded native test suite reached the job budget after a failure while
@@ -396,3 +447,6 @@ during resumption after capture. Increased whole-scenario and CI allowances for
 native recovery cases without changing production pause limits or safety
 assertions. Added coordinator-exit cleanup coverage for waiting upload workers.
 Reviewed the validation architecture and test guide against the actual CI trace.
+The subsequent Linux report reached final Lease release during pending-snapshot
+cleanup before its shared role-runner limit expired. Applied the same whole-role
+allowance consistently, preserving explicit short timeout and child-cleanup tests.

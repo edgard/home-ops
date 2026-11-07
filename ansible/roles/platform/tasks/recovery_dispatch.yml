@@ -1,0 +1,204 @@
+---
+- name: Refuse a local mutation executor
+  ansible.builtin.assert:
+    that: not platform_recovery_worker | bool
+- name: Read-only cold initialization and all bound-resource preflight
+  ansible.builtin.include_tasks: recovery_preflight.yml
+- name: Read immutable tracked public assets and runtime code from the verified commit
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - "{{ role_path }}/files/cold_bundle.py"
+      - source
+      - --root
+      - "{{ repo_root }}"
+      - --revision
+      - "{{ platform_bootstrap_revision }}"
+  register: platform_recovery_bundle_result
+  changed_when: false
+  no_log: true
+- name: Resolve nonsecret source and immutable published executor image
+  ansible.builtin.set_fact:
+    platform_recovery_bundle: "{{ platform_recovery_bundle_result.stdout | from_json }}"
+    platform_recovery_image_values: "{{ (lookup('ansible.builtin.file', repo_root ~ '/apps/selfhosted/shared-data/values.yaml') | from_yaml).controllers.main.containers.operations.image }}"
+- name: Use the source-pinned operations image unless explicitly supplied
+  ansible.builtin.set_fact:
+    platform_recovery_image: "{{ platform_recovery_image if platform_recovery_image | length > 0 else platform_recovery_image_values.repository ~ ':' ~ platform_recovery_image_values.tag ~ '@' ~ platform_recovery_image_values.digest }}"
+- name: Require exact source and bounded immutable executable image input
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_namespace == 'selfhosted'
+      - platform_recovery_journal_name == 'shared-data-cold-recovery'
+      - platform_recovery_executor_namespace == 'platform-system'
+      - platform_recovery_bundle.source_sha256 == platform_recovery_source_sha256
+      - platform_recovery_image is match('^ghcr.io/edgard/home-ops-data-tools:[a-f0-9]{40}@sha256:[a-f0-9]{64}$')
+      - platform_recovery_lease_duration | int >= 900
+      - platform_recovery_job_deadline | int > platform_recovery_lease_duration | int
+- name: Bind desired source independently of image build provenance
+  ansible.builtin.set_fact:
+    platform_recovery_context:
+      apps: "{{ platform_recovery_apps }}"
+      revision: "{{ platform_bootstrap_revision }}"
+      source_sha256: "{{ platform_recovery_source_sha256 }}"
+      image: "{{ platform_recovery_image }}"
+      code_sha256: "{{ platform_recovery_bundle.code_sha256 }}"
+      bundle_sha256: "{{ platform_recovery_bundle.bundle_sha256 }}"
+- name: Inspect the shared maintenance gate before any executor prerequisite mutation
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_lease_name }}"
+  register: platform_recovery_initial_lease
+- name: Refuse competing restore/provision/upgrade or unbound ownership
+  ansible.builtin.set_fact:
+    platform_recovery_ownership: "{{ (platform_recovery_initial_lease.resources | first | default({})) | cold_dispatch_ownership(platform_recovery_journal, platform_recovery_context, platform_recovery_operation) }}"
+- name: Inspect old real executor fencing eligibility before creating a replacement
+  ansible.builtin.include_tasks: recovery_fence_plan.yml
+  when: platform_recovery_ownership.requires_fence | bool
+- name: Inspect independent upgrades before any executor prerequisite mutation
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace | default(omit) }}"
+    name: "{{ item.name | default(omit) }}"
+  loop:
+    - {api: tuppr.home-operations.com/v1alpha1, kind: TalosUpgrade}
+    - {api: tuppr.home-operations.com/v1alpha1, kind: KubernetesUpgrade}
+    - {api: batch/v1, kind: Job}
+    - {api: v1, kind: Pod}
+    - {api: apps/v1, kind: Deployment, namespace: platform-system, name: tuppr}
+  register: platform_recovery_upgrade_reads
+- name: Refuse existing node upgrade execution independently of the shared Lease
+  ansible.builtin.assert:
+    that: (platform_recovery_upgrade_reads.results[:2] | map(attribute='resources') | flatten) | cold_upgrades_idle(platform_recovery_upgrade_reads.results[2].resources, platform_recovery_upgrade_reads.results[3].resources, platform_recovery_upgrade_reads.results[4].resources)
+- name: Define the minimal coordination and executor namespaces
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ item }}"
+  loop: "{{ [platform_recovery_namespace, platform_recovery_executor_namespace] | unique | list }}"
+- name: Allocate a distinct suspended executor identity
+  ansible.builtin.set_fact:
+    platform_recovery_job_name: "cold-{{ platform_recovery_operation[:32] }}-{{ lookup('ansible.builtin.password', '/dev/null', length=10, chars=['ascii_lowercase', 'digits']) }}"
+- name: Create only the bounded suspended Job before granting credentials or privileges
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    definition: "{{ (lookup('ansible.builtin.template', 'recovery-job.yaml.j2') | from_yaml) | cold_bound_apply([]) }}"
+  register: platform_recovery_job_created
+- name: Require the API to preserve the suspended immutable Job contract
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_job_created.result.metadata.uid | length > 0
+      - platform_recovery_job_created.result.spec.suspend | bool
+      - platform_recovery_job_created.result.spec.template.spec.containers[0].image == platform_recovery_image
+- name: Capture the real Job owner before shared Lease acquisition
+  ansible.builtin.set_fact:
+    platform_recovery_dispatch_owner_uid: "{{ platform_recovery_job_created.result.metadata.uid }}"
+    platform_recovery_job_actor:
+      kind: Job
+      name: "{{ platform_recovery_job_name }}"
+      namespace: "{{ platform_recovery_executor_namespace }}"
+      uid: "{{ platform_recovery_job_created.result.metadata.uid }}"
+    platform_recovery_fence_actors: "{{ platform_recovery_fence_plan.actors | default([]) }}"
+    platform_recovery_fence_artifacts: "{{ (platform_recovery_journal.executor.artifacts | default([])) + (platform_recovery_journal.fenced_artifacts | default([])) }}"
+- name: Initialize only an empty shared Lease without overwriting raced ownership
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    definition:
+      apiVersion: coordination.k8s.io/v1
+      kind: Lease
+      metadata:
+        name: "{{ platform_recovery_lease_name }}"
+        namespace: "{{ platform_recovery_namespace }}"
+      spec: {}
+  when: platform_recovery_initial_lease.resources | length == 0
+- name: Read the exact shared Lease immediately before single-winner acquisition
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_lease_name }}"
+  register: platform_recovery_claim_read
+- name: Refuse a renewed or changed old ownership decision before fencing takeover
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_claim_read.resources[0].metadata.uid == platform_recovery_initial_lease.resources[0].metadata.uid
+      - platform_recovery_claim_read.resources[0].metadata.resourceVersion == platform_recovery_initial_lease.resources[0].metadata.resourceVersion
+      - platform_recovery_claim_read.resources[0].spec == platform_recovery_initial_lease.resources[0].spec
+  when: platform_recovery_initial_lease.resources | length > 0
+- name: Atomically claim or reserve fencing with the real suspended Job UID
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_lease_name }}"
+    patch: "{{ platform_recovery_claim_read.resources[0] | cold_lease_patch(platform_recovery_ownership.expected_identity, platform_recovery_operation, platform_recovery_job_actor, platform_recovery_context, now().timestamp(), platform_recovery_lease_duration, platform_recovery_fence_actors, 'fencing' if platform_recovery_ownership.requires_fence | bool else 'claimed') }}"
+- name: Record scope, immutable source and actual executor before grants or workload mutations
+  ansible.builtin.set_fact:
+    platform_recovery_journal: "{{ platform_recovery_journal | combine({'version': 1, 'apps': platform_recovery_apps, 'revision': platform_bootstrap_revision, 'operation': platform_recovery_operation, 'source_sha256': platform_recovery_source_sha256, 'token': platform_recovery_token, 'phase': 'bootstrap-fencing' if platform_recovery_ownership.requires_fence | bool else 'bootstrap-claimed', 'inventory': platform_recovery_journal.inventory | default([]), 'executor': {'job_uid': platform_recovery_dispatch_owner_uid, 'job_name': platform_recovery_job_name, 'namespace': platform_recovery_executor_namespace, 'image': platform_recovery_image, 'code_sha256': platform_recovery_bundle.code_sha256, 'bundle_sha256': platform_recovery_bundle.bundle_sha256, 'job_template_sha256': platform_recovery_job_created.result.spec.template.spec | cold_digest, 'artifacts': []}, 'fenced_artifacts': platform_recovery_fence_artifacts}) }}"
+- name: Persist the durable common-gate executor record before grants or chart work
+  ansible.builtin.include_tasks: recovery_save.yml
+- name: Fence exact old Jobs and Pods before granting the replacement any authority
+  ansible.builtin.include_tasks: recovery_fence_execute.yml
+  when: platform_recovery_ownership.requires_fence | bool
+- name: Record that old execution is fenced before preparing this suspended worker
+  ansible.builtin.set_fact:
+    platform_recovery_journal: "{{ platform_recovery_journal | combine({'phase': 'bootstrap-claimed'}) }}"
+- name: Persist claimed phase before materializing executor grants and input
+  ansible.builtin.include_tasks: recovery_save.yml
+- name: Prepare exact owned executor permissions and immutable public input
+  ansible.builtin.include_tasks: recovery_executor_resources.yml
+- name: Recheck Job-owned shared gate immediately before unsuspending it
+  ansible.builtin.include_tasks: recovery_dispatch_guard.yml
+- name: Unsuspend only the exact originally created Job
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: batch/v1
+    kind: Job
+    namespace: "{{ platform_recovery_executor_namespace }}"
+    name: "{{ platform_recovery_job_name }}"
+    patch:
+      - {op: test, path: /metadata/uid, value: "{{ platform_recovery_dispatch_owner_uid }}"}
+      - {op: test, path: /spec/suspend, value: true}
+      - {op: replace, path: /spec/suspend, value: false}
+- name: Wait for the bounded real bootstrap worker to finish
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: batch/v1
+    kind: Job
+    namespace: "{{ platform_recovery_executor_namespace }}"
+    name: "{{ platform_recovery_job_name }}"
+  register: platform_recovery_finished_job
+  until: platform_recovery_finished_job.resources | length != 1 or platform_recovery_finished_job.resources[0].metadata.uid != platform_recovery_dispatch_owner_uid or platform_recovery_finished_job.resources[0].status.succeeded | default(0) | int > 0 or platform_recovery_finished_job.resources[0].status.failed | default(0) | int > 0
+  retries: "{{ (platform_recovery_job_timeout | int / 5) | int }}"
+  delay: 5
+- name: Require completed held infrastructure and never release failures locally
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_finished_job.resources | length == 1
+      - platform_recovery_finished_job.resources[0].metadata.uid == platform_recovery_dispatch_owner_uid
+      - platform_recovery_finished_job.resources[0].status.succeeded | default(0) | int == 1
+    fail_msg: Cold worker failed or is ambiguous; its shared Lease and journal stay held for explicit fenced recovery.
+- name: Clean only exact terminal executor artifacts without changing consumer resources
+  ansible.builtin.include_tasks: recovery_executor_cleanup.yml

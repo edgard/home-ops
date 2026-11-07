@@ -1,7 +1,7 @@
 # PostgreSQL
 
 Purpose: provide the shared PostgreSQL service for explicitly onboarded consumers.
-Status: current. Reviewed against: `0f2fb9820f152e526c77dc6dfc16a17d040a5a8f`.
+Status: current. Reviewed against: `1b080d18e9d8e06deef71c2b8b37afda73d92c3c`.
 
 ## Dependencies
 
@@ -33,6 +33,12 @@ Live database files are excluded from ordinary Restic file capture and generic
 destructive restores. Database-aware dump/recovery acceptance is required before
 consumer activation. Major upgrades require compatibility and recovery
 rehearsals; retained storage alone is not a backup.
+
+Every shared-data maintenance scope holds this service's independent Argo
+Application, drains in-flight syncs before skipping reconciliation, and restores
+its exact original policy and skip annotation. The server and its Pod keep
+running throughout the transaction. This reconciliation hold does not register
+raw engine storage as application files.
 
 ## Networking and monitoring
 

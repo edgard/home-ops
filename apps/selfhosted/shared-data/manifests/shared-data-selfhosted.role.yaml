@@ -63,6 +63,7 @@ rules:
       - configmaps
     resourceNames:
       - shared-data-registry
+      - shared-data-cold-recovery
     verbs:
       - get
   - apiGroups:
@@ -156,3 +157,11 @@ rules:
     verbs:
       - get
       - list
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    resourceNames:
+      - shared-data
+    verbs:
+      - get

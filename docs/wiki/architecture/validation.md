@@ -57,6 +57,8 @@ temporary paths, sanitized environments, fake CLIs, and a loopback API. The real
 Kubernetes collection handles REST operations; pod exec records commands through
 one test-only module. Another case loads the real exec module and reaches its
 connection boundary. This does not prove live websocket transport or restoration.
+pytest clears inherited Git context before fixture or worker startup, keeping
+temporary repository mutations separate from an outside checkout and index.
 
 Native data scenarios additionally require a running Docker engine and Restic.
 They start isolated PostgreSQL/Redis containers with synthetic credentials and
@@ -80,6 +82,8 @@ they are separate from the short API polling and deliberate timeout assertions.
 Backup and recovery scenario ceilings include hold, capture, resume, and upload;
 they do not alter the production capture pause budget. Upload fixture workers
 stop waiting when their coordinator exits, preventing later fixture publication.
+The shared role runner also allows complete hold/resume cycles to finish;
+explicit polling and timeout budgets remain separate.
 Timed-out child groups are terminated and their last captured output is retained
 as exception diagnostics. CI reports the slowest scenarios for budget review.
 

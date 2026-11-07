@@ -1,0 +1,21 @@
+---
+- name: Read every affected Application before restoring writers
+  kubernetes.core.k8s_info:
+    api_version: "{{ shared_data_target.api_version }}"
+    kind: Application
+    name: "{{ shared_data_target.name }}"
+    namespace: "{{ shared_data_target.namespace }}"
+  loop: "{{ shared_data_journal.snapshots | selectattr('role', 'in', ['root', 'application']) | list }}"
+  loop_control:
+    loop_var: shared_data_target
+  register: shared_data_application_reads
+- name: Refuse changed holds or queued sync requests before restoring writers
+  ansible.builtin.assert:
+    that:
+      - shared_data_application_read.resources | length == 1
+      - shared_data_application_read.shared_data_target | shared_data_application_held(shared_data_application_read.resources[0])
+    fail_msg: An affected Application is missing, replaced, unheld, or has a queued sync; transaction remains held for inspection.
+  loop: "{{ shared_data_application_reads.results }}"
+  loop_control:
+    loop_var: shared_data_application_read
+    label: "{{ shared_data_application_read.shared_data_target.name }}"

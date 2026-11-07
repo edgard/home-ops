@@ -19,10 +19,12 @@ rules:
       - jellyfin
       - karakeep
       - paperless
+      - postgresql
       - prowlarr
       - qbittorrent
       - radarr
       - recyclarr
+      - redis
       - restic
       - root
       - scrypted

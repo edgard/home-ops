@@ -9,3 +9,17 @@
 !ansible/roles/
 !ansible/roles/shared_data/
 !ansible/roles/shared_data/**
+
+!.home-ops-build.json
+!ansible/playbooks/platform-recovery-executor.yml
+!ansible/roles/platform/
+!ansible/roles/platform/defaults/
+!ansible/roles/platform/defaults/*.yml
+!ansible/roles/platform/tasks/
+!ansible/roles/platform/tasks/*.yml
+!ansible/roles/platform/filter_plugins/
+!ansible/roles/platform/filter_plugins/*.py
+!ansible/roles/platform/files/
+!ansible/roles/platform/files/*.py
+!ansible/roles/platform/templates/
+!ansible/roles/platform/templates/*.j2

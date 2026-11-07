@@ -4,6 +4,8 @@ maintenance:
   applications:
     - shared-data
     - restic
+    - postgresql
+    - redis
   cronjobs:
     - {namespace: selfhosted, name: shared-data-main}
     - {namespace: selfhosted, name: shared-data-provision}

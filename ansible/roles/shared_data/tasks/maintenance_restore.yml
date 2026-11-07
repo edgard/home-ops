@@ -13,6 +13,8 @@
   block:
     - name: Re-fence root and children before restoring any writers
       ansible.builtin.include_tasks: maintenance_fence.yml
+    - name: Verify affected reconciliation remains held and idle before restoring writers
+      ansible.builtin.include_tasks: maintenance_verify_applications.yml
     - name: Record resuming phase before restoring fields
       ansible.builtin.set_fact:
         shared_data_journal: "{{ shared_data_journal | combine({'phase': 'resuming', 'recovery_result': ('admin-resume' if shared_data_admin_resume | default(false) | bool else shared_data_journal.recovery_result)}) }}"
@@ -58,11 +60,11 @@
         patch: "{{ shared_data_release_lease.resources[0] | shared_data_lease_release(shared_data_operation_id ~ ':' ~ shared_data_holder_pod_uid) }}"
 
   rescue:
-    - name: Re-fence root first after failed resume
-      ansible.builtin.include_tasks: maintenance_fence.yml
+    - name: Re-hold every affected reconciliation target without unfreezing foreign requests
+      ansible.builtin.include_tasks: maintenance_compensate.yml
     - name: Record failed resume before stopping resumed writers
       ansible.builtin.set_fact:
-        shared_data_journal: "{{ shared_data_journal | combine({'phase': 'resume-failed', 'recovery_result': 'resume failed; operator inspection required'}) }}"
+        shared_data_journal: "{{ shared_data_journal | combine({'phase': 'resume-failed', 'recovery_result': 'resume failed; operator inspection required', 'compensation_failures': shared_data_compensation_failures}) }}"
     - name: Persist failed resume with original policies preserved
       ansible.builtin.include_tasks: maintenance_save.yml
     - name: Re-suspend schedules before stopping resumed application writers

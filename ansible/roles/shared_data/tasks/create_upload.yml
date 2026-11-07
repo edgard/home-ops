@@ -18,7 +18,7 @@
     content: "{{ {'operation': shared_data_operation_id, 'manifest_sha256': shared_data_generation.manifest_sha256, 'coordinator': shared_data_executor} | to_json }}\n"
     dest: "{{ shared_data_staging }}/uploads/{{ shared_data_operation_id }}.json"
     mode: "0600"
-- name: Launch a new upload Job mounting the immutable generation
+- name: Create a suspended upload Job mounting the immutable generation
   kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('ansible.builtin.template', 'upload-job.yaml.j2') | from_yaml }}"
@@ -30,7 +30,11 @@
       namespace: "{{ shared_data_namespace }}"
       name: "{{ shared_data_upload_created.result.metadata.name }}"
       uid: "{{ shared_data_upload_created.result.metadata.uid }}"
-    shared_data_journal: "{{ shared_data_journal | combine({'upload_job': {'kind': 'Job', 'namespace': shared_data_namespace, 'name': shared_data_upload_created.result.metadata.name, 'uid': shared_data_upload_created.result.metadata.uid}}) }}"
+      node_binding: coordinator-assigned-before-start
+      fence_nodes: "{{ shared_data_executor.fence_nodes }}"
+- name: Record pre-execution upload node binding in API transaction
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'upload_job': shared_data_upload_job}) }}"
 - name: Persist upload actor in API journal before releasing maintenance
   ansible.builtin.include_tasks: maintenance_save.yml
 - name: Complete the external upload claim with exact Job identity
@@ -38,3 +42,39 @@
     content: "{{ {'operation': shared_data_operation_id, 'manifest_sha256': shared_data_generation.manifest_sha256, 'coordinator': shared_data_executor, 'upload_job': shared_data_upload_job} | to_json }}\n"
     dest: "{{ shared_data_staging }}/uploads/{{ shared_data_operation_id }}.json"
     mode: "0600"
+- name: Recheck current original node before starting the bound uploader
+  ansible.builtin.include_tasks: maintenance_executor.yml
+- name: Renew ownership before releasing the suspended child
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Read current resource version of the still suspended bound Job
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: Job
+    name: "{{ shared_data_upload_job.name }}"
+    namespace: "{{ shared_data_upload_job.namespace }}"
+  register: shared_data_upload_start_read
+- name: Require the bound upload Job still exists before starting
+  ansible.builtin.assert:
+    that: shared_data_upload_start_read.resources | length == 1
+- name: Start only the exact durably bound upload Job
+  kubernetes.core.k8s_json_patch:
+    api_version: batch/v1
+    kind: Job
+    name: "{{ shared_data_upload_job.name }}"
+    namespace: "{{ shared_data_upload_job.namespace }}"
+    patch:
+      - op: test
+        path: /metadata/uid
+        value: "{{ shared_data_upload_job.uid }}"
+      - op: test
+        path: /metadata/resourceVersion
+        value: "{{ shared_data_upload_start_read.resources[0].metadata.resourceVersion }}"
+      - op: test
+        path: /spec/template/spec/nodeName
+        value: "{{ shared_data_upload_job.fence_nodes[0].name }}"
+      - op: test
+        path: /spec/suspend
+        value: true
+      - op: replace
+        path: /spec/suspend
+        value: false

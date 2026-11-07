@@ -1,0 +1,50 @@
+---
+- name: Guard worker ownership before Argo cache credential setup
+  ansible.builtin.include_tasks: recovery_guard.yml
+- name: Ensure Argo namespace before its cache credential
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: argocd
+- name: Read the exact recovery cache credential without exposing it
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Secret
+    namespace: argocd
+    name: argocd-redis
+  register: platform_recovery_cache
+  no_log: true
+- name: Refuse an unrelated existing cache credential
+  ansible.builtin.assert:
+    that: platform_recovery_cache.resources | length == 0 or platform_recovery_cache.resources[0].metadata.labels['home-ops/cold-recovery'] | default('') == platform_recovery_token
+- name: Prepare a retained cache credential directly in the fenced worker
+  ansible.builtin.set_fact:
+    platform_recovery_cache_definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: argocd-redis
+        namespace: argocd
+        labels:
+          home-ops/cold-recovery: "{{ platform_recovery_token }}"
+      type: Opaque
+      data: "{{ platform_recovery_cache.resources[0].data if platform_recovery_cache.resources | length == 1 else {'auth': lookup('ansible.builtin.password', '/dev/null', length=48, chars=['ascii_letters', 'digits']) | b64encode} }}"
+  no_log: true
+- name: Journal the cache credential identity before creating it
+  ansible.builtin.set_fact:
+    platform_recovery_journal: "{{ platform_recovery_journal | combine({'inventory': platform_recovery_journal.inventory | cold_plan_inventory([platform_recovery_cache_definition])}) }}"
+  no_log: true
+- name: Persist cache credential intent
+  ansible.builtin.include_tasks: recovery_save.yml
+- name: Apply cache credential without a detached chart hook executor
+  ansible.builtin.include_tasks: recovery_apply.yml
+  vars:
+    platform_recovery_definition: "{{ platform_recovery_cache_definition }}"
+  no_log: true

@@ -11,7 +11,9 @@ from datetime import datetime, timezone
 
 _OPERATION = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\Z")
 _KINDS = {"backup", "restore", "migration", "rotation", "provision"}
+_LEASE_KINDS = _KINDS | {"cold-bootstrap"}
 _LABEL = "home-ops/data-operation"
+_SKIP = "argocd.argoproj.io/skip-reconcile"
 
 
 def shared_data_targets(
@@ -150,6 +152,13 @@ def shared_data_snapshot(target, resource):
         "present": field in spec,
         "value": deepcopy(spec.get(field)),
     }
+    if role in {"root", "application"}:
+        annotations = metadata.get("annotations", {})
+        result["skip_reconcile"] = {
+            "present": _SKIP in annotations,
+            "value": deepcopy(annotations.get(_SKIP)),
+            "annotations_present": "annotations" in metadata,
+        }
     if role in {"workload", "tuppr"}:
         result["selector"] = deepcopy(spec.get("selector", {}))
         if not result["selector"]:
@@ -160,6 +169,13 @@ def shared_data_snapshot(target, resource):
 def shared_data_snapshot_restored(snapshot, current):
     if current.get("metadata", {}).get("uid") != snapshot["uid"]:
         return False
+    if "skip_reconcile" in snapshot:
+        annotations = current.get("metadata", {}).get("annotations", {})
+        skip = snapshot["skip_reconcile"]
+        if (_SKIP in annotations) != skip["present"] or (
+            skip["present"] and annotations[_SKIP] != skip["value"]
+        ):
+            return False
     spec = current.get("spec", {})
     field = snapshot["field"]
     return (field in spec) == snapshot["present"] and (
@@ -183,6 +199,11 @@ def shared_data_patch(snapshot, current, restore=False):
     field = snapshot["field"]
     spec = current.get("spec", {})
     path = "/spec/" + field
+    if snapshot["role"] in {"root", "application"}:
+        if restore and not shared_data_sync_idle([current]):
+            raise ValueError(
+                "held Application has an active or queued sync; inspect before resuming"
+            )
     if restore:
         if snapshot["present"]:
             patch.append(
@@ -200,7 +221,79 @@ def shared_data_patch(snapshot, current, restore=False):
         else:
             value = role == "cronjob" if role == "cronjob" else 0
         patch.append({"op": "add", "path": path, "value": value})
+    if restore and "skip_reconcile" in snapshot:
+        skip = snapshot["skip_reconcile"]
+        annotations = metadata.get("annotations", {})
+        path = "/metadata/annotations/" + _SKIP.replace("/", "~1")
+        if skip["present"]:
+            if "annotations" not in metadata:
+                patch.append(
+                    {"op": "add", "path": "/metadata/annotations", "value": {}}
+                )
+            patch.append({"op": "add", "path": path, "value": skip["value"]})
+        elif _SKIP in annotations:
+            if not skip["annotations_present"] and set(annotations) == {_SKIP}:
+                patch.append({"op": "remove", "path": "/metadata/annotations"})
+            else:
+                patch.append({"op": "remove", "path": path})
     return patch
+
+
+def shared_data_skip_patch(snapshot, current):
+    """Stop reconciliation only after a fresh, identity-bound idle observation."""
+    if (
+        snapshot["role"] not in {"root", "application"}
+        or "skip_reconcile" not in snapshot
+    ):
+        raise ValueError("Application skip requires its recorded original annotation")
+    if not current.get("metadata", {}).get("resourceVersion"):
+        raise ValueError("Application idle skip requires an observed resourceVersion")
+    # These tests bind both the idle observation and automation fence to this patch.
+    patch = shared_data_patch(snapshot, current)
+    if not shared_data_sync_idle([current]):
+        raise ValueError(
+            "Application sync is active or queued; cannot freeze reconciliation"
+        )
+    if "automated" in current.get("spec", {}).get("syncPolicy", {}):
+        raise ValueError(
+            "Application automation fence changed before reconciliation hold"
+        )
+    patch = [row for row in patch if row["op"] == "test"]
+    if "annotations" not in current["metadata"]:
+        patch.append({"op": "add", "path": "/metadata/annotations", "value": {}})
+    patch.append(
+        {
+            "op": "add",
+            "path": "/metadata/annotations/" + _SKIP.replace("/", "~1"),
+            "value": "true",
+        }
+    )
+    return patch
+
+
+def shared_data_compensation_ready(resources):
+    """Already skipped requests stay parked; unskipped operations must finish."""
+    return all(
+        row.get("metadata", {}).get("annotations", {}).get(_SKIP) == "true"
+        or shared_data_sync_idle([row])
+        for row in resources
+    )
+
+
+def shared_data_compensation_skip_patch(snapshot, current):
+    """Re-hold without unfreezing or deleting an already skipped foreign request."""
+    if current.get("metadata", {}).get("annotations", {}).get(_SKIP) == "true":
+        return shared_data_patch(snapshot, current)
+    return shared_data_skip_patch(snapshot, current)
+
+
+def shared_data_application_held(snapshot, current):
+    return (
+        current.get("metadata", {}).get("uid") == snapshot["uid"]
+        and current.get("metadata", {}).get("annotations", {}).get(_SKIP) == "true"
+        and "automated" not in current.get("spec", {}).get("syncPolicy", {})
+        and shared_data_sync_idle([current])
+    )
 
 
 def _timestamp(value):
@@ -267,7 +360,7 @@ def shared_data_lease_record(lease):
             != record["operation_id"] + ":" + actor["uid"]
         ):
             return {}
-        if record["operation_kind"] not in _KINDS or record["stage"] not in {
+        if record["operation_kind"] not in _LEASE_KINDS or record["stage"] not in {
             "claimed",
             "journaled",
         }:
@@ -287,6 +380,253 @@ def shared_data_lease_expired(lease, now):
         return False
 
 
+def _ready_node(node):
+    return (
+        bool(node.get("metadata", {}).get("uid"))
+        and any(
+            row.get("type") == "Ready" and row.get("status") == "True"
+            for row in node.get("status", {}).get("conditions", [])
+        )
+        and not any(
+            row.get("key")
+            in {"node.kubernetes.io/unreachable", "node.kubernetes.io/not-ready"}
+            for row in node.get("spec", {}).get("taints", [])
+        )
+    )
+
+
+def _actor_node(actor):
+    bindings = actor.get("fence_nodes")
+    if (
+        actor.get("kind", "Pod") != "Pod"
+        or not isinstance(bindings, list)
+        or len(bindings) != 1
+        or not isinstance(bindings[0], dict)
+        or any(
+            not isinstance(bindings[0].get(key), str) or not bindings[0][key].strip()
+            for key in ("name", "uid")
+        )
+    ):
+        raise ValueError(
+            "historical Pod executor lacks authenticated original node identity"
+        )
+    return bindings[0]
+
+
+def shared_data_executor_actor(pod, node, sa, ssr):
+    """Bind an actual projected-token Pod/SA to its signed original Ready node."""
+    meta = pod.get("metadata", {})
+    user = ssr.get("status", {}).get("userInfo", {})
+    extra = user.get("extra", {})
+    if not isinstance(extra, dict):
+        raise ValueError("API-authenticated bound Pod identity is required")
+    claims = {}
+    for key in ("pod-name", "pod-uid", "node-name", "node-uid"):
+        values = extra.get("authentication.kubernetes.io/" + key)
+        if (
+            not isinstance(values, list)
+            or len(values) != 1
+            or not isinstance(values[0], str)
+            or not values[0].strip()
+        ):
+            raise ValueError(
+                "nonempty unambiguous authenticated Pod/original node claims are required"
+            )
+        claims[key] = values[0]
+    sa_meta = sa.get("metadata", {})
+    if (
+        not sa_meta.get("uid")
+        or user.get("uid") != sa_meta["uid"]
+        or user.get("username")
+        != "system:serviceaccount:"
+        + meta.get("namespace", "")
+        + ":"
+        + sa_meta.get("name", "")
+        or sa_meta.get("namespace") != meta.get("namespace")
+        or sa_meta.get("name") != pod.get("spec", {}).get("serviceAccountName")
+        or claims["pod-name"] != meta.get("name")
+        or claims["pod-uid"] != meta.get("uid")
+    ):
+        raise ValueError("API-authenticated bound Pod/ServiceAccount identity differs")
+    if (
+        not _ready_node(node)
+        or claims["node-name"] != pod.get("spec", {}).get("nodeName")
+        or claims["node-name"] != node.get("metadata", {}).get("name")
+        or claims["node-uid"] != node["metadata"]["uid"]
+    ):
+        raise ValueError(
+            "authenticated original node differs from the assigned Ready node"
+        )
+    if meta.get("deletionTimestamp") or pod.get("status", {}).get("phase") != "Running":
+        raise ValueError("a live executor Pod is required")
+    return {
+        "kind": "Pod",
+        "uid": meta["uid"],
+        "name": meta["name"],
+        "namespace": meta["namespace"],
+        "owners": deepcopy(meta.get("ownerReferences", [])),
+        "fence_nodes": [{"name": claims["node-name"], "uid": claims["node-uid"]}],
+    }
+
+
+def shared_data_executor_current(lease, actor, nodes):
+    """Renewals never rebind a historical actor to a replacement node."""
+    if shared_data_lease_record(lease).get("actor") != actor:
+        return False
+    try:
+        _fence_nodes([actor], nodes)
+    except ValueError, TypeError, KeyError:
+        return False
+    return True
+
+
+def _historical_actors(journal, record):
+    actors = [
+        journal[key]
+        for key in ("holder", "coordinator", "lease_coordinator")
+        if journal.get(key)
+    ]
+    actors += record.get("fence_actors", [])
+    if record.get("actor"):
+        actors.append(record["actor"])
+    unique = {}
+    for actor in actors:
+        if not actor.get("uid"):
+            raise ValueError("historical executor identity is ambiguous")
+        if actor["uid"] in unique and unique[actor["uid"]] != actor:
+            raise ValueError("historical executor binding changed")
+        unique[actor["uid"]] = actor
+    return list(unique.values())
+
+
+def _fence_nodes(actors, nodes):
+    current = {node.get("metadata", {}).get("name"): node for node in nodes}
+    if len(current) != len(nodes):
+        raise ValueError("node identity is ambiguous")
+    bindings = {}
+    for actor in actors:
+        binding = _actor_node(actor)
+        name, uid = binding["name"], binding["uid"]
+        if (
+            name in bindings
+            and bindings[name] != uid
+            or name not in current
+            or current[name].get("metadata", {}).get("uid") != uid
+            or not _ready_node(current[name])
+        ):
+            raise ValueError(
+                "historical original node identity changed, disappeared or is not Ready"
+            )
+        bindings[name] = uid
+    if not bindings:
+        raise ValueError("historical original node identity is required")
+    return [{"name": name, "uid": uid} for name, uid in sorted(bindings.items())]
+
+
+def _upload_binding(upload):
+    if upload.get("node_binding") != "coordinator-assigned-before-start" or not all(
+        upload.get(key) for key in ("uid", "name", "namespace")
+    ):
+        raise ValueError(
+            "upload child lacks durable original node binding before execution"
+        )
+    return _actor_node({**upload, "kind": "Pod"})
+
+
+def _fencing_history(journal, actors, pods, jobs, nodes, executor_uid=""):
+    bindings = _fence_nodes(actors, nodes)
+    actor_by_uid = {actor["uid"]: actor for actor in actors}
+    owner_uids = {
+        owner.get("uid") for actor in actors for owner in actor.get("owners", [])
+    }
+    own_jobs = {
+        owner.get("uid")
+        for pod in pods
+        if pod.get("metadata", {}).get("uid") == executor_uid
+        for owner in pod.get("metadata", {}).get("ownerReferences", [])
+    }
+    upload = journal.get("upload_job", {})
+    upload_node = None
+    if upload:
+        upload_node = _upload_binding(upload)
+        _fence_nodes([{**upload, "kind": "Pod"}], nodes)
+        if upload_node not in bindings:
+            bindings.append(upload_node)
+    selected_jobs = set(owner_uids)
+    if upload:
+        selected_jobs.add(upload["uid"])
+    for job in jobs:
+        meta = job.get("metadata", {})
+        if meta.get("uid") in own_jobs and meta.get("uid") not in owner_uids:
+            continue
+        bound_upload = upload and (
+            meta.get("uid") == upload["uid"]
+            or (meta.get("name"), meta.get("namespace"))
+            == (upload["name"], upload["namespace"])
+        )
+        if bound_upload:
+            if (
+                any(
+                    meta.get(key) != upload.get(key)
+                    for key in ("uid", "name", "namespace")
+                )
+                or meta.get("labels", {}).get(_LABEL) != journal["operation_id"]
+                or job.get("spec", {})
+                .get("template", {})
+                .get("spec", {})
+                .get("nodeName")
+                != upload_node["name"]
+            ):
+                raise ValueError(
+                    "durably bound upload child Job identity or assignment was replaced"
+                )
+        elif (
+            meta.get("labels", {}).get(_LABEL) == journal["operation_id"]
+            and meta.get("uid") not in owner_uids
+        ):
+            raise ValueError(
+                "child Job lacks durable original node binding before execution"
+            )
+    for pod in pods:
+        meta = pod.get("metadata", {})
+        uid = meta.get("uid")
+        if uid == executor_uid and uid not in actor_by_uid:
+            continue
+        actor = actor_by_uid.get(uid)
+        for old in actors:
+            if (meta.get("name"), meta.get("namespace")) == (
+                old["name"],
+                old["namespace"],
+            ) and uid != old["uid"]:
+                raise ValueError("coordinator immutable identity was replaced")
+        selected = (
+            actor
+            or meta.get("labels", {}).get(_LABEL) == journal["operation_id"]
+            or any(
+                owner.get("uid") in selected_jobs
+                for owner in meta.get("ownerReferences", [])
+            )
+        )
+        if not selected:
+            continue
+        if actor:
+            expected = _actor_node(actor)
+        elif upload and any(
+            owner.get("uid") == upload.get("uid") and owner.get("kind") == "Job"
+            for owner in meta.get("ownerReferences", [])
+        ):
+            expected = upload_node
+        else:
+            raise ValueError(
+                "child Pod lacks authenticated or pre-execution original node binding"
+            )
+        if pod.get("spec", {}).get("nodeName") != expected["name"]:
+            raise ValueError(
+                "historical Pod assignment differs from original node binding"
+            )
+    return bindings
+
+
 def shared_data_lease_takeover(
     lease,
     expected_identity,
@@ -303,6 +643,7 @@ def shared_data_lease_takeover(
         raise ValueError("Lease ownership changed before acquisition or recovery")
     if not all(actor.get(key) for key in ("uid", "name", "namespace")):
         raise ValueError("live executor identity is required")
+    _actor_node(actor)
     identity = operation_id + ":" + actor["uid"]
     if (
         len(identity) > 128
@@ -325,12 +666,28 @@ def shared_data_lease_takeover(
         "leaseTransitions": int(spec.get("leaseTransitions", 0)) + int(changed),
     }
     annotations = deepcopy(lease.get("metadata", {}).get("annotations", {}))
+    previous = shared_data_lease_record(lease)
+    history = []
+    if expected_identity:
+        if (
+            not previous
+            or previous["operation_id"] != operation_id
+            or previous["operation_kind"] != operation_kind
+        ):
+            raise ValueError("existing Lease lacks matching durable executor binding")
+        history = _historical_actors({}, previous)
+        for old in history:
+            _actor_node(old)
+            if old["uid"] == actor["uid"] and old != actor:
+                raise ValueError("executor original node binding cannot be replaced")
+        history = [old for old in history if old["uid"] != actor["uid"]]
     annotations[_LEASE_RECORD] = json.dumps(
         {
             "operation_id": operation_id,
             "operation_kind": operation_kind,
             "actor": deepcopy(actor),
             "stage": stage,
+            "fence_actors": history,
         },
         sort_keys=True,
     )
@@ -374,7 +731,7 @@ def shared_data_lease_release(lease, expected_identity, result="completed"):
     ]
 
 
-def shared_data_orphan_releasable(lease, pods, jobs, now, executor_uid=""):
+def shared_data_orphan_releasable(lease, pods, jobs, now, executor_uid="", nodes=None):
     record = shared_data_lease_record(lease)
     if (
         not record
@@ -383,10 +740,15 @@ def shared_data_orphan_releasable(lease, pods, jobs, now, executor_uid=""):
     ):
         return False
     return shared_data_coordinator_fenced(
-        {"operation_id": record["operation_id"], "holder": record["actor"]},
+        {
+            "operation_id": record["operation_id"],
+            "holder": record["actor"],
+            "fence_actors": record.get("fence_actors", []),
+        },
         pods,
         jobs,
         executor_uid,
+        nodes,
     )
 
 
@@ -410,7 +772,7 @@ def _effective_coordinator(journal, lease):
 
 
 def shared_data_completed_releasable(
-    journal, lease, pods, jobs, now, inspected=False, executor_uid=""
+    journal, lease, pods, jobs, now, inspected=False, executor_uid="", nodes=None
 ):
     actor = _effective_coordinator(journal, lease)
     if journal.get("phase") != "complete" or not actor:
@@ -418,7 +780,15 @@ def shared_data_completed_releasable(
     if not inspected and not shared_data_lease_expired(lease, now):
         return False
     return shared_data_coordinator_fenced(
-        {**journal, "lease_coordinator": actor}, pods, jobs, executor_uid
+        {
+            **journal,
+            "lease_coordinator": actor,
+            "fence_actors": shared_data_lease_record(lease).get("fence_actors", []),
+        },
+        pods,
+        jobs,
+        executor_uid,
+        nodes,
     )
 
 
@@ -489,9 +859,19 @@ def shared_data_operation_jobs_stopped(
 
 def shared_data_upload_claim_terminal(claim, jobs, pods, nodes):
     expected = claim.get("upload_job", {})
+    try:
+        binding = _upload_binding(expected)
+        _fence_nodes([{**expected, "kind": "Pod"}], nodes)
+    except ValueError, KeyError, TypeError:
+        return False
     if len(jobs) != 1 or not nodes:
         return False
     job = jobs[0]
+    if (
+        job.get("spec", {}).get("template", {}).get("spec", {}).get("nodeName")
+        != binding["name"]
+    ):
+        return False
     metadata = job.get("metadata", {})
     if any(
         metadata.get(key) != expected.get(key) for key in ["uid", "name", "namespace"]
@@ -520,7 +900,7 @@ def shared_data_upload_claim_terminal(claim, jobs, pods, nodes):
     ):
         return False
     return all(
-        _terminal(pod)
+        _terminal(pod) and pod.get("spec", {}).get("nodeName") == binding["name"]
         for pod in pods
         if any(
             owner.get("uid") == expected["uid"]
@@ -529,14 +909,24 @@ def shared_data_upload_claim_terminal(claim, jobs, pods, nodes):
     )
 
 
-def shared_data_recovery_fenced(journal, lease, pods, jobs, executor_uid=""):
+def shared_data_recovery_fenced(
+    journal, lease, pods, jobs, executor_uid="", nodes=None
+):
     coordinator = _effective_coordinator(journal, lease)
     return bool(coordinator) and shared_data_coordinator_fenced(
-        {**journal, "lease_coordinator": coordinator}, pods, jobs, executor_uid
+        {
+            **journal,
+            "lease_coordinator": coordinator,
+            "fence_actors": shared_data_lease_record(lease).get("fence_actors", []),
+        },
+        pods,
+        jobs,
+        executor_uid,
+        nodes,
     )
 
 
-def shared_data_recovery(journal, lease, pods, jobs, now, executor_uid=""):
+def shared_data_recovery(journal, lease, pods, jobs, now, executor_uid="", nodes=None):
     result = {
         "resume": False,
         "record": False,
@@ -548,7 +938,15 @@ def shared_data_recovery(journal, lease, pods, jobs, now, executor_uid=""):
     if not shared_data_lease_expired(lease, now):
         return {**result, "reason": "Lease has not expired"}
     if not shared_data_coordinator_fenced(
-        {**journal, "lease_coordinator": coordinator}, pods, jobs, executor_uid
+        {
+            **journal,
+            "lease_coordinator": coordinator,
+            "fence_actors": shared_data_lease_record(lease).get("fence_actors", []),
+        },
+        pods,
+        jobs,
+        executor_uid,
+        nodes,
     ):
         return {
             **result,
@@ -563,10 +961,14 @@ def shared_data_recovery(journal, lease, pods, jobs, now, executor_uid=""):
     }
 
 
-def shared_data_coordinator_fenced(journal, pods, jobs, executor_uid=""):
-    actors = [journal["holder"]] + [
-        journal[key] for key in ("coordinator", "lease_coordinator") if journal.get(key)
-    ]
+def shared_data_coordinator_fenced(journal, pods, jobs, executor_uid="", nodes=None):
+    try:
+        actors = _historical_actors(
+            journal, {"fence_actors": journal.get("fence_actors", [])}
+        )
+        _fencing_history(journal, actors, pods, jobs, nodes or [], executor_uid)
+    except ValueError, KeyError, TypeError:
+        return False
     actor_uids = {row["uid"] for row in actors}
     # A recovery executor cannot count itself as the dead coordinator it fences.
     if executor_uid in actor_uids:
@@ -585,6 +987,8 @@ def shared_data_coordinator_fenced(journal, pods, jobs, executor_uid=""):
         == journal["operation_id"]
         and job.get("metadata", {}).get("uid") not in executor_owners
     }
+    if journal.get("upload_job"):
+        child_uids.add(journal["upload_job"]["uid"])
     child_uids.discard(None)
     for pod in pods:
         metadata = pod.get("metadata", {})
@@ -611,7 +1015,7 @@ def shared_data_coordinator_fenced(journal, pods, jobs, executor_uid=""):
         ):
             continue
         selected = (
-            metadata.get("uid") in owner_uids
+            metadata.get("uid") in child_uids
             or metadata.get("labels", {}).get(_LABEL) == journal["operation_id"]
         )
         if selected and not _job_complete(job):
@@ -791,6 +1195,14 @@ def shared_data_watchdog_fence(journal, lease, pods, jobs, nodes, now, executor_
     if not shared_data_lease_expired(lease, now):
         return {"jobs": [], "pods": [], "expired": False}
     record = shared_data_lease_record(lease)
+    if (
+        record.get("operation_kind") == "cold-bootstrap"
+        or record.get("actor", {}).get("kind", "Pod") != "Pod"
+    ):
+        raise ValueError(
+            "cold or non-Pod executor requires explicit exact bootstrap fencing; watchdog cannot resume it"
+        )
+
     if not record:
         raise ValueError("stale Lease lacks an immutable coordinator claim")
     if journal and journal.get("phase") != "complete":
@@ -808,6 +1220,16 @@ def shared_data_watchdog_fence(journal, lease, pods, jobs, nodes, now, executor_
         operation = record["operation_id"]
         actors = [actor]
     actors += record.get("fence_actors", [])
+    actors = _historical_actors({"holder": actor}, {"fence_actors": actors})
+    fence_journal = journal if journal.get("operation_id") == operation else {}
+    original_nodes = _fencing_history(
+        {**fence_journal, "operation_id": operation},
+        actors,
+        pods,
+        jobs,
+        nodes,
+        executor_uid,
+    )
     actor_uids = {row["uid"] for row in actors}
     if not executor_uid or executor_uid in actor_uids:
         raise ValueError("watchdog must be distinct from historical coordinators")
@@ -845,6 +1267,8 @@ def shared_data_watchdog_fence(journal, lease, pods, jobs, nodes, now, executor_
         )
     ]
     job_uids = {job["metadata"]["uid"] for job in selected_jobs}
+    if fence_journal.get("upload_job"):
+        job_uids.add(fence_journal["upload_job"]["uid"])
     selected_pods = []
     for pod in pods:
         meta = pod.get("metadata", {})
@@ -889,6 +1313,8 @@ def shared_data_watchdog_fence(journal, lease, pods, jobs, nodes, now, executor_
         "expired": True,
         "actors": actors,
         "operation_id": operation,
+        "nodes": original_nodes,
+        "upload_job": deepcopy(fence_journal.get("upload_job", {})),
     }
 
 
@@ -939,12 +1365,31 @@ def shared_data_fence_complete(plan, pods, jobs, nodes, executor_uid):
             for row in node.get("spec", {}).get("taints", [])
         ):
             return False
-    return all(
-        shared_data_coordinator_fenced(
-            {"operation_id": plan["operation_id"], "holder": actor},
+    try:
+        bindings = _fencing_history(
+            {
+                "operation_id": plan["operation_id"],
+                "upload_job": plan.get("upload_job", {}),
+            },
+            plan["actors"],
             pods,
             jobs,
+            nodes,
             executor_uid,
         )
-        for actor in plan["actors"]
+        if bindings != plan.get("nodes"):
+            return False
+    except ValueError, KeyError, TypeError:
+        return False
+    return shared_data_coordinator_fenced(
+        {
+            "operation_id": plan["operation_id"],
+            "holder": plan["actors"][0],
+            "fence_actors": plan["actors"][1:],
+            "upload_job": plan.get("upload_job", {}),
+        },
+        pods,
+        jobs,
+        executor_uid,
+        nodes,
     )

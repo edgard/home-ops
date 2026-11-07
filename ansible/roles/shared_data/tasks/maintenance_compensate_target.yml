@@ -1,0 +1,41 @@
+---
+- name: Reestablish this exact target hold while keeping later compensation reachable
+  block:
+    - name: Disable new automation without deleting requests or clearing existing skip
+      ansible.builtin.include_tasks: maintenance_patch.yml
+      vars:
+        shared_data_restore_target: false
+    - name: Drain unskipped operations while leaving already skipped work parked
+      kubernetes.core.k8s_info:
+        api_version: "{{ shared_data_target.api_version }}"
+        kind: Application
+        name: "{{ shared_data_target.name }}"
+        namespace: "{{ shared_data_target.namespace }}"
+      register: shared_data_compensation_read
+      until: shared_data_compensation_read.resources | shared_data_compensation_ready
+      retries: "{{ shared_data_wait_retries | default(60) }}"
+      delay: "{{ shared_data_wait_delay | default(5) }}"
+      when: shared_data_target.role in ['root', 'application']
+    - name: Read the target again immediately before its compensation patch
+      kubernetes.core.k8s_info:
+        api_version: "{{ shared_data_target.api_version }}"
+        kind: "{{ shared_data_target.kind }}"
+        name: "{{ shared_data_target.name }}"
+        namespace: "{{ shared_data_target.namespace }}"
+      register: shared_data_compensation_current
+    - name: Require the original target to remain present during compensation
+      ansible.builtin.assert:
+        that: shared_data_compensation_current.resources | length == 1
+    - name: Renew ownership immediately before the final exact target hold
+      ansible.builtin.include_tasks: maintenance_guard.yml
+    - name: Preserve parked requests or freeze only a freshly idle Application
+      kubernetes.core.k8s_json_patch:
+        api_version: "{{ shared_data_target.api_version }}"
+        kind: "{{ shared_data_target.kind }}"
+        name: "{{ shared_data_target.name }}"
+        namespace: "{{ shared_data_target.namespace }}"
+        patch: "{{ (shared_data_target | shared_data_patch(shared_data_compensation_current.resources[0])) if shared_data_target.role == 'appset' else (shared_data_target | shared_data_compensation_skip_patch(shared_data_compensation_current.resources[0])) }}"
+  rescue:
+    - name: Retain evidence of targets that could not be held while continuing safe compensation
+      ansible.builtin.set_fact:
+        shared_data_compensation_failures: "{{ shared_data_compensation_failures + [shared_data_target.kind ~ '/' ~ shared_data_target.name] }}"

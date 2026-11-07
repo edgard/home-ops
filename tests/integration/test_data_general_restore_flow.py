@@ -180,7 +180,7 @@ def test_registered_restore_and_sql_then_file_failure(tmp_path, monkeypatch, mod
             "/var/lib/postgresql",
             "-e",
             "POSTGRES_PASSWORD=" + password,
-            "postgres:18.3-trixie",
+            "postgres:18.6-trixie",
         )
         for _ in range(120):
             if (

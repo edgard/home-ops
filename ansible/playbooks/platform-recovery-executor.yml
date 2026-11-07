@@ -1,0 +1,25 @@
+---
+- name: Execute cold bootstrap only as its real authenticated Job worker
+  hosts: localhost
+  gather_facts: false
+  vars:
+    repo_root: /source
+    kubeconfig_path: null
+    kube_context: null
+    platform_recovery_worker: true
+    platform_recovery_mode: true
+    platform_bootstrap_revision: "{{ lookup('ansible.builtin.env', 'HOME_OPS_RECOVERY_REVISION') }}"
+    platform_recovery_apps: "{{ lookup('ansible.builtin.env', 'HOME_OPS_RECOVERY_APPS').split(',') }}"
+    platform_recovery_operation: "{{ lookup('ansible.builtin.env', 'HOME_OPS_RECOVERY_OPERATION') }}"
+    platform_recovery_image: "{{ lookup('ansible.builtin.env', 'HOME_OPS_RECOVERY_IMAGE') }}"
+    platform_recovery_code_sha256: "{{ lookup('ansible.builtin.env', 'HOME_OPS_RECOVERY_CODE_SHA256') }}"
+    platform_recovery_bundle_sha256: "{{ lookup('ansible.builtin.env', 'HOME_OPS_RECOVERY_BUNDLE_SHA256') }}"
+    platform_recovery_job_name: "{{ lookup('ansible.builtin.env', 'HOME_OPS_RECOVERY_JOB_NAME') }}"
+    platform_recovery_pod_name: "{{ lookup('ansible.builtin.env', 'POD_NAME') }}"
+    platform_recovery_pod_uid: "{{ lookup('ansible.builtin.env', 'POD_UID') }}"
+    platform_recovery_executor_namespace: "{{ lookup('ansible.builtin.env', 'POD_NAMESPACE') }}"
+  tasks:
+    - name: Run authenticated Job bootstrap entry
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: recovery_worker

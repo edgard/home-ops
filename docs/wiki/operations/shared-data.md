@@ -1,7 +1,7 @@
 # Shared application data operations
 
 Purpose: explain the shared-data operations foundation and rollout prerequisites.
-Status: current. Reviewed against: `20ab0bc1d62963bbe4abcb439ec491e2e9074403`.
+Status: current. Reviewed against: `1b080d18e9d8e06deef71c2b8b37afda73d92c3c`.
 
 ## Delivery stage
 
@@ -28,7 +28,9 @@ directories.
 The [Restic runbook](restic-backup-restore.md) enters the database-aware
 coordinator through both existing and new Task commands. The source-owned
 operations image must be published and pinned before these commands or paused
-schedulers are activated. Shared PostgreSQL consumers require database-aware
+schedulers are activated. Mounted registry updates supply engine Application
+inventory without an image rebuild, but frozen operator images must contain the
+compatible inventory and reconciliation protocol before shared-engine operations. Shared PostgreSQL consumers require database-aware
 backup and recovery before activation; a file snapshot of a PostgreSQL data
 directory is not the recovery contract.
 
@@ -38,14 +40,39 @@ The [Ansible role](../../../ansible/roles/shared_data/tasks/maintenance.yml)
 uses a Kubernetes Lease for exclusivity and a ConfigMap journal for original
 resource identities and settings. These live in the Kubernetes API rather than
 on NFS. Operations require explicit confirmation, a registered scope, and a
-live coordinator Pod UID. Plan and Ansible check mode do not mutate resources.
+live coordinator Pod UID. Native SelfSubjectReview must authenticate the actual
+bound Pod and ServiceAccount; its nonempty unambiguous original node-name and
+node-UID must match the Pod assignment and current Ready Node before acquisition.
+The Lease and journal retain this original identity across ownership changes.
+Recovery and cleanup compare historical node UIDs before fencing and again at
+the absence barrier; a same-name replacement, missing binding, or unavailable
+original node keeps ownership held. Legacy unbound claims cannot learn the
+current node identity during recovery. Plan and Ansible check mode do not mutate resources.
 
-The coordinator holds root reconciliation before ApplicationSet and child
-Application updates, waits for active syncs, suspends registered schedules,
-checks node-upgrade work, and stops writers. Queue consumers need registered
+The coordinator disables automatic sync on root and affected child Applications
+before draining in-flight syncs. Fresh UID/resourceVersion checks then set
+`argocd.argoproj.io/skip-reconcile` only on idle Applications, so reconciliation
+is not frozen while an operation still needs its controller to finish.
+A previously skipped Application with active or queued work requires inspection.
+Argo's [skip-reconcile contract](https://argo-cd.readthedocs.io/en/stable/user-guide/skip_reconcile/)
+stops processing and status updates; held status is not a fresh health check.
+Live acceptance must verify the configured controller honors this boundary.
+The ApplicationSet is held before child updates. Registered operation targets
+include the independent PostgreSQL and Redis Applications for every scope,
+including file-only maintenance. Their server Deployments and Pods keep running;
+they are reconciliation targets, never generic application-file consumers.
+The coordinator suspends registered schedules, checks node-upgrade work, and
+stops selected consumer writers. Queue consumers need registered
 drain checks and termination grace sufficient for active work. Original
-fields, including absent fields and replica counts, are restored with root
-resumed last. Resource replacement or conflicting ownership fails closed.
+fields, including absent policies, original skip annotations, and replica counts,
+are restored with root resumed last. Before restoring writers and before each
+Application is unskipped, identity and idle held-state checks refuse unexpected
+queued sync requests. These requests remain for operator inspection. If one arrives during partial
+resumption, compensation preserves its skip and request, re-holds the remaining
+Applications, and stops resumed writers and schedules before reporting failure.
+Native-only recovery of an interrupted enrollment verifies the same Application
+holds before restoring producers or HTTP routes; it still cannot restore root
+without the enrollment's explicit source-aware verification. Resource replacement or conflicting ownership fails closed.
 
 For enrolled Sure and Paperless Pods, the registry supplies native producer
 pause, worker quiet, idle checks, and recovery commands. The coordinator records
@@ -71,6 +98,111 @@ coordinator and its child work have been fenced. Restore, migration, and
 rotation failures remain held for inspection. An independent watchdog uses
 the API journal and does not require an NFS mount. API, storage, or node
 failure can prevent recovery; the pause target does not guarantee downtime.
+
+## Cold infrastructure recovery and admission boundary
+
+The [dedicated platform playbook](../../../ansible/playbooks/platform-recovery.yml)
+uses read-only local SecretSpec preflight, then dispatches an actual bounded
+[bootstrap Job](../../../ansible/roles/platform/templates/recovery-job.yaml.j2).
+`task platform:recover app=<comma-separated-registered-scope>
+operation=<recovery-id>` is restricted to a fresh cluster or an exact retry of its
+API journal. It refuses existing GitOps Applications, registered controllers,
+and surviving consumer Pods. Every selected application needs a shipped source
+chart; future registry entries are refused before cluster mutation.
+
+An already held competing shared maintenance Lease refuses before platform
+writes. Only coordination/executor namespaces and a suspended Job may precede
+single-winner acquisition of `selfhosted/shared-data-operation`. Its actual Job
+UID owns the Lease and durable cold journal before executor grants, existing ESO
+credential delivery, or unsuspension. The local process never runs chart or
+recovery writes after dispatch. The executor runs in `platform-system`, outside
+the ordinary data actor's Pod-creation namespace. Its temporary chart privileges
+cover Kubernetes platform APIs, with no Talos administrator credential or API.
+
+The worker proves its projected token's actual Pod UID through native
+SelfSubjectReview. Before taking Pod ownership, its authenticated node-name and
+node-UID claims must be nonempty and unambiguous, match the actual Pod assignment,
+and equal the current Ready Node identity; missing or mismatched claims refuse.
+The actor records that verified identity for later fencing. It also checks the
+Job/Pod/ServiceAccount chain, immutable image
+reference, actual runtime-code checksum, and shared Lease/journal at mutation
+boundaries. The image's build revision is distinct from the requested GitOps
+revision: a pin-only commit can use it only when runtime code matches exactly.
+A size-bounded immutable ConfigMap carries checksum-bound public YAML assets
+from `git archive <revision>`, excluding ignored files, credentials, and executable
+paths. Extraction permits regular files only in the intended configuration paths.
+The image build also uses a committed public whitelist, pinned native Helm, and
+build provenance checked against its actual installed files.
+
+This dispatch requires functioning node scheduling, base CNI, DNS, and registry
+access before platform bootstrap; it does not replace Talos creation or repair
+those prerequisites. Failed or interrupted workers leave ownership held.
+`fence=true` permits retry of expired same-operation execution only after exact
+old Job/Pod deletion, Ready-node and original node-UID checks, and confirmed
+absence. A terminal old worker also needs those barriers. Lease expiry alone
+never proves fencing; an unavailable/replaced node or unknown old identity
+requires external repair. The watchdog refuses unfinished cold/non-Pod ownership
+and cannot resume it as backup. No force deletion or automatic unsafe takeover
+is provided. Success releases the exact Lease after recording held infrastructure;
+only exact terminal executor grants/assets are cleaned, while the API journal
+and data bindings remain.
+
+The [recovery tasks](../../../ansible/roles/platform/tasks/recovery.yml) render
+native pinned charts and create every consumer controller at zero replicas from
+its first apply, including chart-owned auxiliary services. All rendered CronJobs
+start suspended. Root and child Applications start without automatic sync and
+with reconciliation skipped. The ApplicationSet starts with an empty list
+generator, a nonautomatic child template, and create-only policy. No ordinary
+root handoff runs. Retry binds source revision, registry, scope, recovery token,
+and immutable resource identities in an API ConfigMap; compare-and-swap journal
+updates refuse a raced or replaced identity. A deleted bound PVC, Secret, or
+controller is refused before retry writes; only never-bound intent is creatable.
+
+Only recovery infrastructure starts: PostgreSQL, Redis, Restic, and the shared
+data tooling/storage. Tuppr CRDs are present, its controller starts at zero, and
+its chart disables the unused Talos administrator ServiceAccount and unavailable
+webhook. Upgrade custom resources are never applied. Recovery selects core,
+RBAC, ExternalSecret, and CRD resources explicitly; ingress routes and DNS
+endpoints remain absent until later admission. An unsupported rendered kind or
+Helm hook fails closed in recovery resources. Foundational Helm hooks are disabled
+in cold mode; the verified worker creates and retains the journal-bound Argo
+cache credential directly. Its HTTPRoute stays disabled. This path does not
+require optional ingress or DNS CRDs.
+
+Set `HOME_OPS_COLD_RESTORE=true` for the existing database-aware restore command
+with the exact same selected scope. The operations image must contain the new
+cold recovery tasks and be published and digest-pinned first; the Job command
+refuses an older image before running its playbook. Restoration requires a
+manifest-bearing snapshot, retained application encryption keys, namespace-local
+credentials, zero original writers, and matching bootstrap resource UIDs.
+Selected PostgreSQL roles and intended Redis ACLs are provisioned or verified
+under the same maintenance Lease before destructive recovery. Sparky's owner and
+runtime roles retain their registry separation. Successful native restoration and
+validation produce a journal-bound receipt. Restore recomputes the original
+registry/revision digest before provisioning or replacement, even if the current
+registry ConfigMap matches a changed registry. The receipt also binds actual
+restore-image runtime code and build provenance separately from source revision. Generic resume restores the recorded
+zero replicas and held policies; it does not admit applications.
+
+**Activation blocker:** an executable runtime admission finalizer has not shipped.
+The [admission interface](../../../ansible/roles/platform/tasks/recovery_admission.yml)
+only validates completed restore evidence and returns the exact scope, revision,
+recovery token, registry/source digest, verified restore tooling, snapshot/manifest
+hashes, and whether global root admission is
+eligible. It never enables reconciliation. Partial restoration cannot authorize
+global root: every native and file consumer must have validated coverage first.
+The future finalizer must recheck live identities and holds, apply exact source
+settings only for validated applications, keep every unselected application held,
+refence on failure, and resume root last. Only successful global finalization may
+persist `phase: admitted` with its full bound `admission` record. Ordinary
+`platform:create` refuses every unfinished or partial cold journal; a completed
+global-admission journal permits the normal bootstrap path again. Do not edit the
+journal to bypass this boundary or treat receipt generation as operational DR
+completion.
+
+Native Helm and synthetic API tests verify source identities, first-apply holds,
+retry/failure sequencing, and the admission guard. They do not prove live Talos,
+NAS, Bitwarden, or application acceptance after disaster recovery.
 
 ## Native adapters and recovery boundaries
 
@@ -100,6 +232,12 @@ creates pending Restic snapshots and promotes only a successful, verified
 generation. Exit code 3 remains pending. Raw PostgreSQL files, Redis persistence,
 and staging files are excluded. Deployment wiring must mount the exact
 published generation in a newly created upload Pod at the canonical paths.
+Uploader Jobs start suspended with their immutable node assignment fixed to the
+coordinator's authenticated original node. The exact Job UID and original node
+binding reach the API journal and external claim before guarded unsuspension.
+Uploaders remain tokenless. Successful claim cleanup still requires the exact
+terminal Job/Pods, original Ready Node UID, and verified receipt; unbound or
+ambiguous children retain their claim and generation for inspected recovery.
 
 Provisioning new credentials needs an authorized Bitwarden write path.
 The ESO/SecretSpec machine account normally has read-only access. If an operator

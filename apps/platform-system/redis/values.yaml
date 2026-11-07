@@ -20,7 +20,7 @@ controllers:
         image:
           repository: docker.io/library/redis
           tag: 8.10.3
-          digest: sha256:de1068af6f552240dfab67bcc9bfef99bfc60f776bb4580ef077ea4c8c97e848
+          digest: sha256:f245f4c83b84a9e9a0588da1c9456e579455310f0945d5db52cd2ba27f2000cc
         command:
           - /bin/sh
           - -ec
@@ -42,7 +42,7 @@ controllers:
         image:
           repository: docker.io/library/redis
           tag: 8.10.3
-          digest: sha256:de1068af6f552240dfab67bcc9bfef99bfc60f776bb4580ef077ea4c8c97e848
+          digest: sha256:f245f4c83b84a9e9a0588da1c9456e579455310f0945d5db52cd2ba27f2000cc
         command:
           - /bin/sh
           - -ec
@@ -78,7 +78,7 @@ controllers:
         image:
           repository: docker.io/library/redis
           tag: 8.10.3
-          digest: sha256:de1068af6f552240dfab67bcc9bfef99bfc60f776bb4580ef077ea4c8c97e848
+          digest: sha256:f245f4c83b84a9e9a0588da1c9456e579455310f0945d5db52cd2ba27f2000cc
         command:
           - /bin/sh
           - -ec

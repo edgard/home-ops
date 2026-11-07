@@ -1,7 +1,7 @@
 # Redis
 
 Purpose: provide persistent shared Redis for explicitly registered queue/cache consumers.
-Status: current. Reviewed against: `0f2fb9820f152e526c77dc6dfc16a17d040a5a8f`.
+Status: current. Reviewed against: `1b080d18e9d8e06deef71c2b8b37afda73d92c3c`.
 
 ## Dependencies
 
@@ -25,6 +25,12 @@ The server runs as UID 999 with a read-only root filesystem. Raw AOF/data files
 are excluded from ordinary file capture and generic destructive recovery.
 Selected application recovery requires an isolated Redis source and must
 preserve other logical database allocations and absolute expirations.
+
+Every shared-data maintenance scope holds this service's independent Argo
+Application, drains in-flight syncs before skipping reconciliation, and restores
+its exact original policy and skip annotation. The server and its Pod keep
+running throughout the transaction. This reconciliation hold does not register
+raw engine storage as application files.
 
 ## Networking and monitoring
 

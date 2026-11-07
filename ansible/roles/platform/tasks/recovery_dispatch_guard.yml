@@ -1,0 +1,56 @@
+---
+- name: Read the shared Lease before controlling the real suspended executor
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_lease_name }}"
+  register: platform_recovery_dispatch_lease
+- name: Re-read the exact cold journal identity before executor grants or publication
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_journal_name }}"
+  register: platform_recovery_dispatch_journal_read
+  when: platform_recovery_journal_uid | default('') | length > 0
+- name: Refuse a missing or replaced common cold journal
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_dispatch_journal_read.resources | length == 1
+      - platform_recovery_dispatch_journal_read.resources[0].metadata.uid == platform_recovery_journal_uid
+  when: platform_recovery_journal_uid | default('') | length > 0
+- name: Re-read the actual suspended Job before any executor grant
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: batch/v1
+    kind: Job
+    namespace: "{{ platform_recovery_job_actor.namespace }}"
+    name: "{{ platform_recovery_job_actor.name }}"
+  register: platform_recovery_dispatch_job_read
+- name: Require this exact real Job to remain suspended and bound to the published image
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_dispatch_job_read.resources | length == 1
+      - platform_recovery_dispatch_job_read.resources[0].metadata.uid == platform_recovery_dispatch_owner_uid
+      - platform_recovery_dispatch_job_read.resources[0].spec.suspend | bool
+      - platform_recovery_dispatch_job_read.resources[0].spec.template.spec.containers[0].image == platform_recovery_context.image
+- name: Require this dispatcher to retain its exact real Job claim
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_dispatch_lease.resources | length == 1
+      - platform_recovery_dispatch_lease.resources[0] | cold_dispatch_guard(platform_recovery_journal, platform_recovery_dispatch_owner_uid, platform_recovery_context, platform_recovery_operation)
+- name: Renew only the exact inspected Job-owned shared Lease
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_lease_name }}"
+    patch: "{{ platform_recovery_dispatch_lease.resources[0] | cold_lease_patch(platform_recovery_operation ~ ':' ~ platform_recovery_dispatch_owner_uid, platform_recovery_operation, platform_recovery_job_actor, platform_recovery_context, now().timestamp(), platform_recovery_lease_duration, platform_recovery_fence_actors | default([])) }}"

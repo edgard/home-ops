@@ -1,0 +1,21 @@
+---
+- name: Check reconciliation hold ownership
+  ansible.builtin.include_tasks: maintenance_guard.yml
+- name: Read Application immediately before freezing its idle reconciliation
+  kubernetes.core.k8s_info:
+    api_version: "{{ shared_data_target.api_version }}"
+    kind: Application
+    name: "{{ shared_data_target.name }}"
+    namespace: "{{ shared_data_target.namespace }}"
+  register: shared_data_skip_read
+- name: Require exactly the original Application before its idle skip guard
+  ansible.builtin.assert:
+    that: shared_data_skip_read.resources | length == 1
+    fail_msg: Application is missing; transaction remains held for inspection.
+- name: Freeze only the exact idle version with automation already disabled
+  kubernetes.core.k8s_json_patch:
+    api_version: "{{ shared_data_target.api_version }}"
+    kind: Application
+    name: "{{ shared_data_target.name }}"
+    namespace: "{{ shared_data_target.namespace }}"
+    patch: "{{ shared_data_target | shared_data_skip_patch(shared_data_skip_read.resources[0]) }}"

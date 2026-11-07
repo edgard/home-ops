@@ -5,6 +5,7 @@
     name: platform_k8tz_app
 
 - name: Remove previous k8tz warmup pod
+  when: not platform_recovery_mode | bool
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -14,6 +15,10 @@
     name: "{{ platform_k8tz_warmup_pod_name }}"
     state: absent
     wait: true
+
+- name: Renew real cold ownership before image warmup
+  ansible.builtin.include_tasks: recovery_guard.yml
+  when: platform_recovery_mode | bool
 
 - name: Warm k8tz image with a temporary pod
   block:
@@ -28,13 +33,17 @@
           metadata:
             name: "{{ platform_k8tz_warmup_pod_name }}"
             namespace: kube-system
+            labels: "{{ {'home-ops/cold-job-uid': platform_recovery_worker_job.metadata.uid} if platform_recovery_mode | bool else omit }}"
           spec:
+            automountServiceAccountToken: "{{ false if platform_recovery_mode | bool else omit }}"
             restartPolicy: Never
             containers:
               - name: k8tz
                 image: "quay.io/k8tz/k8tz:{{ (platform_k8tz_app.chart.version | string) | regex_replace('^v', '') }}"
                 args:
                   - --help
+
+      register: platform_warmup_created
 
     - name: Wait for k8tz warmup pod
       kubernetes.core.k8s_info:
@@ -52,7 +61,11 @@
       delay: "{{ platform_wait_default_delay }}"
 
   always:
+    - name: Refuse stale cold warmup cleanup after ownership loss
+      ansible.builtin.include_tasks: recovery_guard.yml
+      when: platform_recovery_mode | bool
     - name: Remove k8tz warmup pod
+      when: not platform_recovery_mode | bool or platform_warmup_created.result.metadata.uid | default('') | length > 0
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         context: "{{ kube_context }}"
@@ -61,4 +74,5 @@
         namespace: kube-system
         name: "{{ platform_k8tz_warmup_pod_name }}"
         state: absent
+        delete_options: "{{ {'preconditions': {'uid': platform_warmup_created.result.metadata.uid}} if platform_recovery_mode | bool else omit }}"
         wait: true

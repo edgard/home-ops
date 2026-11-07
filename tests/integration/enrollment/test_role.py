@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from tests.support.runtime import ROOT
 from tests.support.runtime import run_role as _run_role
 
@@ -12,6 +14,12 @@ ROLE = ROOT / "ansible/roles/shared_data"
 
 
 def run_role(directory, role, entry, variables):
+    import yaml
+
+    config = yaml.safe_load(Path(variables["kubeconfig_path"]).read_text())
+    actor_context = "fixture-" + variables.get("shared_data_holder_pod_name", "")
+    if any(context["name"] == actor_context for context in config["contexts"]):
+        variables = {**variables, "kube_context": actor_context}
     result = _run_role(
         directory,
         role,
@@ -20,6 +28,7 @@ def run_role(directory, role, entry, variables):
         env={
             "K8S_AUTH_KUBECONFIG": variables["kubeconfig_path"],
             "KUBECONFIG": variables["kubeconfig_path"],
+            "K8S_AUTH_CONTEXT": variables.get("kube_context", "fixture"),
         },
         timeout=300,
     )
@@ -201,6 +210,8 @@ def held_objects(state="held"):
             "name": "held-session",
             "namespace": "selfhosted",
             "owners": [],
+            "kind": "Pod",
+            "fence_nodes": [{"name": "node", "uid": "node-uid"}],
         },
         "phase": "held",
         "writers_touched": True,
@@ -278,6 +289,16 @@ def held_objects(state="held"):
             "leaseTransitions": 1,
         },
     )
+    lease["metadata"]["annotations"] = {
+        "home-ops/data-coordinator": json.dumps(
+            {
+                "operation_id": "held-session",
+                "operation_kind": "migration",
+                "actor": journal["holder"],
+                "stage": "journaled",
+            }
+        )
+    }
     objects += [cm, lease]
     return objects, variables
 
@@ -648,13 +669,15 @@ def test_create_bounded_standalone_actor_and_refuse_name_reuse(tmp_path):
     assert len([event for event in state["events"] if event["method"] == "POST"]) == 1
 
 
-def test_backup_recovery_restores_only_proven_native_state_and_keeps_root_held(
-    tmp_path,
-):
-    objects, variables = held_objects(state="pause-intent")
+def interrupted_backup_objects(state="pause-intent"):
+    objects, variables = held_objects(state=state)
     cm = next(row for row in objects if row["kind"] == "ConfigMap")
     journal = json.loads(cm["data"]["journal.json"])
     journal["operation_kind"] = "backup"
+    lease = next(row for row in objects if row["kind"] == "Lease")
+    record = json.loads(lease["metadata"]["annotations"]["home-ops/data-coordinator"])
+    record["operation_kind"] = "backup"
+    lease["metadata"]["annotations"]["home-ops/data-coordinator"] = json.dumps(record)
     cm["data"]["journal.json"] = json.dumps(journal)
     main = next(
         row
@@ -666,6 +689,42 @@ def test_backup_recovery_restores_only_proven_native_state_and_keeps_root_held(
     pod["metadata"]["labels"] = {"app": "paperless-main"}
     pod["status"] = {"phase": "Running"}
     objects.append(pod)
+    import jsonpatch
+
+    from tests.support.runtime import load_module
+
+    maintenance = load_module("shared_data/filter_plugins/maintenance.py")
+    variables["shared_data_registry"]["maintenance"] = {
+        "applications": ["postgresql", "redis"]
+    }
+    for engine in ["postgresql", "redis"]:
+        application = obj(
+            "Application",
+            engine,
+            "argocd",
+            {"syncPolicy": {"automated": {"selfHeal": True}}},
+        )
+        objects.append(application)
+        journal["snapshots"].append(
+            maintenance.shared_data_snapshot({"role": "application"}, application)
+        )
+    for snapshot in journal["snapshots"]:
+        if snapshot["role"] in {"root", "application"}:
+            application = next(
+                row
+                for row in objects
+                if row["kind"] == "Application"
+                and row["metadata"]["name"] == snapshot["name"]
+            )
+            held = jsonpatch.apply_patch(
+                application, maintenance.shared_data_patch(snapshot, application)
+            )
+            held = jsonpatch.apply_patch(
+                held, maintenance.shared_data_skip_patch(snapshot, held)
+            )
+            application.clear()
+            application.update(held)
+    cm["data"]["journal.json"] = json.dumps(journal)
     variables.update(
         shared_data_operation_kind="backup",
         shared_data_journal=journal,
@@ -673,6 +732,14 @@ def test_backup_recovery_restores_only_proven_native_state_and_keeps_root_held(
         shared_data_journal_resource_version=cm["metadata"]["resourceVersion"],
         shared_data_journal_uid=cm["metadata"]["uid"],
     )
+    return objects, variables
+
+
+def test_backup_recovery_restores_only_proven_native_state_and_keeps_root_held(
+    tmp_path,
+):
+    objects, variables = interrupted_backup_objects()
+    cm = next(row for row in objects if row["kind"] == "ConfigMap")
     with maintenance_api(tmp_path, objects) as (connection, state):
         state["exec_reply"] = native_reply
         result = run_role(
@@ -769,3 +836,37 @@ def test_prepare_refences_children_after_inflight_root_self_heal(tmp_path):
             )
         ]
         assert targets[0]["path"].endswith("/applications/root")
+
+
+@pytest.mark.parametrize("enrollment_state", ["pause-intent", "draining"])
+def test_interrupted_native_recovery_refuses_queued_engine_before_producers_or_route(
+    tmp_path, enrollment_state
+):
+    objects, variables = interrupted_backup_objects(enrollment_state)
+    engine = next(
+        row
+        for row in objects
+        if row["kind"] == "Application" and row["metadata"]["name"] == "postgresql"
+    )
+    engine["operation"] = {"sync": {"revision": "foreign-during-native-pause"}}
+    service = next(row for row in objects if row["kind"] == "Service")
+    with maintenance_api(tmp_path, objects) as (connection, state):
+        state["exec_reply"] = native_reply
+        result = run_role(
+            tmp_path, str(ROLE), "maintenance_restore", {**connection, **variables}
+        )
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert not state.get("native_resumed")
+        assert not any(event["method"] == "EXEC" for event in state["events"])
+        assert state["objects"][path_for(service)]["spec"]["selector"] == {
+            "home-ops/enrollment-fence": "held-session"
+        }
+        assert not any(
+            event["method"] == "PATCH" and event["path"] == path_for(service)
+            for event in state["events"]
+        )
+        assert state["objects"][path_for(engine)]["operation"] == {
+            "sync": {"revision": "foreign-during-native-pause"}
+        }
+        assert not positive_replica_events(state)
+        assert not root_restored(state)

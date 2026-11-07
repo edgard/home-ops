@@ -1,0 +1,23 @@
+---
+- name: Provision or verify selected retained native credentials under the same maintenance Lease
+  ansible.builtin.include_tasks: native_step.yml
+  loop:
+    - provision
+    - redis-provision
+  loop_control:
+    loop_var: shared_data_cold_step
+  vars:
+    shared_data_native_changed: true
+    shared_data_native_deadline: "{{ shared_data_recovery_deadline }}"
+    shared_data_native_argv:
+      - "{{ shared_data_python }}"
+      - "{{ shared_data_tools }}"
+      - "{{ shared_data_cold_step }}"
+      - --registry
+      - "{{ shared_data_registry_file }}"
+      - --apps
+      - "{{ shared_data_recovery_native_apps | join(',') }}"
+      - --credentials
+      - "{{ shared_data_credentials }}"
+      - --confirm
+  when: shared_data_recovery_native_apps | length > 0

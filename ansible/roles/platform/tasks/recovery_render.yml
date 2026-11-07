@@ -1,0 +1,24 @@
+---
+- name: Render pinned native chart for {{ platform_release_spec.name }}
+  kubernetes.core.helm_template:
+    release_name: "{{ platform_release_spec.name }}"
+    release_namespace: "{{ platform_release_spec.namespace }}"
+    chart_ref: "{{ platform_release_spec.chart_ref }}"
+    chart_repo_url: "{{ platform_release_spec.chart_repo_url | default(None) or omit }}"
+    chart_version: "{{ platform_release_spec.chart_version }}"
+    values_files:
+      - "{{ platform_release_spec.values_file }}"
+    include_crds: true
+    disable_hook: true
+    release_values: "{{ {'replicaCount': 0, 'talosServiceAccount': {'create': false}, 'webhook': {'enabled': false}} if platform_release_spec.name == 'tuppr' else {} }}"
+  register: platform_recovery_rendered
+- name: Collect native resources and explicit source manifests
+  ansible.builtin.set_fact:
+    platform_recovery_release_resources: "{{ platform_recovery_rendered.stdout | cold_yaml }}"
+- name: Load source manifests excluding upgrade requests
+  ansible.builtin.set_fact:
+    platform_recovery_release_resources: "{{ platform_recovery_release_resources + (lookup('ansible.builtin.file', item) | cold_yaml) }}"
+  loop: "{{ query('ansible.builtin.fileglob', platform_release_spec.manifests_dir ~ '/*.yaml') | reject('search','[.]kubernetesupgrade[.]yaml$|[.]talosupgrade[.]yaml$') | list }}"
+- name: Select dependency-safe resources and hold all consumer controllers and schedules
+  ansible.builtin.set_fact:
+    platform_recovery_definitions: "{{ platform_recovery_definitions + (platform_recovery_release_resources | cold_resources(platform_recovery_registry, platform_recovery_apps, platform_release_spec.namespace, platform_release_spec.name, platform_recovery_token)) }}"

@@ -1,0 +1,42 @@
+---
+- name: Require the shared maintenance gate before any cold journal publication
+  ansible.builtin.include_tasks: "{{ 'recovery_guard.yml' if platform_recovery_worker | bool else 'recovery_dispatch_guard.yml' }}"
+- name: Initialize an empty API journal without overwriting another initializer's data
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ platform_recovery_journal_name }}"
+        namespace: "{{ platform_recovery_namespace }}"
+      data: {}
+  register: platform_recovery_journal_created
+  when: platform_recovery_journal_resource_version | default('') | length == 0
+- name: Record the empty journal's identity for an exclusive first claim
+  ansible.builtin.set_fact:
+    platform_recovery_journal_uid: "{{ platform_recovery_journal_created.result.metadata.uid }}"
+    platform_recovery_journal_resource_version: "{{ platform_recovery_journal_created.result.metadata.resourceVersion }}"
+    platform_recovery_journal_first_claim: true
+    platform_recovery_journal_empty_data: "{{ platform_recovery_journal_created.result.data | default({}) | length == 0 }}"
+  when: platform_recovery_journal_created is not skipped
+- name: Require an empty journal for the exclusive first claim
+  ansible.builtin.assert:
+    that: platform_recovery_journal_empty_data | bool
+  when: platform_recovery_journal_first_claim | default(false) | bool
+- name: Compare and swap only the exact recorded cold recovery journal
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ platform_recovery_journal_name }}"
+    namespace: "{{ platform_recovery_namespace }}"
+    patch: "{{ platform_recovery_journal | cold_journal_patch(platform_recovery_journal_uid, platform_recovery_journal_resource_version, platform_recovery_journal_first_claim | default(false) | bool) }}"
+  register: platform_recovery_journal_updated
+- name: Carry the newly published journal version into the next transition
+  ansible.builtin.set_fact:
+    platform_recovery_journal_resource_version: "{{ platform_recovery_journal_updated.result.metadata.resourceVersion }}"
+    platform_recovery_journal_first_claim: false

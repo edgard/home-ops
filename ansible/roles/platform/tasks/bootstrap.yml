@@ -2,41 +2,26 @@
 - name: Run platform bootstrap preflight
   ansible.builtin.import_tasks: preflight.yml
 
-- name: Build bootstrap release specs
-  ansible.builtin.set_fact:
-    platform_bootstrap_release_specs: []
+- name: Refuse ordinary bootstrap before any chart mutation during unfinished cold recovery
+  when: not platform_recovery_mode | bool
+  block:
+    - name: Read the cold journal before ordinary foundational work
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: ConfigMap
+        namespace: "{{ platform_recovery_namespace }}"
+        name: "{{ platform_recovery_journal_name }}"
+      register: platform_normal_initial_cold_gate
+    - name: Require absent or fully admitted cold state for ordinary bootstrap
+      ansible.builtin.assert:
+        that: (platform_normal_initial_cold_gate.resources[0].data['journal.json'] | from_json if platform_normal_initial_cold_gate.resources | length == 1 else {}) | cold_normal_bootstrap
 
-- name: Load bootstrap release specs
-  ansible.builtin.include_tasks: build_release.yml
-  loop: "{{ platform_bootstrap_releases }}"
-  loop_control:
-    loop_var: platform_release
+- name: Dispatch cold bootstrap without performing local platform mutations
+  ansible.builtin.include_tasks: recovery_dispatch.yml
+  when: platform_recovery_mode | bool
 
-- name: Ensure bootstrap namespaces
-  ansible.builtin.import_tasks: namespaces.yml
-
-- name: Warm bootstrap images
-  ansible.builtin.import_tasks: k8tz_warmup.yml
-
-- name: Install foundational bootstrap releases
-  ansible.builtin.include_tasks: install_release_with_manifests.yml
-  loop: "{{ platform_bootstrap_release_specs | selectattr('phase', 'in', ['storage', 'networking']) | list }}"
-  loop_control:
-    loop_var: platform_release_spec
-    label: "{{ platform_release_spec.name }}"
-
-- name: Install cert-manager bootstrap release
-  ansible.builtin.include_tasks: install_release.yml
-  vars:
-    platform_release_spec: "{{ platform_bootstrap_release_specs | selectattr('phase', 'equalto', 'certificates') | first }}"
-
-- name: Wait for cert-manager resources
-  ansible.builtin.include_tasks: wait_items.yml
-  vars:
-    platform_wait_items: "{{ platform_cert_manager_waits }}"
-
-- name: Bootstrap External Secrets
-  ansible.builtin.import_tasks: external_secrets.yml
-
-- name: Bootstrap Argo CD
-  ansible.builtin.import_tasks: argocd.yml
+- name: Execute the normal local bootstrap unchanged
+  ansible.builtin.include_tasks: bootstrap_execute.yml
+  when: not platform_recovery_mode | bool

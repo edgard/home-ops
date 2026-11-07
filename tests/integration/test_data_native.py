@@ -39,7 +39,7 @@ def native_services(tmp_path_factory):
             "POSTGRES_PASSWORD=" + password,
             "-p",
             "127.0.0.1::5432",
-            "postgres:18.3-trixie",
+            "postgres:18.6-trixie",
         )
         run(
             "run",

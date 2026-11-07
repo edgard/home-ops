@@ -25,6 +25,7 @@ RESOURCES = {
         "Node": "nodes",
         "Secret": "secrets",
         "Service": "services",
+        "ServiceAccount": "serviceaccounts",
     },
     "apps/v1": {"Deployment": "deployments", "StatefulSet": "statefulsets"},
     "batch/v1": {"Job": "jobs", "CronJob": "cronjobs"},
@@ -33,6 +34,7 @@ RESOURCES = {
         "ApplicationSet": "applicationsets",
     },
     "coordination.k8s.io/v1": {"Lease": "leases"},
+    "authentication.k8s.io/v1": {"SelfSubjectReview": "selfsubjectreviews"},
     "tuppr.home-operations.com/v1alpha1": {
         "TalosUpgrade": "talosupgrades",
         "KubernetesUpgrade": "kubernetesupgrades",
@@ -55,8 +57,62 @@ def path_for(obj):
 
 
 @contextmanager
-def maintenance_api(tmp_path, objects):
-    state = {"objects": {path_for(obj): deepcopy(obj) for obj in objects}, "events": []}
+def maintenance_api(tmp_path, objects, *, include_default_service_account=True):
+    objects = deepcopy(objects)
+    if not any(row["kind"] == "Node" for row in objects):
+        node = obj("Node", "node", "")
+        node["metadata"].pop("namespace")
+        node["status"] = {"conditions": [{"type": "Ready", "status": "True"}]}
+        objects.append(node)
+    if include_default_service_account and not any(
+        row["kind"] == "ServiceAccount" and row["metadata"]["namespace"] == "selfhosted"
+        for row in objects
+    ):
+        objects.append(obj("ServiceAccount", "shared-data", "selfhosted"))
+    state = {
+        "objects": {path_for(row): deepcopy(row) for row in objects},
+        "events": [],
+        "token_identities": {},
+    }
+    for pod in objects:
+        if pod["kind"] != "Pod":
+            continue
+        meta = pod["metadata"]
+        sa = next(
+            (
+                row
+                for row in objects
+                if row["kind"] == "ServiceAccount"
+                and row["metadata"]["name"] == pod["spec"].get("serviceAccountName")
+                and row["metadata"].get("namespace") == meta["namespace"]
+            ),
+            {},
+        )
+        node = next(
+            (
+                row
+                for row in objects
+                if row["kind"] == "Node"
+                and row["metadata"]["name"] == pod["spec"].get("nodeName")
+            ),
+            {},
+        )
+        state["token_identities"]["Bearer fixture-" + meta["name"]] = {
+            "uid": sa.get("metadata", {}).get("uid", ""),
+            "username": "system:serviceaccount:"
+            + meta["namespace"]
+            + ":"
+            + pod["spec"].get("serviceAccountName", ""),
+            "extra": {
+                "authentication.kubernetes.io/" + key: [value]
+                for key, value in {
+                    "pod-name": meta["name"],
+                    "pod-uid": meta["uid"],
+                    "node-name": pod["spec"].get("nodeName", ""),
+                    "node-uid": node.get("metadata", {}).get("uid", ""),
+                }.items()
+            },
+        }
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -116,7 +172,12 @@ def maintenance_api(tmp_path, objects):
                                 "name": plural,
                                 "kind": kind,
                                 "namespaced": kind
-                                not in {"Node", "TalosUpgrade", "KubernetesUpgrade"},
+                                not in {
+                                    "Node",
+                                    "TalosUpgrade",
+                                    "KubernetesUpgrade",
+                                    "SelfSubjectReview",
+                                },
                                 "singularName": "",
                                 "verbs": [
                                     "get",
@@ -209,6 +270,14 @@ def maintenance_api(tmp_path, objects):
                 )
             )
             if (
+                state.get("fail_upload_binding")
+                and journal_payload
+                and json.loads(journal_payload).get("upload_job")
+            ):
+                return self.respond(
+                    {"kind": "Status", "reason": "Forbidden", "code": 403}, 403
+                )
+            if (
                 state.get("fail_completion")
                 and journal_payload
                 and json.loads(journal_payload)["phase"] == "complete"
@@ -228,7 +297,11 @@ def maintenance_api(tmp_path, objects):
                 state["objects"][path] = body
                 if state.get("created"):
                     state["created"](body, state)
-                if body["kind"] == "Job" and state.get("job_created"):
+                if (
+                    body["kind"] == "Job"
+                    and not body.get("spec", {}).get("suspend")
+                    and state.get("job_created")
+                ):
                     state["job_created"](body, state)
                 return self.respond(body, 201)
             if (
@@ -266,6 +339,15 @@ def maintenance_api(tmp_path, objects):
                     replicas = value["spec"].get("replicas", 1)
                     value["status"] = {"replicas": replicas, "readyReplicas": replicas}
                 state["objects"][path] = value
+                if (
+                    value["kind"] == "Job"
+                    and not value.get("spec", {}).get("suspend")
+                    and state.get("job_created")
+                    and value["metadata"]["uid"]
+                    not in state.setdefault("started_jobs", set())
+                ):
+                    state["started_jobs"].add(value["metadata"]["uid"])
+                    state["job_created"](value, state)
                 if state.get("patched"):
                     state["patched"](path, value, state)
                 if (
@@ -307,6 +389,27 @@ def maintenance_api(tmp_path, objects):
             )
 
         def do_POST(self):
+            if (
+                urlsplit(self.path).path
+                == "/apis/authentication.k8s.io/v1/selfsubjectreviews"
+            ):
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                state["events"].append(
+                    {"method": "IDENTITY", "path": self.path, "body": body}
+                )
+                return self.respond(
+                    {
+                        "apiVersion": "authentication.k8s.io/v1",
+                        "kind": "SelfSubjectReview",
+                        "metadata": {},
+                        "status": {
+                            "userInfo": state["token_identities"].get(
+                                self.headers.get("Authorization"), {}
+                            )
+                        },
+                    },
+                    201,
+                )
             self.mutate("POST")
 
         def do_PATCH(self):
@@ -329,11 +432,30 @@ def maintenance_api(tmp_path, objects):
                 ],
                 "contexts": [
                     {
+                        "name": "fixture-" + pod["metadata"]["name"],
+                        "context": {
+                            "cluster": "fixture",
+                            "user": pod["metadata"]["name"],
+                        },
+                    }
+                    for pod in objects
+                    if pod["kind"] == "Pod"
+                ]
+                + [
+                    {
                         "name": "fixture",
                         "context": {"cluster": "fixture", "user": "fixture"},
                     }
                 ],
-                "users": [{"name": "fixture", "user": {}}],
+                "users": [{"name": "fixture", "user": {"token": "fixture-coordinator"}}]
+                + [
+                    {
+                        "name": pod["metadata"]["name"],
+                        "user": {"token": "fixture-" + pod["metadata"]["name"]},
+                    }
+                    for pod in objects
+                    if pod["kind"] == "Pod"
+                ],
                 "current-context": "fixture",
             }
         )
@@ -357,7 +479,13 @@ def obj(kind, name, namespace, spec=None, version=None):
             "uid": name + "-uid",
             "resourceVersion": "1",
         },
-        "spec": spec or {},
+        "spec": {
+            "nodeName": "node",
+            "serviceAccountName": "shared-data",
+            **(spec or {}),
+        }
+        if kind == "Pod"
+        else spec or {},
     }
 
 
@@ -428,7 +556,9 @@ def test_preview_and_checkmode_never_mutate(tmp_path, scenario, check, confirm):
             check=check,
         )
         assert result.returncode == 0, result.stdout + result.stderr
-        assert not any(row["method"] != "GET" for row in state["events"])
+        assert not any(
+            row["method"] not in {"GET", "IDENTITY"} for row in state["events"]
+        )
 
 
 def test_hold_resume_is_durable_and_restores_root_last(tmp_path, scenario):
@@ -522,7 +652,9 @@ def test_watchdog_without_journal_is_readonly_and_needs_no_scope(tmp_path, scena
             {**connection, "shared_data_confirm": True},
         )
         assert result.returncode == 0, result.stdout + result.stderr
-        assert not any(row["method"] != "GET" for row in state["events"])
+        assert not any(
+            row["method"] not in {"GET", "IDENTITY"} for row in state["events"]
+        )
 
 
 @pytest.fixture
@@ -559,6 +691,8 @@ def held_scenario(scenario):
             "name": "coordinator",
             "namespace": "selfhosted",
             "owners": [],
+            "kind": "Pod",
+            "fence_nodes": [{"name": "node", "uid": "node-uid"}],
         },
         "snapshots": snapshots,
     }
@@ -574,6 +708,16 @@ def held_scenario(scenario):
             "leaseDurationSeconds": 1,
         },
     )
+    lease["metadata"]["annotations"] = {
+        "home-ops/data-coordinator": json.dumps(
+            {
+                "operation_id": "test-backup",
+                "operation_kind": "backup",
+                "actor": journal["holder"],
+                "stage": "journaled",
+            }
+        )
+    }
     return [*by_path.values(), configmap, lease], variables
 
 
@@ -593,6 +737,10 @@ def test_recovery_only_restores_expired_fenced_backup(
     journal_obj = next(row for row in objects if row["kind"] == "ConfigMap")
     journal = json.loads(journal_obj["data"]["journal.json"])
     journal["operation_kind"] = kind
+    lease = next(row for row in objects if row["kind"] == "Lease")
+    record = json.loads(lease["metadata"]["annotations"]["home-ops/data-coordinator"])
+    record["operation_kind"] = kind
+    lease["metadata"]["annotations"]["home-ops/data-coordinator"] = json.dumps(record)
     journal_obj["data"]["journal.json"] = json.dumps(journal)
     next(row for row in objects if row["kind"] == "Pod")["status"]["phase"] = (
         "Running" if live else "Failed"
@@ -640,7 +788,9 @@ def test_recovery_only_restores_expired_fenced_backup(
         elif kind == "restore":
             assert current["recovery_result"] == "operator inspection required"
         else:
-            assert not any(row["method"] != "GET" for row in state["events"])
+            assert not any(
+                row["method"] not in {"GET", "IDENTITY"} for row in state["events"]
+            )
 
 
 def test_failed_completion_refences_root_and_holds_writers(tmp_path, held_scenario):
@@ -681,7 +831,9 @@ def test_direct_hold_executor_cannot_bypass_confirmation(tmp_path, scenario):
             },
         )
         assert result.returncode != 0
-        assert not any(row["method"] != "GET" for row in state["events"])
+        assert not any(
+            row["method"] not in {"GET", "IDENTITY"} for row in state["events"]
+        )
 
 
 def test_admin_can_finish_completed_journal_with_unreleased_lease(
@@ -725,7 +877,9 @@ def test_missing_upgrade_api_cannot_be_mistaken_for_idle(tmp_path, scenario):
             },
         )
         assert result.returncode != 0, result.stdout + result.stderr
-        assert not any(row["method"] != "GET" for row in state["events"])
+        assert not any(
+            row["method"] not in {"GET", "IDENTITY"} for row in state["events"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -795,7 +949,9 @@ def test_idle_upgrade_phase_does_not_hide_independent_workers(
             },
         )
         assert result.returncode != 0, result.stdout + result.stderr
-        assert not any(row["method"] != "GET" for row in state["events"])
+        assert not any(
+            row["method"] not in {"GET", "IDENTITY"} for row in state["events"]
+        )
 
 
 def test_cronjob_created_between_job_and_pod_reads_cannot_pass_barrier(
@@ -844,7 +1000,9 @@ def test_cronjob_created_between_job_and_pod_reads_cannot_pass_barrier(
         )
         assert state.get("late_cron_injected")
         assert result.returncode != 0, result.stdout + result.stderr
-        assert not any(row["method"] != "GET" for row in state["events"])
+        assert not any(
+            row["method"] not in {"GET", "IDENTITY"} for row in state["events"]
+        )
 
 
 def recovery_executor(objects, uid="watchdog-uid"):
@@ -856,6 +1014,7 @@ def recovery_executor(objects, uid="watchdog-uid"):
         "shared_data_holder_pod_name": uid,
         "shared_data_holder_pod_namespace": "selfhosted",
         "shared_data_holder_pod_uid": uid,
+        "kube_context": "fixture-" + uid,
     }
 
 
@@ -876,7 +1035,9 @@ def test_stale_guard_cannot_reclaim_an_emptied_lease(tmp_path, scenario):
             },
         )
         assert result.returncode != 0, result.stdout + result.stderr
-        assert not any(row["method"] != "GET" for row in state["events"])
+        assert not any(
+            row["method"] not in {"GET", "IDENTITY"} for row in state["events"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -916,6 +1077,8 @@ def test_expired_fenced_orphan_claim_releases_without_journal_or_target_replay(
                     "name": "coordinator",
                     "namespace": "selfhosted",
                     "owners": [],
+                    "kind": "Pod",
+                    "fence_nodes": [{"name": "node", "uid": "node-uid"}],
                 },
                 "stage": stage,
             }
@@ -934,7 +1097,9 @@ def test_expired_fenced_orphan_claim_releases_without_journal_or_target_replay(
         assert state["objects"][path_for(lease)]["spec"]["holderIdentity"] == (
             "" if release else "test-backup:coordinator-uid"
         )
-        writes = [row for row in state["events"] if row["method"] != "GET"]
+        writes = [
+            row for row in state["events"] if row["method"] not in {"GET", "IDENTITY"}
+        ]
         assert bool(writes) == release
         assert all(row["path"] == path_for(lease) for row in writes)
 
@@ -961,7 +1126,9 @@ def test_completed_journal_cleanup_releases_lease_without_target_replay(
         assert result.returncode == 0, result.stdout + result.stderr
         lease_path = "/apis/coordination.k8s.io/v1/namespaces/selfhosted/leases/shared-data-operation"
         assert state["objects"][lease_path]["spec"]["holderIdentity"] == ""
-        writes = [row for row in state["events"] if row["method"] != "GET"]
+        writes = [
+            row for row in state["events"] if row["method"] not in {"GET", "IDENTITY"}
+        ]
         assert writes and all(row["path"] == lease_path for row in writes)
 
 
@@ -1058,7 +1225,9 @@ def test_direct_recovery_executors_cannot_bypass_confirmation(
             },
         )
         assert result.returncode != 0
-        assert not any(row["method"] != "GET" for row in state["events"])
+        assert not any(
+            row["method"] not in {"GET", "IDENTITY"} for row in state["events"]
+        )
 
 
 def restore_completed_targets(objects, journal):
@@ -1098,6 +1267,8 @@ def test_new_orphan_claim_can_coexist_with_previous_completed_journal(
                     "name": "next-coordinator",
                     "namespace": "selfhosted",
                     "owners": [],
+                    "kind": "Pod",
+                    "fence_nodes": [{"name": "node", "uid": "node-uid"}],
                 },
                 "stage": "claimed",
             }
@@ -1119,7 +1290,7 @@ def test_new_orphan_claim_can_coexist_with_previous_completed_journal(
         assert all(
             row["path"] == path_for(lease)
             for row in state["events"]
-            if row["method"] != "GET"
+            if row["method"] not in {"GET", "IDENTITY"}
         )
 
 

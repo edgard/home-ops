@@ -1,0 +1,43 @@
+---
+- name: Read durable cold recovery inventory before any destructive work
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ shared_data_namespace }}"
+    name: shared-data-cold-recovery
+  register: shared_data_cold_read
+- name: Require one durable cold infrastructure journal
+  ansible.builtin.assert:
+    that: shared_data_cold_read.resources | length == 1
+- name: Parse nonsecret cold recovery scope
+  ansible.builtin.set_fact:
+    shared_data_cold: "{{ shared_data_cold_read.resources[0].data['journal.json'] | from_json }}"
+- name: Require the exact held infrastructure scope and zero-original writers
+  ansible.builtin.assert:
+    that: shared_data_cold | shared_data_cold_restore(shared_data_journal, shared_data_registry)
+    fail_msg: Cold restore must preserve the exact recovery scope and every original writer held.
+- name: Require the actual coordinator image rather than treating source revision as image provenance
+  ansible.builtin.assert:
+    that:
+      - shared_data_executor_read.resources[0].metadata.uid == shared_data_holder_pod_uid
+      - shared_data_executor_read.resources[0].spec.containers | selectattr('name','equalto','operations') | map(attribute='image') | list == [shared_data_image]
+      - shared_data_cold.executor.code_sha256 is match('^[a-f0-9]{64}$')
+- name: Verify this restore image's actual compatible runtime code independently
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - "{{ role_path | dirname }}/platform/files/cold_bundle.py"
+      - verify-image
+      - --root
+      - "{{ shared_data_cold_image_root }}"
+      - --revision
+      - "{{ shared_data_cold.revision }}"
+      - --code-sha256
+      - "{{ shared_data_cold.executor.code_sha256 }}"
+  register: shared_data_cold_image_proof
+  changed_when: false
+- name: Bind native restoration evidence to this immutable recovery identity
+  ansible.builtin.set_fact:
+    shared_data_journal: "{{ shared_data_journal | combine({'cold_token': shared_data_cold.token, 'revision': shared_data_cold.revision, 'source_sha256': shared_data_registry | shared_data_cold_source_digest(shared_data_cold.revision), 'cold_steps': [], 'restore_tooling': {'image': shared_data_image, 'image_revision': (shared_data_cold_image_proof.stdout | from_json).image_revision, 'code_sha256': (shared_data_cold_image_proof.stdout | from_json).code_sha256, 'pod_uid': shared_data_holder_pod_uid}}) }}"
+- name: Persist cold recovery binding before staging or provisioning
+  ansible.builtin.include_tasks: maintenance_save.yml

@@ -7,6 +7,8 @@ on:
       - .dockerignore
       - containers/data-tools/**
       - ansible/roles/shared_data/**
+      - ansible/roles/platform/**
+      - ansible/playbooks/platform-recovery-executor.yml
       - ansible/playbooks/shared-data.yml
       - ansible/requirements.yml
       - .github/workflows/data-tools.yml
@@ -17,6 +19,8 @@ on:
       - .dockerignore
       - containers/data-tools/**
       - ansible/roles/shared_data/**
+      - ansible/roles/platform/**
+      - ansible/playbooks/platform-recovery-executor.yml
       - ansible/playbooks/shared-data.yml
       - ansible/requirements.yml
       - .github/workflows/data-tools.yml
@@ -40,12 +44,18 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build and smoke-test operations image
         run: |
-          docker build --tag data-tools:test --file containers/data-tools/Dockerfile .
-          docker run --rm --entrypoint python data-tools:test ansible/roles/shared_data/files/data_tools.py validate
-          docker run --rm --entrypoint python data-tools:test -c 'import jsonpatch, kubernetes, psycopg, redis'
-          docker run --rm --entrypoint pg_dump data-tools:test --version
-          docker run --rm --entrypoint restic data-tools:test version
-          docker run --rm data-tools:test --syntax-check
+          python3 ansible/roles/platform/files/cold_bundle.py build-context --root . --revision "$GITHUB_SHA" > "$RUNNER_TEMP/data-tools-context.tar"
+          docker build --build-arg HOME_OPS_SOURCE_REVISION="$GITHUB_SHA" --tag data-tools:test --file containers/data-tools/Dockerfile - < "$RUNNER_TEMP/data-tools-context.tar"
+          smoke=(docker run --rm --network none --user 1000:1000 --read-only --tmpfs /tmp:mode=1777 --env HOME=/tmp --env ANSIBLE_LOCAL_TEMP=/tmp/ansible-local --env ANSIBLE_REMOTE_TEMP=/tmp/ansible-remote)
+          "${smoke[@]}" --entrypoint python data-tools:test ansible/roles/shared_data/files/data_tools.py validate
+          "${smoke[@]}" --entrypoint python data-tools:test -c 'import jsonpatch, kubernetes, psycopg, redis'
+          "${smoke[@]}" --entrypoint pg_dump data-tools:test --version
+          "${smoke[@]}" --entrypoint restic data-tools:test version
+          "${smoke[@]}" data-tools:test --syntax-check
+          "${smoke[@]}" --entrypoint helm data-tools:test version --short
+          "${smoke[@]}" --entrypoint ansible-playbook data-tools:test ansible/playbooks/platform-recovery-executor.yml --syntax-check
+          expected_code_sha="$(python3 -c 'import sys,tarfile,json; print(json.load(tarfile.open(sys.argv[1]).extractfile(".home-ops-build.json"))["code_sha256"])' "$RUNNER_TEMP/data-tools-context.tar")"
+          "${smoke[@]}" --entrypoint python data-tools:test ansible/roles/platform/files/cold_bundle.py verify-image --root /opt/home-ops --revision "$GITHUB_SHA" --code-sha256 "$expected_code_sha"
       - name: Verify PostgreSQL dump and recovery inside the operations image
         run: |
           data_smoke_network=data-tools-smoke

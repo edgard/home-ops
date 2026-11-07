@@ -1,0 +1,95 @@
+---
+- name: Validate explicit cold scope and verified merged revision
+  ansible.builtin.assert:
+    that: platform_recovery_registry | cold_scope(platform_recovery_apps, platform_bootstrap_revision, platform_recovery_operation)
+- name: Inspect selected source metadata before contacting the cluster
+  ansible.builtin.stat:
+    path: "{{ repo_root }}/apps/{{ (platform_recovery_registry.consumers | combine(platform_recovery_registry.file_consumers | default({})))[item].namespace }}/{{ item }}/app.yaml"
+  loop: "{{ platform_recovery_apps }}"
+  register: platform_recovery_metadata_reads
+- name: Refuse registry entries whose application chart has not shipped
+  ansible.builtin.assert:
+    that: item.stat.isreg | default(false)
+    fail_msg: Every selected recovery consumer needs a source-owned shipped chart definition.
+  loop: "{{ platform_recovery_metadata_reads.results }}"
+- name: Hash exact recovery source and registry before initialization
+  ansible.builtin.set_fact:
+    platform_recovery_source_sha256: "{{ {'registry': platform_recovery_registry, 'revision': platform_bootstrap_revision} | cold_digest }}"
+- name: Read durable cold recovery inventory
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: ConfigMap
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_journal_name }}"
+  register: platform_recovery_saved
+- name: Normalize the API's omitted empty ConfigMap data
+  ansible.builtin.set_fact:
+    platform_recovery_saved_data: "{{ platform_recovery_saved.resources[0].data | default({}) if platform_recovery_saved.resources | length == 1 else {} }}"
+- name: Load API-only nonsecret cold journal
+  ansible.builtin.set_fact:
+    platform_recovery_journal: "{{ platform_recovery_saved_data.get('journal.json', '{}') | from_json }}"
+    platform_recovery_journal_first_claim: "{{ platform_recovery_saved.resources | length == 1 and 'journal.json' not in platform_recovery_saved_data }}"
+    platform_recovery_journal_empty_data: "{{ platform_recovery_saved_data | length == 0 }}"
+    platform_recovery_existing: []
+    platform_recovery_journal_uid: "{{ platform_recovery_saved.resources[0].metadata.uid if platform_recovery_saved.resources | length == 1 else '' }}"
+    platform_recovery_journal_resource_version: "{{ platform_recovery_saved.resources[0].metadata.resourceVersion if platform_recovery_saved.resources | length == 1 else '' }}"
+- name: Refuse another use of an unclaimed cold journal name
+  ansible.builtin.assert:
+    that: not platform_recovery_journal_first_claim | bool or platform_recovery_journal_empty_data | bool
+- name: Read every previously bound recovery identity before any retry mutation
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace if item.namespace | length > 0 else omit }}"
+    name: "{{ item.name }}"
+  loop: "{{ platform_recovery_journal.inventory | default([]) | rejectattr('uid', 'equalto', '') | list }}"
+  register: platform_recovery_bound_reads
+  no_log: true
+- name: Refuse deletion or replacement of every bound recovery object
+  ansible.builtin.assert:
+    that: platform_recovery_journal | cold_bound_inventory(platform_recovery_bound_reads.results)
+- name: Inspect all registered controllers before cold initialization
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: apps/v1
+    kind: "{{ item.1.kind }}"
+    name: "{{ item.1.name }}"
+    namespace: "{{ item.1.namespace | default(item.0.value.namespace) }}"
+  loop: "{{ platform_recovery_registry.consumers | combine(platform_recovery_registry.file_consumers | default({})) | dict2items | subelements('value.workloads') }}"
+  register: platform_recovery_controller_reads
+- name: Inspect existing GitOps resources without requiring absent Argo CRDs
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: "{{ item }}"
+    namespace: argocd
+  loop:
+    - Application
+    - ApplicationSet
+  register: platform_recovery_gitops_reads
+- name: Collect existing consumers and GitOps identities
+  ansible.builtin.set_fact:
+    platform_recovery_existing: "{{ (platform_recovery_controller_reads.results + platform_recovery_gitops_reads.results) | map(attribute='resources') | flatten }}"
+- name: Inspect orphan consumer Pods even when their controllers are absent
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Pod
+  register: platform_recovery_pod_reads
+- name: Refuse every surviving registered consumer writer
+  ansible.builtin.assert:
+    that: platform_recovery_pod_reads.resources | cold_consumer_pods(platform_recovery_registry) | length == 0
+    fail_msg: A registered consumer Pod still exists; cold initialization requires writers absent.
+- name: Refuse existing live installation or mismatched recovery retry
+  ansible.builtin.assert:
+    that: platform_recovery_journal | cold_existing(platform_recovery_existing, platform_recovery_registry, platform_recovery_apps, platform_bootstrap_revision, platform_recovery_operation, platform_recovery_source_sha256)
+- name: Preserve recovery identity across every retry
+  ansible.builtin.set_fact:
+    platform_recovery_token: "{{ platform_recovery_journal.token | default(lookup('ansible.builtin.password', '/dev/null', length=32, chars=['ascii_lowercase', 'digits'])) }}"

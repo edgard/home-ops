@@ -47,6 +47,10 @@ def test_registry_delivery_and_secret_namespace_permission_agree():
         hashlib.sha256(cm["data"]["registry.yaml"].encode().rstrip(b"\n")).digest()
         == hashlib.sha256(source.rstrip(b"\n")).digest()
     )
+    assert (
+        cm["metadata"]["annotations"]["home-ops/registry-sha256"]
+        == hashlib.sha256(source.rstrip(b"\n")).hexdigest()
+    )
     registry = yaml.safe_load(source)
     store = read_yaml(
         ROOT
@@ -90,7 +94,13 @@ def test_operations_rbac_has_no_cluster_mutation_or_secret_listing():
             assert doc["metadata"]["namespace"] in destinations
         if doc.get("kind") == "ClusterRole":
             for rule in doc["rules"]:
-                assert set(rule["verbs"]) <= {"get", "list", "watch"}
+                if set(rule["apiGroups"]) == {"authentication.k8s.io"}:
+                    # Native identity reviews return the caller's token claims;
+                    # their create verb never persists a cluster resource.
+                    assert set(rule["resources"]) == {"selfsubjectreviews"}
+                    assert set(rule["verbs"]) == {"create"}
+                else:
+                    assert set(rule["verbs"]) <= {"get", "list", "watch"}
                 assert not {"secrets", "persistentvolumeclaims"} & set(
                     rule["resources"]
                 )
@@ -144,3 +154,40 @@ def test_every_registered_maintenance_target_has_scoped_api_permissions():
             assert any({"get", "patch"} <= set(rule["verbs"]) for rule in matching), (
                 target
             )
+
+
+def test_shared_engine_applications_are_held_without_becoming_file_consumers():
+    from tests.support.runtime import load_module
+
+    registry = read_yaml(ROOT / "ansible/roles/shared_data/files/registry.yaml")
+    filters = load_module("shared_data/filter_plugins/maintenance.py")
+    engines = {"postgresql", "redis"}
+    assert engines <= set(registry["maintenance"]["applications"])
+    assert not engines & set(registry["consumers"])
+    assert not engines & set(registry.get("file_consumers", {}))
+    for operation in ["backup", "restore", "migration", "rotation", "provision"]:
+        for app in [*registry["consumers"], *registry.get("file_consumers", {})]:
+            targets = filters.shared_data_targets(
+                registry, [app], "engine-hold", operation
+            )
+            assert {
+                target["name"] for target in targets if target["role"] == "application"
+            } >= engines
+            assert not any(
+                target["namespace"] == "platform-system"
+                and target["name"].startswith(("postgresql", "redis"))
+                for target in targets
+            )
+
+    role = read_yaml(
+        ROOT / "apps/selfhosted/shared-data/manifests/shared-data-argocd.role.yaml"
+    )
+    for engine in engines:
+        grants = [
+            rule
+            for rule in role["rules"]
+            if "applications" in rule["resources"]
+            and engine in rule.get("resourceNames", [])
+        ]
+        assert len(grants) == 1
+        assert set(grants[0]["verbs"]) == {"get", "patch"}

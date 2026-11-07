@@ -1,0 +1,46 @@
+---
+- name: Require cold writes to run inside the authenticated real executor
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_worker | bool
+      - platform_recovery_executor_verified | default(false) | bool
+- name: Read shared Lease and durable cold journal before a mutation boundary
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.name }}"
+    namespace: "{{ platform_recovery_namespace }}"
+  loop:
+    - {api: coordination.k8s.io/v1, kind: Lease, name: "{{ platform_recovery_lease_name }}"}
+    - {api: v1, kind: ConfigMap, name: "{{ platform_recovery_journal_name }}"}
+  register: platform_recovery_guard_reads
+- name: Re-read actual Pod identity and image before this mutation phase
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Pod
+    namespace: "{{ platform_recovery_executor_namespace }}"
+    name: "{{ platform_recovery_pod_name }}"
+  register: platform_recovery_guard_pod
+- name: Require actual common ownership and the same authenticated real Job worker
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_guard_reads.results[0].resources | length == 1
+      - platform_recovery_guard_pod.resources | length == 1
+      - platform_recovery_guard_reads.results[1].resources | length == 1
+      - platform_recovery_guard_reads.results[1].resources[0].metadata.uid == platform_recovery_journal_uid
+      - platform_recovery_worker_job | cold_worker_proof(platform_recovery_guard_pod.resources[0], platform_recovery_worker_sa, platform_recovery_authenticated.result, platform_recovery_guard_reads.results[1].resources[0].data['journal.json'] | from_json, platform_recovery_guard_reads.results[0].resources[0], platform_recovery_context)
+      - platform_recovery_guard_reads.results[0].resources[0].spec.holderIdentity == platform_recovery_operation ~ ':' ~ platform_recovery_pod_uid
+- name: Renew only this exact Pod's shared maintenance ownership
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_lease_name }}"
+    patch: "{{ platform_recovery_guard_reads.results[0].resources[0] | cold_lease_patch(platform_recovery_operation ~ ':' ~ platform_recovery_pod_uid, platform_recovery_operation, platform_recovery_actual_actor, platform_recovery_context, now().timestamp(), platform_recovery_lease_duration) }}"
+  register: platform_recovery_guard_renewed

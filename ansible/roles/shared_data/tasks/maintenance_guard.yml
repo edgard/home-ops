@@ -11,6 +11,16 @@
     name: "{{ shared_data_lease_name | default('shared-data-operation') }}"
     namespace: "{{ shared_data_namespace | default('selfhosted') }}"
   register: shared_data_guard_lease
+- name: Recheck original executor node at the mutation boundary
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    name: "{{ shared_data_executor.fence_nodes[0].name }}"
+  register: shared_data_guard_nodes
+- name: Refuse changed historical executor identity before renewal or mutation
+  ansible.builtin.assert:
+    that: shared_data_guard_lease.resources[0] | shared_data_executor_current(shared_data_executor, shared_data_guard_nodes.resources)
+    fail_msg: Lease executor or authenticated original Ready node changed; ownership stays held.
 - name: Renew Lease with atomic owner and resource version tests
   kubernetes.core.k8s_json_patch:
     api_version: coordination.k8s.io/v1

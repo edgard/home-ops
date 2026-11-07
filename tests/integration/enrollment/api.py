@@ -24,6 +24,7 @@ RESOURCES = {
         "Node": "nodes",
         "Secret": "secrets",
         "Service": "services",
+        "ServiceAccount": "serviceaccounts",
     },
     "discovery.k8s.io/v1": {"EndpointSlice": "endpointslices"},
     "apps/v1": {"Deployment": "deployments", "StatefulSet": "statefulsets"},
@@ -33,6 +34,7 @@ RESOURCES = {
         "ApplicationSet": "applicationsets",
     },
     "coordination.k8s.io/v1": {"Lease": "leases"},
+    "authentication.k8s.io/v1": {"SelfSubjectReview": "selfsubjectreviews"},
     "tuppr.home-operations.com/v1alpha1": {
         "TalosUpgrade": "talosupgrades",
         "KubernetesUpgrade": "kubernetesupgrades",
@@ -56,7 +58,61 @@ def path_for(obj):
 
 @contextmanager
 def maintenance_api(tmp_path, objects):
-    state = {"objects": {path_for(obj): deepcopy(obj) for obj in objects}, "events": []}
+    objects = deepcopy(objects)
+    if not any(row["kind"] == "Node" for row in objects):
+        node = obj("Node", "node", "")
+        node["metadata"].pop("namespace")
+        node["status"] = {"conditions": [{"type": "Ready", "status": "True"}]}
+        objects.append(node)
+    if not any(
+        row["kind"] == "ServiceAccount" and row["metadata"]["namespace"] == "selfhosted"
+        for row in objects
+    ):
+        objects.append(obj("ServiceAccount", "shared-data", "selfhosted"))
+    state = {
+        "objects": {path_for(row): deepcopy(row) for row in objects},
+        "events": [],
+        "token_identities": {},
+    }
+    for pod in objects:
+        if pod["kind"] != "Pod":
+            continue
+        meta = pod["metadata"]
+        sa = next(
+            (
+                row
+                for row in objects
+                if row["kind"] == "ServiceAccount"
+                and row["metadata"]["name"] == pod["spec"].get("serviceAccountName")
+                and row["metadata"].get("namespace") == meta["namespace"]
+            ),
+            {},
+        )
+        node = next(
+            (
+                row
+                for row in objects
+                if row["kind"] == "Node"
+                and row["metadata"]["name"] == pod["spec"].get("nodeName")
+            ),
+            {},
+        )
+        state["token_identities"]["Bearer fixture-" + meta["name"]] = {
+            "uid": sa.get("metadata", {}).get("uid", ""),
+            "username": "system:serviceaccount:"
+            + meta["namespace"]
+            + ":"
+            + pod["spec"].get("serviceAccountName", ""),
+            "extra": {
+                "authentication.kubernetes.io/" + key: [value]
+                for key, value in {
+                    "pod-name": meta["name"],
+                    "pod-uid": meta["uid"],
+                    "node-name": pod["spec"].get("nodeName", ""),
+                    "node-uid": node.get("metadata", {}).get("uid", ""),
+                }.items()
+            },
+        }
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -165,7 +221,12 @@ def maintenance_api(tmp_path, objects):
                                 "name": plural,
                                 "kind": kind,
                                 "namespaced": kind
-                                not in {"Node", "TalosUpgrade", "KubernetesUpgrade"},
+                                not in {
+                                    "Node",
+                                    "TalosUpgrade",
+                                    "KubernetesUpgrade",
+                                    "SelfSubjectReview",
+                                },
                                 "singularName": "",
                                 "verbs": [
                                     "get",
@@ -374,6 +435,27 @@ def maintenance_api(tmp_path, objects):
             )
 
         def do_POST(self):
+            if (
+                urlsplit(self.path).path
+                == "/apis/authentication.k8s.io/v1/selfsubjectreviews"
+            ):
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                state["events"].append(
+                    {"method": "IDENTITY", "path": self.path, "body": body}
+                )
+                return self.respond(
+                    {
+                        "apiVersion": "authentication.k8s.io/v1",
+                        "kind": "SelfSubjectReview",
+                        "metadata": {},
+                        "status": {
+                            "userInfo": state["token_identities"].get(
+                                self.headers.get("Authorization"), {}
+                            )
+                        },
+                    },
+                    201,
+                )
             self.mutate("POST")
 
         def do_PATCH(self):
@@ -396,11 +478,30 @@ def maintenance_api(tmp_path, objects):
                 ],
                 "contexts": [
                     {
+                        "name": "fixture-" + pod["metadata"]["name"],
+                        "context": {
+                            "cluster": "fixture",
+                            "user": pod["metadata"]["name"],
+                        },
+                    }
+                    for pod in objects
+                    if pod["kind"] == "Pod"
+                ]
+                + [
+                    {
                         "name": "fixture",
                         "context": {"cluster": "fixture", "user": "fixture"},
                     }
                 ],
-                "users": [{"name": "fixture", "user": {}}],
+                "users": [{"name": "fixture", "user": {"token": "fixture-coordinator"}}]
+                + [
+                    {
+                        "name": pod["metadata"]["name"],
+                        "user": {"token": "fixture-" + pod["metadata"]["name"]},
+                    }
+                    for pod in objects
+                    if pod["kind"] == "Pod"
+                ],
                 "current-context": "fixture",
             }
         )
@@ -424,7 +525,13 @@ def obj(kind, name, namespace, spec=None, version=None):
             "uid": name + "-uid",
             "resourceVersion": "1",
         },
-        "spec": spec or {},
+        "spec": {
+            "nodeName": "node",
+            "serviceAccountName": "shared-data",
+            **(spec or {}),
+        }
+        if kind == "Pod"
+        else spec or {},
     }
 
 

@@ -6,7 +6,7 @@ metadata:
   namespace: selfhosted
   annotations:
     home-ops/registry-source: ansible/roles/shared_data/files/registry.yaml
-    home-ops/registry-sha256: d3f97bbed8508621c965e7d97fe73b9abb39f7db8a24d392dbba1921415b878c
+    home-ops/registry-sha256: 8683f288fa8dca139fc779e912929981449336b28533a9fe5c52082e0dff7acf
 data:
   registry.yaml: |-
     ---
@@ -15,6 +15,8 @@ data:
       applications:
         - shared-data
         - restic
+        - postgresql
+        - redis
       cronjobs:
         - {namespace: selfhosted, name: shared-data-main}
         - {namespace: selfhosted, name: shared-data-provision}

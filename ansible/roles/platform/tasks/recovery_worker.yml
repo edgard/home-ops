@@ -1,0 +1,130 @@
+---
+- name: Require a concrete image and Downward API worker identity
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_worker | bool
+      - platform_recovery_mode | bool
+      - platform_recovery_pod_uid | default('') | length > 0
+      - platform_recovery_pod_name | default('') | length > 0
+      - platform_recovery_image is match('^ghcr.io/edgard/home-ops-data-tools:[a-f0-9]{40}@sha256:[a-f0-9]{64}$')
+      - platform_recovery_code_sha256 is match('^[a-f0-9]{64}$')
+      - platform_recovery_bundle_sha256 is match('^[a-f0-9]{64}$')
+- name: Independently verify the running image's actual whitelisted runtime code
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - "{{ role_path }}/files/cold_bundle.py"
+      - verify-image
+      - --root
+      - "{{ platform_recovery_image_root }}"
+      - --revision
+      - "{{ platform_bootstrap_revision }}"
+      - --code-sha256
+      - "{{ platform_recovery_code_sha256 }}"
+  register: platform_recovery_actual_image
+  changed_when: false
+- name: Read authenticated projected-token identity from the Kubernetes API
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    definition:
+      apiVersion: authentication.k8s.io/v1
+      kind: SelfSubjectReview
+      metadata:
+        generateName: cold-executor-
+  register: platform_recovery_authenticated
+- name: Read immutable Job, actual Pod, ServiceAccount and source input identities
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace }}"
+    name: "{{ item.name }}"
+  loop:
+    - {api: batch/v1, kind: Job, namespace: "{{ platform_recovery_executor_namespace }}", name: "{{ platform_recovery_job_name }}"}
+    - {api: v1, kind: Pod, namespace: "{{ platform_recovery_executor_namespace }}", name: "{{ platform_recovery_pod_name }}"}
+    - {api: v1, kind: ServiceAccount, namespace: "{{ platform_recovery_executor_namespace }}", name: "{{ platform_recovery_job_name }}"}
+    - {api: coordination.k8s.io/v1, kind: Lease, namespace: "{{ platform_recovery_namespace }}", name: "{{ platform_recovery_lease_name }}"}
+    - {api: v1, kind: ConfigMap, namespace: "{{ platform_recovery_namespace }}", name: "{{ platform_recovery_journal_name }}"}
+    - {api: v1, kind: ConfigMap, namespace: "{{ platform_recovery_executor_namespace }}", name: "{{ platform_recovery_job_name }}"}
+  register: platform_recovery_worker_reads
+- name: Require exactly one live resource for every executor identity
+  ansible.builtin.assert:
+    that: item.resources | length == 1
+  loop: "{{ platform_recovery_worker_reads.results }}"
+- name: Load API-only executor state and immutable source binding
+  ansible.builtin.set_fact:
+    platform_recovery_worker_job: "{{ platform_recovery_worker_reads.results[0].resources[0] }}"
+    platform_recovery_worker_pod: "{{ platform_recovery_worker_reads.results[1].resources[0] }}"
+    platform_recovery_worker_sa: "{{ platform_recovery_worker_reads.results[2].resources[0] }}"
+    platform_recovery_worker_lease: "{{ platform_recovery_worker_reads.results[3].resources[0] }}"
+    platform_recovery_journal: "{{ platform_recovery_worker_reads.results[4].resources[0].data['journal.json'] | from_json }}"
+    platform_recovery_journal_uid: "{{ platform_recovery_worker_reads.results[4].resources[0].metadata.uid }}"
+    platform_recovery_journal_resource_version: "{{ platform_recovery_worker_reads.results[4].resources[0].metadata.resourceVersion }}"
+    platform_recovery_source_manifest: "{{ lookup('ansible.builtin.file', repo_root ~ '/.home-ops-source.json') | from_json }}"
+    platform_recovery_context:
+      apps: "{{ platform_recovery_apps }}"
+      revision: "{{ platform_bootstrap_revision }}"
+      source_sha256: "{{ {'registry': platform_recovery_registry, 'revision': platform_bootstrap_revision} | cold_digest }}"
+      image: "{{ platform_recovery_image }}"
+      code_sha256: "{{ platform_recovery_code_sha256 }}"
+      bundle_sha256: "{{ platform_recovery_bundle_sha256 }}"
+- name: Prove actual image, Pod authentication, owner chain and source registry before mutation
+  ansible.builtin.assert:
+    that:
+      - platform_recovery_worker_pod.metadata.uid == platform_recovery_pod_uid
+      - platform_recovery_actual_image.stdout | from_json is mapping
+      - (platform_recovery_actual_image.stdout | from_json).code_sha256 == platform_recovery_code_sha256
+      - platform_recovery_source_manifest.revision == platform_bootstrap_revision
+      - platform_recovery_source_manifest.source_sha256 == platform_recovery_context.source_sha256
+      - platform_recovery_worker_reads.results[5].resources[0].immutable | bool
+      - platform_recovery_worker_reads.results[5].resources[0].metadata.uid == (platform_recovery_journal.executor.artifacts | selectattr('kind','equalto','ConfigMap') | selectattr('name','equalto',platform_recovery_job_name) | first).uid
+      - platform_recovery_worker_job | cold_worker_proof(platform_recovery_worker_pod, platform_recovery_worker_sa, platform_recovery_authenticated.result, platform_recovery_journal, platform_recovery_worker_lease, platform_recovery_context)
+- name: Recheck all bound resources before this real executor changes ownership
+  ansible.builtin.include_tasks: recovery_preflight.yml
+- name: Read the original assigned worker node before making its Pod the owner
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Node
+    name: "{{ platform_recovery_worker_pod.spec.nodeName }}"
+  register: platform_recovery_worker_node
+- name: Require one original assigned worker node
+  ansible.builtin.assert:
+    that: platform_recovery_worker_node.resources | length == 1
+- name: Capture the actual bound-token Pod actor and distinct tooling provenance
+  ansible.builtin.set_fact:
+    platform_recovery_actual_actor: "{{ platform_recovery_worker_pod | cold_worker_actor(platform_recovery_worker_node.resources[0], platform_recovery_authenticated.result) }}"
+    platform_recovery_image_provenance: "{{ platform_recovery_actual_image.stdout | from_json }}"
+    platform_k8tz_warmup_pod_name: "cold-warmup-{{ platform_recovery_worker_job.metadata.uid[:24] }}"
+- name: Transfer only this exact Job claim to its verified actual Pod
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_lease_name }}"
+    patch: "{{ platform_recovery_worker_lease | cold_lease_patch(platform_recovery_worker_lease.spec.holderIdentity, platform_recovery_operation, platform_recovery_actual_actor, platform_recovery_context, now().timestamp(), platform_recovery_lease_duration) }}"
+- name: Preserve the real executor in the durable journal before any broad mutation
+  ansible.builtin.set_fact:
+    platform_recovery_executor_verified: true
+    platform_recovery_journal: "{{ platform_recovery_journal | combine({'phase': 'bootstrapping', 'executor': platform_recovery_journal.executor | combine({'pod_uid': platform_recovery_pod_uid, 'pod_name': platform_recovery_pod_name, 'serviceaccount_uid': platform_recovery_worker_sa.metadata.uid, 'node': platform_recovery_actual_actor.fence_nodes[0], 'image_revision': platform_recovery_image_provenance.image_revision})}) }}"
+- name: Persist actual Pod execution ownership under the shared gate
+  ansible.builtin.include_tasks: recovery_save.yml
+- name: Execute source-owned platform and held recovery tasks inside the real Job
+  ansible.builtin.include_tasks: bootstrap_execute.yml
+- name: Recheck held completion and exact ownership before releasing the gate
+  ansible.builtin.include_tasks: recovery_guard.yml
+- name: Release only completed held infrastructure from this exact Pod
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    namespace: "{{ platform_recovery_namespace }}"
+    name: "{{ platform_recovery_lease_name }}"
+    patch: "{{ platform_recovery_guard_renewed.result | cold_lease_release(platform_recovery_operation, platform_recovery_pod_uid) }}"

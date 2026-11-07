@@ -1,4 +1,7 @@
 ---
+- name: Renew real cold executor ownership before this mutation boundary
+  ansible.builtin.include_tasks: recovery_guard.yml
+  when: platform_recovery_mode | bool
 - name: Find manifests in {{ platform_manifest_dir }}
   ansible.builtin.find:
     paths: "{{ platform_manifest_dir }}"

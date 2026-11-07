@@ -1,4 +1,7 @@
 ---
+- name: Renew real cold executor ownership before this mutation boundary
+  ansible.builtin.include_tasks: recovery_guard.yml
+  when: platform_recovery_mode | bool
 - name: Install Helm release {{ platform_release_spec.name }}
   kubernetes.core.helm:
     kubeconfig: "{{ kubeconfig_path }}"
@@ -10,6 +13,8 @@
     chart_version: "{{ platform_release_spec.chart_version }}"
     values_files:
       - "{{ platform_release_spec.values_file }}"
+    disable_hook: "{{ true if platform_recovery_mode | bool else omit }}"
+    release_values: "{{ platform_cold_helm_values.get(platform_release_spec.name, {}) if platform_recovery_mode | bool else omit }}"
     create_namespace: true
     atomic: true
     wait: true

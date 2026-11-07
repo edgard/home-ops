@@ -30,9 +30,16 @@ spec:
       containers:
         - name: operations
           image: {{ shared_data_image }}
+{% if shared_data_job_action == 'restore' and shared_data_recovery_mode | bool %}
+          command:
+            - /bin/sh
+            - -ec
+            - 'test -f /opt/home-ops/ansible/roles/shared_data/tasks/cold_restore_bind.yml; exec ansible-playbook ansible/playbooks/shared-data.yml "$@"'
+            - cold-restore
+{% endif %}
           args:
             - --extra-vars
-            - {{ {'shared_data_action': shared_data_job_action, 'shared_data_confirm': true, 'shared_data_apps': shared_data_apps, 'shared_data_operation_id': shared_data_operation_id, 'shared_data_operation_kind': {'watchdog': 'backup', 'cleanup': 'backup'}.get(shared_data_job_action, shared_data_job_action), 'shared_data_image': shared_data_image, 'shared_data_snapshot': shared_data_snapshot, 'shared_data_require_current_registry': shared_data_job_action != 'watchdog', 'shared_data_lease_duration': 3600 if shared_data_job_action == 'restore' else 900} | to_json | to_json }}
+            - {{ {'shared_data_action': shared_data_job_action, 'shared_data_recovery_mode': shared_data_recovery_mode | bool, 'shared_data_confirm': true, 'shared_data_apps': shared_data_apps, 'shared_data_operation_id': shared_data_operation_id, 'shared_data_operation_kind': {'watchdog': 'backup', 'cleanup': 'backup'}.get(shared_data_job_action, shared_data_job_action), 'shared_data_image': shared_data_image, 'shared_data_snapshot': shared_data_snapshot, 'shared_data_require_current_registry': shared_data_job_action != 'watchdog', 'shared_data_lease_duration': 3600 if shared_data_job_action == 'restore' else 900} | to_json | to_json }}
           env:
             - name: HOME
               value: /tmp

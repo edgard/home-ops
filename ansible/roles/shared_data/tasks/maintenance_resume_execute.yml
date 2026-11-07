@@ -40,9 +40,14 @@
             api_version: batch/v1
             kind: Job
           register: shared_data_resume_jobs
+        - name: Read current original node identities for historical fencing
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Node
+          register: shared_data_resume_nodes
         - name: Refuse takeover while any previous coordinator or child can write
           ansible.builtin.assert:
-            that: shared_data_journal | shared_data_recovery_fenced(shared_data_lease, shared_data_resume_pods.resources, shared_data_resume_jobs.resources, shared_data_holder_pod_uid)
+            that: shared_data_journal | shared_data_recovery_fenced(shared_data_lease, shared_data_resume_pods.resources, shared_data_resume_jobs.resources, shared_data_holder_pod_uid, shared_data_resume_nodes.resources)
             fail_msg: Fence all original and previous recovery coordinators and child Jobs/Pods before administrative takeover.
         - name: Claim inspected transaction with this administrator Pod UID
           ansible.builtin.include_tasks: maintenance_takeover.yml
