@@ -26,6 +26,18 @@ controllers:
         env:
           RAILS_ENV: production
           SELF_HOSTED: "true"
+          LLM_PROVIDER: openai
+          OPENAI_MODEL: gpt-6.1-sol
+          OPENAI_ACCESS_TOKEN:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: openai_api_key
+          OPENAI_REQUEST_TIMEOUT: "120"
+          AI_RESPONSE_TIMEOUT: "180"
+          AI_HEALTH_PROBE_TIMEOUT: "60"
+          LLM_CONTEXT_WINDOW: "32768"
+          LLM_MAX_RESPONSE_TOKENS: "4096"
           APP_DOMAIN: sure.edgard.org
           BINDING: 0.0.0.0
           PORT: "3000"
@@ -148,6 +160,18 @@ controllers:
         env:
           RAILS_ENV: production
           SELF_HOSTED: "true"
+          LLM_PROVIDER: openai
+          OPENAI_MODEL: gpt-6.1-sol
+          OPENAI_ACCESS_TOKEN:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: openai_api_key
+          OPENAI_REQUEST_TIMEOUT: "120"
+          AI_RESPONSE_TIMEOUT: "180"
+          AI_HEALTH_PROBE_TIMEOUT: "60"
+          LLM_CONTEXT_WINDOW: "32768"
+          LLM_MAX_RESPONSE_TOKENS: "4096"
           APP_DOMAIN: sure.edgard.org
           BINDING: 0.0.0.0
           PORT: "3000"

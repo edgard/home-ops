@@ -1,7 +1,7 @@
 # Sure
 
 Purpose: private personal-finance tracking at sure.edgard.org.
-Status: current. Reviewed against: `8b3bfc0792a0532ee6d27bea1802d0642db102ae`.
+Status: current. Reviewed against: `8595d9d1cc7f418c2836b866809c06665e2487dc`.
 
 ## Dependencies and startup
 
@@ -16,7 +16,24 @@ and only its initialization capabilities are granted.
 Independent database/Redis passwords, administrator credentials and stable Rails
 encryption keys come from the namespace-local ESO Secret. Keep these Bitwarden
 items during recovery. Private administrator onboarding closes public signup.
-Optional AI, bank and SMTP integrations are not configured by these values.
+Bank and SMTP integrations remain unconfigured.
+
+## AI
+
+Web and worker receive the existing Bitwarden OpenAI key through ESO and use the
+same model and request budgets. The native OpenAI integration supplies assistant
+chat and tools, transaction categorization, merchant enrichment, statement/PDF
+extraction and image processing. Its hosted vector-store adapter provides document
+retrieval without another cluster service. The selected model and budgets live
+in the Helm values; the provider uses OpenAI's Responses API where supported.
+
+Enable the account's AI preference and its family's data enrichment in the
+application settings; these choices persist in PostgreSQL rather than Helm.
+Use the built-in assistant and LLM categorization provider. These settings enable
+normal future processing; enabling them does not require reprocessing all history.
+Settings → Self-hosting and the AI system-health panel expose native diagnostics.
+Uploaded documents and AI requests are processed by OpenAI. Preserve the existing
+Rails encryption keys, database dumps and Bitwarden OpenAI credential on recovery.
 
 ## Storage and backup
 
@@ -68,6 +85,8 @@ startup and readiness probes cover application and engine startup.
 - [Helm values](../../../../apps/selfhosted/sure/values.yaml)
 - [ESO credentials](../../../../apps/selfhosted/sure/manifests/sure-credentials.externalsecret.yaml)
 - [Restic exclusions](../../../../apps/selfhosted/restic/values.yaml)
+- [Upstream AI health checks](https://github.com/we-promise/sure/blob/v0.7.6/app/models/ai_health.rb)
+- [Upstream OpenAI adapter](https://github.com/we-promise/sure/blob/v0.7.6/app/models/provider/openai.rb)
 - [Upstream deployment](https://github.com/we-promise/sure/blob/v0.7.6/compose.example.yml)
 
 ## Related pages

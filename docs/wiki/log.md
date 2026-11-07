@@ -12,6 +12,15 @@ while preserving stored custom resources and coordinating GitOps. Reviewed Istio
 their existing controller and route contracts remain accurate. November's
 semantic review is already recorded below.
 
+## [2026-11-07] revision | Enable native AI in Sure and SparkyFitness
+
+Wired Sure web and worker to the existing Bitwarden OpenAI credential with shared
+model and request budgets. Documented native account/family switches and hosted
+document retrieval. Documented SparkyFitness's encrypted database-backed chat,
+vision, full-tool and voice configuration, user preferences, and recovery keys.
+No additional services or backup framework are introduced. Reviewed both app
+pages against the versioned upstream provider implementations.
+
 ## [2026-11-07] revision | Preserve application contracts during major upgrades
 
 Retained the compatible Gotenberg API major, updated to its final security
