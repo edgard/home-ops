@@ -63,6 +63,7 @@ def test_token_rotation_and_rollback(tmp_path, provider, secret_api, scenario, p
                 "platform_bitwarden_access_token": TOKEN,
                 "platform_secret_reconcile_timeout": reconcile_timeout,
             },
+            timeout=reconcile_timeout + 90,
         )
         state = observed()
     output = result.stdout + result.stderr

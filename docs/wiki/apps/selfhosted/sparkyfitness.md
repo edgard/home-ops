@@ -25,7 +25,9 @@ not enabled by these values.
 
 Uploads, backups and PostgreSQL use separate NFS claims. PostgreSQL18 stores its
 versioned PGDATA below /var/lib/postgresql. The backend and backup CronJob share
-the backup claim; SQL dumps occupy its postgresql subdirectory.
+the backup claim and volume group; SQL dumps occupy its postgresql subdirectory.
+The backend inherits the default pod security context, including its NFS
+`fsGroup`; a controller override replaces that context rather than merging it.
 
 The app-local CronJob uses the matching official PostgreSQL image, publishes a
 custom-format dump by rename only after success, and retains seven dumps.

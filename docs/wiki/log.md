@@ -3,6 +3,13 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] revision | Preserve SparkyFitness volume-group inheritance
+
+Removed the backend's redundant pod security-context override so the chart
+retains the default NFS volume group. A rendered regression checks that the
+non-root backend receives its writable persistent-storage group. Updated the
+application storage explanation after confirming the chart's replacement behavior.
+
 ## [2026-11-07] revision | Add standalone SparkyFitness and verify shell programs
 
 Added SparkyFitness with its own PostgreSQL, native frontend/backend/Garmin,
