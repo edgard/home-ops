@@ -349,3 +349,18 @@ def test_specific_runtime_and_observability_guards(workload):
     resource["data"]["merged-values"] = "{}"
     with pytest.raises(AssertionError):
         assert_resource(resource)
+
+
+def test_official_postgres_bootstrap_keeps_container_hardening(workload):
+    pod = workload["spec"]["template"]["spec"]
+    pod["securityContext"]["runAsNonRoot"] = False
+    container = pod["containers"][0]
+    container["image"] = "docker.io/library/postgres:16.15"
+    assert_resource(workload)
+    container["securityContext"]["allowPrivilegeEscalation"] = True
+    with pytest.raises(AssertionError, match="privilege escalation"):
+        assert_resource(workload)
+    container["securityContext"]["allowPrivilegeEscalation"] = False
+    container["securityContext"]["capabilities"]["drop"] = []
+    with pytest.raises(AssertionError, match="drop capabilities"):
+        assert_resource(workload)
