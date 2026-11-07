@@ -222,6 +222,14 @@ config:
         - "[DNS_RCODE] == NOERROR"
       alerts:
         - type: telegram
+    - name: sparkyfitness
+      group: apps
+      url: https://sparkyfitness.edgard.org/
+      interval: 1m
+      conditions:
+        - "[STATUS] == 200"
+      alerts:
+        - type: telegram
     - name: sure
       group: apps
       url: https://sure.edgard.org/up

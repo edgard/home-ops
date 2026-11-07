@@ -82,6 +82,7 @@ controllers:
               secretKeyRef:
                 name: sure-credentials
                 key: sure_admin_password
+          TMPDIR: /rails/tmp/private
         securityContext:
           runAsUser: 1000
           runAsGroup: 1000
@@ -128,6 +129,10 @@ controllers:
               periodSeconds: 10
               timeoutSeconds: 5
               failureThreshold: 6
+        command:
+          - /bin/sh
+          - -ec
+          - mkdir -p "$TMPDIR"; chmod 0700 "$TMPDIR"; exec /rails/bin/docker-entrypoint ./bin/rails server
   worker:
     type: deployment
     replicas: 1
@@ -194,6 +199,7 @@ controllers:
               secretKeyRef:
                 name: sure-credentials
                 key: sure_admin_email
+          TMPDIR: /rails/tmp/private
         securityContext:
           runAsUser: 1000
           runAsGroup: 1000
@@ -241,11 +247,9 @@ controllers:
           liveness:
             enabled: false
         command:
-          - bundle
-          - exec
-          - sidekiq
-          - -t
-          - "60"
+          - /bin/sh
+          - -ec
+          - mkdir -p "$TMPDIR"; chmod 0700 "$TMPDIR"; exec bundle exec sidekiq -t 60
     initContainers:
       wait-web:
         image:
@@ -372,7 +376,18 @@ controllers:
         command:
           - /bin/sh
           - -ec
-          - "umask 077 #magic___^_^___line printf 'bind 0.0.0.0 #magic___^_^___line protected-mode yes #magic___^_^___line dir /data #magic___^_^___line appendonly yes #magic___^_^___line appendfsync everysec #magic___^_^___line maxmemory 128mb #magic___^_^___line maxmemory-policy noeviction #magic___^_^___line requirepass %s #magic___^_^___line ' \"$REDIS_PASSWORD\" > /tmp/redis.conf #magic___^_^___line exec redis-server /tmp/redis.conf #magic___^_^___line "
+          - |
+            umask 077
+            printf 'bind 0.0.0.0
+            protected-mode yes
+            dir /data
+            appendonly yes
+            appendfsync everysec
+            maxmemory 128mb
+            maxmemory-policy noeviction
+            requirepass %s
+            ' "$REDIS_PASSWORD" > /tmp/redis.conf
+            exec redis-server /tmp/redis.conf
         env:
           REDIS_PASSWORD:
             valueFrom:
@@ -453,7 +468,15 @@ controllers:
         command:
           - /bin/sh
           - -ec
-          - "set -eu #magic___^_^___line umask 077 #magic___^_^___line stamp=\"$(date -u +%Y%m%dT%H%M%SZ)\" #magic___^_^___line temporary=\"/backups/.${stamp}.dump.tmp\" #magic___^_^___line trap 'rm -f \"$temporary\"' EXIT #magic___^_^___line pg_dump --format=custom --no-owner --no-acl --file=\"$temporary\" #magic___^_^___line mv \"$temporary\" \"/backups/${stamp}.dump\" #magic___^_^___line ls -1t /backups/*.dump | sed -n '8,$p' | xargs -r rm -- #magic___^_^___line "
+          - |
+            set -eu
+            umask 077
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            temporary="/backups/.${stamp}.dump.tmp"
+            trap 'rm -f "$temporary"' EXIT
+            pg_dump --format=custom --no-owner --no-acl --file="$temporary"
+            mv "$temporary" "/backups/${stamp}.dump"
+            ls -1t /backups/*.dump | sed -n '8,$p' | while IFS= read -r expired; do rm -- "$expired"; done
         env:
           PGHOST: sure-postgresql.selfhosted.svc.cluster.local
           PGPORT: "5432"

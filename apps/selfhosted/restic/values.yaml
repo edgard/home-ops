@@ -117,6 +117,8 @@ controllers:
           - /data/appdata/selfhosted/sure-postgresql-data
           - --exclude
           - /data/appdata/selfhosted/sure-redis-data
+          - --exclude
+          - /data/appdata/selfhosted/sparkyfitness-postgresql-data
         env:
           RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:

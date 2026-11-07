@@ -35,8 +35,9 @@ transactionally atomic database-plus-file recovery.
 
 ## Restore
 
-Hold the Sure Application's reconciliation and stop its web and worker before
-restoring. Preview the existing `task restic:restore app=sure` operation, select
+Establish the [SQL-app reconciliation holds](../../operations/restic-backup-restore.md#restore-all-appdata),
+suspend the backup CronJob and wait for active backup Jobs to finish. Stop Sure
+web and worker before restoring. Preview the existing `task restic:restore app=sure` operation, select
 the intended snapshot, and confirm only Sure's claims. Keep web and worker at
 zero throughout the file restore. PostgreSQL and Redis initialize fresh storage
 because their live directories are excluded from backup.
@@ -48,8 +49,9 @@ backup claim to run:
 pg_restore --exit-on-error --clean --if-exists --no-owner --no-acl --dbname=sure /backups/<timestamp>.dump
 ```
 
-Validate the selected database and Rails storage, then resume web, worker and
-reconciliation. Redis queues are recreated; pending work may need retry. Retain
+Validate the selected database and Rails storage, then resume web, worker,
+the prior backup CronJob suspension and reconciliation settings. Redis queues
+are recreated; pending work may need retry. Retain
 the same Rails encryption keys so stored credentials remain readable. The
 [Restic runbook](../../operations/restic-backup-restore.md) owns the file-restore
 confirmation and scope rules.

@@ -1,0 +1,498 @@
+---
+global:
+  createDefaultServiceAccount: false
+defaultPodOptions:
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 3700
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 0
+        runAsNonRoot: true
+    containers:
+      app:
+        image:
+          repository: ghcr.io/codewithcj/sparkyfitness-frontend
+          tag: v1.11.0
+          digest: sha256:5eb77135ccd8e58492ee9bd19b8714ea4a73a99623b863a9287ccecb0557cd17
+        env:
+          SPARKY_FITNESS_FRONTEND_URL: https://sparkyfitness.edgard.org
+          SPARKY_FITNESS_SERVER_HOST: sparkyfitness-server.selfhosted.svc.cluster.local
+          SPARKY_FITNESS_SERVER_PORT: "3010"
+          NGINX_LISTEN_PORT: "8080"
+          NGINX_ACCESS_LOG: /dev/stdout
+          NGINX_ERROR_LOG: /dev/stderr
+          NGINX_RATE_LIMIT: 5r/s
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 0
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 60
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8080
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+  server:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+    containers:
+      app:
+        image:
+          repository: ghcr.io/codewithcj/sparkyfitness-server
+          tag: v1.11.0
+          digest: sha256:51a2d7c19bd99b50ea17e579fe8d9d4febed895595356b1ddafe0fa808caf75e
+        env:
+          NODE_ENV: production
+          TZ: Europe/Warsaw
+          SPARKY_FITNESS_DB_HOST: sparkyfitness-postgresql.selfhosted.svc.cluster.local
+          SPARKY_FITNESS_DB_PORT: "5432"
+          SPARKY_FITNESS_DB_NAME: sparkyfitness_db
+          SPARKY_FITNESS_DB_USER: sparky_admin
+          SPARKY_FITNESS_DB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sparkyfitness-credentials
+                key: sparkyfitness_db_password
+          SPARKY_FITNESS_APP_DB_USER: sparky_app
+          SPARKY_FITNESS_APP_DB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sparkyfitness-credentials
+                key: sparkyfitness_app_db_password
+          SPARKY_FITNESS_API_ENCRYPTION_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: sparkyfitness-credentials
+                key: sparkyfitness_api_encryption_key
+          BETTER_AUTH_SECRET:
+            valueFrom:
+              secretKeyRef:
+                name: sparkyfitness-credentials
+                key: sparkyfitness_auth_secret
+          SPARKY_FITNESS_FRONTEND_URL: https://sparkyfitness.edgard.org
+          BETTER_AUTH_URL: https://sparkyfitness.edgard.org
+          SPARKY_FITNESS_SERVER_PORT: "3010"
+          SPARKY_FITNESS_TRUSTED_PROXY_HOPS: "2"
+          SPARKY_FITNESS_DISABLE_SIGNUP: "true"
+          SPARKY_FITNESS_ADMIN_EMAIL:
+            valueFrom:
+              secretKeyRef:
+                name: sparkyfitness-credentials
+                key: sparkyfitness_admin_email
+          SPARKY_FITNESS_SHUTDOWN_TIMEOUT_SECONDS: "3600"
+          SPARKY_FITNESS_CUSTOM_TEMP_DIRECTORY: /tmp/sparky-temp-uploads
+          GARMIN_MICROSERVICE_URL: http://sparkyfitness-garmin.selfhosted.svc.cluster.local:8000
+          SPARKY_FITNESS_LOG_LEVEL: INFO
+          SPARKY_FITNESS_ADMIN_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sparkyfitness-credentials
+                key: sparkyfitness_admin_password
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/health
+                port: 3010
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 60
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/health
+                port: 3010
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/health
+                port: 3010
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+  garmin:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 1
+        runAsGroup: 1
+        runAsNonRoot: true
+    containers:
+      app:
+        image:
+          repository: ghcr.io/codewithcj/sparkyfitness-garmin
+          tag: v1.11.0
+          digest: sha256:7f4c69b0c7e4090a66c79f0580f49a55792206a38a66e09c1ca84150fda9ee74
+        env:
+          GARMIN_SERVICE_PORT: "8000"
+          GARMIN_SERVICE_IS_CN: "false"
+          TZ: Europe/Warsaw
+          HOME: /tmp
+          PYTHONDONTWRITEBYTECODE: "1"
+        securityContext:
+          runAsUser: 1
+          runAsGroup: 1
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /
+                port: 8000
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 60
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              tcpSocket:
+                port: 8000
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+          liveness:
+            enabled: false
+  postgresql:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        runAsNonRoot: false
+        fsGroup: 999
+    containers:
+      app:
+        image: &id001
+          repository: docker.io/library/postgres
+          tag: 18.6-trixie
+          digest: sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        env:
+          PGDATA: /var/lib/postgresql/18/docker
+          POSTGRES_DB: sparkyfitness_db
+          POSTGRES_USER: sparky_admin
+          POSTGRES_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sparkyfitness-credentials
+                key: sparkyfitness_db_password
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - CHOWN
+              - DAC_OVERRIDE
+              - FOWNER
+              - SETUID
+              - SETGID
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - pg_isready
+                  - -U
+                  - sparky_admin
+                  - -d
+                  - sparkyfitness_db
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 60
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - pg_isready
+                  - -U
+                  - sparky_admin
+                  - -d
+                  - sparkyfitness_db
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - pg_isready
+                  - -U
+                  - sparky_admin
+                  - -d
+                  - sparkyfitness_db
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+  backup:
+    type: cronjob
+    cronjob:
+      schedule: 15 2 * * *
+      timeZone: Europe/Warsaw
+      concurrencyPolicy: Forbid
+      backoffLimit: 1
+    pod:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+    containers:
+      app:
+        image: *id001
+        command:
+          - /bin/sh
+          - -ec
+          - |
+            set -eu
+            umask 077
+            mkdir -p /backups/postgresql
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            temporary="/backups/postgresql/.${stamp}.dump.tmp"
+            trap 'rm -f "$temporary"' EXIT
+            pg_dump --format=custom --no-owner --no-acl --file="$temporary"
+            mv "$temporary" "/backups/postgresql/${stamp}.dump"
+            ls -1t /backups/postgresql/*.dump | sed -n '8,$p' | while IFS= read -r expired; do rm -- "$expired"; done
+        env:
+          PGHOST: sparkyfitness-postgresql.selfhosted.svc.cluster.local
+          PGPORT: "5432"
+          PGDATABASE: sparkyfitness_db
+          PGUSER: sparky_admin
+          PGPASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sparkyfitness-credentials
+                key: sparkyfitness_db_password
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            memory: 512Mi
+service:
+  main:
+    forceRename: sparkyfitness
+    controller: main
+    ports:
+      http:
+        port: 8080
+        targetPort: 8080
+  server:
+    forceRename: sparkyfitness-server
+    controller: server
+    ports:
+      http:
+        port: 3010
+        targetPort: 3010
+  garmin:
+    forceRename: sparkyfitness-garmin
+    controller: garmin
+    ports:
+      http:
+        port: 8000
+        targetPort: 8000
+  postgresql:
+    forceRename: sparkyfitness-postgresql
+    controller: postgresql
+    type: ClusterIP
+    ports:
+      tcp:
+        port: 5432
+        targetPort: 5432
+route:
+  main:
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - sparkyfitness.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 8080
+persistence:
+  uploads:
+    type: persistentVolumeClaim
+    advancedMounts:
+      server:
+        app:
+          - path: /app/SparkyFitnessServer/uploads
+    accessMode: ReadWriteOnce
+    storageClass: nfs-fast
+    size: 5Gi
+    retain: true
+  backup:
+    type: persistentVolumeClaim
+    advancedMounts:
+      server:
+        app:
+          - path: /app/SparkyFitnessServer/backup
+      backup:
+        app:
+          - path: /backups
+    accessMode: ReadWriteOnce
+    storageClass: nfs-fast
+    size: 2Gi
+    retain: true
+  tmp:
+    type: emptyDir
+    globalMounts:
+      - path: /tmp
+  nginx-run:
+    type: emptyDir
+    advancedMounts:
+      main:
+        app:
+          - path: /run
+  nginx-cache:
+    type: emptyDir
+    advancedMounts:
+      main:
+        app:
+          - path: /var/cache/nginx
+  nginx-conf:
+    type: emptyDir
+    advancedMounts:
+      main:
+        app:
+          - path: /etc/nginx/conf.d
+  postgresql-data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    storageClass: nfs-fast
+    size: 10Gi
+    retain: true
+    advancedMounts:
+      postgresql:
+        app:
+          - path: /var/lib/postgresql
+  postgresql-run:
+    type: emptyDir
+    advancedMounts:
+      postgresql:
+        app:
+          - path: /var/run/postgresql

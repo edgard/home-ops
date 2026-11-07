@@ -97,5 +97,6 @@ The app pages describe dependencies and unusual behavior. Read the linked
 - [Paperless](apps/selfhosted/paperless.md)
 - [Renovate Operator](apps/selfhosted/renovate-operator.md)
 - [Restic](apps/selfhosted/restic.md)
+- [SparkyFitness](apps/selfhosted/sparkyfitness.md)
 - [Sure](apps/selfhosted/sure.md)
 - [Twitch Drops Miner](apps/selfhosted/twitch-drops-miner.md)
