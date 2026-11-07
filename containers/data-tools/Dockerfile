@@ -1,6 +1,6 @@
-FROM docker.io/library/postgres:18.3-trixie@sha256:7e32e9833a6fb1c92c32552794cb6ed569d51b445a54907d35fc112ef39684db AS postgres
+FROM docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 AS postgres
 FROM restic/restic:0.19.1@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510 AS restic
-FROM docker.io/library/python:3.14.2-slim-trixie@sha256:1a3c6dbfd2173971abba880c3cc2ec4643690901f6ad6742d0827bae6cefc925
+FROM docker.io/library/python:3.15.2-slim-trixie@sha256:e97b88e416c3c01eb427b21fd8cd3ebf006e6ee38afcfcc3cae1c54ee2ab0a75
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates rsync redis-tools libgssapi-krb5-2 libldap2 liblz4-1 libzstd1 libkrb5-3 libssl3t64 libreadline8t64 libicu76 \
     && rm -rf /var/lib/apt/lists/*
