@@ -1,7 +1,7 @@
 # SparkyFitness
 
 Purpose: private fitness and nutrition tracking at sparkyfitness.edgard.org.
-Status: current. Reviewed against: `881e92396dbd45e874ac2a68a0563e5784ca9faa`.
+Status: current. Reviewed against: `8595d9d1cc7f418c2836b866809c06665e2487dc`.
 
 ## Dependencies and startup
 
@@ -18,8 +18,28 @@ routes remain available to the private administrator.
 ESO supplies independent owner/runtime passwords and persistent API/auth
 cryptographic keys. Private administrator creation uses the native auth API;
 public registration stays disabled. Garmin authorization is completed
-interactively in the application. AI, SMTP and other optional integrations are
-not enabled by these values.
+interactively in the application. SMTP and paid data-provider integrations remain unconfigured.
+
+## AI
+
+AI providers are configured through the native administrator and user settings,
+not deployment environment variables. The global OpenAI Chat and Vision service
+uses GPT-6.1 Sol with the full chat-tool profile; it also supplies the global
+vision default. The administrator account selects it for chat and vision, enables
+AI-assisted conversions, and selects its private OpenAI Voice service with
+`gpt-transcribe` for transcription. Voice input is enabled; the phone/browser still
+needs microphone permission. Text, food-photo and nutrition-label recognition,
+food/recipe suggestions, exercise and measurement logging, and coaching use the
+native AI features. Chat tools retain the application's normal permissions.
+
+Provider keys come from the existing Bitwarden OpenAI credential and are saved
+using SparkyFitness's native encryption. Database dumps retain provider selections
+and user preferences; retain the API-encryption key to decrypt stored credentials.
+After a cold install, recreate these settings under Admin → Global AI Settings
+and Settings → Developer & Integrations → AI Service Settings. Other users can
+select the global chat/vision service and configure their own voice provider.
+OpenAI processes AI requests and uploaded images/audio. Developer database tools
+and private-network access remain disabled; neither is required for these features.
 
 ## Storage and backup
 
@@ -70,6 +90,8 @@ work can block its HTTP event loop. TCP readiness is not proof of API progress.
 - [Helm values](../../../../apps/selfhosted/sparkyfitness/values.yaml)
 - [ESO credentials](../../../../apps/selfhosted/sparkyfitness/manifests/sparkyfitness-credentials.externalsecret.yaml)
 - [Restic exclusions](../../../../apps/selfhosted/restic/values.yaml)
+- [Upstream AI features](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/docs/src/features/ai-assistant.md)
+- [Upstream AI configuration](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/SparkyFitnessServer/models/chatRepository.ts)
 - [Upstream deployment](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/docker/docker-compose.prod.yml)
 
 ## Related pages
