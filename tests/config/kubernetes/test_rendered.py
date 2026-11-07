@@ -83,20 +83,3 @@ def test_route_coverage(repo_root, rendered):
         ]["hosts"],
         actual,
     )
-
-
-def test_sparky_backend_has_writable_volume_group(rendered):
-    servers = [
-        resource["spec"]["template"]["spec"]
-        for resource in rendered
-        if resource["kind"] == "Deployment"
-        and any(
-            container["image"].startswith("ghcr.io/codewithcj/sparkyfitness-server:")
-            for container in resource["spec"]["template"]["spec"]["containers"]
-        )
-    ]
-    assert len(servers) == 1
-    pod = servers[0]
-    assert any("persistentVolumeClaim" in volume for volume in pod["volumes"])
-    security = pod["securityContext"]
-    assert security.get("fsGroup") == security["runAsGroup"] == 1000

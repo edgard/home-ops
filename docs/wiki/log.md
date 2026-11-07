@@ -3,6 +3,17 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] revision | Retire Sure and SparkyFitness
+
+Removed both independent application definitions, app-only tests, route monitoring,
+and SQL-specific backup/recovery instructions. Restic backup and maintenance are
+explicitly suspended for the retirement's storage cleanup and selective historical
+snapshot rewrite; the follow-up change restores their original schedules and policy.
+Dedicated credentials and retained live storage are removed operationally. Existing
+whole-appdata NAS snapshots remain under their normal seven-day retention by choice.
+Shared OpenAI credentials, other applications and historical Git/wiki records remain.
+Reviewed backup architecture, recovery runbook, application index and source catalog.
+
 ## [2026-11-07] revision | Explain Gateway API downgrade protection
 
 Verified the vendored CRDs against the canonical upstream standard bundle and

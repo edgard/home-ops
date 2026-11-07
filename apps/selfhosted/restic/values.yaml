@@ -65,6 +65,7 @@ controllers:
   backup:
     type: cronjob
     cronjob:
+      suspend: true
       schedule: "0 3 * * *"
     pod:
       restartPolicy: OnFailure
@@ -113,12 +114,6 @@ controllers:
           - --tag
           - appdata
           - --verbose
-          - --exclude
-          - /data/appdata/selfhosted/sure-postgresql-data
-          - --exclude
-          - /data/appdata/selfhosted/sure-redis-data
-          - --exclude
-          - /data/appdata/selfhosted/sparkyfitness-postgresql-data
         env:
           RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:
@@ -142,6 +137,7 @@ controllers:
   maintenance:
     type: cronjob
     cronjob:
+      suspend: true
       schedule: "0 4 * * 1"
     pod:
       restartPolicy: OnFailure
