@@ -96,7 +96,6 @@ def assert_resource(doc):
         )
         assert set(conditions[0]["namespaces"]) == {
             "argocd",
-            "home-automation",
             "media",
             "platform-system",
             "selfhosted",
@@ -183,7 +182,7 @@ def assert_resource(doc):
         for volume in pod.get("volumes", [])
     ):
         assert pod_security.get("fsGroup") == 0, f"shared media group: {label}"
-    for container_index, container in enumerate(containers):
+    for container in containers:
         image = container.get("image", "")
         security = container.get("securityContext", {})
         capabilities = security.get("capabilities", {})
@@ -194,27 +193,7 @@ def assert_resource(doc):
             assert "ALL" in capabilities.get("drop", []), (
                 f"drop capabilities: {label}/{container['name']}"
             )
-        storage_ownership_init = (
-            container_index >= len(pod.get("containers", []))
-            and container.get("name") == "permissions"
-            and image.startswith(
-                ("docker.io/library/postgres:", "docker.io/library/redis:")
-            )
-        )
-        if storage_ownership_init:
-            assert security.get("runAsUser") == 0 and security.get(
-                "readOnlyRootFilesystem"
-            ), "narrow storage ownership init"
-            assert not security.get("allowPrivilegeEscalation", False), (
-                "storage init privilege escalation"
-            )
-            assert "ALL" in capabilities.get("drop", []), "storage init capabilities"
-            assert set(capabilities.get("add", [])) <= {
-                "CHOWN",
-                "FOWNER",
-                "DAC_OVERRIDE",
-            }, "storage init capability scope"
-        if not image.startswith(ROOT_IMAGES) and not storage_ownership_init:
+        if not image.startswith(ROOT_IMAGES):
             assert security.get(
                 "runAsNonRoot", pod_security.get("runAsNonRoot", False)
             ), f"non-root: {label}/{container['name']}"

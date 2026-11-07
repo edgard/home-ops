@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
+Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
 
 ## Dependencies
 
@@ -27,11 +27,6 @@ Gateway API, the Restic restore image, and the shared SecretSpec compatibility
 pin in [the CLI role defaults](../../../../ansible/roles/cli_secrets/defaults/main.yml). When moving a dependency file, check
 its manager file patterns and run a local extraction dry run; valid configuration
 alone does not prove that the dependency is still discovered.
-
-The shared-data foundation adds Dockerfile base/client images and Python native
-database clients. Major PostgreSQL/Redis adoption requires compatibility and
-recovery rehearsals before deployment; a Renovate PR or successful image build
-alone does not authorize a major data-service upgrade.
 
 Talos updates cover both the machine-config installer and the upgrade target in
 role defaults. The [installer contract](../../decisions/talos-image-factory.md)

@@ -13,11 +13,6 @@ The [Gatus transition decision](../decisions/gatus-transition.md) records why
 the older observability stack was retired. This wiki does not store changing
 health results; query the running endpoint and its logs when investigating.
 
-The shared data services add internal TCP checks. Their database credentials are
-not used by these reachability checks. A separate external heartbeat token is
-delivered through ESO; the backup heartbeat remains disabled until coordinated
-backup and recovery acceptance. See [shared data operations](../operations/shared-data.md).
-
 ## Sources
 
 - [Gatus values](../../../apps/platform-system/gatus/values.yaml)

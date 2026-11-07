@@ -1,3 +1,0 @@
----
-- name: Recover interrupted backup safely
-  ansible.builtin.import_tasks: maintenance_watchdog.yml

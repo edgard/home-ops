@@ -37,10 +37,10 @@ runs:
         python-version-file: pyproject.toml
 
     - name: Set Up uv
-      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
       with:
         # renovate: datasource=github-releases depName=astral-sh/uv
-        version: "0.13.7"
+        version: "0.13.6"
         enable-cache: true
         cache-dependency-glob: uv.lock
 
@@ -61,7 +61,7 @@ runs:
       uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
         # renovate: datasource=github-releases depName=opentofu/opentofu
-        tofu_version: v1.13.2
+        tofu_version: v1.13.1
         tofu_wrapper: false
 
     - name: Set Up Project Dependencies
@@ -87,30 +87,9 @@ runs:
         install -m 0755 "$tmp/secretspec-x86_64-unknown-linux-gnu/secretspec" "$RUNNER_TEMP/home-ops-bin/secretspec"
         echo "$RUNNER_TEMP/home-ops-bin" >> "$GITHUB_PATH"
 
-    - name: Install Restic
-      if: ${{ inputs.profile == 'test' }}
-      shell: bash
-      env:
-        # renovate: datasource=github-releases depName=restic/restic
-        RESTIC_VERSION: v0.19.1
-      run: |
-        version="${RESTIC_VERSION#v}"
-        archive="restic_${version}_linux_amd64.bz2"
-        release="https://github.com/restic/restic/releases/download/${RESTIC_VERSION}"
-        tmp="$(mktemp -d "$RUNNER_TEMP/restic.XXXXXX")"
-        trap 'rm -rf "$tmp"' EXIT
-        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$archive" "$release/$archive"
-        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/SHA256SUMS" "$release/SHA256SUMS"
-        grep "  ${archive}$" "$tmp/SHA256SUMS" | (cd "$tmp" && sha256sum --check --status)
-        bunzip2 "$tmp/$archive"
-        mkdir -p "$RUNNER_TEMP/home-ops-bin"
-        install -m 0755 "$tmp/${archive%.bz2}" "$RUNNER_TEMP/home-ops-bin/restic"
-        "$RUNNER_TEMP/home-ops-bin/restic" version | grep -F "restic $version compiled with "
-        echo "$RUNNER_TEMP/home-ops-bin" >> "$GITHUB_PATH"
-
     - name: Set Up pluto
       if: ${{ inputs.profile == 'test' }}
-      uses: FairwindsOps/pluto/github-action@d7d4f3f312f5b65c989a5a4eb92eb6b4ef86e29f # v5.24.5
+      uses: FairwindsOps/pluto/github-action@ac2c42d55d5ff46a1af0f4b15faf3555119eea23 # v5.24.4
       with:
         # renovate: datasource=docker depName=us-docker.pkg.dev/fairwinds-ops/oss/pluto
         IMAGE_TAG: v5.23

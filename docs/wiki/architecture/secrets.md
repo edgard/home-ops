@@ -15,11 +15,6 @@ ESO bootstrap copy in Bitwarden. SecretSpec scopes limit values injected into ea
 command, while the account can read the whole project. The shared store restricts
 consumer namespaces; it does not isolate allowed namespaces from each other.
 
-Prepared shared-data credentials use independent per-application items and
-namespace-local Secrets. The permitted consumers now include home automation;
-this allows the future recorder migration without changing its current backend.
-Application adoption remains gated by [shared-data operations](../operations/shared-data.md).
-
 The [maintenance runbook](../operations/secrets-maintenance.md) covers provisioning,
 rotation, and recovery. Preserve item names and IDs during project consolidation.
 A credential shared by Terraform and a workload, such as the Tailscale OAuth

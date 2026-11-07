@@ -1,7 +1,0 @@
----
-- name: Inspect queued application work before requesting shutdown
-  ansible.builtin.include_tasks: drain_app.yml
-  loop: "{{ shared_data_apps }}"
-  loop_control:
-    loop_var: shared_data_drain_app
-  when: shared_data_registry.consumers[shared_data_drain_app].drain is defined

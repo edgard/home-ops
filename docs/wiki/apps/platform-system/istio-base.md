@@ -1,13 +1,11 @@
 # Istio base
 
 Purpose: Istio base installs foundational Istio resources.
-Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
+Status: current. Reviewed against: `74d60b4e0a7607351ba07234d24cd435cfd45f54`.
 
 ## Dependencies
 
-The Istio control plane depends on this app's resources. Its lower-wave annotation
-records intended order; independently reconciled ApplicationSet children still
-need explicit prerequisite readiness during bootstrap.
+The Istio control plane depends on this lower-wave app.
 
 ## Data and recovery
 

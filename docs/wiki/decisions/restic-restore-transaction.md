@@ -1,7 +1,7 @@
 # Plan and guard appdata restores
 
 Purpose: explain the restore transaction's safety boundary.
-Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
+Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
 
 [PR #260](https://github.com/edgard/home-ops/pull/260) retained the shared
 Restic repository as the recovery source. [PR #261](https://github.com/edgard/home-ops/pull/261)
@@ -14,12 +14,6 @@ silently resuming incomplete data.
 The [runbook](../operations/restic-backup-restore.md) holds the operator steps.
 Do not infer backup freshness from this design; inspect snapshots before
 restoring.
-
-The deployed legacy role holds child Applications and the ApplicationSet, but
-does not hold the self-healing root. Its pause can therefore be undone by root
-reconciliation. The [shared-data foundation](../operations/shared-data.md)
-introduces a root-first fence; integration into the deployed restore entry point
-belongs to the subsequent rollout stage.
 
 ## Sources
 
