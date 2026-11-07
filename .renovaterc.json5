@@ -143,6 +143,14 @@
 
   // === Package Rules ===
   packageRules: [
+    // Paperless's bundled client still sends the Gotenberg 8 pdfa form field.
+    {
+      description: "Keep Gotenberg compatible with the Paperless conversion client",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["docker.io/gotenberg/gotenberg"],
+      allowedVersions: "<9.0.0",
+    },
+
     // The supported control-node Python range is reviewed with Ansible upgrades.
     {
       description: "Keep the supported Python range manually managed",

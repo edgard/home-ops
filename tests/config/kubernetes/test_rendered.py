@@ -6,6 +6,18 @@ from tests.support.resources import assert_resource, assert_route_coverage
 from tests.support.sources import read_yaml
 
 
+def test_headless_unpackerr_disables_its_http_listener(rendered):
+    container = next(
+        container
+        for doc in rendered
+        if doc.get("kind") == "Deployment"
+        for container in doc["spec"]["template"]["spec"]["containers"]
+        if container["image"].startswith("golift/unpackerr:")
+    )
+    env = {item["name"]: item.get("value") for item in container.get("env", [])}
+    assert env.get("UN_WEBSERVER_LISTEN_ADDR") == ""
+
+
 def test_rendered_resources(rendered):
     for doc in rendered:
         try:

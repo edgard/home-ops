@@ -4,6 +4,13 @@ from math import ceil
 from tests.support.sources import read_yaml
 
 
+def test_gotenberg_preserves_the_paperless_pdfa_client_api(repo_root):
+    values = read_yaml(repo_root / "apps/selfhosted/paperless/values.yaml")
+    image = values["controllers"]["gotenberg"]["containers"]["app"]["image"]
+    # The bundled client sends `pdfa`, which Gotenberg 9 rejects with HTTP 400.
+    assert str(image["tag"]).split(".")[0] == "8"
+
+
 def test_native_retrieval_has_generation_embeddings_and_secret_backed_access(repo_root):
     values = read_yaml(repo_root / "apps/selfhosted/paperless/values.yaml")
     controllers = values["controllers"]

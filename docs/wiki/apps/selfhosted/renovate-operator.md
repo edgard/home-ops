@@ -35,6 +35,10 @@ vendored CRDs through the configured post-upgrade command; the RenovateJob allow
 that command. Major updates also require manual review. Release-age and version
 limits remain in the repository configuration.
 
+Gotenberg stays within the major supported by Paperless's bundled conversion
+client. The [Paperless operational note](paperless.md) records the request-field
+incompatibility and the acceptance check required before lifting that limit.
+
 The OpenTofu `required_version` constraint is manually managed. Renovate excludes
 the Terraform CLI dependency from both `.terraform-version` files and Terraform
 configuration, while provider dependencies and the CI OpenTofu tool remain managed.
