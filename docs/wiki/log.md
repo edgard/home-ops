@@ -3,6 +3,13 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] revision | Resume normal Restic scheduling
+
+Removed the temporary retirement pause from backup and maintenance CronJobs and
+removed its temporary operational note. Daily and weekly schedules, retention,
+and the existing file-based restore procedure remain unchanged. Historical
+application retirement records remain in this log.
+
 ## [2026-11-07] revision | Retire Sure and SparkyFitness
 
 Removed both independent application definitions, app-only tests, route monitoring,
