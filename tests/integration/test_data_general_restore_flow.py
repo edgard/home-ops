@@ -349,7 +349,7 @@ raise SystemExit(r.returncode)
                         "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"
                     ),
                 },
-                timeout=600,
+                timeout=900,
             )
             diagnostic = (
                 (directory / "native.log").read_text()

@@ -388,3 +388,11 @@ identity so Linux can inspect and clean private artifacts without loosening
 production permissions. Dedicated root/server ownership and capability fixtures
 retain their explicit profiles. Updated the test guide and made CI stop after a
 failure so its diagnostic report is emitted before a later job timeout.
+
+## 2026-11-07 — Recovery scenario timing and fixture cleanup
+
+The first bounded CI failure report identified an outer backup-test timeout
+during resumption after capture. Increased whole-scenario and CI allowances for
+native recovery cases without changing production pause limits or safety
+assertions. Added coordinator-exit cleanup coverage for waiting upload workers.
+Reviewed the validation architecture and test guide against the actual CI trace.

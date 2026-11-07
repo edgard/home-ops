@@ -159,7 +159,7 @@ raise SystemExit(r.returncode)
                     "RESTIC_PASSWORD": "synthetic-only",
                     "RESTIC_CACHE_DIR": str(directory / "cache"),
                 },
-                timeout=300,
+                timeout=900,
             )
             diagnostic = (
                 (directory / "native.log").read_text()

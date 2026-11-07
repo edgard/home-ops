@@ -99,6 +99,11 @@ remain accessible to the same fixture actor on Linux and macOS. They retain
 their private modes. Dedicated ownership and capability tests keep their explicit
 root/server profiles and inspect their numeric metadata inside Linux volumes.
 
+Whole-scenario subprocess ceilings include control-plane hold, capture, resume,
+and publication on shared CI runners. They do not extend production capture
+budgets or deliberate timeout assertions. Upload fixture workers also stop
+waiting when their coordinator exits, so a failed scenario cannot publish later.
+
 Ansible tests use temporary HOME/config paths, sanitized environments, bounded
 subprocesses, explicit fake CLIs, and a loopback Kubernetes API. The actual
 Kubernetes collection handles reads, patches, scaling, waits, and deletion.

@@ -77,6 +77,9 @@ use a separate bounded budget from deliberate timeout scenarios; a delayed
 synthetic response verifies that the intended target-read fault is reached.
 Whole-role process ceilings include headroom for slower shared CI runners;
 they are separate from the short API polling and deliberate timeout assertions.
+Backup and recovery scenario ceilings include hold, capture, resume, and upload;
+they do not alter the production capture pause budget. Upload fixture workers
+stop waiting when their coordinator exits, preventing later fixture publication.
 Timed-out child groups are terminated and their last captured output is retained
 as exception diagnostics. CI reports the slowest scenarios for budget review.
 

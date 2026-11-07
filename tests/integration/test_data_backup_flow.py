@@ -21,6 +21,56 @@ def image():
     return operations_image()
 
 
+def wait_for_resumed_writer(state, path, coordinator_done):
+    """Bound the fixture's upload wait and stop when its coordinator fails."""
+    deadline = time.monotonic() + 600
+    while True:
+        if coordinator_done.is_set():
+            raise AssertionError("coordinator ended before writers resumed")
+        if state["objects"][path]["spec"]["replicas"] == 2:
+            return
+        if time.monotonic() > deadline:
+            raise AssertionError("writers never resumed before upload")
+        coordinator_done.wait(0.1)
+
+
+def test_uploader_fixture_stops_waiting_after_failed_coordinator():
+    state = {"objects": {"writer": {"spec": {"replicas": 0}}}}
+    done = threading.Event()
+    errors = []
+    uploaded = []
+
+    def upload():
+        try:
+            wait_for_resumed_writer(state, "writer", done)
+            uploaded.append(True)
+        except AssertionError as error:
+            errors.append(str(error))
+
+    worker = threading.Thread(target=upload)
+    worker.start()
+    try:
+        worker.join(timeout=0.05)
+        assert worker.is_alive()
+    finally:
+        done.set()
+        worker.join(timeout=5)
+    assert not worker.is_alive()
+    assert errors == ["coordinator ended before writers resumed"]
+    state["objects"]["writer"]["spec"]["replicas"] = 2
+    assert not uploaded
+
+
+def test_uploader_fixture_refuses_already_resumed_writer_after_coordinator_exit():
+    state = {"objects": {"writer": {"spec": {"replicas": 2}}}}
+    done = threading.Event()
+    done.set()
+    with pytest.raises(
+        AssertionError, match="coordinator ended before writers resumed"
+    ):
+        wait_for_resumed_writer(state, "writer", done)
+
+
 @pytest.mark.parametrize("broken_images", [False, True])
 def test_backup_captures_then_resumes_before_fresh_upload(tmp_path, broken_images):
     objects, variables = api.scenario_objects()
@@ -81,7 +131,7 @@ raise SystemExit(result.returncode)
         shared_data_root=str(root),
         shared_data_staging=str(directory / "staging"),
         shared_data_credentials=str(directory / "credentials"),
-        shared_data_job_timeout=60,
+        shared_data_job_timeout=300,
     )
     (directory / "credentials").mkdir()
     (directory / "bin").mkdir()
@@ -94,17 +144,14 @@ raise SystemExit(result.returncode)
     errors = []
     workers = []
     job_results = []
+    coordinator_done = threading.Event()
 
     def created(job, state):
         def execute():
             try:
-                until = time.monotonic() + 90
-                while (
-                    state["objects"][api.path_for(deployment)]["spec"]["replicas"] != 2
-                ):
-                    if time.monotonic() > until:
-                        raise AssertionError("writers never resumed before upload")
-                    time.sleep(0.1)
+                wait_for_resumed_writer(
+                    state, api.path_for(deployment), coordinator_done
+                )
                 # Replay the Pod mounts with one bind-fixture identity. Explicit
                 # production UID/capability behavior has separate Linux coverage.
                 mounts = [
@@ -183,7 +230,7 @@ raise SystemExit(result.returncode)
                     *job["spec"]["template"]["spec"]["containers"][0]["args"],
                 ]
                 result = subprocess.run(
-                    command, capture_output=True, text=True, timeout=90
+                    command, capture_output=True, text=True, timeout=180
                 )
                 job_results.append(result)
                 if result.returncode:
@@ -206,7 +253,7 @@ raise SystemExit(result.returncode)
                         "/staging/uploaded/test-backup.json",
                     ]
                     diagnostic = subprocess.run(
-                        debug, capture_output=True, text=True, timeout=90
+                        debug, capture_output=True, text=True, timeout=180
                     )
                     raise AssertionError(
                         result.stdout
@@ -236,42 +283,45 @@ raise SystemExit(result.returncode)
                     state.setdefault("producer_paused_at", time.time())
 
             state["patched"] = paused
-            result = run_role(
-                tmp_path,
-                "shared_data",
-                "main",
-                {**connection, **variables},
-                env={
-                    "DOCKER_HOST": subprocess.run(
+            try:
+                result = run_role(
+                    tmp_path,
+                    "shared_data",
+                    "main",
+                    {**connection, **variables},
+                    env={
+                        "DOCKER_HOST": subprocess.run(
+                            [
+                                "docker",
+                                "context",
+                                "inspect",
+                                "--format",
+                                "{{.Endpoints.docker.Host}}",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        ).stdout.strip()
+                    },
+                    timeout=900,
+                    after=(
                         [
-                            "docker",
-                            "context",
-                            "inspect",
-                            "--format",
-                            "{{.Endpoints.docker.Host}}",
-                        ],
-                        capture_output=True,
-                        text=True,
-                        check=True,
-                    ).stdout.strip()
-                },
-                timeout=300,
-                after=(
-                    [
-                        {
-                            "ansible.builtin.copy": {
-                                "content": "{{ shared_data_capture_deadline | to_json }}",
-                                "dest": str(directory / "deadline.json"),
-                                "mode": "0600",
+                            {
+                                "ansible.builtin.copy": {
+                                    "content": "{{ shared_data_capture_deadline | to_json }}",
+                                    "dest": str(directory / "deadline.json"),
+                                    "mode": "0600",
+                                }
                             }
-                        }
-                    ]
-                    if not broken_images
-                    else []
-                ),
-            )
+                        ]
+                        if not broken_images
+                        else []
+                    ),
+                )
+            finally:
+                coordinator_done.set()
             for worker in workers:
-                worker.join(timeout=100)
+                worker.join(timeout=190)
             assert not errors, "\n".join(str(error) for error in errors) + (
                 (directory / "restic.log").read_text()
                 if (directory / "restic.log").exists()
@@ -332,7 +382,8 @@ raise SystemExit(result.returncode)
                     ("retained",)
                 ]
     finally:
+        coordinator_done.set()
         for worker in workers:
-            worker.join(timeout=100)
+            worker.join(timeout=190)
         if not any(worker.is_alive() for worker in workers):
             shutil.rmtree(directory)
