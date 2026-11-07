@@ -85,6 +85,49 @@ The plan shows the app, namespace, source paths, restore paths, and workloads
 that will be stopped and resumed. A single-PVC restore is the same command:
 restore the Argo CD app that owns the PVC.
 
+## SparkyFitness database and files
+
+SparkyFitness's native full archives contain a compressed SQL dump and an uploads
+archive. Restic excludes the live PostgreSQL subdirectory. Restoring its PVC as
+files therefore does not restore the database. For a running installation, recover
+the selected completed archive into a temporary directory and use the native
+administrator restore page, retaining the same Bitwarden encryption/auth secrets.
+
+For cold recovery, use this manual application-specific sequence:
+
+1. Recover the selected completed archive from Restic into temporary storage.
+   Preserve the current data if it is still needed; do not overwrite an existing
+   installation before confirming the selected archive.
+2. Hold Argo reconciliation for this app using the existing maintenance procedure.
+   Stop frontend, backend and Garmin; start only its dedicated PostgreSQL.
+3. Use a temporary official PostgreSQL 18 client mounting the app PVC at `/data`
+   and the existing app Secret for its owner credentials. Extract the outer
+   archive and create the `sparky_app` LOGIN role if it is missing, leaving its
+   password unset until the backend provisions it. Native dumps include grants
+   to this role but do not create it. Drop/recreate only `sparkyfitness_db`, then stream the inner
+   `sparkyfitness_db_backup_*.sql.gz` into `psql --set ON_ERROR_STOP=1` against that
+   database. Do not use `pg_restore`: this native archive contains plain SQL.
+4. Replace `/data/uploads` with the recovered uploads archive contents, preserving
+   the backend's writable UID/group. Retain the API-encryption and authentication
+   keys from Bitwarden. Leave the PostgreSQL files to PostgreSQL itself.
+5. Remove the temporary client, resume the backend and then Garmin/frontend, and
+   restore the recorded Argo settings. The backend maintains its runtime role.
+   Verify login, records, upload hashes, decrypted AI/provider settings and backup
+   scheduling before allowing new imports. Clean temporary recovery files.
+
+The app's dedicated PostgreSQL owner retains the upstream privileges needed by
+native restore, which drops and recreates only its own database. Do not treat a
+native success response as sufficient verification: inspect SQL errors and data.
+See the [app page](../apps/selfhosted/sparkyfitness.md) and
+[backup implementation](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/SparkyFitnessServer/services/backupService.ts).
+
+The existing role's `restic_restore_excluded_apps` default excludes SparkyFitness
+from the generic file transaction, including restore-all and cluster recovery.
+Recover it with the sequence above. The generic transaction resumes its selected
+apps automatically, so keep this exclusion when overriding that setting.
+Other apps retain the existing file restore workflow below; the only additional
+recovery configuration is this entry in the existing exclusion list.
+
 ## Restore All Appdata
 
 ```sh

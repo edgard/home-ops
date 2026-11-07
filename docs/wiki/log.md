@@ -3,6 +3,17 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] revision | Reinstall SparkyFitness with native features
+
+Reintroduced the dedicated frontend, backend, PostgreSQL and Garmin stack with
+one retained claim and three persistent infrastructure credentials. Documented
+interactive administrator creation, full native OpenAI configuration, hourly
+Garmin sync, native scheduled backups and manual SQL-aware cold recovery.
+Restic includes completed native archives and excludes live PostgreSQL and
+unfinished backup work. Reviewed storage, secrets, backup architecture and the
+recovery runbook, including the existing generic restore exclusion for this SQL
+app; November's semantic review is already recorded below.
+
 ## [2026-11-07] revision | Resume normal Restic scheduling
 
 Removed the temporary retirement pause from backup and maintenance CronJobs and
