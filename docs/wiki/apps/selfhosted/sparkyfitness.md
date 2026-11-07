@@ -1,7 +1,7 @@
 # SparkyFitness
 
 Purpose: private fitness and nutrition tracking with Garmin and native OpenAI features.
-Status: current. Reviewed against: `55d0b446429b2e7ad484d0b693e388ec75baf284`.
+Status: current. Reviewed against: `8398470979b492f07808d3c779719df90972d3d2`.
 
 ## Deployment and account setup
 
@@ -16,9 +16,10 @@ and authentication data need the same keys after recovery. The automation
 machine account remains read-only. The administrator email is ordinary
 configuration, and no administrator password is stored in the deployment.
 
-For the initial installation, register `castro@edgard.org` and choose a password
-in the UI. That configured email receives administrator access. Close further
-registration with `SPARKY_FITNESS_DISABLE_SIGNUP=true` in a follow-up GitOps change.
+The configured administrator email is `castro@edgard.org`. Registration is closed
+with `SPARKY_FITNESS_DISABLE_SIGNUP=true`; existing accounts continue to sign in
+with their chosen passwords. Temporarily reopening registration requires an
+explicit GitOps change.
 
 The frontend uses its packaged configuration, non-root port and fully qualified
 backend hostname. The backend trusts the existing gateway plus bundled frontend
