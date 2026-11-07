@@ -65,7 +65,6 @@ controllers:
   backup:
     type: cronjob
     cronjob:
-      suspend: true
       schedule: "0 3 * * *"
     pod:
       restartPolicy: OnFailure
@@ -137,7 +136,6 @@ controllers:
   maintenance:
     type: cronjob
     cronjob:
-      suspend: true
       schedule: "0 4 * * 1"
     pod:
       restartPolicy: OnFailure
