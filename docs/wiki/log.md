@@ -3,6 +3,15 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] revision | Explain Gateway API downgrade protection
+
+Verified the vendored CRDs against the canonical upstream standard bundle and
+documented its admission-policy downgrade boundary. A Git revert may initially
+be rejected by the active bundle-version floor; plan the policy change explicitly
+while preserving stored custom resources and coordinating GitOps. Reviewed Istio and networking explanations;
+their existing controller and route contracts remain accurate. November's
+semantic review is already recorded below.
+
 ## [2026-11-07] revision | Preserve application contracts during major upgrades
 
 Retained the compatible Gotenberg API major, updated to its final security
