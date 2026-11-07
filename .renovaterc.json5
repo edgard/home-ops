@@ -49,7 +49,7 @@
       description: "Container images in app values files",
       managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/values\\.ya?ml$/"],
       matchStrings: [
-        "repository:\\s*(?<depName>[^\\s\"']+)\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?(?:\\s*\\n\\s*digest:\\s*[\"']?(?<currentDigest>sha256:[a-f0-9]{64})[\"']?)?",
+        "repository:\\s*(?<depName>[^\\s\"']+)\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?",
       ],
       datasourceTemplate: "docker",
     },
@@ -82,7 +82,6 @@
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*kubeconform-version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*YAMLFMT_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*ACTIONLINT_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*RESTIC_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
       ],
     },
 

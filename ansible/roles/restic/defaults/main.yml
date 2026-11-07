@@ -21,17 +21,11 @@ restic_restore_target_root: /restore
 restic_restore_appdata_pvc: restic-appdata
 restic_restore_retry_lock: 30m
 restic_restore_excluded_apps:
-  - postgresql
-  - redis
-  - shared-data
   - restic
   - root
   - media-backup
   - selfhosted-backup
 restic_restore_excluded_pvcs:
-  - platform-system/postgresql
-  - platform-system/redis
-  - selfhosted/shared-data-staging
   - media/media
   - selfhosted/restic-repo
   - selfhosted/restic-appdata

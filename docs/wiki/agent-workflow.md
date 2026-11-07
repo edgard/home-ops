@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
+Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -106,10 +106,6 @@ controllers:
 
 ### ArgoCD Sync Waves
 `-4` CRDs → `-3` Controllers/DNS → `-2` Mesh/PVCs → `-1` k8tz → `0` Apps
-
-These annotations express intended ordering. ApplicationSet children reconcile
-independently; wave metadata alone does not gate another application's startup.
-Use explicit prerequisite Jobs and readiness checks for required dependencies.
 
 ### ExternalSecret Pattern
 `refreshInterval → secretStoreRef (name, kind) → target → data`

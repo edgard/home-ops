@@ -126,7 +126,7 @@ controllers:
       app:
         image:
           repository: getmeili/meilisearch
-          tag: v1.56.1
+          tag: v1.56.0
         args:
           - /bin/meilisearch
           - --upgrade-db

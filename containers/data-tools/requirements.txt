@@ -1,6 +1,0 @@
-ansible-core==2.22.0
-kubernetes==37.0.2
-jsonpatch==1.44
-PyYAML==6.0.3
-psycopg[binary]==3.3.8
-redis==8.1.0

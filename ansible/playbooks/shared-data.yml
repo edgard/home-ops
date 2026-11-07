@@ -1,7 +1,0 @@
----
-- name: Operate shared application data
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  roles:
-    - role: shared_data

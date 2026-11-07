@@ -1,7 +1,7 @@
 # Secrets maintenance and recovery
 
 Purpose: provision and operate the unified Bitwarden delivery paths.
-Status: current. Reviewed against: `0eb60f6ccc54f3ad28e28fdebd0cf95ca27c1b16`.
+Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
 
 ## Setup without cluster access
 
@@ -131,13 +131,6 @@ on the new Mac. Restore nonsecret node/disk/path settings, then use
 and machine configuration. Do not generate a new identity for an existing
 cluster. Verify client access before applying node configuration. Kubernetes
 Secrets remain ESO delivery artifacts; maintain their values in Bitwarden.
-
-The [shared-data rollout](shared-data.md) additionally needs a separately
-authorized writer to create application/database credentials in Bitwarden.
-Keep the existing ESO/SecretSpec machine account read-only and supply temporary
-writer credentials through a separate local Keychain reference. Database
-password rotation must coordinate held clients, SQL/Redis changes, Bitwarden,
-ESO delivery, and actual authentication before resuming consumers.
 
 A full cold bootstrap is proved only on a disposable Talos environment with the
 external NAS/storage/network prerequisites. Do not rebuild production to validate

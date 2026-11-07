@@ -2,7 +2,6 @@
 ignore: |
   .ansible/
   .venv/
-  .superpowers/
   apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml
 
 extends: default
