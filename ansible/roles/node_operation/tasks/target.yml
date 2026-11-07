@@ -1,0 +1,21 @@
+---
+- name: Guard native owner before changing one minimal fence
+  ansible.builtin.include_tasks: guard.yml
+- name: Read exact fence target immediately before mutation
+  kubernetes.core.k8s_info:
+    api_version: "{{ node_operation_target.api_version }}"
+    kind: "{{ node_operation_target.kind }}"
+    namespace: "{{ node_operation_target.namespace }}"
+    name: "{{ node_operation_target.name }}"
+  register: node_operation_target_read
+- name: Reject source drift or foreign queued operations without overwriting them
+  ansible.builtin.assert:
+    that: node_operation_target | node_operation_target_valid(node_operation_target_read.resources, 'held' if node_operation_target_mode == 'restore' else 'either')
+- name: Apply the common identity and resource version guarded field patch
+  kubernetes.core.k8s_json_patch:
+    api_version: "{{ node_operation_target.api_version }}"
+    kind: "{{ node_operation_target.kind }}"
+    namespace: "{{ node_operation_target.namespace }}"
+    name: "{{ node_operation_target.name }}"
+    patch: "{{ (node_operation_target | shared_data_skip_patch(node_operation_target_read.resources[0])) if node_operation_target_mode == 'skip' else (node_operation_target | shared_data_patch(node_operation_target_read.resources[0], node_operation_target_mode == 'restore')) }}"
+  when: not node_operation_target.absent | default(false) | bool

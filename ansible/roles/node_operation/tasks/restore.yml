@@ -1,0 +1,10 @@
+---
+- name: Verify all fences and independent workers before restoring any policy
+  ansible.builtin.include_tasks: barrier.yml
+- name: Restore exact captured fields with root last after proven native completion
+  ansible.builtin.include_tasks: target.yml
+  loop: "{{ (node_operation_journal.snapshots | selectattr('role', 'equalto', 'tuppr') | list) + (node_operation_journal.snapshots | selectattr('role', 'equalto', 'application') | list) + (node_operation_journal.snapshots | selectattr('role', 'equalto', 'appset') | list) + (node_operation_journal.snapshots | selectattr('role', 'equalto', 'root') | list) }}"
+  loop_control:
+    loop_var: node_operation_target
+  vars:
+    node_operation_target_mode: restore

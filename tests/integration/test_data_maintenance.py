@@ -23,6 +23,7 @@ RESOURCES = {
         "ConfigMap": "configmaps",
         "Pod": "pods",
         "Node": "nodes",
+        "Namespace": "namespaces",
         "Secret": "secrets",
         "Service": "services",
         "ServiceAccount": "serviceaccounts",
@@ -130,7 +131,11 @@ def maintenance_api(tmp_path, objects, *, include_default_service_account=True):
             path = urlsplit(self.path).path
             if path == "/version":
                 return self.respond(
-                    {"major": "1", "minor": "35", "gitVersion": "v1.35.0"}
+                    {
+                        "major": "1",
+                        "minor": "35",
+                        "gitVersion": state.get("server_version", "v1.35.0"),
+                    }
                 )
             if path == "/api":
                 return self.respond({"kind": "APIVersions", "versions": ["v1"]})
@@ -174,6 +179,7 @@ def maintenance_api(tmp_path, objects, *, include_default_service_account=True):
                                 "namespaced": kind
                                 not in {
                                     "Node",
+                                    "Namespace",
                                     "TalosUpgrade",
                                     "KubernetesUpgrade",
                                     "SelfSubjectReview",
@@ -206,6 +212,11 @@ def maintenance_api(tmp_path, objects, *, include_default_service_account=True):
             state["events"].append({"method": "GET", "path": path})
             if state.get("on_get"):
                 state["on_get"](path, state)
+            if path == "/api/v1/nodes/node" and state.get("native_outage_reads", 0) > 0:
+                state["native_outage_reads"] -= 1
+                return self.respond(
+                    {"kind": "Status", "reason": "ServiceUnavailable", "code": 503}, 503
+                )
             if path in state["objects"]:
                 return self.respond(state["objects"][path])
             if path.rsplit("/", 1)[-1] in {
@@ -285,6 +296,16 @@ def maintenance_api(tmp_path, objects, *, include_default_service_account=True):
                 return self.respond(
                     {"kind": "Status", "reason": "Forbidden", "code": 403}, 403
                 )
+            if (
+                method == "POST"
+                and state.get("fail_native_journal_create")
+                and journal_payload
+                and json.loads(journal_payload).get("operation_kind")
+                == "node-operation"
+            ):
+                return self.respond(
+                    {"kind": "Status", "reason": "Forbidden", "code": 403}, 403
+                )
             if method == "POST":
                 path += "/" + body["metadata"]["name"]
                 if path in state["objects"]:
@@ -317,6 +338,8 @@ def maintenance_api(tmp_path, objects, *, include_default_service_account=True):
                 state["objects"][path] = body
                 return self.respond(body, 201)
             try:
+                if state.get("before_patch"):
+                    state["before_patch"](path, body, state)
                 value = state["objects"][path]
                 if isinstance(body, list):
                     value = jsonpatch.apply_patch(value, body)

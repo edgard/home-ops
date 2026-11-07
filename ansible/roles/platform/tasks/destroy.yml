@@ -1,23 +1,6 @@
 ---
-- name: Delete Argo CD root application
-  kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    state: absent
-    src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
-    wait: true
-
-- name: Remove bootstrap Helm releases
-  kubernetes.core.helm:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    release_name: "{{ item.name }}"
-    release_namespace: "{{ item.namespace }}"
-    release_state: absent
-    wait: true
-    # The pinned collection forwards only wait_timeout to Helm uninstall.
-    # The native CLI fixture checks this boundary during collection updates.
-    wait_timeout: "{{ platform_helm_timeout }}"
-  loop: "{{ platform_bootstrap_releases | reverse | list }}"
-  loop_control:
-    label: "{{ item.namespace }}/{{ item.name }}"
+- name: Exclude data operations across platform destruction
+  ansible.builtin.include_role:
+    name: node_operation
+  vars:
+    node_operation_action: platform-destroy

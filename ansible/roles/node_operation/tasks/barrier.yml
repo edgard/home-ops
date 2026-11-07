@@ -1,0 +1,43 @@
+---
+- name: Guard native owner before the automatic worker barrier
+  ansible.builtin.include_tasks: guard.yml
+- name: Require every original reconciliation fence and absent target still valid
+  ansible.builtin.include_tasks: verify_target.yml
+  loop: "{{ node_operation_journal.snapshots }}"
+  loop_control:
+    loop_var: node_operation_target
+- name: Inspect all independent upgrade custom resources after controller stop
+  kubernetes.core.k8s_info:
+    api_version: tuppr.home-operations.com/v1alpha1
+    kind: "{{ item }}"
+  loop:
+    - TalosUpgrade
+    - KubernetesUpgrade
+  register: node_operation_upgrade_reads
+- name: Require available upgrade APIs whenever a Tuppr installation exists
+  ansible.builtin.assert:
+    that: node_operation_upgrade_reads.results | selectattr('api_found', 'equalto', false) | list | length == 0 or node_operation_journal.snapshots | selectattr('role', 'in', ['application', 'tuppr']) | rejectattr('absent', 'defined') | list | length == 0
+- name: Read all upgrade Jobs before Pods
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: Job
+  register: node_operation_jobs_before
+- name: Read all controller and independent upgrade Pods
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+  register: node_operation_upgrade_pods
+  until: node_operation_journal.snapshots | selectattr('role', 'equalto', 'tuppr') | rejectattr('absent', 'defined') | list | shared_data_writers_stopped(node_operation_upgrade_pods.resources, node_operation_jobs_before.resources, '')
+  retries: "{{ node_operation_ready_retries }}"
+  delay: "{{ node_operation_ready_delay }}"
+- name: Refresh Jobs after Pods to catch a final controller launch
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: Job
+  register: node_operation_jobs_after
+- name: Require stopped controller Pods and no active or restart-capable workers
+  ansible.builtin.assert:
+    that:
+      - node_operation_journal.snapshots | selectattr('role', 'equalto', 'tuppr') | rejectattr('absent', 'defined') | list | shared_data_writers_stopped(node_operation_upgrade_pods.resources, node_operation_jobs_before.resources + node_operation_jobs_after.resources, '')
+      - node_operation_upgrade_reads.results | map(attribute='resources') | flatten | shared_data_upgrades_idle
+      - (node_operation_upgrade_reads.results | map(attribute='resources') | flatten) | shared_data_upgrade_workers_idle(node_operation_jobs_before.resources + node_operation_jobs_after.resources, node_operation_upgrade_pods.resources)

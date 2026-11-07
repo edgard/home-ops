@@ -44,18 +44,11 @@
         that: (platform_normal_cold_gate.resources[0].data['journal.json'] | from_json if platform_normal_cold_gate.resources | length == 1 else {}) | cold_normal_bootstrap
         fail_msg: Cold recovery exists; complete its validated runtime admission before using normal bootstrap.
 
-- name: Apply Argo CD root application
+- name: Keep ordinary root creation and existing root fenced under the native owner
   when: not platform_recovery_mode | bool
-  kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    state: present
-    apply: true
-    src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
-
-- name: Verify committed GitOps handoff and fresh application secrets
-  when: not platform_recovery_mode | bool
-  ansible.builtin.include_tasks: handoff.yml
+  ansible.builtin.include_role:
+    name: node_operation
+    tasks_from: bootstrap_root
 
 - name: Bootstrap cold recovery resources already held
   ansible.builtin.include_tasks: recovery.yml

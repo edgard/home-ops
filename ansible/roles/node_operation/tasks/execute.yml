@@ -1,0 +1,27 @@
+---
+- name: Execute the registered Talos role action
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: "{{ {'talos-apply': 'apply_execute', 'talos-bootstrap': 'bootstrap_execute', 'talos-upgrade': 'upgrade_execute', 'talos-upgrade-k8s': 'upgrade_k8s_execute', 'talos-reset': 'reset_execute'}[node_operation_selected_action] }}"
+  when: node_operation_selected_action is match('^talos-')
+- name: Execute ordinary platform bootstrap under native exclusion
+  ansible.builtin.include_role:
+    name: platform
+    tasks_from: bootstrap_execute
+  when: node_operation_selected_action == 'platform-bootstrap'
+- name: Execute platform destruction under native exclusion
+  ansible.builtin.include_role:
+    name: platform
+    tasks_from: destroy_execute
+  when: node_operation_selected_action in ['platform-destroy', 'cluster-destroy']
+- name: Verify the composed owner before destructive reset
+  ansible.builtin.include_tasks: guard.yml
+  when: node_operation_selected_action == 'cluster-destroy'
+- name: Reset only after platform destruction under the same owner
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: reset_execute
+  when: node_operation_selected_action == 'cluster-destroy'
+- name: Execute composed creation under one native owner
+  ansible.builtin.include_tasks: create.yml
+  when: node_operation_selected_action == 'cluster-create'

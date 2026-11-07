@@ -1,0 +1,72 @@
+---
+- name: Recheck the native exclusion before destroying its platform
+  ansible.builtin.include_tasks: guard.yml
+- name: Require durable pre-fence adoption proof at the deletion boundary
+  ansible.builtin.assert:
+    that: node_operation_journal.retention_proof is defined
+  when: not node_operation_capture_retention | default(false) | bool
+- name: Read the retained coordination namespace
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: selfhosted
+  register: node_operation_namespace_read
+- name: Read the root adoption evidence before cascading deletion
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: argocd
+    name: root
+  register: node_operation_root_read
+- name: Require original named resources and one exact adopted source revision
+  ansible.builtin.assert:
+    that:
+      - node_operation_namespace_read.resources | length == 1
+      - node_operation_root_read.resources | length == 1
+      - node_operation_namespace_read.resources[0].metadata.uid | length > 0
+      - node_operation_root_read.resources[0].metadata.uid | length > 0
+      - node_operation_root_read.resources[0].status.sync.revisions | default([node_operation_root_read.resources[0].status.sync.revision | default('')]) | unique | length == 1
+- name: Select the root source that already installed namespace retention
+  ansible.builtin.set_fact:
+    node_operation_retention_revision: "{{ (node_operation_root_read.resources[0].status.sync.revisions | default([node_operation_root_read.resources[0].status.sync.revision | default('')]))[0] if node_operation_capture_retention | default(false) | bool else node_operation_journal.retention_proof.revisions[0] }}"
+- name: Require a full immutable adopted Git source
+  ansible.builtin.assert:
+    that: node_operation_retention_revision is match('^[a-f0-9]{40}$')
+- name: Read exact public namespace source from the adopted commit
+  ansible.builtin.command:
+    argv:
+      - git
+      - -C
+      - "{{ repo_root }}"
+      - show
+      - "{{ node_operation_retention_revision }}:argocd/namespaces/selfhosted.namespace.yaml"
+  register: node_operation_retention_source
+  changed_when: false
+- name: Refuse unadopted or just-patched retention rather than racing the Argo cache
+  ansible.builtin.assert:
+    that: node_operation_namespace_read.resources[0] | node_operation_retained(node_operation_root_read.resources[0], node_operation_retention_source.stdout | from_yaml, '' | shared_data_now, none if node_operation_capture_retention | default(false) | bool else node_operation_journal.retention_proof)
+- name: Read namespace again immediately before root cascade
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: selfhosted
+  register: node_operation_namespace_final
+- name: Require stable namespace identity and exact inspected retention state
+  ansible.builtin.assert:
+    that:
+      - node_operation_namespace_final.resources | length == 1
+      - node_operation_namespace_final.resources[0].metadata.uid == node_operation_namespace_read.resources[0].metadata.uid
+      - node_operation_namespace_final.resources[0].metadata.resourceVersion == node_operation_namespace_read.resources[0].metadata.resourceVersion
+- name: Bind adoption only to the original unfenced captured Root
+  ansible.builtin.assert:
+    that:
+      - node_operation_journal.phase == 'native-intent'
+      - (node_operation_journal.snapshots | selectattr('role', 'equalto', 'root') | first) | node_operation_target_valid(node_operation_root_read.resources, 'original')
+  when: node_operation_capture_retention | default(false) | bool
+- name: Record exact successful source and namespace adoption before fencing
+  ansible.builtin.set_fact:
+    node_operation_journal: "{{ node_operation_journal | combine({'retention_proof': node_operation_namespace_read.resources[0] | node_operation_retention_proof(node_operation_root_read.resources[0], node_operation_retention_source.stdout | from_yaml, '' | shared_data_now, node_operation_journal.snapshots | selectattr('role', 'equalto', 'appset') | first)}) }}"
+  when: node_operation_capture_retention | default(false) | bool
+- name: Persist adoption proof under this owner before any GitOps fence mutation
+  ansible.builtin.include_tasks: save.yml
+  when: node_operation_capture_retention | default(false) | bool

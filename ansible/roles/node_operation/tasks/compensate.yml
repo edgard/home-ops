@@ -1,0 +1,9 @@
+---
+- name: Track every failed compensation without abandoning other fences
+  ansible.builtin.set_fact:
+    node_operation_compensation_failures: []
+- name: Re-fence all surviving targets with Root first and controller last
+  ansible.builtin.include_tasks: compensate_target.yml
+  loop: "{{ node_operation_journal.snapshots | default([]) }}"
+  loop_control:
+    loop_var: node_operation_target

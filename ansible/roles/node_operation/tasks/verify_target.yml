@@ -1,0 +1,24 @@
+---
+- name: Read original held or absent fence target
+  kubernetes.core.k8s_info:
+    api_version: "{{ node_operation_target.api_version }}"
+    kind: "{{ node_operation_target.kind }}"
+    namespace: "{{ node_operation_target.namespace }}"
+    name: "{{ node_operation_target.name }}"
+  register: node_operation_target_read
+- name: Require exact source and durable held field before native execution
+  ansible.builtin.assert:
+    that: node_operation_target | node_operation_target_valid(node_operation_target_read.resources)
+- name: Wait for actual Tuppr Deployment replicas to terminate
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ node_operation_target.namespace }}"
+    name: "{{ node_operation_target.name }}"
+  register: node_operation_controller
+  until:
+    - node_operation_target | node_operation_target_valid(node_operation_controller.resources)
+    - node_operation_controller.resources[0].status.replicas | default(0) == 0
+  retries: "{{ node_operation_ready_retries }}"
+  delay: "{{ node_operation_ready_delay }}"
+  when: node_operation_target.role == 'tuppr' and not node_operation_target.absent | default(false) | bool

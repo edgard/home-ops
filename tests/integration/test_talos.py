@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.support.api import cluster_api
+from tests.integration.test_data_maintenance import maintenance_api, obj
 from tests.support.runtime import ROOT, executable, run_role
 from tests.support.sources import read_yaml
 from tests.support.talos import MATERIAL
@@ -53,7 +53,8 @@ if 'gen' in args:
 elif 'version' in args:
  print(json.dumps({'version':{'tag':os.environ.get('SERVER_VERSION')},'client':{'tag':'v99.9.9'}}) if '--json' in args else 'synthetic-version')
 elif 'kubeconfig' in args:
- pathlib.Path(args[args.index('kubeconfig')+1]).write_text('synthetic-kubeconfig')
+ target=pathlib.Path(args[args.index('kubeconfig')+1])
+ if not target.exists():target.write_text('synthetic-kubeconfig')
 if os.environ.get('FAIL') in args:
  print('PRIVATE_FAILURE_MATERIAL',file=sys.stderr);sys.exit(1)
 """,
@@ -140,18 +141,14 @@ def test_upgrade_uses_installer_and_exact_server_version(tmp_path, talos, versio
     node = {
         "apiVersion": "v1",
         "kind": "Node",
-        "metadata": {"name": "fixture-node"},
+        "metadata": {"name": "fixture-node", "uid": "node-uid", "resourceVersion": "1"},
         "spec": {"unschedulable": True},
         "status": {
-            "addresses": [{"type": "InternalIP", "address": variables["talos_node"]}]
+            "conditions": [{"type": "Ready", "status": "True"}],
+            "addresses": [{"type": "InternalIP", "address": variables["talos_node"]}],
         },
     }
-    with cluster_api(
-        tmp_path, {"objects": {"/api/v1/nodes/fixture-node": node}, "events": []}
-    ) as (
-        connection,
-        observed,
-    ):
+    with maintenance_api(tmp_path, [node]) as (connection, state):
         result = run_role(
             tmp_path,
             "talos",
@@ -159,7 +156,6 @@ def test_upgrade_uses_installer_and_exact_server_version(tmp_path, talos, versio
             {**variables, **connection},
             env={"SERVER_VERSION": server},
         )
-        state = observed()
     assert (result.returncode == 0) == (version == "expected"), (
         result.stdout + result.stderr
     )
@@ -174,6 +170,8 @@ def test_upgrade_uses_installer_and_exact_server_version(tmp_path, talos, versio
     )
     assert all(
         event["path"].endswith("/fixture-node")
+        or "selfhosted" in event["path"]
+        or event["path"] == "/api/v1/namespaces"
         for event in state["events"]
         if event["method"] != "GET"
     )
@@ -182,24 +180,35 @@ def test_upgrade_uses_installer_and_exact_server_version(tmp_path, talos, versio
 @pytest.mark.parametrize("entry", ["apply", "bootstrap", "reset", "upgrade_k8s"])
 def test_native_commands_and_failures(tmp_path, talos, entry):
     variables, _, commands = talos
-    result = run_role(tmp_path, "talos", entry, variables)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert commands()
-    if entry == "bootstrap":
-        assert [
-            next(
-                command
-                for command in ["version", "bootstrap", "health", "kubeconfig"]
-                if command in args
+    node = obj("Node", "node", "")
+    node["metadata"].pop("namespace")
+    node["status"] = {
+        "conditions": [{"type": "Ready", "status": "True"}],
+        "addresses": [{"type": "InternalIP", "address": variables["talos_node"]}],
+    }
+    with maintenance_api(tmp_path, [node]) as (connection, state):
+        state["server_version"] = variables["k8s_version"]
+        result = run_role(tmp_path, "talos", entry, {**variables, **connection})
+        assert (result.returncode == 0) == (entry not in {"reset", "apply"}), (
+            result.stdout + result.stderr
+        )
+        assert commands()
+        if entry == "bootstrap":
+            assert (
+                stat.S_IMODE(Path(connection["kubeconfig_path"]).stat().st_mode)
+                == 0o600
             )
-            for args in commands()
-        ] == ["version", "bootstrap", "health", "kubeconfig"]
-        assert stat.S_IMODE((tmp_path / "client/kubeconfig").stat().st_mode) == 0o600
-    fail = {
-        "apply": "apply-config",
-        "bootstrap": "health",
-        "reset": "reset",
-        "upgrade_k8s": "upgrade-k8s",
-    }[entry]
-    result = run_role(tmp_path, "talos", entry, variables, env={"FAIL": fail})
-    assert result.returncode != 0
+        if entry in {"reset", "apply"}:
+            assert state["objects"][
+                "/apis/coordination.k8s.io/v1/namespaces/selfhosted/leases/shared-data-operation"
+            ]["spec"]["holderIdentity"]
+            return
+        fail = {
+            "apply": "apply-config",
+            "bootstrap": "health",
+            "upgrade_k8s": "upgrade-k8s",
+        }[entry]
+        result = run_role(
+            tmp_path, "talos", entry, {**variables, **connection}, env={"FAIL": fail}
+        )
+        assert result.returncode != 0

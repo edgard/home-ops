@@ -22,6 +22,9 @@
   ansible.builtin.include_tasks: recovery_dispatch.yml
   when: platform_recovery_mode | bool
 
-- name: Execute the normal local bootstrap unchanged
-  ansible.builtin.include_tasks: bootstrap_execute.yml
+- name: Exclude data operations across ordinary platform bootstrap
+  ansible.builtin.include_role:
+    name: node_operation
+  vars:
+    node_operation_action: platform-bootstrap
   when: not platform_recovery_mode | bool

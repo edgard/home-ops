@@ -10,6 +10,8 @@ from pathlib import Path
 from socketserver import TCPServer
 from urllib.parse import parse_qs, urlsplit
 
+import jsonpatch
+
 root = Path(sys.argv[1])
 
 
@@ -19,6 +21,56 @@ def state():
 
 def save(value):
     (root / "api-state.json").write_text(json.dumps(value))
+
+
+def advance_native_lifecycle(current):
+    """Model only real controller boundaries: skip stalls Application finalizers."""
+    if not current.get("model_root_cascade"):
+        return
+    objects = current["objects"]
+    root_key = "/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/root"
+    app_key = "/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/tuppr"
+    appset_key = "/apis/argoproj.io/v1alpha1/namespaces/argocd/applicationsets/apps"
+    deployment_key = "/apis/apps/v1/namespaces/platform-system/deployments/tuppr"
+    root_app = objects.get(root_key)
+    if not root_app:
+        return
+
+    def skipped(value):
+        return (
+            value.get("metadata", {})
+            .get("annotations", {})
+            .get("argocd.argoproj.io/skip-reconcile")
+            == "true"
+        )
+
+    if root_app["metadata"].get("deletionTimestamp"):
+        if skipped(root_app):
+            current["root_finalizer_stalled_on_skip"] = True
+            return
+        app = objects.get(app_key)
+        if app:
+            if not app["metadata"].get("deletionTimestamp"):
+                app["metadata"]["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+                app["metadata"]["resourceVersion"] = str(
+                    int(app["metadata"]["resourceVersion"]) + 1
+                )
+            if skipped(app):
+                current["tuppr_finalizer_stalled_on_skip"] = True
+                return
+        for key in [deployment_key, app_key, appset_key, root_key]:
+            objects.pop(key, None)
+        current["root_finalizer_completed"] = True
+    elif current.get("fresh_generated_objects") and not skipped(root_app):
+        journal = json.loads(
+            objects["/api/v1/namespaces/selfhosted/configmaps/shared-data-operation"][
+                "data"
+            ]["journal.json"]
+        )
+        assert journal["phase"] == "native-critical-complete"
+        objects.update(current.pop("fresh_generated_objects"))
+        root_app["status"] = current["fresh_root_status"]
+        current["fresh_handoff_after_critical_completion"] = True
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -79,9 +131,11 @@ class Handler(BaseHTTPRequestHandler):
                                 },
                             }
                             for group, version in [
+                                ("coordination.k8s.io", "v1"),
                                 ("apps", "v1"),
                                 ("batch", "v1"),
                                 ("argoproj.io", "v1alpha1"),
+                                ("tuppr.home-operations.com", "v1alpha1"),
                                 ("apiextensions.k8s.io", "v1"),
                                 ("cert-manager.io", "v1"),
                                 ("external-secrets.io", "v1"),
@@ -126,10 +180,12 @@ class Handler(BaseHTTPRequestHandler):
             )
         if path in (
             "/api/v1",
+            "/apis/coordination.k8s.io/v1",
             "/apis/external-secrets.io/v1",
             "/apis/argoproj.io/v1alpha1",
             "/apis/apps/v1",
             "/apis/batch/v1",
+            "/apis/tuppr.home-operations.com/v1alpha1",
             "/apis/apiextensions.k8s.io/v1",
             "/apis/cert-manager.io/v1",
             "/apis/k8s.cni.cncf.io/v1",
@@ -178,6 +234,13 @@ class Handler(BaseHTTPRequestHandler):
                         "NetworkAttachmentDefinition",
                         True,
                     )
+                ]
+            if path == "/apis/coordination.k8s.io/v1":
+                resources = [("leases", "Lease", True)]
+            if path == "/apis/tuppr.home-operations.com/v1alpha1":
+                resources = [
+                    ("talosupgrades", "TalosUpgrade", False),
+                    ("kubernetesupgrades", "KubernetesUpgrade", False),
                 ]
             if path == "/apis/batch/v1":
                 resources = [("jobs", "Job", True)]
@@ -453,7 +516,7 @@ class Handler(BaseHTTPRequestHandler):
         self.objects("POST")
 
     def do_PUT(self):
-        self.objects("PATCH")
+        self.objects("PUT")
 
     def do_DELETE(self):
         self.objects("DELETE")
@@ -506,7 +569,58 @@ class Handler(BaseHTTPRequestHandler):
         )
         scale = path.endswith("/scale")
         key = path.removesuffix("/scale")
+        root_key = "/apis/argoproj.io/v1alpha1/namespaces/argocd/applications/root"
+        journal_key = "/api/v1/namespaces/selfhosted/configmaps/shared-data-operation"
+        root_intent = (
+            json.loads(
+                objects.get(journal_key, {}).get("data", {}).get("journal.json", "{}")
+            )
+            .get("new_root", {})
+            .get("state")
+            == "intent"
+        )
+        if (
+            current.get("root_creation_race") == "get"
+            and method == "GET"
+            and key == root_key
+            and root_intent
+        ):
+            objects[key] = copy.deepcopy(current["foreign_root"])
+            current["root_creation_race"] = "injected"
+            save(current)
+        if (
+            method == "PUT"
+            and key == root_key
+            and not body.get("metadata", {}).get("resourceVersion")
+        ):
+            current["root_missing_rv_put_rejected"] = True
+            save(current)
+            return self.respond(
+                {
+                    "kind": "Status",
+                    "reason": "Invalid",
+                    "message": "metadata.resourceVersion must be specified for an update",
+                    "code": 422,
+                },
+                422,
+            )
+        if (
+            method == "GET"
+            and key == root_key
+            and current.get("fail_native_handoff")
+            and key in objects
+        ):
+            phase = json.loads(
+                objects.get(journal_key, {}).get("data", {}).get("journal.json", "{}")
+            ).get("phase")
+            if phase == "native-critical-complete":
+                objects[key]["status"]["sync"]["revisions"] = ["b" * 40] * 3
+                save(current)
         if method == "GET":
+            if key == "/api/v1/nodes" and current.get("fresh_api_pending"):
+                return self.respond(
+                    {"kind": "Status", "reason": "ServiceUnavailable", "code": 503}, 503
+                )
             if key in objects:
                 value = objects[key]
                 if (
@@ -554,12 +668,65 @@ class Handler(BaseHTTPRequestHandler):
                 "persistentvolumeclaims",
                 "nodes",
                 "namespaces",
+                "leases",
+                "configmaps",
             )
             if plural in collections:
                 return self.respond(
                     {"apiVersion": "v1", "kind": "List", "items": candidates}
                 )
         elif method == "DELETE" and key in objects:
+            for field, expected in body.get("preconditions", {}).items():
+                if objects[key]["metadata"].get(field) != expected:
+                    return self.respond(
+                        {"kind": "Status", "reason": "Conflict", "code": 409}, 409
+                    )
+            if current.get("model_root_cascade") and key.endswith("/applications/root"):
+                namespace = objects["/api/v1/namespaces/selfhosted"]
+                retained = "Delete=false" in namespace["metadata"].get(
+                    "annotations", {}
+                ).get("argocd.argoproj.io/sync-options", "").split(",")
+                current["root_cascade_retained_namespace"] = retained
+                if not retained:
+                    namespace["metadata"]["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+                    for child_path, child in list(objects.items()):
+                        if "/namespaces/selfhosted/" not in child_path:
+                            continue
+                        if child["metadata"].get("finalizers"):
+                            child["metadata"]["deletionTimestamp"] = (
+                                "2026-01-01T00:00:00Z"
+                            )
+                        else:
+                            del objects[child_path]
+                    objects[key]["metadata"]["deletionTimestamp"] = (
+                        "2026-01-01T00:00:00Z"
+                    )
+                    save(current)
+                    return self.respond(objects[key])
+            if current.get("model_root_cascade") and key.endswith("/applications/root"):
+                objects[key]["metadata"]["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+                objects[key]["metadata"]["resourceVersion"] = str(
+                    int(objects[key]["metadata"]["resourceVersion"]) + 1
+                )
+                if current.get("destroy_application_race") == "destroy-foreign-root":
+                    objects[key]["metadata"]["uid"] = "foreign-root"
+                    current["foreign_deleting_root"] = copy.deepcopy(objects[key])
+                elif (
+                    current.get("destroy_application_race")
+                    == "destroy-nondeleting-root"
+                ):
+                    objects[key]["metadata"].pop("deletionTimestamp")
+                response = copy.deepcopy(objects[key])
+                advance_native_lifecycle(current)
+                save(current)
+                return self.respond(response)
+            if objects[key]["metadata"].get("finalizers") and objects[key]["kind"] in {
+                "Lease",
+                "ConfigMap",
+            }:
+                objects[key]["metadata"]["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+                save(current)
+                return self.respond(objects[key])
             del objects[key]
             save(current)
             return self.respond(
@@ -578,6 +745,10 @@ class Handler(BaseHTTPRequestHandler):
                     },
                     422,
                 )
+            if current.get("root_creation_race") == "post" and key == root_key:
+                objects[key] = copy.deepcopy(current["foreign_root"])
+                current["root_creation_race"] = "injected"
+                save(current)
             if key in objects:
                 return self.respond(
                     {
@@ -587,6 +758,10 @@ class Handler(BaseHTTPRequestHandler):
                         "code": 409,
                     },
                     409,
+                )
+            if body["kind"] in {"Lease", "ConfigMap", "Namespace", "Application"}:
+                body["metadata"].update(
+                    uid="created-" + body["metadata"]["name"], resourceVersion="1"
                 )
             objects[key] = body
             if body["kind"] == "Job":
@@ -612,16 +787,20 @@ class Handler(BaseHTTPRequestHandler):
                 body["status"] = {"phase": "Succeeded"}
             save(current)
             return self.respond(body, 201)
-        elif method == "PATCH" and key in objects:
+        elif method in {"PATCH", "PUT"} and key in objects:
             value = objects[key]
             if isinstance(body, list):
-                for operation in body:
-                    assert operation["op"] == "remove", "unsupported JSON patch"
-                    parent = value
-                    parts = operation["path"].strip("/").split("/")
-                    for part in parts[:-1]:
-                        parent = parent[part]
-                    parent.pop(parts[-1])
+                try:
+                    value = jsonpatch.apply_patch(value, body)
+                except jsonpatch.JsonPatchException, KeyError:
+                    return self.respond(
+                        {"kind": "Status", "reason": "Conflict", "code": 409}, 409
+                    )
+                if "resourceVersion" in value["metadata"]:
+                    value["metadata"]["resourceVersion"] = str(
+                        int(value["metadata"]["resourceVersion"]) + 1
+                    )
+                objects[key] = value
             else:
 
                 def merge(target, patch):
@@ -645,6 +824,43 @@ class Handler(BaseHTTPRequestHandler):
                     "updatedReplicas": replicas,
                     "readyReplicas": replicas,
                 }
+            if (
+                current.get("model_owned_fence_drift")
+                and not current.get("root_owned_fence_status_refresh")
+                and value["kind"] == "ApplicationSet"
+                and value["spec"].get("syncPolicy", {}).get("applicationsSync")
+                == "create-only"
+                and root_key in objects
+            ):
+                root_app = objects[root_key]
+                root_app["status"]["sync"]["status"] = "OutOfSync"
+                root_app["status"]["resources"] = [
+                    {
+                        "group": "argoproj.io",
+                        "kind": "ApplicationSet",
+                        "namespace": "argocd",
+                        "name": "apps",
+                        "status": "OutOfSync",
+                    }
+                ]
+                root_app["metadata"]["resourceVersion"] = str(
+                    int(root_app["metadata"]["resourceVersion"]) + 1
+                )
+                current["root_owned_fence_status_refresh"] = True
+                if current.get("retention_drift") == "destroy-changed-revision":
+                    root_app["status"]["sync"]["revisions"] = ["b" * 40] * 3
+                elif current.get("retention_drift") == "destroy-foreign-source":
+                    root_app["spec"]["sources"][0]["targetRevision"] = "foreign"
+                elif current.get("retention_drift") == "destroy-unrelated-drift":
+                    root_app["status"]["resources"].append(
+                        {
+                            "group": "",
+                            "kind": "Namespace",
+                            "name": "foreign",
+                            "status": "OutOfSync",
+                        }
+                    )
+            advance_native_lifecycle(current)
             save(current)
             if scale:
                 value = {

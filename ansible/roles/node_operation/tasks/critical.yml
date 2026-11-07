@@ -1,0 +1,97 @@
+---
+- name: Recheck ownership immediately before native dispatch
+  ansible.builtin.include_tasks: guard.yml
+- name: Execute fixed registered native action under one owner
+  ansible.builtin.include_tasks: execute.yml
+- name: Preserve exclusion for asynchronously accepted established configuration
+  ansible.builtin.include_tasks: pending.yml
+  when: node_operation_selected_action == 'talos-apply'
+- name: Retain ownership after destructive node reset until inspected out of band
+  ansible.builtin.fail:
+    msg: Node reset was dispatched; its shared ownership is intentionally not released. Confirm termination and new cluster identity before inspected recovery.
+  when: node_operation_selected_action in ['talos-reset', 'cluster-destroy']
+- name: Verify original Ready node and API after successful native completion
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    name: "{{ node_operation_original_node.name }}"
+  register: node_operation_finish_nodes
+  until: node_operation_finish_nodes is succeeded and node_operation_finish_nodes.resources | length == 1 and node_operation_finish_nodes.resources[0].metadata.uid == node_operation_original_node.uid and node_operation_finish_nodes.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | length == 1
+  retries: "{{ node_operation_ready_retries }}"
+  delay: "{{ node_operation_ready_delay }}"
+- name: Refuse changed original node before successful release
+  ansible.builtin.assert:
+    that: (node_operation_finish_nodes.resources | node_operation_node('', node_operation_original_node)) == node_operation_original_node
+- name: Verify native Talos health after a successful non-destructive node action
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - --nodes
+      - "{{ talos_node }}"
+      - health
+      - --wait-timeout
+      - "{{ talos_health_wait_timeout }}"
+  changed_when: false
+  when: node_operation_selected_action is match('^talos-') or node_operation_selected_action == 'cluster-create'
+- name: Read actual Kubernetes server version after native Kubernetes upgrade
+  kubernetes.core.k8s_cluster_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+  register: node_operation_server
+  no_log: true
+  when: node_operation_selected_action == 'talos-upgrade-k8s'
+- name: Require the exact upgraded server version before releasing ownership
+  ansible.builtin.assert:
+    that: node_operation_server.version.server.kubernetes.gitVersion == k8s_version
+    fail_msg: Native upgrade returned but the Kubernetes server version does not match; ownership remains held.
+  when: node_operation_selected_action == 'talos-upgrade-k8s'
+- name: Persist proof that all native critical mutators completed while fenced
+  ansible.builtin.set_fact:
+    node_operation_journal: "{{ node_operation_journal | combine({'phase': 'native-critical-complete'}) }}"
+- name: Save critical completion before enabling any automatic reconciliation
+  ansible.builtin.include_tasks: save.yml
+- name: Restore the exact minimal automatic upgrade controls
+  ansible.builtin.include_tasks: restore.yml
+  when: node_operation_selected_action != 'platform-destroy'
+- name: Require intended platform targets absent after completed destructive work
+  ansible.builtin.include_tasks: deleted.yml
+  when: node_operation_selected_action == 'platform-destroy'
+- name: Verify read-only GitOps handoff only after all native mutators completed
+  ansible.builtin.include_role:
+    name: platform
+    tasks_from: handoff
+  when: node_operation_selected_action == 'platform-bootstrap'
+- name: Record success only in this uninterrupted successful invocation
+  ansible.builtin.set_fact:
+    node_operation_journal: "{{ node_operation_journal | combine({'phase': 'complete', 'recovery_result': 'native-success'}) }}"
+- name: Persist native success before release
+  ansible.builtin.include_tasks: save.yml
+- name: Guard exact current owner before release
+  ansible.builtin.include_tasks: guard.yml
+- name: Remove only this completed journal retention finalizer after all native work
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ node_operation_name }}"
+    namespace: "{{ node_operation_namespace }}"
+    patch:
+      - op: test
+        path: /metadata/uid
+        value: "{{ node_operation_previous_resource.metadata.uid }}"
+      - op: test
+        path: /metadata/resourceVersion
+        value: "{{ node_operation_previous_resource.metadata.resourceVersion }}"
+      - op: add
+        path: /metadata/finalizers
+        value: "{{ node_operation_previous_resource.metadata.finalizers | reject('equalto', 'home-ops/native-operation') | list }}"
+- name: Release only this exact successful invocation with resource version comparison
+  kubernetes.core.k8s_json_patch:
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    name: "{{ node_operation_name }}"
+    namespace: "{{ node_operation_namespace }}"
+    patch: "{{ [{'op': 'test', 'path': '/metadata/uid', 'value': node_operation_lease_uid}] + (node_operation_guard_read.resources[0] | shared_data_lease_release(node_operation_id ~ ':' ~ node_operation_nonce, 'native-success')) + [{'op': 'add', 'path': '/metadata/finalizers', 'value': node_operation_guard_read.resources[0].metadata.finalizers | reject('equalto', 'home-ops/native-operation') | list}] }}"

@@ -1,6 +1,14 @@
 # Wiki log
 
-## 2026-11-07 — Keep cold API fixtures empty by default
+## 2026-11-07 — Align cold restore's outer test allowance
+
+Removed the cold restore scenario's older, shorter subprocess ceiling so it
+uses the shared whole-role allowance. Hosted CI reached that ceiling during
+identity-checked state restoration; production timing and safety checks remain
+unchanged. Clarified that cold fixtures omit default ServiceAccounts and
+corrected the Restic page's reviewed revision to its published source.
+
+## 2026-11-07 — Keep cold ServiceAccounts explicit
 
 Separated the ordinary executor fixture's default ServiceAccount from cold
 bootstrap fixtures. Cold scenarios retain explicitly supplied foreign resources;
@@ -450,3 +458,11 @@ Reviewed the validation architecture and test guide against the actual CI trace.
 The subsequent Linux report reached final Lease release during pending-snapshot
 cleanup before its shared role-runner limit expired. Applied the same whole-role
 allowance consistently, preserving explicit short timeout and child-cleanup tests.
+
+- 2026-11-07: Registered native Talos/platform operations now share maintenance
+  exclusion with data and cold recovery. Documented explicit local ownership,
+  positive fresh-state proof, source-adopted coordination namespace retention,
+  and manual-only resolution of interrupted native work. Updated the Talos
+  architecture and shared-data operation runbook against the scoped source.
+
+- Corrected native-operation exclusion to durably fence automatic Tuppr execution, preserve minimal GitOps state, restore Root last, and model deletion-only Argo finalization and fresh composed handoff.

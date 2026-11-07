@@ -1,0 +1,56 @@
+---
+- name: Require source-adopted coordination namespace retention before cascade
+  ansible.builtin.include_role:
+    name: node_operation
+    tasks_from: retain
+- name: Verify durable automatic upgrade exclusion immediately before root deletion
+  ansible.builtin.include_role:
+    name: node_operation
+    tasks_from: barrier
+- name: Record intended exact target deletion before beginning cascade
+  ansible.builtin.set_fact:
+    node_operation_journal: "{{ node_operation_journal | combine({'target_disposition': 'delete-intent'}) }}"
+- name: Persist destructive intent before the first deletion
+  ansible.builtin.include_role:
+    name: node_operation
+    tasks_from: save
+- name: Delete only the inspected Argo root after retention adoption
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: argocd
+    name: root
+    state: absent
+    delete_options:
+      preconditions:
+        uid: "{{ node_operation_root_read.resources[0].metadata.uid }}"
+        resourceVersion: "{{ node_operation_root_read.resources[0].metadata.resourceVersion }}"
+    wait: false
+
+- name: Permit only deletion finalization of journal-bound Root then Tuppr Application
+  ansible.builtin.include_role:
+    name: node_operation
+    tasks_from: delete_application
+  loop: "{{ node_operation_journal.snapshots | selectattr('role', 'in', ['root', 'application']) | rejectattr('absent', 'defined') | list }}"
+  loop_control:
+    loop_var: node_operation_target
+
+- name: Wait for real root finalization after deletion-only reconciliation
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: argocd
+    name: root
+  register: node_operation_destroy_root_wait
+  until: node_operation_destroy_root_wait.resources | length == 0
+  retries: "{{ node_operation_ready_retries }}"
+  delay: "{{ node_operation_ready_delay }}"
+
+- name: Verify all intended upgrade control targets were deleted before Helm removal
+  ansible.builtin.include_role:
+    name: node_operation
+    tasks_from: deleted

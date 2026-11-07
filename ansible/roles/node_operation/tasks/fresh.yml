@@ -1,0 +1,32 @@
+---
+- name: Refuse unavailable established clusters and non-creation operations
+  ansible.builtin.assert:
+    that:
+      - node_operation_fresh | bool
+      - node_operation_selected_action in ['talos-apply', 'talos-bootstrap', 'cluster-create']
+      - talos_node | default('') | length > 0
+    fail_msg: Kubernetes unavailable is not fresh-cluster evidence. Established or ambiguous operations remain blocked.
+- name: Prove a blank installation disk before initial configuration
+  ansible.builtin.include_tasks: fresh_disk.yml
+  when: node_operation_selected_action in ['talos-apply', 'cluster-create']
+- name: Prove an authenticated mounted empty etcd before standalone bootstrap
+  ansible.builtin.include_tasks: fresh_etcd.yml
+  when: node_operation_selected_action == 'talos-bootstrap'
+- name: Apply only the positively proven fresh Talos configuration
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: apply_execute
+  when: node_operation_selected_action in ['talos-apply', 'cluster-create']
+- name: Bootstrap only the positively proven new control plane
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: bootstrap_execute
+  when: node_operation_selected_action in ['talos-bootstrap', 'cluster-create']
+- name: Acquire the shared gate as soon as composed creation has an API
+  when: node_operation_action == 'cluster-create'
+  block:
+    - name: Select remaining platform work without recursively replaying Talos
+      ansible.builtin.set_fact:
+        node_operation_selected_action: platform-bootstrap
+    - name: Exclude all data work across remaining platform creation
+      ansible.builtin.include_tasks: transaction.yml

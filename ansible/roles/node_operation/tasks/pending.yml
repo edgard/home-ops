@@ -1,0 +1,9 @@
+---
+- name: Record accepted configuration without claiming asynchronous completion
+  ansible.builtin.set_fact:
+    node_operation_journal: "{{ node_operation_journal | combine({'phase': 'native-dispatched', 'recovery_result': 'inspect-asynchronous-configuration'}) }}"
+- name: Persist accepted request if the original API remains available
+  ansible.builtin.include_tasks: save.yml
+- name: Stop before another mutator or unsafe success release
+  ansible.builtin.fail:
+    msg: Talos accepted configuration but this CLI response does not prove reboot or reconciliation completion. The shared native gate remains held. Inspect the original invocation and node before manual finalization; do not retry or continue composed creation.

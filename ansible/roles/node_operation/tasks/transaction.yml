@@ -1,0 +1,112 @@
+---
+- name: Read and reject existing coordination before mutation
+  ansible.builtin.include_tasks: read.yml
+- name: Read the current node through the operator API identity
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+  register: node_operation_nodes
+- name: Bind a distinct local invocation and original Ready node
+  ansible.builtin.set_fact:
+    node_operation_nonce: "{{ lookup('ansible.builtin.password', '/dev/null', length=32, chars=['ascii_lowercase', 'digits']) }}"
+    node_operation_original_node: "{{ node_operation_nodes.resources | node_operation_node(talos_node | default('')) }}"
+- name: Build explicit non-Pod executor identity
+  ansible.builtin.set_fact:
+    node_operation_id: "native-{{ node_operation_nonce }}"
+    node_operation_actor:
+      kind: NativeCLI
+      uid: "{{ node_operation_nonce }}"
+      name: "{{ node_operation_selected_action }}"
+      namespace: "{{ node_operation_namespace }}"
+      original_node: "{{ node_operation_original_node }}"
+      identity_source: operator-api-read
+- name: Ensure the coordination namespace exists before initial Lease creation
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ node_operation_namespace }}"
+  when: node_operation_lease | length == 0
+- name: Bind the existing coordination namespace before claim
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ node_operation_namespace }}"
+  register: node_operation_namespace_bound
+- name: Preserve namespace UID throughout native work
+  ansible.builtin.set_fact:
+    node_operation_namespace_uid: "{{ node_operation_namespace_bound.resources[0].metadata.uid }}"
+- name: Initialize only an empty shared Lease
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: coordination.k8s.io/v1
+      kind: Lease
+      metadata:
+        name: "{{ node_operation_name }}"
+        namespace: "{{ node_operation_namespace }}"
+      spec: {}
+  when: node_operation_lease | length == 0
+- name: Read exact Lease before single-winner acquisition
+  kubernetes.core.k8s_info:
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    name: "{{ node_operation_name }}"
+    namespace: "{{ node_operation_namespace }}"
+  register: node_operation_claim_read
+- name: Atomically acquire durable native ownership before any native action
+  kubernetes.core.k8s_json_patch:
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    name: "{{ node_operation_name }}"
+    namespace: "{{ node_operation_namespace }}"
+    patch: "{{ node_operation_claim_read.resources[0] | node_operation_claim(node_operation_id, node_operation_actor, node_operation_selected_action, '' | shared_data_now, node_operation_duration) }}"
+  register: node_operation_claim_result
+- name: Bind this invocation to the exact Lease and record intent
+  ansible.builtin.set_fact:
+    node_operation_lease_uid: "{{ node_operation_claim_result.result.metadata.uid }}"
+    node_operation_journal:
+      version: 1
+      operation_id: "{{ node_operation_id }}"
+      operation_kind: node-operation
+      action: "{{ node_operation_selected_action }}"
+      apps: []
+      snapshots: []
+      holder: "{{ node_operation_actor }}"
+      coordinator: "{{ node_operation_actor }}"
+      phase: native-intent
+      recovery_result: manual-inspection-required
+- name: Persist native intent before the fixed role-owned action
+  ansible.builtin.include_tasks: save.yml
+- name: Capture the minimal automatic upgrade controls durably
+  ansible.builtin.include_tasks: capture.yml
+- name: Capture successful retention adoption before our GitOps fence writes
+  ansible.builtin.include_tasks: retain.yml
+  vars:
+    node_operation_capture_retention: true
+  when: node_operation_selected_action in ['platform-destroy', 'cluster-destroy']
+- name: Execute native work and restoration with durable failure compensation
+  block:
+    - name: Establish automatic upgrade exclusion before native dispatch
+      ansible.builtin.include_tasks: fence.yml
+    - name: Execute and finalize this fixed native critical section
+      ansible.builtin.include_tasks: critical.yml
+  rescue:
+    - name: Keep remaining automatic upgrade controls fenced after any ambiguity
+      ansible.builtin.include_tasks: compensate.yml
+    - name: Preserve compensation results without changing the native completion phase
+      ansible.builtin.set_fact:
+        node_operation_journal: "{{ node_operation_journal | combine({'compensation_failures': node_operation_compensation_failures, 'recovery_result': 'manual-inspection-required'}) }}"
+    - name: Attempt to persist compensation evidence under the original owner
+      block:
+        - name: Persist surviving exact original snapshots and compensation outcomes
+          ansible.builtin.include_tasks: save.yml
+      rescue:
+        - name: Report unavailable journal persistence without releasing ownership
+          ansible.builtin.debug:
+            msg: Original durable ownership remains held; compensation evidence could not be saved.
+    - name: Leave native ownership and original journal held for inspected resolution
+      ansible.builtin.fail:
+        msg: "Native operation failed or remains ambiguous; ownership is retained. Fence compensation failures={{ node_operation_compensation_failures }}."

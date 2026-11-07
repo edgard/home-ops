@@ -1,0 +1,90 @@
+---
+- name: Require Talos bootstrap variables
+  ansible.builtin.assert:
+    that:
+      - talos_node | length > 0
+      - talos_cluster_name | length > 0
+    fail_msg: TALOS_NODE and TALOS_CLUSTER_NAME are required.
+
+- name: Wait for Talos API
+  when: not ansible_check_mode
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - version
+      - --nodes
+      - "{{ talos_node }}"
+  register: talos_bootstrap_api_wait
+  until: talos_bootstrap_api_wait.rc == 0
+  retries: "{{ talos_api_wait_retries }}"
+  delay: "{{ talos_api_wait_delay }}"
+  changed_when: false
+
+- name: Bootstrap Talos control plane
+  when: not ansible_check_mode
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - bootstrap
+      - --nodes
+      - "{{ talos_node }}"
+  register: talos_bootstrap_result
+  failed_when:
+    - talos_bootstrap_result.rc != 0
+    - "'already bootstrapped' not in ((talos_bootstrap_result.stdout | default('') + talos_bootstrap_result.stderr | default('')) | lower)"
+  changed_when: talos_bootstrap_result.rc == 0
+
+- name: Wait for Talos health
+  when: not ansible_check_mode
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - health
+      - --nodes
+      - "{{ talos_node }}"
+      - --wait-timeout
+      - "{{ talos_health_wait_timeout }}"
+  changed_when: false
+
+- name: Ensure kubeconfig parent exists
+  when: not ansible_check_mode
+  ansible.builtin.file:
+    path: "{{ kubeconfig_path | dirname }}"
+    state: directory
+    mode: "0700"
+
+- name: Fetch kubeconfig
+  when: not ansible_check_mode
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - kubeconfig
+      - "{{ kubeconfig_path }}"
+      - --nodes
+      - "{{ talos_node }}"
+      - --force-context-name
+      - "{{ kube_context }}"
+      - --force
+  changed_when: true
+
+- name: Restrict kubeconfig permissions
+  when: not ansible_check_mode
+  ansible.builtin.file:
+    path: "{{ kubeconfig_path }}"
+    mode: "0600"

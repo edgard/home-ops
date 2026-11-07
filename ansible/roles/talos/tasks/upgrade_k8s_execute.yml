@@ -1,0 +1,24 @@
+---
+- name: Require Kubernetes upgrade variables
+  ansible.builtin.assert:
+    that:
+      - talos_node | length > 0
+      - k8s_version is defined
+      - k8s_version | length > 0
+    fail_msg: TALOS_NODE and k8s_version are required.
+
+- name: Upgrade Kubernetes control plane
+  when: not ansible_check_mode
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - -n
+      - "{{ talos_node }}"
+      - upgrade-k8s
+      - --to
+      - "{{ k8s_version }}"
+  changed_when: true

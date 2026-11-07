@@ -1,0 +1,25 @@
+---
+- name: Require the explicit configured installation disk
+  ansible.builtin.assert:
+    that: talos_install_disk | default('') is match('^/dev/[a-zA-Z0-9_-]+$')
+- name: Read native maintenance stage and discovered disk inventory successfully
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --endpoints
+      - "{{ talos_node }}"
+      - --nodes
+      - "{{ talos_node }}"
+      - get
+      - "{{ item }}"
+      - --insecure
+      - --output
+      - yaml
+  loop:
+    - machinestatus
+    - discoveredvolumes
+  register: node_operation_fresh_disk_reads
+  changed_when: false
+- name: Require positive blank-disk evidence rather than an insecure fallback
+  ansible.builtin.assert:
+    that: (node_operation_fresh_disk_reads.results[0].stdout | from_yaml_all | list) | node_operation_blank_disk(node_operation_fresh_disk_reads.results[1].stdout | from_yaml_all | list, talos_node, talos_install_disk)

@@ -1,0 +1,13 @@
+---
+- name: Require every intentionally destroyed target absent without recreating it
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace }}"
+    name: "{{ item.name }}"
+  register: node_operation_deleted_read
+  failed_when: node_operation_deleted_read.resources | length != 0
+  loop: "{{ node_operation_journal.snapshots }}"
+- name: Record verified destructive disposition instead of restoring deleted objects
+  ansible.builtin.set_fact:
+    node_operation_journal: "{{ node_operation_journal | combine({'target_disposition': 'verified-deleted'}) }}"

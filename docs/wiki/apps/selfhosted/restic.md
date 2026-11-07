@@ -1,7 +1,7 @@
 # Restic
 
 Purpose: Restic serves the shared backup repository and runs appdata backup and maintenance jobs.
-Status: current. Reviewed against: `20ab0bc1d62963bbe4abcb439ec491e2e9074403`.
+Status: current. Reviewed against: `dff924ea62f49c0a2e19299a709a8ecaa31a9fe6`.
 
 ## Dependencies
 

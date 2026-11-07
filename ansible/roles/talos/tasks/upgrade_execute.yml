@@ -1,0 +1,82 @@
+---
+- name: Require Talos node
+  ansible.builtin.assert:
+    that:
+      - talos_node | length > 0
+    fail_msg: TALOS_NODE is required.
+
+- name: Build Talos upgrade command
+  ansible.builtin.set_fact:
+    talos_upgrade_command:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - --nodes
+      - "{{ talos_node }}"
+      - upgrade
+      - --image
+      - "{{ talos_upgrade.installer.repository }}:{{ talos_upgrade.installer.version }}"
+      - --reboot-mode
+      - "{{ talos_upgrade.upgrade.rebootMode | default('default') }}"
+      - --timeout
+      - "{{ talos_upgrade.upgrade.timeout | default('30m') }}"
+      - --wait
+
+- name: Upgrade Talos node
+  when:
+    - not ansible_check_mode
+  ansible.builtin.command:
+    argv: "{{ talos_upgrade_command }}"
+  changed_when: true
+
+- name: Recheck native owner and original Ready node before uncordon
+  when: not ansible_check_mode
+  ansible.builtin.include_role:
+    name: node_operation
+    tasks_from: guard
+
+- name: Uncordon only the exact original node with atomic version checks
+  when: not ansible_check_mode
+  kubernetes.core.k8s_json_patch:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Node
+    name: "{{ node_operation_original_node.name }}"
+    patch:
+      - op: test
+        path: /metadata/uid
+        value: "{{ node_operation_original_node.uid }}"
+      - op: test
+        path: /metadata/resourceVersion
+        value: "{{ node_operation_guard_node.resources[0].metadata.resourceVersion }}"
+      - op: add
+        path: /spec/unschedulable
+        value: false
+
+- name: Read Talos server version
+  when:
+    - not ansible_check_mode
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - --nodes
+      - "{{ talos_node }}"
+      - version
+      - --json
+  register: talos_upgrade_version
+  changed_when: false
+
+- name: Assert Talos server version
+  when:
+    - not ansible_check_mode
+  ansible.builtin.assert:
+    that:
+      - (talos_upgrade_version.stdout | from_json).version.tag == talos_upgrade.installer.version
+    fail_msg: "Talos server version mismatch; expected {{ talos_upgrade.installer.version }}."

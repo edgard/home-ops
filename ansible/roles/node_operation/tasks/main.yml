@@ -1,0 +1,27 @@
+---
+- name: Require a registered native operation
+  ansible.builtin.assert:
+    that:
+      - node_operation_namespace == 'selfhosted'
+      - node_operation_name == 'shared-data-operation'
+      - node_operation_action in ['talos-apply', 'talos-bootstrap', 'talos-upgrade', 'talos-upgrade-k8s', 'talos-reset', 'platform-bootstrap', 'platform-destroy', 'cluster-create', 'cluster-destroy']
+- name: Load common maintenance filters without invoking a data operation
+  ansible.builtin.import_role:
+    name: shared_data
+    tasks_from: maintenance_load
+  when: false
+- name: Run one local exclusion transaction
+  ansible.builtin.include_tasks: select.yml
+  when: not ansible_check_mode
+  args:
+    apply:
+      module_defaults:
+        kubernetes.core.k8s:
+          kubeconfig: "{{ kubeconfig_path }}"
+          context: "{{ kube_context }}"
+        kubernetes.core.k8s_info:
+          kubeconfig: "{{ kubeconfig_path }}"
+          context: "{{ kube_context }}"
+        kubernetes.core.k8s_json_patch:
+          kubeconfig: "{{ kubeconfig_path }}"
+          context: "{{ kube_context }}"

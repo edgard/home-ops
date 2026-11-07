@@ -54,13 +54,25 @@ def lease(operation="other", kind="restore"):
     }
 
 
-@pytest.mark.parametrize("kind", ["restore", "provision", "upgrade", "backup"])
+@pytest.mark.parametrize(
+    "kind", ["restore", "provision", "upgrade", "backup", "node-operation"]
+)
 def test_competing_shared_lease_refuses_before_all_platform_mutations(
     tmp_path, monkeypatch, kind
 ):
     extend_api(monkeypatch)
     git_boundary(tmp_path)
-    with api.maintenance_api(tmp_path, [lease(kind=kind)]) as (connection, state):
+    held = lease(kind=kind)
+    if kind == "node-operation":
+        record = json.loads(
+            held["metadata"]["annotations"]["home-ops/data-coordinator"]
+        )
+        record["actor"]["kind"] = "NativeCLI"
+        held["metadata"]["annotations"]["home-ops/data-coordinator"] = json.dumps(
+            record
+        )
+        held["metadata"]["finalizers"] = ["home-ops/native-operation"]
+    with api.maintenance_api(tmp_path, [held]) as (connection, state):
         result = run_role(
             tmp_path,
             "platform",
@@ -69,7 +81,9 @@ def test_competing_shared_lease_refuses_before_all_platform_mutations(
             timeout=180,
         )
         assert result.returncode != 0, result.stdout + result.stderr
-        assert "competing" in result.stdout
+        assert (
+            "native CLI" if kind == "node-operation" else "competing"
+        ) in result.stdout
         assert all(event["method"] == "GET" for event in state["events"])
 
 

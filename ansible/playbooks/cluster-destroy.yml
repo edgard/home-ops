@@ -3,12 +3,8 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Destroy platform
+    - name: Execute composed destruction under one exclusion owner
       ansible.builtin.include_role:
-        name: platform
-        tasks_from: destroy
-
-    - name: Reset Talos node
-      ansible.builtin.include_role:
-        name: talos
-        tasks_from: reset
+        name: node_operation
+      vars:
+        node_operation_action: cluster-destroy

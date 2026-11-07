@@ -1,0 +1,11 @@
+---
+- name: Delete GitOps upgrade controls under the original durable native owner
+  ansible.builtin.include_role:
+    name: node_operation
+    tasks_from: destroy_root
+- name: Remove each bootstrap release while the original native gate remains intact
+  ansible.builtin.include_tasks: destroy_release.yml
+  loop: "{{ platform_bootstrap_releases | reverse | list }}"
+  loop_control:
+    loop_var: platform_destroy_release
+    label: "{{ platform_destroy_release.namespace }}/{{ platform_destroy_release.name }}"

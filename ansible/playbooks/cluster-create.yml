@@ -15,17 +15,8 @@
         name: talos
         tasks_from: generate
 
-    - name: Apply Talos configuration
+    - name: Execute composed creation under one exclusion owner
       ansible.builtin.include_role:
-        name: talos
-        tasks_from: apply
-
-    - name: Bootstrap Talos control plane
-      ansible.builtin.include_role:
-        name: talos
-        tasks_from: bootstrap
-
-    - name: Bootstrap platform
-      ansible.builtin.include_role:
-        name: platform
-        tasks_from: bootstrap
+        name: node_operation
+      vars:
+        node_operation_action: cluster-create

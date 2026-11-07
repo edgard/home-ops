@@ -1,0 +1,18 @@
+---
+- name: Initialize minimal durable automatic upgrade fence inventory
+  ansible.builtin.set_fact:
+    node_operation_targets:
+      - {api_version: argoproj.io/v1alpha1, kind: Application, namespace: argocd, name: root, role: root}
+      - {api_version: argoproj.io/v1alpha1, kind: ApplicationSet, namespace: argocd, name: apps, role: appset}
+      - {api_version: argoproj.io/v1alpha1, kind: Application, namespace: argocd, name: tuppr, role: application}
+      - {api_version: apps/v1, kind: Deployment, namespace: platform-system, name: tuppr, role: tuppr}
+- name: Capture each exact existing or absent fence target
+  ansible.builtin.include_tasks: capture_target.yml
+  loop: "{{ node_operation_targets }}"
+  loop_control:
+    loop_var: node_operation_target
+- name: Require complete reconciliation ancestry before allowing absent targets
+  ansible.builtin.assert:
+    that: node_operation_journal.snapshots | node_operation_missing_safe
+- name: Persist all original fields before the first reconciliation mutation
+  ansible.builtin.include_tasks: save.yml

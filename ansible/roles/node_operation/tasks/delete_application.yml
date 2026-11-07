@@ -1,0 +1,21 @@
+---
+- name: Wait for exact cascade target to enter deletion while reconciliation stays skipped
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: "{{ node_operation_target.namespace }}"
+    name: "{{ node_operation_target.name }}"
+  register: node_operation_deleting_read
+  until: node_operation_deleting_read.resources | length == 0 or node_operation_deleting_read.resources[0].metadata.deletionTimestamp is defined
+  retries: "{{ node_operation_ready_retries }}"
+  delay: "{{ node_operation_ready_delay }}"
+- name: Guard native identity before permitting only finalizer reconciliation
+  ansible.builtin.include_tasks: guard.yml
+- name: Unskip only the exact journal-bound already-deleting idle Application
+  kubernetes.core.k8s_json_patch:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: "{{ node_operation_target.namespace }}"
+    name: "{{ node_operation_target.name }}"
+    patch: "{{ node_operation_target | node_operation_deleting_patch(node_operation_deleting_read.resources[0]) }}"
+  when: node_operation_deleting_read.resources | length == 1

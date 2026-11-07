@@ -1,0 +1,7 @@
+---
+node_operation_namespace: selfhosted
+node_operation_name: shared-data-operation
+node_operation_duration: 43200
+node_operation_ready_retries: 120
+node_operation_ready_delay: 5
+node_operation_fresh: "{{ lookup('ansible.builtin.env', 'HOME_OPS_FRESH_CLUSTER') | default('false', true) | bool }}"

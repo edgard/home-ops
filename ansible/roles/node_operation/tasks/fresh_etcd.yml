@@ -1,0 +1,62 @@
+---
+- name: Read authenticated native mounts and local membership successfully
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - --nodes
+      - "{{ talos_node }}"
+      - get
+      - "{{ item }}"
+      - --output
+      - yaml
+  loop:
+    - mountstatus
+    - etcdmember
+  register: node_operation_fresh_etcd_reads
+  changed_when: false
+- name: Inspect exact etcd path and parent types without following symlink claims
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - --nodes
+      - "{{ talos_node }}"
+      - ls
+      - "{{ item }}"
+      - --depth
+      - "1"
+      - --long
+  loop:
+    - /var
+    - /var/lib
+  register: node_operation_fresh_parent_reads
+  changed_when: false
+- name: Require mounted original storage and ordinary directory parents
+  ansible.builtin.assert:
+    that: (node_operation_fresh_etcd_reads.results[0].stdout | from_yaml_all | list) | node_operation_empty_etcd_mount(node_operation_fresh_etcd_reads.results[1].stdout | from_yaml_all | list, talos_node, node_operation_fresh_parent_reads.results[0].stdout, node_operation_fresh_parent_reads.results[1].stdout)
+- name: Read the complete immediate etcd directory inventory successfully
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talos_config_path }}"
+      - --endpoints
+      - "{{ talos_node }}"
+      - --nodes
+      - "{{ talos_node }}"
+      - ls
+      - /var/lib/etcd
+      - --depth
+      - "1"
+  register: node_operation_fresh_etcd_listing
+  changed_when: false
+- name: Require exactly the empty directory root in successful native output
+  ansible.builtin.assert:
+    that: node_operation_fresh_etcd_listing.stdout | trim == '.'

@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 _OPERATION = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\Z")
 _KINDS = {"backup", "restore", "migration", "rotation", "provision"}
-_LEASE_KINDS = _KINDS | {"cold-bootstrap"}
+_LEASE_KINDS = _KINDS | {"cold-bootstrap", "node-operation"}
 _LABEL = "home-ops/data-operation"
 _SKIP = "argocd.argoproj.io/skip-reconcile"
 
@@ -638,6 +638,8 @@ def shared_data_lease_takeover(
     stage="journaled",
 ):
     """CAS ownership plus recovery identity atomically, before journal/targets."""
+    if "home-ops/native-operation" in lease.get("metadata", {}).get("finalizers", []):
+        raise ValueError("native CLI ownership requires inspected manual resolution")
     spec = lease.get("spec", {})
     if spec.get("holderIdentity", "") != expected_identity:
         raise ValueError("Lease ownership changed before acquisition or recovery")

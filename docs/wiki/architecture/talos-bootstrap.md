@@ -25,6 +25,21 @@ API journal before foundational mutations. Successful global admission must reco
 completion before normal bootstrap is available again. The runtime admission
 finalizer remains an activation blocker; see the [exact recovery boundary](../operations/shared-data.md#cold-infrastructure-recovery-and-admission-boundary).
 
+Registered node and foundational platform mutations now use the shared
+[NativeCLI operation exclusion](../operations/shared-data.md#registered-talos-and-platform-operation-exclusion).
+The workstation keeps its existing credentials and commands, while the common
+Lease/journal exclude data operations. Unknown native work remains held for
+manual inspection and is never reclaimed through Pod fencing or Lease expiry.
+Native operations durably fence Root, ApplicationSet and Tuppr reconciliation,
+stop Tuppr and reject independent upgrade workers before mutation; ordinary app
+writers remain running. Bootstrap creates Root already held, completes all
+foundational mutation, restores Root last, then performs its read-only handoff.
+Fresh pre-API creation needs explicit positive native disk/etcd evidence.
+Platform removal requires already-adopted `Delete=false` retention on selfhosted
+so cascading root deletion cannot erase the active Lease or journal; successful
+standalone removal retains that namespace. See the linked runbook for the exact
+proofs, finalizer fallback, and live acceptance boundary.
+
 The [Image Factory installer decision](../decisions/talos-image-factory.md)
 explains why upgrades must preserve the configured installer and its extensions.
 An upgrade requires current node and snapshot preflight; this page does not

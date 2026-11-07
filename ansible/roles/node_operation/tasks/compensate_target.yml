@@ -1,0 +1,16 @@
+---
+- name: Attempt this exact target fence independently of other failed targets
+  block:
+    - name: Restore the minimal held policy or controller state
+      ansible.builtin.include_tasks: target.yml
+      vars:
+        node_operation_target_mode: hold
+    - name: Preserve or establish idle Application skip
+      ansible.builtin.include_tasks: target.yml
+      vars:
+        node_operation_target_mode: skip
+      when: node_operation_target.role in ['root', 'application']
+  rescue:
+    - name: Record this target failure and continue fencing remaining targets
+      ansible.builtin.set_fact:
+        node_operation_compensation_failures: "{{ node_operation_compensation_failures + [node_operation_target.role ~ '/' ~ node_operation_target.name] }}"

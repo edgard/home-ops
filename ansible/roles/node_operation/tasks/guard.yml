@@ -1,0 +1,34 @@
+---
+- name: Read exact native ownership at the mutation boundary
+  kubernetes.core.k8s_info:
+    api_version: coordination.k8s.io/v1
+    kind: Lease
+    name: "{{ node_operation_name }}"
+    namespace: "{{ node_operation_namespace }}"
+  register: node_operation_guard_read
+- name: Refuse stale or replaced native owner
+  ansible.builtin.assert:
+    that:
+      - node_operation_guard_read.resources | length == 1
+      - node_operation_guard_read.resources[0] | node_operation_owned(node_operation_lease_uid, node_operation_actor, node_operation_id)
+- name: Recheck original coordination namespace before any further native work
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ node_operation_namespace }}"
+  register: node_operation_guard_namespace
+- name: Refuse namespace teardown or replacement while the native gate is held
+  ansible.builtin.assert:
+    that:
+      - node_operation_guard_namespace.resources | length == 1
+      - node_operation_guard_namespace.resources[0].metadata.uid == node_operation_namespace_uid
+      - node_operation_guard_namespace.resources[0].metadata.deletionTimestamp is not defined
+- name: Verify original Ready node before another mutation or journal transition
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    name: "{{ node_operation_original_node.name }}"
+  register: node_operation_guard_node
+- name: Refuse a replaced or unavailable original node
+  ansible.builtin.assert:
+    that: (node_operation_guard_node.resources | node_operation_node('', node_operation_original_node)) == node_operation_original_node

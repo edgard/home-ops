@@ -1,0 +1,57 @@
+---
+- name: Require existing verified immutable bootstrap source
+  ansible.builtin.assert:
+    that: platform_bootstrap_revision is match('^[a-f0-9]{40}$')
+- name: Read root source from exactly the preflight verified revision
+  ansible.builtin.command:
+    argv:
+      - git
+      - -C
+      - "{{ repo_root }}"
+      - show
+      - "{{ platform_bootstrap_revision }}:{{ platform_argocd_root_application_manifest }}"
+  register: node_operation_root_source
+  changed_when: false
+- name: Require the verified source bytes match the clean local bootstrap manifest
+  ansible.builtin.assert:
+    that:
+      - node_operation_root_source.stdout | from_yaml == lookup('ansible.builtin.file', repo_root ~ '/' ~ platform_argocd_root_application_manifest) | from_yaml
+      - (node_operation_root_source.stdout | from_yaml).metadata.resourceVersion is not defined
+      - (node_operation_root_source.stdout | from_yaml).metadata.uid is not defined
+- name: Bind intended root source and its captured absence or prior state
+  ansible.builtin.set_fact:
+    node_operation_root_intended: "{{ node_operation_root_source.stdout | from_yaml }}"
+    node_operation_root_snapshot: "{{ node_operation_journal.snapshots | selectattr('role', 'equalto', 'root') | first }}"
+- name: Keep existing original root held without rewriting its source or policies
+  ansible.builtin.include_tasks: verify_target.yml
+  vars:
+    node_operation_target: "{{ node_operation_root_snapshot }}"
+- name: Create a missing root already frozen under this owner
+  when: node_operation_root_snapshot.absent | default(false) | bool
+  block:
+    - name: Record intended owned root source and restore policy before creation
+      ansible.builtin.set_fact:
+        node_operation_journal: "{{ node_operation_journal | combine({'new_root': {'revision': platform_bootstrap_revision, 'source': node_operation_root_intended, 'state': 'intent'}}) }}"
+    - name: Persist new root intent before the API create
+      ansible.builtin.include_tasks: save.yml
+    - name: Create the exact verified root with automation disabled and skip already present
+      kubernetes.core.k8s:
+        state: present
+        # A raced existing CR gets PUT without resourceVersion, which the API
+        # rejects. Do not use the default merge path to adopt a foreign Root.
+        force: true
+        definition: "{{ node_operation_root_intended | combine({'metadata': node_operation_root_intended.metadata | combine({'annotations': node_operation_root_intended.metadata.annotations | default({}) | combine({'argocd.argoproj.io/skip-reconcile': 'true'})}), 'spec': node_operation_root_intended.spec | combine({'syncPolicy': node_operation_root_intended.spec.syncPolicy | default({}) | dict2items | rejectattr('key', 'equalto', 'automated') | items2dict})}) }}"
+      register: node_operation_root_created
+    - name: Bind actual created UID to the journaled original intended policy
+      ansible.builtin.set_fact:
+        node_operation_root_original: "{{ node_operation_root_intended | combine({'metadata': node_operation_root_intended.metadata | combine({'uid': node_operation_root_created.result.metadata.uid, 'resourceVersion': node_operation_root_created.result.metadata.resourceVersion})}) }}"
+    - name: Snapshot intended source policy using common maintenance fields
+      ansible.builtin.set_fact:
+        node_operation_root_new_snapshot: "{{ node_operation_root_snapshot | shared_data_snapshot(node_operation_root_original) }}"
+    - name: Replace absent root only with the exact owned creation
+      ansible.builtin.set_fact:
+        node_operation_journal: "{{ node_operation_journal | combine({'snapshots': [node_operation_root_new_snapshot | node_operation_bind(node_operation_root_original, node_operation_root_new_snapshot | shared_data_patch(node_operation_root_original))] + (node_operation_journal.snapshots | rejectattr('role', 'equalto', 'root') | list), 'new_root': node_operation_journal.new_root | combine({'state': 'created', 'uid': node_operation_root_created.result.metadata.uid})}) }}"
+    - name: Persist the exact new root identity before any subsequent step
+      ansible.builtin.include_tasks: save.yml
+- name: Prove root creation did not enable controller or worker creation
+  ansible.builtin.include_tasks: barrier.yml

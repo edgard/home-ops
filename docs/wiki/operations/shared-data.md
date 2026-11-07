@@ -99,6 +99,124 @@ rotation failures remain held for inspection. An independent watchdog uses
 the API journal and does not require an NFS mount. API, storage, or node
 failure can prevent recovery; the pause target does not guarantee downtime.
 
+## Registered Talos and platform operation exclusion
+
+The [native operation role](../../../ansible/roles/node_operation/tasks/main.yml)
+wraps registered Talos apply, bootstrap, upgrade, Kubernetes upgrade, and reset,
+ordinary platform bootstrap/removal, and composed cluster creation/removal in
+the same `selfhosted/shared-data-operation` Lease and API journal. These local
+commands leave ordinary application writers running. They journal and fence only
+Root, the apps ApplicationSet, the Tuppr Application and its controller. Root
+and Tuppr reconciliation are skipped after idle checks, the ApplicationSet is
+held create-only, and Tuppr is scaled to zero. Original source and field state
+are checked with UID/resourceVersion CAS before each mutation. After controller
+Pods terminate, complete upgrade CR, Job and Pod inventories must prove no
+active or restart-capable automatic worker remains. A preflight observation
+alone does not exclude a controller launch. Only one
+registered operation can acquire the gate; a held backup or cold-recovery
+journal refuses native work before its first mutating command. Composed
+operations acquire once, without recursively releasing between their steps.
+
+The executor is explicitly `NativeCLI`, with a random invocation identity and
+the original Ready Node UID read through the operator's Kubernetes credentials.
+That is an authenticated API read, not the bound-Pod token proof used by data
+Jobs. No Talos credential is copied into a Pod. The existing CLI SecretSpec scopes
+and read-only Bitwarden delivery remain the same.
+
+Lease duration covers up to twelve hours of expected API outage, but expiration
+never makes native work reclaimable. Successful native completion, original-node
+readiness, and applicable server-version verification precede a durable
+native-critical-complete phase. Only then are exact original control fields and
+annotation absence restored, with Root last, before exact UID/owner/resource-
+version journal and Lease release. Restoration failure attempts each remaining
+fence independently, preserving foreign queued operations and recording failures.
+Failed or ambiguous native execution leaves the minimal controls fenced. A retry may wait for the same node's
+API to return within that still-running invocation. A failure, lost local caller,
+changed Node UID, or ambiguous API write leaves ownership held indefinitely.
+The backup watchdog, administrative Pod recovery, cold recovery, and ordinary
+new invocations cannot fence a local process by deleting Pods or by waiting for
+TTL. There is no automated native takeover or resume command. An administrator
+must separately establish that the old local process and native operation have
+ended, inspect the node and preserved journal, and resolve exact retained
+ownership manually. Do not clear it merely because a Pod is absent or the Lease
+is old. Reset intentionally does not release after dispatch because the node/API
+may be destroyed before completion can be established. Established configuration
+apply also stops with ownership retained after its successful RPC: that reply
+does not prove asynchronous reboot/configuration reconciliation is complete.
+Established composed creation stops immediately after apply, before bootstrap
+or platform mutations; a successful command is not a completed operation.
+
+Manual finalization is an inspected administrative procedure, not a retry flag:
+retain the exact Lease UID/resourceVersion, holder nonce, complete journal and
+original Node UID; identify and terminate or observe completion of the original
+workstation invocation and any surviving native child; independently establish
+native Talos operation completion and the intended configuration/version on the
+original node; verify API health, absence of in-flight native/Tuppr work, and
+that no data operation acquired or changed the recorded objects. For apply,
+inspect actual applied configuration and any reboot completion, not just the
+RPC response or a first Ready observation. Only then may an administrator
+restore only the journaled minimal upgrade-control fields after checking their
+original UIDs and source specs, with Root last, using UID/resourceVersion CAS.
+Do not recreate intentionally destroyed targets. Explicit UID/resourceVersion/
+holder-checked journal finalization and removal of the exact native finalizers/
+ownership follow successful restoration or verified destructive disposition. If any identity, old process or
+node outcome is uncertain, leave both records held. No repository command
+automates this judgment or supplies a blanket force unlock.
+
+The [selfhosted namespace](../../../argocd/namespaces/selfhosted.namespace.yaml)
+uses Argo's [resource retention option](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#no-resource-deletion)
+`Delete=false`, so platform removal retains both coordination objects while root
+and application resources are deleted. Removal refuses until the actual
+namespace protection and the exact successful root sync's committed source agree.
+That adoption proof is journaled under the native owner before any GitOps fence
+write. Deletion revalidates the original Root UID/source/revision and exact live
+Namespace UID/resourceVersion/protection. Root may report OutOfSync afterward
+only when resource status attributes the drift solely to the journaled apps
+ApplicationSet policy change; unknown or foreign drift remains held. The root
+sync must be at least five minutes old; this conservative delay is not
+proof of controller-cache freshness. Exact namespace UID/resourceVersion checks
+and a preconditioned root deletion precede cascade. Live acceptance must verify
+the controller honors retention. A finalizer on both the native Lease and journal
+preserves evidence if unexpected namespace deletion nevertheless begins; native
+steps then refuse to continue. Finalizers are removed only after all successful
+native work. Root DELETE is submitted without waiting while it is skipped. Only a fresh,
+source-checked, exact-UID/RV Application already carrying deletionTimestamp may
+have skip removed for finalizer reconciliation; this applies to Root then the
+Tuppr child. Nondeleting or replaced objects are never unskipped by this path.
+The workflow waits for cascade completion and verifies intended targets absent;
+it never recreates them to restore old policy. Standalone platform removal
+leaves the namespace and complete journal; composed cluster reset remains
+destructive.
+
+Before a Kubernetes API exists, only explicit `HOME_OPS_FRESH_CLUSTER=true`
+creation can use the positive native exception. Initial apply requires native
+maintenance state, a positively discovered blank configured installation disk
+with no child partitions/filesystem, and no discovered STATE/EPHEMERAL storage.
+Standalone bootstrap requires authenticated native evidence of EPHEMERAL mounted
+at `/var`, ordinary non-symlink directory parents without a shadowing nested
+mount, a successful empty `/var/lib/etcd` inventory, and a successful empty local
+etcd-member resource inventory. Missing/unsupported probes or connection failures
+are not empty inventories. Reachable APIs always check actual shared and cold
+journals first; an existing cold journal cannot be bypassed by the fresh flag.
+Composed fresh creation acquires the shared gate once its new API is available,
+before any platform mutations. Ordinary platform bootstrap creates a missing
+Root already skipped and without automation from the exact verified immutable
+source, recording its intended policy before creation and its actual UID before
+continuing. Existing Root source/policy is preserved. Missing descendants must
+remain absent behind held or absent parents; an existing create-only
+ApplicationSet cannot justify a missing Tuppr Application. All foundational
+mutators finish and original-node completion is proved while fenced. Root is
+restored last, then the read-only GitOps/Secret handoff runs under the still-held
+Lease. A failed handoff retains ownership and attempts safe re-fencing; automatic
+work starting after verified critical completion is not described as overlap
+with an ongoing native mutation. These guards are intentionally conservative;
+ambiguous native layouts require inspected recovery instead of a blanket bypass.
+
+Direct trusted-admin Talos, Helm, or Kubernetes mutation outside these registered
+entry points is outside the exclusion guarantee and must use the same maintenance
+protocol. Synthetic API/native CLI tests cover ordering, crashes and ownership;
+they do not authorize or demonstrate a live upgrade, reboot, reset, or removal.
+
 ## Cold infrastructure recovery and admission boundary
 
 The [dedicated platform playbook](../../../ansible/playbooks/platform-recovery.yml)

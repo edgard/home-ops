@@ -1,0 +1,20 @@
+---
+- name: Read exact minimal fence target
+  kubernetes.core.k8s_info:
+    api_version: "{{ node_operation_target.api_version }}"
+    kind: "{{ node_operation_target.kind }}"
+    namespace: "{{ node_operation_target.namespace }}"
+    name: "{{ node_operation_target.name }}"
+  register: node_operation_capture
+- name: Record positively absent target without inventing its prior policy
+  ansible.builtin.set_fact:
+    node_operation_journal: "{{ node_operation_journal | combine({'snapshots': node_operation_journal.snapshots + [node_operation_target | combine({'absent': true})]}) }}"
+  when: node_operation_capture.resources | length == 0
+- name: Capture original fields with the existing maintenance snapshot contract
+  ansible.builtin.set_fact:
+    node_operation_snapshot: "{{ node_operation_target | shared_data_snapshot(node_operation_capture.resources[0]) }}"
+  when: node_operation_capture.resources | length == 1
+- name: Bind immutable target identity and source before durable intent
+  ansible.builtin.set_fact:
+    node_operation_journal: "{{ node_operation_journal | combine({'snapshots': node_operation_journal.snapshots + [node_operation_snapshot | node_operation_bind(node_operation_capture.resources[0], node_operation_snapshot | shared_data_patch(node_operation_capture.resources[0]))]}) }}"
+  when: node_operation_capture.resources | length == 1

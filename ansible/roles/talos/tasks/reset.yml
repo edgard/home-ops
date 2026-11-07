@@ -1,22 +1,6 @@
 ---
-- name: Require Talos node
-  ansible.builtin.assert:
-    that:
-      - talos_node | length > 0
-    fail_msg: TALOS_NODE is required.
-
-- name: Reset Talos node
-  when: not ansible_check_mode
-  ansible.builtin.command:
-    argv:
-      - talosctl
-      - --talosconfig
-      - "{{ talos_config_path }}"
-      - --endpoints
-      - "{{ talos_node }}"
-      - reset
-      - --nodes
-      - "{{ talos_node }}"
-      - --graceful=false
-      - --reboot
-  changed_when: true
+- name: Exclude data operations across the complete native Talos action
+  ansible.builtin.include_role:
+    name: node_operation
+  vars:
+    node_operation_action: talos-reset

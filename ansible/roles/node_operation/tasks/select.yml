@@ -1,0 +1,16 @@
+---
+- name: Freeze the registered operation for this invocation
+  ansible.builtin.set_fact:
+    node_operation_selected_action: "{{ node_operation_action }}"
+- name: Probe authenticated Kubernetes availability without inferring freshness
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+  register: node_operation_api_probe
+  ignore_errors: true
+- name: Use shared exclusion whenever the Kubernetes API is reachable
+  ansible.builtin.include_tasks: transaction.yml
+  when: node_operation_api_probe is succeeded
+- name: Require explicit positive native proof before a pre-API fresh exception
+  ansible.builtin.include_tasks: fresh.yml
+  when: node_operation_api_probe is failed

@@ -1,0 +1,21 @@
+---
+- name: Read shared exclusion and both durable journals
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ node_operation_namespace }}"
+    name: "{{ item.name }}"
+  loop:
+    - {api: coordination.k8s.io/v1, kind: Lease, name: shared-data-operation}
+    - {api: v1, kind: ConfigMap, name: shared-data-operation}
+    - {api: v1, kind: ConfigMap, name: shared-data-cold-recovery}
+  register: node_operation_reads
+- name: Decode durable exclusion records
+  ansible.builtin.set_fact:
+    node_operation_lease: "{{ node_operation_reads.results[0].resources | first | default({}) }}"
+    node_operation_previous_resource: "{{ node_operation_reads.results[1].resources | first | default({}) }}"
+    node_operation_previous: "{{ (node_operation_reads.results[1].resources[0].data['journal.json'] | from_json) if node_operation_reads.results[1].resources | length else {} }}"
+    node_operation_cold: "{{ (node_operation_reads.results[2].resources[0].data['journal.json'] | from_json) if node_operation_reads.results[2].resources | length else {} }}"
+- name: Refuse every held or unfinished operation before native work
+  ansible.builtin.assert:
+    that: node_operation_lease | node_operation_available(node_operation_previous, node_operation_cold)

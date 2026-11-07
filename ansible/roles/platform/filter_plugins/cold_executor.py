@@ -49,6 +49,8 @@ def job_identity(actor):
 
 
 def cold_dispatch_ownership(lease, journal, context, operation):
+    if "home-ops/native-operation" in lease.get("metadata", {}).get("finalizers", []):
+        raise ValueError("unresolved native CLI ownership cannot become cold recovery")
     holder = lease.get("spec", {}).get("holderIdentity", "")
     if journal and not journal.get("executor", {}).get("job_uid"):
         raise ValueError(

@@ -113,9 +113,7 @@ print(json.dumps({{'snapshot':'e'*64,'selection_sha256':'b'*64,'manifest_sha256'
         shared_data_lease_duration=900,
     )
     with api.maintenance_api(tmp_path, resources) as (connection, state):
-        result = run_role(
-            tmp_path, "shared_data", "main", {**connection, **variables}, timeout=600
-        )
+        result = run_role(tmp_path, "shared_data", "main", {**connection, **variables})
         assert (result.returncode == 0) == (not fail_step), (
             result.stdout[-16000:] + result.stderr
         )

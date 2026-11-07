@@ -1,0 +1,15 @@
+---
+- name: Verify original native ownership before each Helm mutation
+  ansible.builtin.include_role:
+    name: node_operation
+    tasks_from: guard
+- name: Remove bootstrap Helm release
+  kubernetes.core.helm:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    release_name: "{{ platform_destroy_release.name }}"
+    release_namespace: "{{ platform_destroy_release.namespace }}"
+    release_state: absent
+    wait: true
+    # The pinned collection forwards only wait_timeout to Helm uninstall.
+    wait_timeout: "{{ platform_helm_timeout }}"

@@ -1,0 +1,42 @@
+---
+- name: Check native journal writer ownership
+  ansible.builtin.include_tasks: guard.yml
+- name: Create the native journal only when none existed
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ node_operation_name }}"
+        namespace: "{{ node_operation_namespace }}"
+        finalizers:
+          - home-ops/native-operation
+      data:
+        journal.json: "{{ node_operation_journal | to_json }}"
+  register: node_operation_saved_create
+  when: node_operation_previous_resource | length == 0
+- name: Compare exact original journal identity and version before replacing data
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ node_operation_name }}"
+    namespace: "{{ node_operation_namespace }}"
+    patch:
+      - op: test
+        path: /metadata/uid
+        value: "{{ node_operation_previous_resource.metadata.uid }}"
+      - op: test
+        path: /metadata/resourceVersion
+        value: "{{ node_operation_previous_resource.metadata.resourceVersion }}"
+      - op: add
+        path: /metadata/finalizers
+        value: "{{ (node_operation_previous_resource.metadata.finalizers | default([]) + ['home-ops/native-operation']) | unique | list }}"
+      - op: add
+        path: /data/journal.json
+        value: "{{ node_operation_journal | to_json }}"
+  register: node_operation_saved_patch
+  when: node_operation_previous_resource | length > 0
+- name: Preserve exact saved identity for the next journal update
+  ansible.builtin.set_fact:
+    node_operation_previous_resource: "{{ node_operation_saved_patch.result if node_operation_saved_patch is not skipped else node_operation_saved_create.result }}"
