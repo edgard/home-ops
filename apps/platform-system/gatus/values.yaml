@@ -202,6 +202,15 @@ config:
         - "[STATUS] < 300"
       alerts:
         - type: telegram
+    - name: sparkyfitness
+      group: apps
+      url: https://sparkyfitness.edgard.org
+      interval: 1m
+      conditions:
+        - "[STATUS] >= 200"
+        - "[STATUS] < 300"
+      alerts:
+        - type: telegram
     - name: twitch-drops-miner
       group: apps
       url: https://twitchdrops.edgard.org

@@ -113,6 +113,10 @@ controllers:
           - --tag
           - appdata
           - --verbose
+          - --exclude
+          - /data/appdata/selfhosted/sparkyfitness-data/postgresql
+          - --exclude
+          - /data/appdata/selfhosted/sparkyfitness-data/backups/.tmp
         env:
           RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
           RESTIC_PASSWORD:

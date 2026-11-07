@@ -23,6 +23,13 @@ identity and infrastructure values resolve from Bitwarden through scoped
 SecretSpec. Protected infrastructure-state backups have a separate recovery
 procedure; they do not replace Bitwarden availability.
 
+SparkyFitness uses its native scheduled SQL-and-uploads archives. Restic stores
+those archives and uploads while excluding live PostgreSQL files. Its cold
+recovery includes a database import before application writers resume; generic
+file restoration alone is insufficient. The existing generic restore exclusion
+list keeps this app out of automatic file-restore/resume transactions. See the
+[application recovery procedure](../operations/restic-backup-restore.md#sparkyfitness-database-and-files).
+
 ## Sources
 
 - [Restic values](../../../apps/selfhosted/restic/values.yaml)

@@ -25,6 +25,8 @@ restic_restore_excluded_apps:
   - root
   - media-backup
   - selfhosted-backup
+  # Native SQL-and-uploads recovery is documented in the Restic runbook.
+  - sparkyfitness
 restic_restore_excluded_pvcs:
   - media/media
   - selfhosted/restic-repo
