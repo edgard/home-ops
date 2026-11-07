@@ -1,11 +1,12 @@
 # k8tz
 
 Purpose: k8tz sets timezone behavior for workloads through an admission webhook.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `8b3bfc0792a0532ee6d27bea1802d0642db102ae`.
 
 ## Dependencies
 
-Its webhook certificate comes from cert-manager, with raw manifests that wait for certificate prerequisites.
+Its official Helm repository supplies the chart. The webhook certificate comes
+from cert-manager, with raw manifests that wait for certificate prerequisites.
 
 ## Data and recovery
 

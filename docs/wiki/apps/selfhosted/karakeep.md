@@ -26,6 +26,11 @@ Root startup must change that ownership back; without `CHOWN`, s6 exits before
 the database migration, web server, or workers start. Keep privilege escalation
 disabled. Chrome and Meilisearch retain their separate non-root profiles.
 
+Meilisearch keeps a versioned persistent datastore. An application rollback must
+retain an engine that can open that datastore; changing the image tag alone
+does not roll its format back. Preserve the existing files instead of deleting
+them to make an older engine start.
+
 ## Sources
 
 - [App metadata](../../../../apps/selfhosted/karakeep/app.yaml)

@@ -3,6 +3,24 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] review | November semantic review and standalone Sure
+
+Compared the restored baseline explanations with current source metadata,
+application values, NFS storage, ESO delivery, Gateway/Gatus routes, Restic
+capture/restore and validation contracts. The abandoned shared-service
+architecture is absent. Existing application explanations still describe their
+app-owned storage; no existing database migration is enabled.
+
+Added Sure with its own PostgreSQL/Redis, native startup and app-local SQL dumps.
+Updated backup/recovery and source/index links to explain dump-based recovery
+and raw-engine exclusions. Clarified k8tz's official chart source and Tuppr's
+native suspension boundary for older restored version targets. Retained the
+compatible Meilisearch engine so its existing datastore remains readable; no
+index/data deletion is part of the rollback. Home Assistant also retains its
+compatible release because its newer HTTP-settings storage format cannot be
+opened by the older image. Reviewed secrets, storage,
+networking, validation and uptime pages; their remaining contracts are accurate.
+
 ## [2026-10-27] revision | Bound Paperless cold starts and index recovery
 
 Extended the main container startup-probe budget for cold AI initialization while

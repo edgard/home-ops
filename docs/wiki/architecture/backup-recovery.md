@@ -23,6 +23,11 @@ identity and infrastructure values resolve from Bitwarden through scoped
 SecretSpec. Protected infrastructure-state backups have a separate recovery
 procedure; they do not replace Bitwarden availability.
 
+Sure uses an app-local PostgreSQL dump CronJob. Restic captures its published
+dumps and application files while excluding live PostgreSQL and Redis storage.
+Its [app procedure](../apps/selfhosted/sure.md) adds the SQL-restore step before
+writers resume; ordinary file restoration alone does not recover its database.
+
 ## Sources
 
 - [Restic values](../../../apps/selfhosted/restic/values.yaml)

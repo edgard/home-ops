@@ -1,0 +1,577 @@
+---
+global:
+  createDefaultServiceAccount: false
+defaultPodOptions:
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 90
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      app:
+        image:
+          repository: ghcr.io/we-promise/sure
+          tag: 0.7.6
+          digest: sha256:61cd4c1fa9917200f8db4434b45d968235f375c52cdbdc81bf4a4df555a2f090
+        env:
+          RAILS_ENV: production
+          SELF_HOSTED: "true"
+          APP_DOMAIN: sure.edgard.org
+          BINDING: 0.0.0.0
+          PORT: "3000"
+          WEB_CONCURRENCY: "1"
+          RAILS_MAX_THREADS: "3"
+          RAILS_AI_MAX_THREADS: "1"
+          RAILS_FORCE_SSL: "true"
+          RAILS_ASSUME_SSL: "true"
+          ONBOARDING_STATE: closed
+          REQUIRE_EMAIL_CONFIRMATION: "false"
+          TZ: Europe/Warsaw
+          DB_HOST: sure-postgresql.selfhosted.svc.cluster.local
+          DB_PORT: "5432"
+          POSTGRES_DB: sure
+          POSTGRES_USER: sure
+          POSTGRES_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_db_password
+          REDIS_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_redis_password
+          REDIS_URL: redis://:$(REDIS_PASSWORD)@sure-redis.selfhosted.svc.cluster.local:6379/0
+          SECRET_KEY_BASE:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_secret_key_base
+          ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_encryption_primary_key
+          ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_encryption_deterministic_key
+          ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_encryption_salt
+          SURE_ADMIN_EMAIL:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_admin_email
+          SURE_ADMIN_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_admin_password
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            memory: 1Gi
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /up
+                port: 3000
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 60
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /up
+                port: 3000
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /up
+                port: 3000
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+  worker:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      app:
+        image:
+          repository: ghcr.io/we-promise/sure
+          tag: 0.7.6
+          digest: sha256:61cd4c1fa9917200f8db4434b45d968235f375c52cdbdc81bf4a4df555a2f090
+        env:
+          RAILS_ENV: production
+          SELF_HOSTED: "true"
+          APP_DOMAIN: sure.edgard.org
+          BINDING: 0.0.0.0
+          PORT: "3000"
+          WEB_CONCURRENCY: "1"
+          RAILS_MAX_THREADS: "3"
+          RAILS_AI_MAX_THREADS: "1"
+          RAILS_FORCE_SSL: "true"
+          RAILS_ASSUME_SSL: "true"
+          ONBOARDING_STATE: closed
+          REQUIRE_EMAIL_CONFIRMATION: "false"
+          TZ: Europe/Warsaw
+          DB_HOST: sure-postgresql.selfhosted.svc.cluster.local
+          DB_PORT: "5432"
+          POSTGRES_DB: sure
+          POSTGRES_USER: sure
+          POSTGRES_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_db_password
+          REDIS_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_redis_password
+          REDIS_URL: redis://:$(REDIS_PASSWORD)@sure-redis.selfhosted.svc.cluster.local:6379/0
+          SECRET_KEY_BASE:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_secret_key_base
+          ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_encryption_primary_key
+          ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_encryption_deterministic_key
+          ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_encryption_salt
+          SURE_ADMIN_EMAIL:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_admin_email
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            memory: 1Gi
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - bundle
+                  - exec
+                  - ruby
+                  - -e
+                  - "require \"redis\"; require \"socket\"; r=Redis.new(url: ENV.fetch(\"REDIS_URL\")); abort \"worker heartbeat absent\" unless r.smembers(\"processes\").any? { |id| id.start_with?(Socket.gethostname + \":\") && r.hget(id,\"beat\").to_f > Time.now.to_f-120 }"
+              periodSeconds: 10
+              timeoutSeconds: 10
+              failureThreshold: 60
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - bundle
+                  - exec
+                  - ruby
+                  - -e
+                  - "require \"redis\"; require \"socket\"; r=Redis.new(url: ENV.fetch(\"REDIS_URL\")); abort \"worker heartbeat absent\" unless r.smembers(\"processes\").any? { |id| id.start_with?(Socket.gethostname + \":\") && r.hget(id,\"beat\").to_f > Time.now.to_f-120 }"
+              periodSeconds: 30
+              timeoutSeconds: 10
+              failureThreshold: 4
+          liveness:
+            enabled: false
+        command:
+          - bundle
+          - exec
+          - sidekiq
+          - -t
+          - "60"
+    initContainers:
+      wait-web:
+        image:
+          repository: ghcr.io/we-promise/sure
+          tag: 0.7.6
+          digest: sha256:61cd4c1fa9917200f8db4434b45d968235f375c52cdbdc81bf4a4df555a2f090
+        command:
+          - ruby
+          - -rnet/http
+          - -e
+          - uri=URI("http://sure.selfhosted.svc.cluster.local:3000/up"); loop { begin; response=Net::HTTP.start(uri.host,uri.port,open_timeout:3,read_timeout:3) { |http| http.get(uri.request_uri,{"Host"=>"sure.edgard.org","X-Forwarded-Proto"=>"https"}) }; break if response.is_a?(Net::HTTPSuccess); rescue StandardError; end; sleep 2 }
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+  postgresql:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        runAsNonRoot: false
+        fsGroup: 999
+    containers:
+      app:
+        image: &id001
+          repository: docker.io/library/postgres
+          tag: "16.15"
+          digest: sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657
+        env:
+          PGDATA: /var/lib/postgresql/data/pgdata
+          POSTGRES_DB: sure
+          POSTGRES_USER: sure
+          POSTGRES_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_db_password
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - CHOWN
+              - DAC_OVERRIDE
+              - FOWNER
+              - SETUID
+              - SETGID
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - pg_isready
+                  - -U
+                  - sure
+                  - -d
+                  - sure
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 60
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - pg_isready
+                  - -U
+                  - sure
+                  - -d
+                  - sure
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - pg_isready
+                  - -U
+                  - sure
+                  - -d
+                  - sure
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+  redis:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    pod:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        runAsNonRoot: true
+        fsGroup: 999
+    containers:
+      app:
+        image:
+          repository: docker.io/library/redis
+          tag: 8.10.3
+          digest: sha256:1f88291b4c57bdf249f02eb085a8669889b2d2954e91d4de5118a5da6b78dd53
+        command:
+          - /bin/sh
+          - -ec
+          - "umask 077 #magic___^_^___line printf 'bind 0.0.0.0 #magic___^_^___line protected-mode yes #magic___^_^___line dir /data #magic___^_^___line appendonly yes #magic___^_^___line appendfsync everysec #magic___^_^___line maxmemory 128mb #magic___^_^___line maxmemory-policy noeviction #magic___^_^___line requirepass %s #magic___^_^___line ' \"$REDIS_PASSWORD\" > /tmp/redis.conf #magic___^_^___line exec redis-server /tmp/redis.conf #magic___^_^___line "
+        env:
+          REDIS_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_redis_password
+          REDISCLI_AUTH:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_redis_password
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        probes:
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - redis-cli
+                  - --no-auth-warning
+                  - ping
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - redis-cli
+                  - --no-auth-warning
+                  - ping
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - redis-cli
+                  - --no-auth-warning
+                  - ping
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 6
+  backup:
+    type: cronjob
+    cronjob:
+      schedule: 0 2 * * *
+      timeZone: Europe/Warsaw
+      concurrencyPolicy: Forbid
+      backoffLimit: 1
+    pod:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        runAsNonRoot: true
+        fsGroup: 999
+    containers:
+      app:
+        image: *id001
+        command:
+          - /bin/sh
+          - -ec
+          - "set -eu #magic___^_^___line umask 077 #magic___^_^___line stamp=\"$(date -u +%Y%m%dT%H%M%SZ)\" #magic___^_^___line temporary=\"/backups/.${stamp}.dump.tmp\" #magic___^_^___line trap 'rm -f \"$temporary\"' EXIT #magic___^_^___line pg_dump --format=custom --no-owner --no-acl --file=\"$temporary\" #magic___^_^___line mv \"$temporary\" \"/backups/${stamp}.dump\" #magic___^_^___line ls -1t /backups/*.dump | sed -n '8,$p' | xargs -r rm -- #magic___^_^___line "
+        env:
+          PGHOST: sure-postgresql.selfhosted.svc.cluster.local
+          PGPORT: "5432"
+          PGDATABASE: sure
+          PGUSER: sure
+          PGPASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: sure-credentials
+                key: sure_db_password
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            memory: 512Mi
+service:
+  main:
+    forceRename: sure
+    controller: main
+    ports:
+      http:
+        port: 3000
+        targetPort: 3000
+  postgresql:
+    forceRename: sure-postgresql
+    controller: postgresql
+    type: ClusterIP
+    ports:
+      tcp:
+        port: 5432
+        targetPort: 5432
+  redis:
+    forceRename: sure-redis
+    controller: redis
+    type: ClusterIP
+    ports:
+      tcp:
+        port: 6379
+        targetPort: 6379
+route:
+  main:
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - sure.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 3000
+persistence:
+  storage:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    storageClass: nfs-fast
+    size: 5Gi
+    retain: true
+    advancedMounts:
+      main:
+        app:
+          - path: /rails/storage
+      worker:
+        app:
+          - path: /rails/storage
+  postgresql-data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    storageClass: nfs-fast
+    size: 10Gi
+    retain: true
+    advancedMounts:
+      postgresql:
+        app:
+          - path: /var/lib/postgresql/data
+  redis-data:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    storageClass: nfs-fast
+    size: 1Gi
+    retain: true
+    advancedMounts:
+      redis:
+        app:
+          - path: /data
+  backups:
+    type: persistentVolumeClaim
+    accessMode: ReadWriteOnce
+    storageClass: nfs-fast
+    size: 2Gi
+    retain: true
+    advancedMounts:
+      backup:
+        app:
+          - path: /backups
+  tmp:
+    type: emptyDir
+    globalMounts:
+      - path: /tmp
+  rails-tmp:
+    type: emptyDir
+    advancedMounts:
+      main:
+        app:
+          - path: /rails/tmp
+      worker:
+        app:
+          - path: /rails/tmp
+  postgresql-run:
+    type: emptyDir
+    advancedMounts:
+      postgresql:
+        app:
+          - path: /var/run/postgresql

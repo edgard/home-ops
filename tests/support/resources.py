@@ -13,13 +13,19 @@ ROOT_IMAGES = (
     "restic/rest-server:",
     "restic/restic:",
     "ghcr.io/tailscale/tailscale:",
+    "docker.io/library/postgres:",
     "lscr.io/linuxserver/",
 )
 SECURITY_EXCEPTIONS = (
     "docker.io/apache/tika:",
     "docker.io/gotenberg/gotenberg:",
     "docker.io/library/redis:",
-    *(image for image in ROOT_IMAGES[:-1] if image != "ghcr.io/karakeep-app/karakeep:"),
+    *(
+        image
+        for image in ROOT_IMAGES[:-1]
+        if image
+        not in {"ghcr.io/karakeep-app/karakeep:", "docker.io/library/postgres:"}
+    ),
 )
 RETIRED_GROUPS = {"monitoring.coreos.com", "operator.victoriametrics.com"}
 RETIRED_WORKLOADS = (
