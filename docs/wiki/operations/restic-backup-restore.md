@@ -87,28 +87,6 @@ restore the Argo CD app that owns the PVC.
 
 ## Restore All Appdata
 
-Before planning a confirmed restore, prepare any installed
-[Sure](../apps/selfhosted/sure.md) and
-[SparkyFitness](../apps/selfhosted/sparkyfitness.md) stacks for SQL recovery:
-
-1. Record the current root Application automation, `apps` ApplicationSet policy,
-   application automation, writer replica counts and backup CronJob suspension.
-2. Disable root automated reconciliation, set the ApplicationSet's
-   `spec.syncPolicy.applicationsSync` to `create-only`, and disable automated sync
-   for these two Applications. Wait for in-flight syncs to finish.
-3. Suspend their app-local backup CronJobs and wait for active backup Jobs to
-   finish. Stop Sure web/worker and SparkyFitness frontend/backend/Garmin, and
-   wait for their Pods to exit. Leave these writers at zero **before** the restore
-   plan records replica counts. Do not manually sync either Application.
-4. Select a snapshot containing each installed app's published SQL dump and
-   files. A snapshot predating that app's SQL backups cannot recover its database.
-
-These outer holds must survive the file-restore transaction: it restores the
-ApplicationSet policy and replicas it recorded, so it must record `create-only`
-and zero writer replicas. The root hold prevents self-heal from removing that
-policy. The generic transaction clears app-owned engine directories too; they
-are excluded from snapshots and initialize empty afterward.
-
 ```sh
 task restic:restore-all
 task restic:restore-all confirm_restore=true
@@ -120,26 +98,17 @@ Use an explicit snapshot when needed:
 task restic:restore-all snapshot=<snapshot-id> confirm_restore=true
 ```
 
-Keep the holds after file restoration. Follow each linked app's SQL import and
-validation procedure with its PostgreSQL server ready and writers still stopped.
-Only after validation, restore writer replicas and backup CronJob suspension,
-then application automation, ApplicationSet policy and root automation last.
-Verify application login and records before taking a fresh backup. On failure,
-leave the affected app held for inspection.
-
 ## Cluster DR
 
 1. Rebuild Talos/Kubernetes.
 2. Restore or reattach `/mnt/dpool/restic`.
 3. Recreate `/mnt/spool/appdata`.
 4. Let Argo CD deploy External Secrets and `restic`.
-5. Establish the SQL-app holds above before allowing their writers to start,
-   then run `task restic:restore-all` first without confirmation.
+5. Run `task restic:restore-all` first without confirmation.
 6. Review the plan.
 7. Run `task restic:restore-all confirm_restore=true`.
-8. Import and validate Sure/SparkyFitness SQL dumps while their writers remain
-   stopped; restore recorded holds in the order above.
-9. Verify apps and run a fresh backup.
+8. Verify apps.
+9. Run a fresh backup.
 
 ## CLI Fallback
 

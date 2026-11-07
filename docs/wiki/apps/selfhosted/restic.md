@@ -24,6 +24,13 @@ changing how workstation clients reach the repository.
 
 The repository is a recovery dependency; successful deployment alone does not prove recent usable snapshots.
 
+## Temporary retirement maintenance
+
+Backup and maintenance CronJobs are explicitly suspended while the retired
+applications' live storage and historical backup paths are removed. Existing
+snapshots remain available for recovery. Resume both schedules through the
+follow-up GitOps change after repository verification; retention is unchanged.
+
 ## Sources
 
 - [App metadata](../../../../apps/selfhosted/restic/app.yaml)
