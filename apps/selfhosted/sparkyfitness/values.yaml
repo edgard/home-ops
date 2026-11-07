@@ -20,6 +20,8 @@ controllers:
         runAsUser: 1000
         runAsGroup: 0
         runAsNonRoot: true
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
     containers:
       app:
         image:
@@ -108,6 +110,7 @@ controllers:
           SPARKY_FITNESS_SHUTDOWN_TIMEOUT_SECONDS: "45"
           SPARKY_FITNESS_CUSTOM_UPLOADS_DIRECTORY: /data/uploads
           SPARKY_FITNESS_CUSTOM_BACKUP_DIRECTORY: /data/backups
+          SPARKY_FITNESS_CUSTOM_TEMP_DIRECTORY: /tmp/sparky-temp-uploads
         securityContext:
           runAsUser: 1000
           runAsGroup: 1000
@@ -331,6 +334,12 @@ route:
           - identifier: main
             port: 8080
 persistence:
+  run:
+    type: emptyDir
+    advancedMounts:
+      main:
+        app:
+          - path: /run
   data:
     type: persistentVolumeClaim
     forceRename: sparkyfitness-data
