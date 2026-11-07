@@ -3,6 +3,13 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-07] revision | Correct SparkyFitness runtime directories
+
+Live startup identified the frontend PID directory and backend restore-upload
+staging directory as root-owned image paths. Added a writable ephemeral `/run`
+for Nginx and selected the backend's native `/tmp` staging override, preserving
+non-root execution and the existing persistent-data layout.
+
 ## [2026-11-07] revision | Reinstall SparkyFitness with native features
 
 Reintroduced the dedicated frontend, backend, PostgreSQL and Garmin stack with

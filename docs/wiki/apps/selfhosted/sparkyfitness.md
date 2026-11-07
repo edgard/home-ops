@@ -22,7 +22,9 @@ registration with `SPARKY_FITNESS_DISABLE_SIGNUP=true` in a follow-up GitOps cha
 
 The frontend uses its packaged configuration, non-root port and fully qualified
 backend hostname. The backend trusts the existing gateway plus bundled frontend
-proxy chain. Garmin uses TCP readiness and no HTTP liveness restart: an active
+proxy chain. A writable ephemeral `/run` holds Nginx's PID for non-root startup.
+The backend stages restore uploads under `/tmp`, outside its root-owned image tree.
+Garmin uses TCP readiness and no HTTP liveness restart: an active
 sync can block its HTTP event loop.
 
 ## Full AI and Garmin onboarding
