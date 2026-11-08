@@ -37,10 +37,10 @@ runs:
         python-version-file: pyproject.toml
 
     - name: Set Up uv
-      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         # renovate: datasource=github-releases depName=astral-sh/uv
-        version: "0.13.6"
+        version: "0.13.7"
         enable-cache: true
         cache-dependency-glob: uv.lock
 
@@ -56,7 +56,7 @@ runs:
       uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
         # renovate: datasource=github-releases depName=opentofu/opentofu
-        tofu_version: v1.13.1
+        tofu_version: v1.13.2
         tofu_wrapper: false
 
     - name: Set Up Project Dependencies
@@ -69,7 +69,7 @@ runs:
 
     - name: Set Up pluto
       if: ${{ inputs.profile == 'lint' }}
-      uses: FairwindsOps/pluto/github-action@ac2c42d55d5ff46a1af0f4b15faf3555119eea23 # v5.24.4
+      uses: FairwindsOps/pluto/github-action@d7d4f3f312f5b65c989a5a4eb92eb6b4ef86e29f # v5.24.5
       with:
         # renovate: datasource=docker depName=us-docker.pkg.dev/fairwinds-ops/oss/pluto
         IMAGE_TAG: v5.23

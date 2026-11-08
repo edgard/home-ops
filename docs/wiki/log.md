@@ -3,6 +3,15 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-08] revision | Record CrossWatch tracker data migration
+
+Reviewed the non-major dependency update after the validation simplification.
+Recorded CrossWatch's upstream automatic JSON-to-database migration, retained
+JSON recovery copies, and changed internal snapshot defaults in its app page.
+The config PVC and deployment wiring remain unchanged. Reviewed the Renovate,
+validation, and Paperless explanations; existing compatibility restrictions
+remain accurate. November's semantic review is already recorded below.
+
 ## [2026-11-08] revision | Retire simulated lifecycle validation
 
 Removed permanent lifecycle/fake-API/fake-CLI simulations, parallel rendering
