@@ -9,11 +9,11 @@ terraform {
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "3.4.0"
+      version = "3.5.0"
     }
     tailscale = {
       source  = "tailscale/tailscale"
-      version = "0.29.2"
+      version = "0.29.3"
     }
   }
 
