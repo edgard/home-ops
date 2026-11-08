@@ -1,7 +1,7 @@
 # GitOps delivery
 
 Purpose: explain how a repository change becomes a cluster application.
-Status: current. Reviewed against: `e66f8dac017406e0b72605aa16d5f7862aaa0c8a`.
+Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
 
 Ansible bootstraps foundational services and the Argo CD root application. The
 root application installs namespaces, projects, and the `apps` ApplicationSet.
@@ -23,7 +23,7 @@ children. ESO/store and Argo repository access must be ready before root handoff
 - [Platform bootstrap](../../../ansible/roles/platform/tasks/bootstrap.yml)
 - [Root Application](../../../argocd/root.app.yaml)
 - [Apps ApplicationSet](../../../argocd/appsets/apps.appset.yaml)
-- [Metadata assertions](../../../tests/config/kubernetes/test_sources.py)
+- [Application discovery](../../../validation/sources.py)
 
 ## Related pages
 

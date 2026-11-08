@@ -4,7 +4,9 @@
 
 ## Validation
 
-<!-- List local checks and any relevant live verification. -->
+<!-- List checks and temporary implementation verification results. Remove temporary
+tests/fixtures before merge. Explain any permanent test added and the concrete
+credential, data, platform compatibility, schema, or wiki risk it protects. -->
 
 ## Wiki review
 

@@ -1,6 +1,5 @@
 """Read authoritative sources without policy-specific inventories."""
 
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,22 +16,22 @@ KubernetesLoader.add_constructor(
 )
 
 
+class SourceError(ValueError):
+    """An input error safe to display without YAML excerpts."""
+
+
 def read_yaml(path, multiple=False):
     path = Path(path)
     try:
         documents = list(yaml.load_all(path.read_text(), Loader=KubernetesLoader))
     except yaml.YAMLError:
-        raise ValueError(f"invalid YAML: {path}") from None
+        raise SourceError(f"invalid YAML: {path}") from None
     if multiple:
         return [document for document in documents if document is not None]
     assert len(documents) == 1 and documents[0] is not None, (
         f"empty or multiple documents: {path}"
     )
     return documents[0]
-
-
-def read_toml(path):
-    return tomllib.loads(Path(path).read_text())
 
 
 def read_json5(path):
@@ -44,7 +43,6 @@ class Application:
     path: Path
     metadata: dict
     values: dict
-    documents: list
 
     @property
     def name(self):
@@ -68,19 +66,24 @@ def applications(root):
         assert isinstance(metadata, dict) and isinstance(values, dict), (
             f"invalid application: {path}"
         )
-        documents = [
-            doc
-            for source in sorted((path / "manifests").glob("*.yaml"))
-            for doc in read_yaml(source, multiple=True)
-        ]
-        result.append(Application(path, metadata, values, documents))
+        result.append(Application(path, metadata, values))
     return result
 
 
 def manifest_paths(root):
     root = Path(root)
-    paths = sorted((root / "argocd").rglob("*.yaml")) + sorted(
-        (root / "apps").glob("*/*/manifests/*.yaml")
+    argo = root / "argocd"
+    assert argo.is_dir(), "missing Argo CD source directory"
+    argo_paths = sorted(
+        path
+        for path in argo.rglob("*")
+        if path.is_file() and path.suffix in {".yaml", ".yml"}
+    )
+    assert argo_paths, "missing Argo CD manifests"
+    paths = argo_paths + sorted(
+        path
+        for suffix in ("yaml", "yml")
+        for path in (root / "apps").glob(f"*/*/manifests/*.{suffix}")
     )
     assert paths, f"no manifests discovered: {root}"
     assert len(paths) == len(set(paths)), "duplicate manifest discovery"

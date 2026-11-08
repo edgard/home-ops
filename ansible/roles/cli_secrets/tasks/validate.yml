@@ -19,7 +19,7 @@
       - cli_secrets_cli_versions.results | selectattr('rc', 'ne', 0) | list | length == 0
       - cli_secrets_cli_versions.results[0].stdout | trim == 'secretspec ' ~ cli_secrets_secretspec_version
       - (cli_secrets_cli_versions.results[1].stdout | regex_search('[0-9]+[.][0-9]+[.][0-9]+')) is version('0.3.0', '>=')
-    fail_msg: Provision SecretSpec and BWS through your machine's package setup; CI uses the toolchain action. See ansible/roles/cli_secrets/defaults/main.yml for the required SecretSpec version.
+    fail_msg: Provision SecretSpec and BWS through your machine's package setup. See ansible/roles/cli_secrets/defaults/main.yml for the required SecretSpec version.
 
 - name: Read the authoritative secret contract
   ansible.builtin.set_fact:

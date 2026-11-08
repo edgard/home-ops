@@ -1,7 +1,7 @@
 # Secrets and credentials
 
 Purpose: explain authoritative Bitwarden values and scoped delivery.
-Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
+Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
 
 Bitwarden Secrets Manager owns all values in one `home-ops` project. ESO supplies
 Kubernetes workloads through the existing ClusterSecretStore; SecretSpec supplies
@@ -38,7 +38,7 @@ state, plan, crash, and backup paths remain protected from accidental commits.
 - [ClusterSecretStore](../../../apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml)
 - [External Secrets bootstrap](../../../ansible/roles/platform/tasks/external_secrets.yml)
 - [Terraform provider wiring](../../../terraform/main.tf)
-- [Role behavior scenarios](../../../tests/integration)
+- [Production secret-function checks](../../../validation/test_secrets.py)
 
 ## Related pages
 

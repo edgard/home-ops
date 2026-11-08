@@ -19,7 +19,7 @@ catalog is a guide to it, not a copy of all tracked files.
 | Bootstrap and operations | [Ansible](../../ansible) and [Taskfile](../../Taskfile.yaml) | [Talos](architecture/talos-bootstrap.md), [recovery](architecture/backup-recovery.md) |
 | Secrets and CLI inputs | [SecretSpec](../../secretspec.toml), [CLI role](../../ansible/roles/cli_secrets), [platform playbooks](../../ansible/playbooks) | [Secrets](architecture/secrets.md), [maintenance](operations/secrets-maintenance.md) |
 | External infrastructure | [Terraform](../../terraform) and [provider lock](../../terraform/.terraform.lock.hcl) | [Terraform](architecture/terraform.md) |
-| Enforced contracts | [Test guide](../../tests/README.md), [Python metadata](../../pyproject.toml), [Python lock](../../uv.lock), [assertions and scenarios](../../tests), and [CI](../../.github/workflows/ci.yml) | [Validation](architecture/validation.md) |
+| Enforced contracts | [Test guide](../../validation/README.md), [Python metadata](../../pyproject.toml), [Python lock](../../uv.lock), [native adapters and safety checks](../../validation), and [CI](../../.github/workflows/ci.yml) | [Validation](architecture/validation.md) |
 | Dependency maintenance | [Renovate configuration](../../.renovaterc.json5) and [RenovateJob](../../apps/selfhosted/renovate-operator/manifests/renovate-operator-home-ops.renovatejob.yaml) | [Renovate Operator](apps/selfhosted/renovate-operator.md), [Talos installer](decisions/talos-image-factory.md) |
 
 ## Decision evidence

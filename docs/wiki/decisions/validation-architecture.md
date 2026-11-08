@@ -1,59 +1,44 @@
-# Native validators and one pytest suite
+# Native validators and minimal permanent checks
 
-Purpose: record validation ownership and the simplification decision.
-Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
+Purpose: record the boundary between implementation verification and permanent validation.
+Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
 
-The earlier validation refactors retired top-level scripts and separated
-configuration assertions from executable behavior. Their inventories, Rego rules,
-static task reconstruction, and nested test runners still created unnecessary
-plumbing. The unified suite now reads original source objects and invokes real
-role entry points through pytest.
+Native tools validate deployable configuration. A small serial offline pytest
+suite protects concrete credential, data, platform compatibility, schema-conversion,
+and wiki-link risks. Executable validators and their small tests share one
+validation directory. Kubernetes rendering runs separately from pytest, through
+a thin serial adapter; there is no generic policy registry or test orchestration.
 
-Ansible retains operator orchestration and runtime safety checks. pytest owns
-offline wiki checks and invokes the native chart/schema/deprecation tools directly.
-Native formatters, linters, Git, OpenTofu, kubeconform, and Pluto
-keep their specialized semantics. Plain pytest assertions cover repository
-relationships; units cover focused adapters; isolated scenarios cover execution,
-check mode, rollback, cleanup, confidentiality, and original-state restoration.
-There is no policy engine or generic contract registry.
+The previous lifecycle/API/CLI simulations and parallel rendering infrastructure
+are removed. Their ongoing bootstrap, restore, rollback, installer, and transport
+coverage is deliberately retired. Operational Ansible guards remain unchanged.
+One-off verification belongs to the change that needs it: temporary tests can be
+extensive during implementation, then are removed before merge with results
+recorded in the PR. Permanent tests must justify one of the retained risks, not
+merely repeat configuration, source spelling, or a past startup/API incident.
 
-Tests derive operational versions and identities from owning configuration.
-Fixed compatibility bounds and reasoned security exceptions remain explicit.
-Task names, task positions, and equivalent source expressions are not behavior.
-The real Kubernetes collection talks to a loopback API; the unsupported pod-exec
-transport is one controlled module boundary, with separate real-module loading.
-Offline fixtures do not replace fresh-cluster or live application acceptance.
+All-app Helm rendering, served-CRD schema export, kubeconform, and Pluto remain
+required, with existing schema semantics and explicit exceptions. They use
+ordinary temporary directories and subprocesses; no file locks, workers, shared
+snapshots, fake services, or custom process-runner framework remain. External
+chart/schema availability can still block a PR.
 
-The Kubernetes fixture validates sources first, invokes the native pipeline in
-a private workspace, shares the resulting render once, and owns cleanup. Offline
-validation roles and playbooks have been removed. Served CRD
-schemas remain authoritative; strict validation and catalog fallback retain their
-previous behavior. Local and CI commands use the same complete pytest discovery. CI runs one full
-Tests job alongside Format and Lint; `task check` composes those commands locally.
-Static checks never run pytest or synchronize dependencies. Python tools are
-locked through uv, while machine tools remain outside the repository installer.
-Single formatters own YAML, Python, and Terraform; shared native schema tooling
-validates standard configuration rather than bespoke assertions.
-
-Global pytest defaults parallelize every case with a bounded worker count and
-the standard work-stealing scheduler. Fixtures own mutable-resource isolation;
-there are no test eligibility lists or scheduling markers. The rendering fixture
-uses a file lock and atomically published per-run snapshot so session fixtures
-do not repeat chart downloads in different workers. Consumers load independent
-objects, and failed or interrupted initialization cannot publish usable results.
-The standard `-n 0` option provides serial debugging.
+Local and CI commands retain the same gate. CI Tests synchronizes locked Python
+without operator tools or collections, while Lint owns native deployment checks.
+No coverage target or permanent code-size enforcement is introduced. Runtime
+and live acceptance evidence remain separate from offline validation.
 
 ## Sources
 
-- [Test guide](../../../tests/README.md)
-- [CI workflow](../../../.github/workflows/ci.yml)
+- [Contributor policy](../../../AGENTS.md)
+- [Validation guide](../../../validation/README.md)
 - [Taskfile](../../../Taskfile.yaml)
-- [Native Kubernetes pipeline](../../../tests/support/kubernetes.py)
-- [Rendering fixture](../../../tests/config/kubernetes/conftest.py)
-- [pytest configuration](../../../pyproject.toml)
-- [Earlier validation refactor, PR #409](https://github.com/edgard/home-ops/pull/409)
+- [CI workflow](../../../.github/workflows/ci.yml)
+- [Native Kubernetes adapter](../../../validation/kubernetes.py)
+- [Schema conversion](../../../validation/schemas.py)
+- [Python dependency and pytest configuration](../../../pyproject.toml)
 
 ## Related pages
 
-- [Validation](../architecture/validation.md)
+- [Validation architecture](../architecture/validation.md)
 - [Agent workflow](../agent-workflow.md)
