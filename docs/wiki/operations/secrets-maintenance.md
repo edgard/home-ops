@@ -1,7 +1,7 @@
 # Secrets maintenance and recovery
 
 Purpose: provision and operate the unified Bitwarden delivery paths.
-Status: current. Reviewed against: `6aed89365a1ea1eaca88216fdf9bac132a1e18e5`.
+Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
 
 ## Setup without cluster access
 
@@ -32,17 +32,15 @@ task secrets:check scope=terraform
 Provision SecretSpec and BWS through the local Chezmoi/Homebrew machine setup.
 This repository validates those tools but does not install local binaries.
 The [CLI role defaults](../../../ansible/roles/cli_secrets/defaults/main.yml) own
-the SecretSpec compatibility pin used by runtime validation and the
-[CI toolchain action](../../../.github/actions/setup-toolchain/action.yml).
-The action installs the existing validation dependencies before reading that
-YAML value. Its isolated installer test covers checksum/version rejection and cleanup.
-CI uses synthetic provider fixtures and installs only SecretSpec. A pin update
-still has to pass the provider compatibility fixtures before delivery.
+the SecretSpec compatibility pin used by runtime validation. CI does not install
+SecretSpec or run provider CLI simulations. A pin update requires targeted
+implementation verification of the real provider compatibility before delivery;
+small offline checks retain provider rejection/redaction behavior.
 CLI commands include `~/.local/bin` on `PATH` automatically. Login prompts securely;
 do not paste tokens into commands, Git, documentation, or chat. On macOS,
 SecretSpec's keyring provider uses Keychain. Recovery requires access to
 Bitwarden and this credential or a replacement token; this design has no
-offline value cache or fallback. CI uses synthetic inputs, without Keychain or
+offline value cache or fallback. Offline tests use synthetic inputs, without Keychain or
 cloud access.
 
 ## Value inventory and ordinary use

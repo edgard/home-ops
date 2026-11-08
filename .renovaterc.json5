@@ -111,7 +111,7 @@
       datasourceTemplate: "docker",
     },
 
-    // CLI SecretSpec compatibility pin shared by CI and runtime validation
+    // CLI SecretSpec compatibility pin used by runtime validation
     {
       customType: "regex",
       description: "SecretSpec compatibility version",

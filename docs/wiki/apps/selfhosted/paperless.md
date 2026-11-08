@@ -1,7 +1,7 @@
 # Paperless
 
 Purpose: Paperless manages documents, extraction, and optional AI processing.
-Status: current. Reviewed against: `757e232266dbc2be725280a696efa476fcdc810e`.
+Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
 
 ## Dependencies
 
@@ -113,7 +113,7 @@ private snapshots, or unsanitized application logs as verification evidence.
 - [Raw manifests](../../../../apps/selfhosted/paperless/manifests)
 - [OCR defaults and settings precedence](https://github.com/icereed/paperless-gpt/blob/v0.31.0/settings.go)
 - [Background processing and failure tags](https://github.com/icereed/paperless-gpt/blob/v0.31.0/background.go)
-- [Processing safeguards](../../../../tests/config/kubernetes/test_paperless.py)
+- [Data preservation guards](../../../../validation/data.py)
 - [Native AI configuration](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.4/docs/advanced_usage.md#ai-features)
 
 ## Related pages

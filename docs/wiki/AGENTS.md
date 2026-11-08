@@ -51,7 +51,7 @@ not a generated dump of Helm values.
    contradictions and unknowns. Update the index for new or renamed pages, the
    source catalog for new evidence areas, and the log for the ingest or
    substantive revision. Keep current settings linked to their owning files.
-3. Review the page evidence, then run `task test -- tests/config/wiki` and `task check` before
+3. Review the page evidence, then run `task test -- validation/test_wiki.py` and `task check` before
    committing. Make the wiki revision part of the same PR as a substantive
    source change. A routine version bump needs no wiki edit if no claim changes;
    state which pages were checked in the PR.
@@ -71,7 +71,7 @@ same PR and record the review and its findings in the log, including a
 no-change conclusion. Running structural lint alone does not count as a
 semantic review.
 
-The checker covers structure and local links, not the truth of prose. PR
+The checker covers local links and app-page coverage, not page prose or its structure. PR
 review decides whether the source still supports an explanation.
 
 Never ingest private chats, agent memory, ignored operator files, decrypted

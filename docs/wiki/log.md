@@ -3,6 +3,20 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-08] revision | Retire simulated lifecycle validation
+
+Removed permanent lifecycle/fake-API/fake-CLI simulations, parallel rendering
+coordination, harness/installer tests, mutation matrices, and ordinary app
+startup/probe/feature contracts. Native all-app Helm/schema/deprecation validation
+remains required through a serial adapter; small offline checks retain the
+credential, data, platform compatibility, schema-conversion, and wiki-link risks.
+Adapters and test files share one validation directory. Runtime safeguards and
+deployed configuration remain unchanged. CI Tests no longer installs operator
+CLIs or Ansible collections. Contributor rules now distinguish extensive temporary
+implementation verification from justified minimal permanent checks. Updated
+related validation, secret, bootstrap, storage, uptime, and recovery explanations
+and removed stale test links. November's semantic review is already recorded below.
+
 ## [2026-11-07] revision | Close SparkyFitness registration
 
 Closed new account registration after initial administrator onboarding. Existing

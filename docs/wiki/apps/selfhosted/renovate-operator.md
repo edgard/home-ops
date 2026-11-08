@@ -23,7 +23,7 @@ The [repository Renovate configuration](../../../../.renovaterc.json5) combines
 built-in managers for Actions, Python project metadata/uv locks, Ansible
 collections, Terraform/provider locks, and Kubernetes
 images with custom extraction for app charts, images, upgrade targets, CI tools,
-Gateway API, the Restic restore image, and the shared SecretSpec compatibility
+Gateway API, the Restic restore image, and the runtime SecretSpec compatibility
 pin in [the CLI role defaults](../../../../ansible/roles/cli_secrets/defaults/main.yml). When moving a dependency file, check
 its manager file patterns and run a local extraction dry run; valid configuration
 alone does not prove that the dependency is still discovered.
