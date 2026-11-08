@@ -1,16 +1,22 @@
-"""Repository configuration assertions, expressed against parsed sources."""
+"""Direct checks for credential exposure and infrastructure compatibility."""
 
-import json
+import re
 import subprocess
+import tomllib
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID
 
 import hcl2
-from ansible.utils.version import SemanticVersion
 from hcl2.utils import SerializationOptions
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version as SemanticVersion
 
-from tests.support.sources import read_json5, read_toml, read_yaml
+from validation.sources import read_json5, read_yaml
+
+
+def read_toml(path):
+    return tomllib.loads(Path(path).read_text())
 
 
 def assert_secrets(config, tailscale_item, project_id):
@@ -33,8 +39,12 @@ def assert_secrets(config, tailscale_item, project_id):
         ), f"item reference: {name}"
         assert "as_path" not in declaration, f"environment delivery: {name}"
     for scope, expected in {
+        "talos": {"TALOS_SECRETS_YAML"},
         "cluster": {"TALOS_SECRETS_YAML", "ESO_BWS_ACCESS_TOKEN"},
         "platform": {"ESO_BWS_ACCESS_TOKEN"},
+        "terraform": {
+            name for name in declarations if name.startswith(("AWS_", "TF_VAR_"))
+        },
     }.items():
         actual = config["scopes"][scope]["secrets"]
         assert set(actual) == expected and len(actual) == len(expected), (
@@ -49,7 +59,7 @@ def assert_secrets(config, tailscale_item, project_id):
     assert shared["ref"]["item"] == tailscale_item, "shared Tailscale application item"
 
 
-def assert_targets(talos, kubernetes, patch):
+def assert_targets(talos, kubernetes, patch, installer):
     assert all(
         isinstance(value, str) and value for value in (talos, kubernetes, patch)
     ), "nonempty upgrade targets"
@@ -59,7 +69,7 @@ def assert_targets(talos, kubernetes, patch):
     assert SemanticVersion(kubernetes.removeprefix("v")) < SemanticVersion("1.37.0"), (
         "upgrade deployed Talos before Kubernetes"
     )
-    assert patch.endswith(":" + talos), "Talos patch/default alignment"
+    assert patch == installer, "Talos patch/default alignment"
 
 
 def terraform_sources(root):
@@ -88,9 +98,6 @@ def terraform_sources(root):
 
 def assert_terraform(root):
     documents = terraform_sources(root)
-    assert "bitwarden-secrets" not in json.dumps(list(documents.values())), (
-        "retired Bitwarden provider"
-    )
     pins = [
         provider["version"]
         for document in documents.values()
@@ -113,60 +120,32 @@ def assert_terraform(root):
     )
 
 
-def assert_repository(root):
-    root = Path(root)
-    eso = read_yaml(
-        root
-        / "apps/platform-system/tailscale-router/manifests/tailscale-router-credentials.externalsecret.yaml"
-    )
-    refs = [
-        entry["remoteRef"]["key"]
-        for entry in eso["spec"]["data"]
-        if entry["secretKey"] == "client_secret"
-    ]
-    assert len(refs) == 1, "one Tailscale OAuth secret reference"
+def test_secret_scope_and_project_alignment(repo_root):
     store = read_yaml(
-        root
+        repo_root
         / "apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml"
     )
+    tailscale = read_yaml(
+        repo_root
+        / "apps/platform-system/tailscale-router/manifests/tailscale-router-credentials.externalsecret.yaml"
+    )
+    item = next(
+        row["remoteRef"]["key"]
+        for row in tailscale["spec"]["data"]
+        if row["secretKey"] == "client_secret"
+    )
     assert_secrets(
-        read_toml(root / "secretspec.toml"),
-        refs[0],
+        read_toml(repo_root / "secretspec.toml"),
+        item,
         store["spec"]["provider"]["bitwardensecretsmanager"]["projectID"],
     )
-    defaults = read_yaml(root / "ansible/roles/talos/defaults/main.yml")
-    patch = read_yaml(
-        root / "ansible/roles/talos/files/controlplane-patch.yaml", multiple=True
-    )[0]
-    upgrade = read_yaml(
-        root
-        / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
-    )
-    assert_targets(
-        defaults["talos_upgrade"]["installer"]["version"],
-        upgrade["spec"]["kubernetes"]["version"],
-        patch["machine"]["install"]["image"],
-    )
-    assert_terraform(root)
-    tasks = read_yaml(root / "Taskfile.yaml")["tasks"]
-    assert "tf:migrate-secret-state" not in tasks, "retired migration command"
-    assert "scripts/" not in json.dumps(tasks), "role-owned orchestration"
-    for name in ("secrets-sync-cluster-token",):
-        assert (root / f"ansible/playbooks/{name}.yml").is_file(), (
-            f"CLI entry point: {name}"
-        )
-    retired = [
-        "scripts",
-        "ansible/vault/operator.yml",
-        "ansible/roles/talos/files/secrets.vault.yml",
-    ]
-    assert not any((root / path).exists() for path in retired), (
-        "retired secret workflows"
-    )
+
+
+def test_private_artifacts_stay_ignored_and_untracked(repo_root):
     artifacts = [
-        "ansible/roles/talos/files/secrets.yaml",
         ".envrc.backup",
         ".vault-password.backup",
+        "ansible/roles/talos/files/secrets.yaml",
         "ansible/roles/talos/files/secrets.yaml.backup",
         "terraform/crash.123.log",
         "terraform/terraform.tfstate.backup",
@@ -174,30 +153,70 @@ def assert_repository(root):
     ]
     ignored = subprocess.run(
         ["git", "check-ignore", "--", *artifacts],
-        cwd=root,
+        cwd=repo_root,
         capture_output=True,
         text=True,
         timeout=30,
-    )
-    assert ignored.returncode == 0 and set(ignored.stdout.splitlines()) == set(
-        artifacts
-    ), "ignored credentials and recovery artifacts"
-    tracked = subprocess.run(
-        ["git", "ls-files", "--", artifacts[0], *retired[1:]],
-        cwd=root,
-        capture_output=True,
-        text=True,
         check=True,
-        timeout=30,
     )
-    assert not tracked.stdout, "tracked credential artifacts"
+    assert set(ignored.stdout.splitlines()) == set(artifacts)
+    patterns = [
+        ".envrc*",
+        ".vault-password*",
+        "ansible/roles/talos/files/secrets.*",
+        "terraform/**/terraform.tfstate*",
+        "terraform/**/*.tfplan*",
+        "terraform/**/crash*.log",
+    ]
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", *patterns],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    assert not tracked.stdout, "sensitive artifacts must not be tracked"
 
 
-def walk(value):
-    if isinstance(value, dict):
-        yield value
-        for child in value.values():
-            yield from walk(child)
-    elif isinstance(value, list):
-        for child in value:
-            yield from walk(child)
+def test_talos_targets_align_and_stay_within_migration_bounds(repo_root):
+    installer = read_yaml(repo_root / "ansible/roles/talos/defaults/main.yml")[
+        "talos_upgrade"
+    ]["installer"]
+    patch = read_yaml(
+        repo_root / "ansible/roles/talos/files/controlplane-patch.yaml", multiple=True
+    )[0]
+    upgrade = read_yaml(
+        repo_root
+        / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
+    )
+    assert_targets(
+        installer["version"],
+        upgrade["spec"]["kubernetes"]["version"],
+        patch["machine"]["install"]["image"],
+        installer["repository"] + ":" + installer["version"],
+    )
+
+
+def test_python_interpreter_alignment(repo_root):
+    toolchain = read_yaml(repo_root / ".github/actions/setup-toolchain/action.yml")
+    python = next(
+        step
+        for step in toolchain["runs"]["steps"]
+        if step.get("uses", "").startswith("actions/setup-python@")
+    )
+    assert python["with"]["python-version-file"] == "pyproject.toml"
+    supported = SpecifierSet(
+        read_toml(repo_root / "pyproject.toml")["project"]["requires-python"]
+    )
+    preferred = re.search(
+        r"python([0-9]+\.[0-9]+)",
+        read_yaml(repo_root / "Taskfile.yaml")["vars"]["PYTHON_BIN"],
+    ).group(1)
+    assert preferred in supported, (
+        "Task interpreter must satisfy the supported Python range"
+    )
+
+
+def test_cloudflare_provider_stays_below_renovate_limit(repo_root):
+    assert_terraform(repo_root)

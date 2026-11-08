@@ -8,7 +8,7 @@ from jsonschema import Draft4Validator
 
 @pytest.fixture
 def schemas():
-    from tests.support import schemas
+    from validation import schemas
 
     return schemas
 

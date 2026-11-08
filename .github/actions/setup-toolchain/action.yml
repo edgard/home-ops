@@ -44,20 +44,15 @@ runs:
         enable-cache: true
         cache-dependency-glob: uv.lock
 
-    - name: Set Up Node
-      if: ${{ inputs.profile == 'test' }}
-      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-      with:
-        node-version: 26
-
     - name: Set Up Helm
-      if: ${{ inputs.profile == 'test' }}
+      if: ${{ inputs.profile == 'lint' }}
       uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
       with:
         # renovate: datasource=github-releases depName=helm/helm
         version: v4.3.1
 
     - name: Set Up OpenTofu
+      if: ${{ inputs.profile != 'test' }}
       uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
         # renovate: datasource=github-releases depName=opentofu/opentofu
@@ -66,36 +61,21 @@ runs:
 
     - name: Set Up Project Dependencies
       shell: bash
-      run: task deps
-
-    - name: Install SecretSpec
-      if: ${{ inputs.profile == 'test' }}
-      shell: bash
       run: |
-        version="$(.venv/bin/python -c 'import yaml; print(yaml.safe_load(open("ansible/roles/cli_secrets/defaults/main.yml"))["cli_secrets_secretspec_version"])')"
-        archive="secretspec-x86_64-unknown-linux-gnu.tar.xz"
-        release="https://github.com/cachix/secretspec/releases/download/v${version}"
-        tmp="$(mktemp -d "$RUNNER_TEMP/secretspec.XXXXXX")"
-        trap 'rm -rf "$tmp"' EXIT
-
-        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$archive" "$release/$archive"
-        curl --retry 5 --retry-all-errors --connect-timeout 15 --max-time 120 -fsSLo "$tmp/$archive.sha256" "$release/$archive.sha256"
-        (cd "$tmp" && sha256sum --check --status "$archive.sha256")
-        tar -xJf "$tmp/$archive" -C "$tmp"
-        test "$("$tmp/secretspec-x86_64-unknown-linux-gnu/secretspec" --version)" = "secretspec $version"
-        mkdir -p "$RUNNER_TEMP/home-ops-bin"
-        install -m 0755 "$tmp/secretspec-x86_64-unknown-linux-gnu/secretspec" "$RUNNER_TEMP/home-ops-bin/secretspec"
-        echo "$RUNNER_TEMP/home-ops-bin" >> "$GITHUB_PATH"
+        uv sync --locked --python python
+        if [ "${{ inputs.profile }}" = lint ]; then
+          .venv/bin/ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
+        fi
 
     - name: Set Up pluto
-      if: ${{ inputs.profile == 'test' }}
+      if: ${{ inputs.profile == 'lint' }}
       uses: FairwindsOps/pluto/github-action@d7d4f3f312f5b65c989a5a4eb92eb6b4ef86e29f # v5.24.5
       with:
         # renovate: datasource=docker depName=us-docker.pkg.dev/fairwinds-ops/oss/pluto
         IMAGE_TAG: v5.23
 
     - name: Set Up kubeconform
-      if: ${{ inputs.profile == 'test' }}
+      if: ${{ inputs.profile == 'lint' }}
       uses: bmuschko/setup-kubeconform@e5d264ec1eafe2314e750c429a9da7639dd5a003 # v1.1.0
       with:
         # renovate: datasource=github-releases depName=yannh/kubeconform

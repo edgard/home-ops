@@ -1,7 +1,7 @@
 # CrossWatch
 
 Purpose: CrossWatch tracks and synchronizes media watch state.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `b1218c66872fdb2d829e635b7e76b82123fd5b21`.
 
 ## Dependencies
 
@@ -12,6 +12,14 @@ Its own configuration claim and HTTPS route are separate from the shared media c
 The values declare a `config` PVC with a `Delete=false` Argo annotation.
 Check [restore eligibility](../../architecture/backup-recovery.md) against the
 current claim and storage class before changing its lifecycle.
+
+Tracker-format upgrades can migrate persistent data. The
+[v0.14.2 release notes](https://github.com/cenodude/CrossWatch/releases/tag/v0.14.2)
+describe automatic JSON-to-database migration and retention of original JSON and
+older snapshots in `json-backup-*` directories. Preserve the whole `/config`
+claim before changing versions; rolling back the image alone is not a documented
+database rollback procedure. The same release changes the default internal
+snapshot count from 64 to 14 per feature, with up to 30 days of retention.
 
 ## Networking and monitoring
 

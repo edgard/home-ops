@@ -146,8 +146,8 @@ tasks:
       - python:check
     cmds:
       - yamlfmt "**/*.{yaml,yml}"
-      - "\"{{.VENV_DIR}}/bin/ruff\" check --select I --fix ansible/roles tests"
-      - "\"{{.VENV_DIR}}/bin/ruff\" format ansible/roles tests"
+      - "\"{{.VENV_DIR}}/bin/ruff\" check --select I --fix ansible/roles validation"
+      - "\"{{.VENV_DIR}}/bin/ruff\" format ansible/roles validation"
       - tofu fmt -recursive terraform
 
   fmt:check:
@@ -157,8 +157,8 @@ tasks:
       - python:check
     cmds:
       - yamlfmt -lint "**/*.{yaml,yml}"
-      - "\"{{.VENV_DIR}}/bin/ruff\" check --select I ansible/roles tests"
-      - "\"{{.VENV_DIR}}/bin/ruff\" format --check ansible/roles tests"
+      - "\"{{.VENV_DIR}}/bin/ruff\" check --select I ansible/roles validation"
+      - "\"{{.VENV_DIR}}/bin/ruff\" format --check ansible/roles validation"
       - tofu fmt -check -recursive terraform
 
   lint:
@@ -171,6 +171,7 @@ tasks:
       - task: lint:workflows
       - task: lint:ansible
       - task: lint:terraform
+      - task: lint:kubernetes
 
   lint:yaml:
     desc: Lint YAML syntax and conventions
@@ -189,7 +190,7 @@ tasks:
       UV_PYTHON_DOWNLOADS: never
     cmds:
       - uv lock --check --python {{.PYTHON_BIN | shellQuote}}
-      - "\"{{.VENV_DIR}}/bin/ruff\" check ansible/roles tests"
+      - "\"{{.VENV_DIR}}/bin/ruff\" check ansible/roles validation"
 
   lint:config:
     desc: Validate Taskfile and Renovate configuration schemas
@@ -218,7 +219,7 @@ tasks:
     deps:
       - ansible:check
     cmds:
-      - "\"{{.ANSIBLE_LINT}}\" ansible tests/fixtures"
+      - "\"{{.ANSIBLE_LINT}}\" ansible"
 
   lint:terraform:
     desc: Validate OpenTofu configuration using locked providers without a backend
@@ -231,8 +232,16 @@ tasks:
         tofu -chdir=terraform init -backend=false -input=false -lockfile=readonly
         tofu -chdir=terraform validate
 
+  lint:kubernetes:
+    desc: Render all apps and validate raw/rendered Kubernetes manifests
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - python:check
+    cmds:
+      - "\"{{.VENV_PYTHON}}\" -m validation.kubernetes"
+
   test:
-    desc: Run the full pytest suite, or forward arguments after --
+    desc: Run the small offline pytest suite, or forward arguments after --
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - python:check
@@ -240,7 +249,7 @@ tasks:
       - "\"{{.VENV_PYTHON}}\" -m pytest {{.CLI_ARGS}}"
 
   check:
-    desc: Check formatting, static analysis, and the complete test suite
+    desc: Check formatting, native deployment validation, and offline safety tests
     dir: "{{.TASKFILE_DIR}}"
     cmds:
       - task: fmt:check

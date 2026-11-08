@@ -10,7 +10,7 @@ import yaml
 from jsonschema import Draft4Validator
 from jsonschema.exceptions import SchemaError as InvalidSchema
 
-from tests.support.sources import KubernetesLoader
+from validation.sources import KubernetesLoader
 
 
 class SchemaError(ValueError):

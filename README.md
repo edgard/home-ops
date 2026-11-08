@@ -34,7 +34,7 @@ Provision SecretSpec and BWS through your Chezmoi/Homebrew machine setup, then
 keep all values in one Bitwarden `home-ops` project and store its read-only machine
 token once. SecretSpec uses one `bitwarden` provider; ESO reads the same project. The required SecretSpec version lives in
 [the CLI role defaults](ansible/roles/cli_secrets/defaults/main.yml);
-CI reads the same pin through the toolchain action:
+runtime checks enforce that pin. CI does not install SecretSpec:
 
 ```bash
 task secrets:login
@@ -80,8 +80,8 @@ task deps                          # Synchronize locked Python dependencies and 
 task fmt                           # Format YAML, Python/imports, and Terraform
 task fmt:check                      # Check the same formatting without changes
 task lint                          # Static analysis and backendless OpenTofu validation
-task test                          # Run the complete pytest suite
-task test -- tests/unit             # Focus pytest on a path or pass normal pytest options
+task test                          # Run the small serial offline suite
+task test -- validation/test_secrets.py             # Focus pytest on a path or pass normal pytest options
 task check                         # Complete gate: formatting checks, lint, and tests
 
 # Terraform
@@ -94,7 +94,7 @@ task tf:clean                        # Remove local Terraform cache and plan fil
 Python tools are synchronized into `.venv` from `pyproject.toml` and `uv.lock`.
 Formatting, checking, and testing do not install dependencies or rewrite locks.
 Use `uv lock` when intentionally changing Python dependency declarations.
-The [test guide](tests/README.md) describes focused lint commands and prerequisites.
+The [test guide](validation/README.md) describes focused lint commands and prerequisites.
 
 ## Repository Layout
 
@@ -108,7 +108,7 @@ The [test guide](tests/README.md) describes focused lint commands and prerequisi
 │   └── selfhosted/
 ├── argocd/                 # Argo CD bootstrap (root app, appsets, projects)
 ├── ansible/                # Local orchestration for Talos, platform, Argo, Terraform
-├── tests/                  # Unified pytest configuration, unit, and integration suite
+├── validation/             # Native deployment checks and small offline tests
 └── terraform/              # External infrastructure (Cloudflare, Tailscale)
 ```
 

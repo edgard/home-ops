@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
+Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -13,16 +13,15 @@ Gatus • Helm • Ansible • Terraform
 - Format: `task fmt`
 - Format check: `task fmt:check`
 - Dependencies: `task deps` uses Python 3.14 by default (`PYTHON_BIN` override) and synchronizes locked Python dependencies into `.venv` and installs pinned Ansible collections; uv never downloads Python
-- Tests: `task test` runs all pytest configuration, unit, and isolated integration cases
-- All pytest invocations use global parallel defaults capped at four workers; `PYTEST_ADDOPTS="-n 0" task test` runs serially for debugging
+- Tests: `task test` runs the small serial offline suite in `validation/`
 - Lint: `task lint` runs native YAML/Python/schema/workflow/Ansible/OpenTofu checks only
-- Complete gate: `task check` runs formatting checks, lint, then the full pytest suite once
-- Focused native checks: `task lint:yaml`, `task lint:python`, `task lint:config`, `task lint:workflows`, `task lint:ansible`, `task lint:terraform`; focus pytest with `task test -- <path or options>`
-- Local prerequisites include Node 24 or newer, OpenTofu, pinned SecretSpec, and native Kubernetes CLIs; see the [test guide](../../tests/README.md)
-- Wiki check: `task test -- tests/config/wiki` runs pytest checks for links, sources, index reachability, and app-page coverage
-- pytest configuration assertions live in `tests/config`, adapter units in `tests/unit`, and real role/Task scenarios in `tests/integration`
-- Native validators retain syntax, schema, and deprecation checks; pytest reads original sources and owns executable test discovery
-- CI runs Format, Lint, and the full Tests job and requires their combined `Quality Gate`
+- Complete gate: `task check` runs formatting checks, lint, then the small offline suite once
+- Focused native checks: `task lint:yaml`, `task lint:python`, `task lint:config`, `task lint:workflows`, `task lint:ansible`, `task lint:terraform`, `task lint:kubernetes`; focus pytest with `task test -- <path or options>`
+- Local prerequisites include OpenTofu and native Kubernetes CLIs; SecretSpec/BWS are operator-only prerequisites; see the [test guide](../../validation/README.md)
+- Wiki check: `task test -- validation/test_wiki.py` runs pytest checks for local links and app-page coverage
+- Native adapters and small `test_*.py` files share `validation/`; pytest never renders charts or simulates lifecycle operations
+- Native validators retain syntax, schema, and deprecation checks; pytest owns the small offline checks
+- CI runs Format, Lint, and the offline Tests job and requires their combined `Quality Gate`
 - Before commit: `task fmt` followed by `task check`; neither checking nor testing installs dependencies
 - Sync ArgoCD app: `task argo:sync [app=<name>]` (GitOps: changes must be committed and pushed to repo first)
 
@@ -30,8 +29,10 @@ Gatus • Helm • Ansible • Terraform
 
 1. Read the relevant pages from [the wiki index](index.md) and follow their
    source links before changing a repository contract.
-2. Make a small change. If behavior changes, write or update the failing
-   pytest contract check first.
+2. Make a small change and use targeted verification during implementation.
+   Temporary tests may be extensive; remove them before merge and record results
+   in the PR. Keep a permanent test only for the concrete risks in the validation
+   guide, with minimal deterministic code not already covered by native tools.
 3. Recheck affected wiki explanations. Update them in the same PR when the
    change alters their meaning; a version-only bump does not require prose
    churn. Record which pages were checked in the PR.
@@ -92,8 +93,8 @@ controllers:
 ### Monitoring
 - Gatus is the only uptime checker and Telegram alert engine. Its routed app,
   DNS, and ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
-- The parsed route coverage check in `tests/config/kubernetes/test_rendered.py` runs during
-  `task test -- tests/config/kubernetes`. Keep Jellyfin `/health` and CrossWatch `/healthz` checks.
+- Review explicit Gatus targets when changing routes. Keep Jellyfin `/health`
+  and CrossWatch `/healthz`; automated route-coverage assertions are retired.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
   annotations to routed apps; Gatus does not use route discovery.
 - Gatus uses memory storage without a PVC. There is no metrics or searchable log
@@ -125,16 +126,16 @@ Store: `external-secrets-store`
   - Native validators own standard syntax, schema, formatting, and deprecation requirements
   - Python dependencies and tools are declared in `pyproject.toml` and locked in `uv.lock`; the supported Python range is manually managed
   - yamlfmt owns YAML formatting, Ruff owns Python/import formatting, and OpenTofu owns Terraform formatting
-  - `task check` runs formatting checks, native lint, and the full pytest suite once; CI uses the same commands in three jobs
-  - Plain configuration assertions read sources directly, while isolated integration tests invoke real role entry points
+  - `task check` runs formatting checks, native lint, and the small offline suite once; CI uses the same commands in three jobs
+  - Small offline assertions read sources directly or test production secret/schema functions; lifecycle simulations are retired
   - Assert operational invariants and cross-file relationships, not duplicated versions, task names, positions, comments, or equivalent source spelling
   - Preserve runtime assertions for operator inputs and live state; offline tests supplement them
-  - The [test guide](../../tests/README.md) describes fixtures and when to add a check
+  - The [test guide](../../validation/README.md) defines which permanent checks may remain
 - `sync.wave` is required in every `apps/*/*/app.yaml` and stays within `-4` to `0`
 - Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
-- pytest owns the empty/private/nonsymlink Kubernetes output directory and cleanup
-- The rendering fixture coordinates workers with a bounded file lock and an atomic per-run snapshot; keep resource isolation in fixtures rather than test scheduling exceptions
-- A test helper invokes Helm, kubeconform, and Pluto directly, caches chart pulls per run, renders CRDs, and exports served schemas before validation. Offline wiki and Kubernetes checks have no Ansible roles or playbooks
+- The native Kubernetes adapter owns a private temporary workspace and runs Helm,
+  kubeconform, and Pluto serially; served CRD schemas retain precedence. No
+  pytest rendering fixtures, worker locks, or shared snapshots remain.
 - Ansible roles:
   - Keep operator orchestration in playbooks and roles. Task may launch native
     CLIs such as SecretSpec; role-owned adapters/plugins handle focused gaps.
@@ -166,7 +167,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 ## Git Workflow
 
 1. Branch from `master` with descriptive name
-2. For behavior changes, write the failing policy or repo contract check first
+2. Verify changes during implementation; retain only justified minimal permanent checks
 3. Run `task check` before committing
 4. All changes via PR only
 5. Force pushes allowed only on feature branches using `--force-with-lease`
@@ -174,11 +175,11 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 ## Sources
 
 - [Taskfile](../../Taskfile.yaml) defines the CLI commands and local gates.
-- [pytest configuration](../../pyproject.toml) defines parallel defaults for all test commands.
+- [pytest configuration](../../pyproject.toml) defines the serial offline test suite.
 - [Pull request workflow](../../.github/workflows/ci.yml) defines the CI jobs.
 - [Pull request template](../../.github/pull_request_template.md) prompts for wiki impact.
 - [ApplicationSet](../../argocd/appsets/apps.appset.yaml) defines app discovery.
-- [Gatus values](../../apps/platform-system/gatus/values.yaml) and [route coverage check](../../tests/config/kubernetes/test_rendered.py) define uptime coverage.
+- [Gatus values](../../apps/platform-system/gatus/values.yaml) define explicit uptime coverage for review.
 
 ## Related pages
 

@@ -2,7 +2,7 @@
 
 Purpose: configure saved AI behavior and recover document processing while
 preserving original files and manual metadata.
-Status: current. Reviewed against: `757e232266dbc2be725280a696efa476fcdc810e`.
+Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
 
 ## Ownership and saved configuration
 
@@ -143,7 +143,7 @@ available for selected-document work.
 ## Sources
 
 - [Deployment defaults and persistent mounts](../../../apps/selfhosted/paperless/values.yaml)
-- [Configuration safeguards](../../../tests/config/kubernetes/test_paperless.py)
+- [Data preservation guards](../../../validation/data.py)
 - [GPT saved settings and precedence](https://github.com/icereed/paperless-gpt/blob/v0.31.0/settings.go)
 - [GPT workflows and preview API](https://github.com/icereed/paperless-gpt/blob/v0.31.0/docs/workflows.md)
 - [GPT field extraction and reference resolution](https://github.com/icereed/paperless-gpt/blob/v0.31.0/app_llm.go)
