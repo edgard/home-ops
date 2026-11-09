@@ -139,6 +139,7 @@
   // Maintain transitive Python dependencies and provider locks through PRs.
   lockFileMaintenance: {
     enabled: true,
+    automerge: true,
   },
 
   // === Package Rules ===
@@ -207,14 +208,49 @@
       },
     },
 
-    // Manual review: major updates
+    // Deployment and operator-tool majors need review beyond static CI.
     {
-      description: "Require manual review for major updates",
+      description: "Require manual review for majors outside the CI allowlist",
       matchUpdateTypes: ["major"],
       matchPackageNames: ["!kubernetes-sigs/gateway-api"],
       automerge: false,
       groupName: "dependencies (major)",
-      addLabels: ["renovate/manual-review"],
+      labels: ["renovate/manual-review"],
+    },
+
+    {
+      description: "Auto-merge majors of actions exercised by the PR gate",
+      matchManagers: ["github-actions"],
+      matchFileNames: [".github/workflows/ci.yml", ".github/actions/setup-toolchain/action.yml"],
+      matchUpdateTypes: ["major"],
+      groupName: "CI and validation tools (major)",
+      automerge: true,
+      labels: [],
+    },
+
+    {
+      description: "Auto-merge majors of tools used only for CI and validation",
+      matchFileNames: [".github/actions/setup-toolchain/action.yml", "pyproject.toml"],
+      matchPackageNames: [
+        "ansible-compat",
+        "ansible-lint",
+        "check-jsonschema",
+        "google/yamlfmt",
+        "json5",
+        "jsonschema",
+        "packaging",
+        "pytest",
+        "python-hcl2",
+        "rhysd/actionlint",
+        "ruff",
+        "us-docker.pkg.dev/fairwinds-ops/oss/pluto",
+        "yamllint",
+        "yannh/kubeconform",
+      ],
+      matchUpdateTypes: ["major"],
+      groupName: "CI and validation tools (major)",
+      automerge: true,
+      labels: [],
     },
 
     // Talos 1.14 retires this installer; migrate to Image Factory before lifting.
@@ -246,14 +282,40 @@
       internalChecksFilter: "strict",
     },
 
-    // Automerge: non-major updates (excluding manual review packages)
+    // Routine updates share one PR. Node release changes below override this rule.
     {
       description: "Auto-merge non-major updates",
-      matchUpdateTypes: ["minor", "patch", "digest", "pin", "rollback"],
+      matchUpdateTypes: ["minor", "patch", "digest", "pin", "pinDigest", "rollback"],
       matchPackageNames: ["!kubernetes-sigs/gateway-api"],
       groupName: "dependencies (non-major)",
       automerge: true,
       automergeType: "pr",
+    },
+
+    {
+      description: "Review Kubernetes release changes and downgrades before Tuppr applies them",
+      matchPackageNames: ["siderolabs/kubelet"],
+      matchUpdateTypes: ["major", "minor", "rollback"],
+      groupName: "Kubernetes release",
+      automerge: false,
+      labels: ["renovate/manual-review"],
+    },
+
+    {
+      description: "Review Talos release changes and downgrades together with the factory installer",
+      matchFileNames: [
+        "ansible/roles/talos/defaults/main.yml",
+        "ansible/roles/talos/files/controlplane-patch.yaml",
+      ],
+      matchPackageNames: [
+        "siderolabs/talos",
+        "ghcr.io/siderolabs/installer",
+        "/^factory\\.talos\\.dev\\/metal-installer\\//",
+      ],
+      matchUpdateTypes: ["major", "minor", "rollback"],
+      groupName: "Talos release",
+      automerge: false,
+      labels: ["renovate/manual-review"],
     },
 
     // OpenTofu's required_version is manually managed; keep provider updates enabled.

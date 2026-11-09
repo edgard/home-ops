@@ -3,6 +3,15 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-09] revision | Focus Renovate manual review on operational changes
+
+Enabled PR automerge for scheduled lockfile refreshes, digest pins, and major
+updates to the CI actions and validation tools exercised by the Quality Gate.
+Kept manual review for other majors and Gateway API updates, and made review
+explicit for Kubernetes and Talos release-line changes and downgrades. Reviewed
+the Renovate, validation, Terraform, Talos, Tuppr, and Gateway API explanations.
+November's semantic review is already recorded below.
+
 ## [2026-11-08] revision | Record CrossWatch tracker data migration
 
 Reviewed the non-major dependency update after the validation simplification.
