@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
+Status: current. Reviewed against: `9bad7550564190e449427e859f8b6ee82d9b31da`.
 
 ## Dependencies
 
@@ -32,8 +32,21 @@ Talos updates cover both the machine-config installer and the upgrade target in
 role defaults. The [installer contract](../../decisions/talos-image-factory.md)
 keeps these aligned. Gateway API upgrades require manual review and refresh the
 vendored CRDs through the configured post-upgrade command; the RenovateJob allows
-that command. Major updates also require manual review. Release-age and version
-limits remain in the repository configuration.
+that command.
+
+Routine dependency updates and scheduled lockfile refreshes are eligible for
+automerge through the required [Quality Gate](../../architecture/validation.md).
+Renovate creates lockfile maintenance on a separate branch. If another update
+changes a shared lock first, Renovate regenerates the maintenance branch from the
+updated base on a later run and CI checks the new result.
+
+The PR gate also exercises the CI actions and validation tools whose major
+updates are eligible for automerge. Other majors require manual review because
+rendering and offline checks leave deployed workloads, provider plans, and
+operator procedures outside their coverage. Kubernetes and Talos release-line
+changes and downgrades require review of live upgrade preconditions. Their
+ordinary patches remain eligible for automerge within the version and release-age
+limits in the repository configuration.
 
 Gotenberg stays within the major supported by Paperless's bundled conversion
 client. The [Paperless operational note](paperless.md) records the request-field
@@ -66,6 +79,7 @@ defines the upstream compatibility boundary.
 - [Helm values](../../../../apps/selfhosted/renovate-operator/values.yaml)
 - [Raw manifests](../../../../apps/selfhosted/renovate-operator/manifests)
 - [Local extraction dry runs](https://docs.renovatebot.com/modules/platform/local/) explain how to check dependency discovery without creating branches.
+- [Renovate rebasing](https://docs.renovatebot.com/updating-rebasing/) explains how the bot regenerates branches after the base changes.
 
 ## Related pages
 
