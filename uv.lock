@@ -506,12 +506,12 @@ dev = [
     { name = "ansible-lint", specifier = "==26.11.0" },
     { name = "check-jsonschema", specifier = "==0.39.0" },
     { name = "json5", specifier = "==0.17.3" },
-    { name = "jsonpatch", specifier = "==1.44" },
+    { name = "jsonpatch", specifier = "==1.45" },
     { name = "jsonschema", specifier = "==4.26.0" },
     { name = "kubernetes", specifier = "==37.0.2" },
     { name = "packaging", specifier = "==26.3" },
     { name = "pytest", specifier = "==9.2.0" },
-    { name = "python-hcl2", specifier = "==8.1.4" },
+    { name = "python-hcl2", specifier = "==8.2.0" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "requests-oauthlib", specifier = "==2.0.0" },
     { name = "ruff", specifier = "==0.17.4" },
@@ -559,14 +559,14 @@ wheels = [
 
 [[package]]
 name = "jsonpatch"
-version = "1.44"
+version = "1.45"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonpointer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/94/e0/5fff51896a5556c44890b4d211278284d6a4c847e509b4e585e5f4616060/jsonpatch-1.44.tar.gz", hash = "sha256:88fc1d9728168b4a9be27bb00de469dfb3cd28e8e5b568b24efb2ac583cba7b9", size = 66776, upload-time = "2026-11-06T11:42:33.614Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/dd/3c9d553b1d7203fc483df0f3b72d01fd8fe247d48ea6fcb4df4b3854477f/jsonpatch-1.45.tar.gz", hash = "sha256:f0975a88d0b26b6ebbcdfc4620483cb56c249115833d51c426cae305b96519ad", size = 75437, upload-time = "2026-11-09T12:24:21.922Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/56/890cb3357504efa2f9848ffa7df18e9e2583402aeeccbba2dc1c9318f5bb/jsonpatch-1.44-py3-none-any.whl", hash = "sha256:801f9238740d19eb101f9f7cea9c1c4810dbc4746f3edc89f7751d1798b917ff", size = 23283, upload-time = "2026-11-06T11:42:31.234Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/39/0f310705b987df6a46d76356606537d8e24b59e20aa8c3c0a3830eb26a43/jsonpatch-1.45-py3-none-any.whl", hash = "sha256:e170131ff8c5b01216dfe35f034613209ee1fd012abbd849a9791f9139e44cf9", size = 25605, upload-time = "2026-11-09T12:24:20.712Z" },
 ]
 
 [[package]]
@@ -935,15 +935,15 @@ wheels = [
 
 [[package]]
 name = "python-hcl2"
-version = "8.1.4"
+version = "8.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "lark" },
     { name = "regex" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/3b/a66df999c382abf2d37f6c7b618a782958615acd41a53615f994dfd6611b/python_hcl2-8.1.4.tar.gz", hash = "sha256:b4145c930540e99e3e9b4f7de297775bdf856df29782a7abdb0916cbfcab7865", size = 119307, upload-time = "2026-09-08T08:26:26.55Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b0/c1/f1da88976116f93865429c07758febb8a0e9c66830c3107f5ba6f029253d/python_hcl2-8.2.0.tar.gz", hash = "sha256:88b615c2cea920090e4a8d869d8aa7ccb3658a9bd48e75a4b76fa6685e2ce657", size = 120530, upload-time = "2026-11-09T14:51:21.463Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5a/c7/9b8918ab4954ecad677b03f36f9121d5467a4285f41507fdc6789a33dc3c/python_hcl2-8.1.4-py3-none-any.whl", hash = "sha256:75738bd95717d692a683495babf4d00063f1b211e2eca04b156c6d79b9a0feae", size = 102957, upload-time = "2026-09-08T08:26:25.344Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/65/bf71aaef9b8fe677e8a9d8f96f67b4f6989fe59eeeef177288de70513f8a/python_hcl2-8.2.0-py3-none-any.whl", hash = "sha256:00a213df1b33e4d69b607b2f0a6a0a21f2c0df2d69ad6a2cb3d5af468f17a087", size = 102916, upload-time = "2026-11-09T14:51:20.377Z" },
 ]
 
 [[package]]
