@@ -506,7 +506,7 @@ dev = [
     { name = "ansible-lint", specifier = "==26.11.0" },
     { name = "check-jsonschema", specifier = "==0.39.0" },
     { name = "json5", specifier = "==0.17.3" },
-    { name = "jsonpatch", specifier = "==1.45" },
+    { name = "jsonpatch", specifier = "==1.46" },
     { name = "jsonschema", specifier = "==4.26.0" },
     { name = "kubernetes", specifier = "==37.0.2" },
     { name = "packaging", specifier = "==26.3" },
@@ -559,14 +559,14 @@ wheels = [
 
 [[package]]
 name = "jsonpatch"
-version = "1.45"
+version = "1.46"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonpointer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/21/dd/3c9d553b1d7203fc483df0f3b72d01fd8fe247d48ea6fcb4df4b3854477f/jsonpatch-1.45.tar.gz", hash = "sha256:f0975a88d0b26b6ebbcdfc4620483cb56c249115833d51c426cae305b96519ad", size = 75437, upload-time = "2026-11-09T12:24:21.922Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3c/0b/64570f28baa93bdfbad1a2c765287b29d979f5eae4968e74deca2c6738b6/jsonpatch-1.46.tar.gz", hash = "sha256:c378bd159fe90a56a12cae2fae5d12eb0aacab6a8925fe468609a36cc91867d3", size = 76786, upload-time = "2026-11-10T20:01:49.527Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/39/0f310705b987df6a46d76356606537d8e24b59e20aa8c3c0a3830eb26a43/jsonpatch-1.45-py3-none-any.whl", hash = "sha256:e170131ff8c5b01216dfe35f034613209ee1fd012abbd849a9791f9139e44cf9", size = 25605, upload-time = "2026-11-09T12:24:20.712Z" },
+    { url = "https://files.pythonhosted.org/packages/17/94/633510a48538788c7a7a26478b19551d09f4e3d29158455f54fbc7d155b1/jsonpatch-1.46-py3-none-any.whl", hash = "sha256:c7dcedaaf43481aff955193010f4218694fad394453436ab1dc2ae6390d1f4ff", size = 25620, upload-time = "2026-11-10T20:01:47.959Z" },
 ]
 
 [[package]]
