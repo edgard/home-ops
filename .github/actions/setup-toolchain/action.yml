@@ -56,7 +56,7 @@ runs:
       uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
         # renovate: datasource=github-releases depName=opentofu/opentofu
-        tofu_version: v1.13.2
+        tofu_version: v1.13.8
         tofu_wrapper: false
 
     - name: Set Up Project Dependencies
