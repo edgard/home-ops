@@ -2,7 +2,7 @@
 # Kubernetes Restic Restore Runbook
 
 Purpose: operator procedure for a Kubernetes appdata restore.
-Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
+Status: current. Reviewed against: `bc7def5e0566e3d0285eb28df9e10bae4c387d8a`.
 
 The `restic` app backs up Kubernetes appdata and serves the same repository used
 by the macOS and Windows workstation backups. Kubernetes owns repository
@@ -99,7 +99,7 @@ For cold recovery, use this manual application-specific sequence:
    Preserve the current data if it is still needed; do not overwrite an existing
    installation before confirming the selected archive.
 2. Hold Argo reconciliation for this app using the existing maintenance procedure.
-   Stop frontend, backend and Garmin; start only its dedicated PostgreSQL.
+   Stop the frontend and backend; start only its dedicated PostgreSQL.
 3. Use a temporary official PostgreSQL 18 client mounting the app PVC at `/data`
    and the existing app Secret for its owner credentials. Extract the outer
    archive and create the `sparky_app` LOGIN role if it is missing, leaving its
@@ -110,7 +110,7 @@ For cold recovery, use this manual application-specific sequence:
 4. Replace `/data/uploads` with the recovered uploads archive contents, preserving
    the backend's writable UID/group. Retain the API-encryption and authentication
    keys from Bitwarden. Leave the PostgreSQL files to PostgreSQL itself.
-5. Remove the temporary client, resume the backend and then Garmin/frontend, and
+5. Remove the temporary client, resume the backend and then the frontend, and
    restore the recorded Argo settings. The backend maintains its runtime role.
    Verify login, records, upload hashes, decrypted AI/provider settings and backup
    scheduling before allowing new imports. Clean temporary recovery files.

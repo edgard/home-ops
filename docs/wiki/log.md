@@ -3,6 +3,13 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-13] revision | Retire SparkyFitness Garmin Connect sync
+
+Removed the optional Garmin deployment, service and backend endpoint setting.
+The saved connection was unlinked before retiring the service, and existing
+fitness records remain in PostgreSQL. Updated the app page and cold recovery
+procedure. November's semantic review is already recorded below.
+
 ## [2026-11-09] revision | Focus Renovate manual review on operational changes
 
 Enabled PR automerge for scheduled lockfile refreshes, digest pins, and major

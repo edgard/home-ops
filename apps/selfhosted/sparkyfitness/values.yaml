@@ -105,7 +105,6 @@ controllers:
           SPARKY_FITNESS_SERVER_PORT: "3010"
           SPARKY_FITNESS_TRUSTED_PROXY_HOPS: "2"
           SPARKY_FITNESS_DISABLE_SIGNUP: "true"
-          GARMIN_MICROSERVICE_URL: http://sparkyfitness-garmin.selfhosted.svc.cluster.local:8000
           SPARKY_FITNESS_ADMIN_EMAIL: castro@edgard.org
           SPARKY_FITNESS_SHUTDOWN_TIMEOUT_SECONDS: "45"
           SPARKY_FITNESS_CUSTOM_UPLOADS_DIRECTORY: /data/uploads
@@ -144,65 +143,6 @@ controllers:
             type: HTTP
             path: /api/health
             port: 3010
-  garmin:
-    type: deployment
-    replicas: 1
-    strategy: Recreate
-    annotations:
-      reloader.stakater.com/auto: "true"
-    pod:
-      securityContext:
-        runAsUser: 1
-        runAsGroup: 1
-        runAsNonRoot: true
-    containers:
-      app:
-        image:
-          repository: ghcr.io/codewithcj/sparkyfitness-garmin
-          tag: v1.12.1
-          digest: sha256:7f4c69b0c7e4090a66c79f0580f49a55792206a38a66e09c1ca84150fda9ee74
-        env:
-          GARMIN_SERVICE_PORT: "8000"
-          GARMIN_SERVICE_IS_CN: "false"
-          TZ: Europe/Warsaw
-          HOME: /tmp
-          PYTHONDONTWRITEBYTECODE: "1"
-        securityContext:
-          runAsUser: 1
-          runAsGroup: 1
-          runAsNonRoot: true
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            memory: 512Mi
-        probes:
-          startup:
-            enabled: true
-            custom: true
-            spec:
-              httpGet:
-                path: /
-                port: 8000
-              periodSeconds: 10
-              timeoutSeconds: 5
-              failureThreshold: 60
-          readiness:
-            enabled: true
-            custom: true
-            spec:
-              tcpSocket:
-                port: 8000
-              periodSeconds: 10
-              timeoutSeconds: 5
-              failureThreshold: 6
-          liveness:
-            enabled: false
   postgresql:
     type: deployment
     replicas: 1
@@ -306,13 +246,6 @@ service:
       http:
         port: 3010
         targetPort: 3010
-  garmin:
-    forceRename: sparkyfitness-garmin
-    controller: garmin
-    ports:
-      http:
-        port: 8000
-        targetPort: 8000
   postgresql:
     forceRename: sparkyfitness-postgresql
     controller: postgresql

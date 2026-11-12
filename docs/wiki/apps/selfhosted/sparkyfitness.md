@@ -1,12 +1,12 @@
 # SparkyFitness
 
-Purpose: private fitness and nutrition tracking with Garmin and native OpenAI features.
-Status: current. Reviewed against: `8398470979b492f07808d3c779719df90972d3d2`.
+Purpose: private fitness and nutrition tracking with native OpenAI features.
+Status: current. Reviewed against: `bc7def5e0566e3d0285eb28df9e10bae4c387d8a`.
 
 ## Deployment and account setup
 
 One app-template Application owns the frontend with bundled Nginx, backend,
-dedicated PostgreSQL and Garmin Deployments. Only the frontend has an HTTPS
+dedicated PostgreSQL Deployments. Only the frontend has an HTTPS
 route. The backend applies its normal startup migrations and maintains its
 restricted database role, including generating that role's password.
 
@@ -25,10 +25,12 @@ The frontend uses its packaged configuration, non-root port and fully qualified
 backend hostname. The backend trusts the existing gateway plus bundled frontend
 proxy chain. A writable ephemeral `/run` holds Nginx's PID for non-root startup.
 The backend stages restore uploads under `/tmp`, outside its root-owned image tree.
-Garmin uses TCP readiness and no HTTP liveness restart: an active
-sync can block its HTTP event loop.
 
-## Full AI and Garmin onboarding
+Garmin Connect is disconnected and its optional sync service is not deployed.
+Previously imported fitness records remain in PostgreSQL. An older native
+backup can restore the saved connection; unlink it again if it reappears.
+
+## AI onboarding
 
 Use the existing Bitwarden `openai_api_key` when configuring providers through
 the native UI. SparkyFitness encrypts the saved keys in PostgreSQL; an OpenAI
@@ -50,10 +52,6 @@ training/run reviews and proposed plan changes. Retain native confirmations;
 developer SQL tools and private-network access keep their defaults. Chat,
 structured image analysis and voice use the application's supported OpenAI
 transports. OpenAI processes submitted AI text, images and audio.
-
-Connect Garmin interactively under external providers, activate the provider and
-select hourly synchronization. The backend's native scheduler performs recurring
-syncs; no extra workload is required. Verify the first import and last-sync status.
 
 ## Storage and backups
 
@@ -88,6 +86,7 @@ Generic Restic file restoration alone does not import PostgreSQL data.
 - [Helm values](../../../../apps/selfhosted/sparkyfitness/values.yaml)
 - [ExternalSecret](../../../../apps/selfhosted/sparkyfitness/manifests/sparkyfitness-credentials.externalsecret.yaml)
 - [Restic exclusions](../../../../apps/selfhosted/restic/values.yaml)
+- [Upstream Garmin unlink route](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/SparkyFitnessServer/routes/garminRoutes.ts) removes the saved connection.
 - [Upstream startup requirements](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/SparkyFitnessServer/utils/preflightChecks.ts)
 - [Upstream AI features](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/docs/src/features/ai-assistant.md)
 - [Native backups and restoration](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/SparkyFitnessServer/services/backupService.ts)
