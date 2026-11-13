@@ -160,7 +160,7 @@ controllers:
       app:
         image:
           repository: docker.io/library/postgres
-          tag: 18.6-trixie
+          tag: 18.7-trixie
           digest: sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         env:
           PGDATA: /var/lib/postgresql/18/docker

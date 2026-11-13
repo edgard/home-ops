@@ -17,7 +17,7 @@ dev = [
     "pytest==9.2.0",
     "python-hcl2==8.2.0",
     "packaging==26.3",
-    "ruff==0.17.4",
+    "ruff==0.17.5",
     "yamllint==1.38.0",
     "check-jsonschema==0.39.0",
 ]
