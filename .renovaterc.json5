@@ -43,17 +43,6 @@
       datasourceTemplate: "{{#if packageName}}docker{{else}}helm{{/if}}",
     },
 
-    // Container image repository/tag pairs in app values files
-    {
-      customType: "regex",
-      description: "Container images in app values files",
-      managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/values\\.ya?ml$/"],
-      matchStrings: [
-        "repository:\\s*(?<depName>[^\\s\"']+)\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?",
-      ],
-      datasourceTemplate: "docker",
-    },
-
     // Upgrade target versions (uses renovate comment hints)
     {
       customType: "regex",

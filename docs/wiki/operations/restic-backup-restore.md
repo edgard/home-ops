@@ -116,10 +116,11 @@ For cold recovery, use this manual application-specific sequence:
    scheduling before allowing new imports. Clean temporary recovery files.
 
 The app's dedicated PostgreSQL owner retains the upstream privileges needed by
-native restore, which drops and recreates only its own database. Do not treat a
-native success response as sufficient verification: inspect SQL errors and data.
+native restore. Native restore loads a staging database and swaps it into place,
+retaining the previous database and uploads for recovery. Verify SQL results,
+records, and uploads after the swap before removing the retained copies.
 See the [app page](../apps/selfhosted/sparkyfitness.md) and
-[backup implementation](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/SparkyFitnessServer/services/backupService.ts).
+[backup implementation](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/SparkyFitnessServer/services/backupService.ts).
 
 The existing role's `restic_restore_excluded_apps` default excludes SparkyFitness
 from the generic file transaction, including restore-all and cluster recovery.

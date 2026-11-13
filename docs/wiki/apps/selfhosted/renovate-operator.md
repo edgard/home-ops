@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `9bad7550564190e449427e859f8b6ee82d9b31da`.
+Status: current. Reviewed against: `f1b33764a7773877d10b843e1a0aa02b9ec19365`.
 
 ## Dependencies
 
@@ -21,12 +21,17 @@ Review generated PR behavior and credentials after changing job or operator conf
 
 The [repository Renovate configuration](../../../../.renovaterc.json5) combines
 built-in managers for Actions, Python project metadata/uv locks, Ansible
-collections, Terraform/provider locks, and Kubernetes
-images with custom extraction for app charts, images, upgrade targets, CI tools,
-Gateway API, the Restic restore image, and the runtime SecretSpec compatibility
+collections, Terraform/provider locks, and Kubernetes and Helm values images.
+Custom extraction covers app charts, upgrade targets, CI tools, Gateway API,
+the Restic restore image, and the runtime SecretSpec compatibility
 pin in [the CLI role defaults](../../../../ansible/roles/cli_secrets/defaults/main.yml). When moving a dependency file, check
 its manager file patterns and run a local extraction dry run; valid configuration
 alone does not prove that the dependency is still discovered.
+
+For a digest-pinned app-template image, put `tag@sha256:…` in `image.tag`.
+The built-in Helm values manager reads both parts and updates them together.
+A separate `image.digest` is invisible to that manager; a tag-only update then
+leaves Kubernetes pulling the old digest.
 
 Talos updates cover both the machine-config installer and the upgrade target in
 role defaults. The [installer contract](../../decisions/talos-image-factory.md)
