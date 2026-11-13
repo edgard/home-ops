@@ -40,7 +40,7 @@ runs:
       uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         # renovate: datasource=github-releases depName=astral-sh/uv
-        version: "0.13.7"
+        version: "0.13.8"
         enable-cache: true
         cache-dependency-glob: uv.lock
 
@@ -56,7 +56,7 @@ runs:
       uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
         # renovate: datasource=github-releases depName=opentofu/opentofu
-        tofu_version: v1.13.8
+        tofu_version: v1.13.9
         tofu_wrapper: false
 
     - name: Set Up Project Dependencies
