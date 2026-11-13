@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-13] revision | Keep Helm image tags and digests together
+
+Removed duplicate Renovate extraction for Helm values and corrected the three
+SparkyFitness image pins using a combined tag and digest. Documented the pin
+format and updated the native restore description for the deployed release.
+
 ## [2026-11-13] revision | Retire SparkyFitness Garmin Connect sync
 
 Removed the optional Garmin deployment, service and backend endpoint setting.

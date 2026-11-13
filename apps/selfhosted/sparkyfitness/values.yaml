@@ -26,8 +26,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/codewithcj/sparkyfitness-frontend
-          tag: v1.12.1
-          digest: sha256:5eb77135ccd8e58492ee9bd19b8714ea4a73a99623b863a9287ccecb0557cd17
+          tag: v1.12.1@sha256:c4e0769cece9ee70439b86cc457bed14d543edebab7502cd0c5d67174eb11f57
         env:
           SPARKY_FITNESS_FRONTEND_URL: https://sparkyfitness.edgard.org
           SPARKY_FITNESS_SERVER_HOST: sparkyfitness-server.selfhosted.svc.cluster.local
@@ -76,8 +75,7 @@ controllers:
       app:
         image:
           repository: ghcr.io/codewithcj/sparkyfitness-server
-          tag: v1.12.1
-          digest: sha256:51a2d7c19bd99b50ea17e579fe8d9d4febed895595356b1ddafe0fa808caf75e
+          tag: v1.12.1@sha256:2f064604c2034fa5953cb3e17651aad32e8a9f8362895500cd5d188376215b3a
         env:
           NODE_ENV: production
           TZ: Europe/Warsaw
@@ -160,8 +158,7 @@ controllers:
       app:
         image:
           repository: docker.io/library/postgres
-          tag: 18.7-trixie
-          digest: sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+          tag: 18.7-trixie@sha256:9f4fd4aa918f52ae3d6f3b687f1de90d8f867cd4d520021545a9a50c120eae3b
         env:
           PGDATA: /var/lib/postgresql/18/docker
           POSTGRES_DB: sparkyfitness_db

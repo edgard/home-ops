@@ -1,7 +1,7 @@
 # SparkyFitness
 
 Purpose: private fitness and nutrition tracking with native OpenAI features.
-Status: current. Reviewed against: `bc7def5e0566e3d0285eb28df9e10bae4c387d8a`.
+Status: current. Reviewed against: `f1b33764a7773877d10b843e1a0aa02b9ec19365`.
 
 ## Deployment and account setup
 
@@ -24,7 +24,8 @@ explicit GitOps change.
 The frontend uses its packaged configuration, non-root port and fully qualified
 backend hostname. The backend trusts the existing gateway plus bundled frontend
 proxy chain. A writable ephemeral `/run` holds Nginx's PID for non-root startup.
-The backend stages restore uploads under `/tmp`, outside its root-owned image tree.
+The backend uses writable `/tmp` for temporary upload files. Native restore
+stages the recovered upload tree on the data volume under `/data/uploads/_staging`.
 
 Garmin Connect is disconnected and its optional sync service is not deployed.
 Previously imported fitness records remain in PostgreSQL. An older native
@@ -57,8 +58,8 @@ transports. OpenAI processes submitted AI text, images and audio.
 
 One retained NFS claim contains PostgreSQL, uploads and backup subdirectories.
 The backend mounts the parent at `/data` and uses `/data/uploads` and
-`/data/backups`. The uploads directory is not itself a mount point, so native
-restore can remove and recreate it. PostgreSQL mounts only its own subdirectory
+`/data/backups`. Native restore swaps staged entries into the uploads directory
+on the same filesystem and retains the previous files. PostgreSQL mounts only its own subdirectory
 at `/var/lib/postgresql`, with versioned PGDATA beneath it. Preserve the common
 volume group while allowing the official PostgreSQL entrypoint to initialize its
 private data directory and drop privileges.
@@ -87,10 +88,10 @@ Generic Restic file restoration alone does not import PostgreSQL data.
 - [ExternalSecret](../../../../apps/selfhosted/sparkyfitness/manifests/sparkyfitness-credentials.externalsecret.yaml)
 - [Restic exclusions](../../../../apps/selfhosted/restic/values.yaml)
 - [Upstream Garmin unlink route](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/SparkyFitnessServer/routes/garminRoutes.ts) removes the saved connection.
-- [Upstream startup requirements](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/SparkyFitnessServer/utils/preflightChecks.ts)
-- [Upstream AI features](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/docs/src/features/ai-assistant.md)
-- [Native backups and restoration](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/SparkyFitnessServer/services/backupService.ts)
-- [Native backup scheduler](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.11.0/SparkyFitnessServer/services/backupScheduler.ts)
+- [Upstream startup requirements](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/SparkyFitnessServer/utils/preflightChecks.ts)
+- [Upstream AI features](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/docs/src/features/ai-assistant.md)
+- [Native backups and restoration](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/SparkyFitnessServer/services/backupService.ts)
+- [Native backup scheduler](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/SparkyFitnessServer/services/backupScheduler.ts)
 
 ## Related pages
 
