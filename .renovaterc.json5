@@ -15,14 +15,14 @@
   // === Kubernetes Manager ===
   kubernetes: {
     managerFilePatterns: [
-      "/^apps\\/.*\\/manifests\\/.*\\.yaml$/",
-      "/^argocd\\/.*\\.yaml$/",
+      "apps/*/**/manifests/**/*.yaml",
+      "argocd/**/*.yaml",
     ],
   },
 
   // The Talos bootstrap patch contains a literal installer image reference.
   ansible: {
-    managerFilePatterns: ["/^ansible\\/roles\\/talos\\/files\\/controlplane-patch\\.ya?ml$/"],
+    managerFilePatterns: ["ansible/roles/talos/files/controlplane-patch.{yml,yaml}"],
   },
 
   // === Custom Managers ===
@@ -31,8 +31,7 @@
     {
       customType: "regex",
       description: "Helm charts in app config files",
-      managerFilePatterns: ["/^apps\\/[^\\/]+\\/[^\\/]+\\/app\\.ya?ml$/"],
-      matchStringsStrategy: "any",
+      managerFilePatterns: ["apps/*/*/app.{yml,yaml}"],
       matchStrings: [
         "repo:\\s*oci://(?<packageName>[^\\s]+)\\s+path:\\s*[\"']?\\.[\"']?\\s+version:\\s*(?<currentValue>\\S+)",
         "repo:\\s*(?<registryUrl>https://[^\\s]+)\\s+name:\\s*(?<depName>\\S+)\\s+version:\\s*(?<currentValue>\\S+)",
@@ -45,10 +44,10 @@
       customType: "regex",
       description: "Annotated versions and restore image tags",
       managerFilePatterns: [
-        "/^\\.github\\/actions\\/setup-toolchain\\/action\\.yml$/",
-        "/^apps\\/platform-system\\/tuppr\\/manifests\\/.*\\.kubernetesupgrade\\.ya?ml$/",
-        "/^apps\\/platform-system\\/gateway-api\\/manifests\\/gateway-api-version\\.configmap\\.ya?ml$/",
-        "/^ansible\\/roles\\/(?:talos|cli_secrets|restic)\\/defaults\\/main\\.ya?ml$/",
+        ".github/actions/setup-toolchain/action.yml",
+        "apps/platform-system/tuppr/manifests/**/*.kubernetesupgrade.{yml,yaml}",
+        "apps/platform-system/gateway-api/manifests/gateway-api-version.configmap.{yml,yaml}",
+        "ansible/roles/{talos,cli_secrets,restic}/defaults/main.{yml,yaml}",
       ],
       matchStrings: [
         "(?:^|\\r?\\n)[ \\t]*# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)[ \\t]*\\r?\\n[ \\t]*(?:version|IMAGE_TAG|kubeconform-version|YAMLFMT_VERSION|ACTIONLINT_VERSION|cli_secrets_secretspec_version):[ \\t]*[\"']?(?<currentValue>v?[0-9][^\\s\"']*)",
