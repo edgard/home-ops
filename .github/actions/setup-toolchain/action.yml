@@ -39,7 +39,6 @@ runs:
     - name: Set Up uv
       uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
-        # renovate: datasource=github-releases depName=astral-sh/uv
         version: "0.13.8"
         enable-cache: true
         cache-dependency-glob: uv.lock
@@ -48,14 +47,12 @@ runs:
       if: ${{ inputs.profile == 'lint' }}
       uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
       with:
-        # renovate: datasource=github-releases depName=helm/helm
         version: v4.3.1
 
     - name: Set Up OpenTofu
       if: ${{ inputs.profile != 'test' }}
       uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
       with:
-        # renovate: datasource=github-releases depName=opentofu/opentofu
         tofu_version: v1.13.9
         tofu_wrapper: false
 

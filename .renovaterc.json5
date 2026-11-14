@@ -20,12 +20,9 @@
     ],
   },
 
-  // === GitHub Actions Manager ===
-  "github-actions": {
-    managerFilePatterns: [
-      "/^\\.github\\/workflows\\/[^/]+\\.ya?ml$/",
-      "/^\\.github\\/actions\\/[^/]+\\/action\\.yml$/",
-    ],
+  // The Talos bootstrap patch contains a literal installer image reference.
+  ansible: {
+    managerFilePatterns: ["/^ansible\\/roles\\/talos\\/files\\/controlplane-patch\\.ya?ml$/"],
   },
 
   // === Custom Managers ===
@@ -43,84 +40,19 @@
       datasourceTemplate: "{{#if packageName}}docker{{else}}helm{{/if}}",
     },
 
-    // Upgrade target versions (uses renovate comment hints)
+    // Put the Renovate annotation immediately above the version or image.
     {
       customType: "regex",
-      description: "Upgrade target versions",
+      description: "Annotated versions and restore image tags",
       managerFilePatterns: [
-        "/^apps\\/platform-system\\/tuppr\\/manifests\\/.*\\.kubernetesupgrade\\.ya?ml$/",
-        "/^ansible\\/roles\\/talos\\/defaults\\/main\\.ya?ml$/",
-      ],
-      matchStrings: [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
-      ],
-    },
-
-    // Tool versions passed as action inputs in CI workflow
-    {
-      customType: "regex",
-      description: "CI tool versions in GitHub Actions",
-      managerFilePatterns: [
-        "/^\\.github\\/workflows\\/ci\\.yml$/",
         "/^\\.github\\/actions\\/setup-toolchain\\/action\\.yml$/",
-      ],
-      matchStrings: [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*tofu_version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*IMAGE_TAG:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*kubeconform-version:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*YAMLFMT_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*ACTIONLINT_VERSION:\\s*[\"']?(?<currentValue>v?[0-9.]+)[\"']?",
-      ],
-    },
-
-    // Gateway API CRDs (uses renovate comment hint)
-    {
-      customType: "regex",
-      description: "Gateway API CRDs version",
-      managerFilePatterns: [
+        "/^apps\\/platform-system\\/tuppr\\/manifests\\/.*\\.kubernetesupgrade\\.ya?ml$/",
         "/^apps\\/platform-system\\/gateway-api\\/manifests\\/gateway-api-version\\.configmap\\.ya?ml$/",
+        "/^ansible\\/roles\\/(?:talos|cli_secrets|restic)\\/defaults\\/main\\.ya?ml$/",
       ],
       matchStrings: [
-        "# renovate: datasource=github-releases depName=(?<depName>[^\\s]+)[\\s\\S]*?version:\\s*[\"']?(?<currentValue>v[0-9.]+)[\"']?",
-      ],
-      datasourceTemplate: "github-releases",
-    },
-
-    // Talos installer in bootstrap machine config (preserve factory schematic path)
-    {
-      customType: "regex",
-      description: "Talos installer image tag in bootstrap patch",
-      managerFilePatterns: [
-        "/^ansible\\/roles\\/talos\\/files\\/controlplane-patch\\.ya?ml$/",
-      ],
-      matchStrings: [
-        "image:\\s*(?<depName>factory\\.talos\\.dev\\/metal-installer\\/[a-z0-9]+):(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[^\\s\"']+)?)",
-      ],
-      datasourceTemplate: "docker",
-    },
-
-    // CLI SecretSpec compatibility pin used by runtime validation
-    {
-      customType: "regex",
-      description: "SecretSpec compatibility version",
-      managerFilePatterns: [
-        "/^ansible\\/roles\\/cli_secrets\\/defaults\\/main\\.ya?ml$/",
-      ],
-      matchStrings: [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*cli_secrets_secretspec_version:\\s*[\"']?(?<currentValue>[0-9][^\"'\\s]*)[\"']?",
-      ],
-    },
-
-    // Restic restore job image in Ansible role defaults
-    {
-      customType: "regex",
-      description: "Restic restore image in Ansible defaults",
-      managerFilePatterns: [
-        "/^ansible\\/roles\\/restic\\/defaults\\/main\\.ya?ml$/",
-      ],
-      matchStrings: [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s*\\n\\s*restic_restore_image:\\s*[^:\\s]+:(?<currentValue>[^\\s]+)",
+        "(?:^|\\r?\\n)[ \\t]*# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)[ \\t]*\\r?\\n[ \\t]*(?:version|IMAGE_TAG|kubeconform-version|YAMLFMT_VERSION|ACTIONLINT_VERSION|cli_secrets_secretspec_version):[ \\t]*[\"']?(?<currentValue>v?[0-9][^\\s\"']*)",
+        "(?:^|\\r?\\n)[ \\t]*# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)[ \\t]*\\r?\\n[ \\t]*restic_restore_image:[ \\t]*[\"']?[^:\\s]+:(?<currentValue>[^\\s\"']+)",
       ],
     },
   ],
