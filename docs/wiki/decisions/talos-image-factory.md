@@ -1,7 +1,7 @@
 # Preserve the Talos Image Factory installer
 
 Purpose: record the upgrade image constraint for the single node.
-Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
+Status: current. Reviewed against: `62ac80dd843b2975b122c9cdf9fd1c1cf67bc060`.
 
 [PR #394](https://github.com/edgard/home-ops/pull/394) corrected the Talos
 upgrade path to use the installer specified by the committed machine
@@ -11,10 +11,12 @@ install image. The upgrade role constructs the command from that image; command 
 are retired. Before a live upgrade, confirm the node's current install image and
 take a restricted etcd snapshot; the wiki cannot establish current node state.
 
-Renovate must discover both the bootstrap patch and the upgrade target in
-`ansible/roles/talos/defaults/main.yml`. Moving a role input requires updating
-the corresponding manager file pattern. Repository policy rejects a version
-mismatch rather than allowing the default command to target an older installer.
+Renovate's Ansible manager reads the image from the bootstrap patch. The
+package lookup override reads upstream installer tags while preserving the
+factory schematic path in the patch. The annotated version in the role
+defaults is tracked separately through the custom regex manager. Moving
+either input requires updating its manager's file pattern. Repository
+validation rejects a version mismatch between those inputs.
 
 ## Sources
 

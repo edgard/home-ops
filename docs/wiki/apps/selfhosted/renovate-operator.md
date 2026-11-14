@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `f1b33764a7773877d10b843e1a0aa02b9ec19365`.
+Status: current. Reviewed against: `62ac80dd843b2975b122c9cdf9fd1c1cf67bc060`.
 
 ## Dependencies
 
@@ -21,12 +21,16 @@ Review generated PR behavior and credentials after changing job or operator conf
 
 The [repository Renovate configuration](../../../../.renovaterc.json5) combines
 built-in managers for Actions, Python project metadata/uv locks, Ansible
-collections, Terraform/provider locks, and Kubernetes and Helm values images.
-Custom extraction covers app charts, upgrade targets, CI tools, Gateway API,
-the Restic restore image, and the runtime SecretSpec compatibility
-pin in [the CLI role defaults](../../../../ansible/roles/cli_secrets/defaults/main.yml). When moving a dependency file, check
-its manager file patterns and run a local extraction dry run; valid configuration
-alone does not prove that the dependency is still discovered.
+collections and the Talos bootstrap image, Terraform/provider locks, and
+Kubernetes and Helm values images. The Actions manager also reads the uv,
+Helm, and OpenTofu inputs in the CI toolchain.
+
+Two custom managers read the Helm chart pins from ApplicationSet inputs and
+the annotated versions and image tags elsewhere. Put a `# renovate:` comment
+directly above the matching key for upgrade targets, remaining CI tool pins,
+Gateway API, the Restic restore image, or the runtime SecretSpec pin. When
+moving a pin, check its manager's file patterns and compare the dependencies
+reported by a local extraction dry run.
 
 For a digest-pinned app-template image, put `tag@sha256:…` in `image.tag`.
 The built-in Helm values manager reads both parts and updates them together.
@@ -45,8 +49,9 @@ Renovate creates lockfile maintenance on a separate branch. If another update
 changes a shared lock first, Renovate regenerates the maintenance branch from the
 updated base on a later run and CI checks the new result.
 
-The PR gate also exercises the CI actions and validation tools whose major
-updates are eligible for automerge. Other majors require manual review because
+The PR gate also exercises the CI actions, their uv, Helm, and OpenTofu inputs,
+and the allowlisted validation tools whose major updates are eligible for
+automerge. Other majors require manual review because
 rendering and offline checks leave deployed workloads, provider plans, and
 operator procedures outside their coverage. Kubernetes and Talos release-line
 changes and downgrades require review of live upgrade preconditions. Their

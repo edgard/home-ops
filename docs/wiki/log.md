@@ -3,6 +3,13 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-14] revision | Simplify Renovate dependency discovery
+
+Moved supported CI tool pins and the Talos bootstrap image to native discovery
+and consolidated annotated pins into one regex manager. The ApplicationSet chart
+inputs keep their own matcher. Updated the Renovate Operator and Talos installer
+pages. November's semantic review is already recorded below.
+
 ## [2026-11-13] revision | Keep Helm image tags and digests together
 
 Removed duplicate Renovate extraction for Helm values and corrected the three
