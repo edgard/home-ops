@@ -8,7 +8,7 @@ dev = [
     "ansible-core==2.22.0",
     "ansible-lint==26.11.0",
     "ansible-compat==26.11.0",
-    "kubernetes==37.0.2",
+    "kubernetes==37.0.3",
     "jsonpatch==1.47",
     "PyYAML==6.0.3",
     "requests-oauthlib==2.0.0",
