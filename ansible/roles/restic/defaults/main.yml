@@ -12,7 +12,7 @@ restic_restore_rest_username: restic
 restic_restore_credentials_secret: restic-credentials
 restic_restore_credentials_key: RESTIC_PASSWORD
 # renovate: datasource=docker depName=restic/restic
-restic_restore_image: restic/restic:0.19.1
+restic_restore_image: restic/restic:0.20.0
 restic_restore_snapshot_root: /data/appdata
 restic_restore_snapshot_host: homelab
 restic_restore_snapshot_tag: appdata

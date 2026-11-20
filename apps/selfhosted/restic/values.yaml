@@ -72,7 +72,7 @@ controllers:
       init:
         image:
           repository: restic/restic
-          tag: 0.19.1
+          tag: 0.20.0
         securityContext:
           allowPrivilegeEscalation: false
         command:
@@ -100,7 +100,7 @@ controllers:
       app:
         image:
           repository: restic/restic
-          tag: 0.19.1
+          tag: 0.20.0
         securityContext:
           allowPrivilegeEscalation: false
         args:
@@ -147,7 +147,7 @@ controllers:
       app:
         image:
           repository: restic/restic
-          tag: 0.19.1
+          tag: 0.20.0
         securityContext:
           allowPrivilegeEscalation: false
         command:
