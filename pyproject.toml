@@ -9,7 +9,7 @@ dev = [
     "ansible-lint==26.11.0",
     "ansible-compat==26.11.0",
     "kubernetes==37.0.3",
-    "jsonpatch==1.47",
+    "jsonpatch==1.48",
     "PyYAML==6.0.3",
     "requests-oauthlib==2.0.0",
     "jsonschema==4.26.0",
@@ -17,7 +17,7 @@ dev = [
     "pytest==9.2.0",
     "python-hcl2==8.2.0",
     "packaging==26.3",
-    "ruff==0.17.5",
+    "ruff==0.17.6",
     "yamllint==1.38.0",
     "check-jsonschema==0.39.0",
 ]
