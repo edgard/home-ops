@@ -1,7 +1,7 @@
 # Kubernetes Restic restore runbook
 
 Purpose: recover existing Kubernetes appdata and verify the independent copy of the shared Restic repository.
-Status: current. Reviewed against: `50dc84a27f19eac0ca5d644abdeccc2d4383bc48` and this revision.
+Status: current. Reviewed against: `9ce0904e1fa682e1ad6dee5ff56ace85f03834f7`.
 
 ## Repository and backups
 
@@ -85,21 +85,25 @@ verified from B2. Enable copying once in the recovered cluster.
 kubectl -n selfhosted create configmap restic-cloud-approval --from-literal=snapshot-id="$SNAPSHOT_ID"
 ```
 
-The maintenance CronJob requires that marker, verifies the existing encrypted
+The daily `selfhosted/restic-maintenance` CronJob copies the whole local
+repository, including workstation snapshots already received by the server.
+It requires that marker, verifies the existing encrypted
 destination config byte-for-byte against the local repository, and checks the
 approved remote snapshot object's SHA-256 before writing. It copies packs and
 indexes before publishing the snapshot IDs present at the start of the copy.
 It skips locks and performs no remote deletion. The remote accumulates retired
-objects and old snapshot IDs, so monitor B2 storage independently. Repository
-maintenance runs the weekly local retention and integrity checks after a
-successful copy. Missing approval or a failed check stops both operations.
+objects and old snapshot IDs, so monitor B2 storage independently. On Mondays
+the same Job runs local retention and integrity checks after a successful
+copy. Missing approval or a failed pre-copy check stops both operations.
 Storage readiness monitors local ZFS maintenance and SMART. Check the
 namespace backups and B2 copy separately for missed runs, inspect failed
 Job logs and perform periodic independent restore drills. Compare the last
-scheduled and successful times against each expected cadence.
+scheduled and successful times against each job's schedule and time zone.
+When the time zone field is empty, the controller manager's local time zone
+applies. [Kubernetes CronJob time zones](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#time-zones)
 
 ```sh
-kubectl get cronjobs -A -o custom-columns='NAMESPACE:.metadata.namespace,JOB:.metadata.name,SCHEDULE:.spec.schedule,LAST-SCHEDULE:.status.lastScheduleTime,LAST-SUCCESS:.status.lastSuccessfulTime' | grep -E 'NAMESPACE|home-automation-backup|media-backup|restic-(backup|maintenance)'
+kubectl get cronjobs -A -o custom-columns='NAMESPACE:.metadata.namespace,JOB:.metadata.name,SCHEDULE:.spec.schedule,ZONE:.spec.timeZone,LAST-SCHEDULE:.status.lastScheduleTime,LAST-SUCCESS:.status.lastSuccessfulTime' | grep -E 'NAMESPACE|home-automation-backup|media-backup|restic-(backup|maintenance)'
 ```
 
 The schedules and retention counts live in the namespace values linked below. B2 can allow object listings while rejecting downloads with

@@ -3,6 +3,16 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-21] revision | Consolidate operator setup and recovery entry points
+
+The README links each install or recovery scenario to its procedure. The
+[agent workflow](agent-workflow.md#local-setup) owns local tool setup, and
+the root contributor rules link to the detailed review and testing policies.
+The [backup runbook](operations/restic-backup-restore.md#offsite-copy-and-retention)
+distinguishes the daily B2 copy from weekly local retention. The
+[networking page](architecture/networking.md#find-the-node-on-the-lan)
+explains how to look up the node and which DNS server handles each name.
+
 ## [2026-11-21] revision | Serve shared datasets over SMB
 
 Documented the file server in the existing selfhosted namespace, explicit ZFS mounts, LAN listener and
