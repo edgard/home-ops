@@ -154,8 +154,6 @@ controllers:
         env:
           PAPERLESS_BASE_URL: http://paperless-main.selfhosted.svc.cluster.local:8000
           PAPERLESS_PUBLIC_URL: https://paperless.edgard.org
-          PUID: "1000"
-          PGID: "1000"
           LLM_PROVIDER: openai
           # The bundled OpenAI client omits temperature for GPT-5 models only.
           LLM_MODEL: gpt-5.6-sol
@@ -198,14 +196,13 @@ controllers:
           readiness:
             enabled: true
         securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
           allowPrivilegeEscalation: false
           capabilities:
             drop:
               - ALL
-            add:
-              - CHOWN
-              - SETUID
-              - SETGID
   gotenberg:
     type: deployment
     replicas: 1

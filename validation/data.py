@@ -50,12 +50,6 @@ def check_paperless(values, documents):
     assert gpt.get("PRESERVE_EXISTING_METADATA") == "true", (
         "Paperless: preserve existing metadata"
     )
-    assert int(gpt.get("PUID", 10001)) == int(main["USERMAP_UID"]), (
-        "Paperless: shared data user"
-    )
-    assert int(gpt.get("PGID", 10001)) == int(main["USERMAP_GID"]), (
-        "Paperless: shared data group"
-    )
     durable = []
     for doc in documents:
         if doc.get("kind") not in {"Deployment", "StatefulSet"}:
@@ -68,6 +62,15 @@ def check_paperless(values, documents):
         }
         for container in pod.get("containers", []):
             if container.get("image", "").startswith("icereed/paperless-gpt:"):
+                identity = pod.get("securityContext", {}) | container.get(
+                    "securityContext", {}
+                )
+                assert identity.get("runAsUser") == int(main["USERMAP_UID"]), (
+                    "Paperless: shared data user"
+                )
+                assert identity.get("runAsGroup") == int(main["USERMAP_GID"]), (
+                    "Paperless: shared data group"
+                )
                 durable.append(
                     {
                         mount["mountPath"]

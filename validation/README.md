@@ -45,8 +45,8 @@ and a small explicit environment. It pulls each distinct chart once per run,
 renders all apps with their production release names and namespaces, checks that each managed appdata PVC has a read-only Restic mount at its canonical backup path, includes CRDs, exports served schemas, then runs native
 validators. It has bounded subprocesses/retries and cleans up on success or
 failure. CRD conversion and schema precedence retain their existing behavior;
-kubeconform has no new `-strict` or missing-schema exemption. Raw validation
-skips CRDs and RenovateJob; rendered validation skips only CRDs.
+kubeconform skips CRD definitions in raw and rendered manifests. It validates
+the raw RenovateJob against the schema served by the pinned operator chart.
 
 Failures identify the app/tool/resource without echoing manifests, rejected
 values, or parser excerpts. HTTP status codes can be reported for downloads.
