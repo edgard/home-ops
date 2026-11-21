@@ -1,0 +1,20 @@
+---
+- name: Require a supported source migration operation
+  ansible.builtin.assert:
+    that:
+      - migration_action | default('') in ['preflight', 'stage', 'archive', 'boot-backup']
+      - lookup('env', 'MIGRATION_CONFIG') | length > 0
+    fail_msg: Select the source migration task and set MIGRATION_CONFIG to the private operator file.
+
+- name: Check source migration inputs and perform the requested operation
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python_interpreter }}"
+      - "{{ role_path }}/files/source_operator.py"
+      - "{{ 'preflight' if ansible_check_mode and migration_action != 'boot-backup' else migration_action }}"
+      - "{{ lookup('env', 'MIGRATION_CONFIG') }}"
+    chdir: "{{ repo_root }}"
+  check_mode: false
+  changed_when: "'created' in truenas_migration_source_result.stdout_lines"
+  register: truenas_migration_source_result
+  when: not (ansible_check_mode and migration_action == 'boot-backup')

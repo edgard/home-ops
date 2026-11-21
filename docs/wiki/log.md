@@ -3,6 +3,11 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-21] revision | Stage a cold TrueNAS migration
+
+Added operator tasks and a runbook for preserving the source appdata, shared
+datasets and original system disk before installing Talos on the same machine.
+
 ## [2026-11-14] revision | Simplify Renovate dependency discovery
 
 Moved supported CI tool pins and the Talos bootstrap image to native discovery

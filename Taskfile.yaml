@@ -256,6 +256,39 @@ tasks:
       - task: lint
       - task: test
 
+  # Cold staging on TrueNAS
+  migration:preflight:
+    desc: Record pool, VM, SSD and partition identities without changing the source
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-source.yml -e migration_action=preflight"
+
+  migration:stage:
+    desc: Replicate the cold appdata snapshot into the migration dataset
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-source.yml -e migration_action=stage"
+
+  migration:archive:
+    desc: Capture and verify the exported spool partition
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-source.yml -e migration_action=archive"
+
+  migration:boot-backup:
+    desc: Capture and verify the original SSD boot ranges on the Mac
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-source.yml -e migration_action=boot-backup"
+
   # High-level cluster lifecycle
   cluster:create:
     desc: Install, configure, and bootstrap Talos + platform
