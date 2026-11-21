@@ -1,0 +1,55 @@
+---
+- name: Require the restricted configuration and approved debug tools when resuming first apply
+  ansible.builtin.assert:
+    that:
+      - talos_debug_image | length > 0
+      - talos_live_zfs.v1alpha1.policy == talos_zfs_guard
+
+- name: Wait for the restricted extension on the final authenticated address
+  ansible.builtin.command:
+    argv: "{{ talos_authenticated_client + ['get', 'extensionserviceconfigs', 'zfs-service', '-o', 'yaml'] }}"
+  register: talos_effective_zfs
+  changed_when: false
+  until: >-
+    talos_effective_zfs.rc == 0 and
+    (talos_effective_zfs.stdout | from_yaml).spec.environment == talos_zfs_guard.environment
+  retries: "{{ talos_api_wait_retries }}"
+  delay: "{{ talos_api_wait_delay }}"
+  timeout: 15
+
+- name: Verify the host has no pools before explicitly loading ZFS
+  ansible.builtin.include_tasks: probe_zfs.yml
+  vars:
+    talos_zfs_probe_expected: ZFS initial state verified
+    talos_zfs_probe_script: |
+      set -eu
+      if test -e /proc/1/root/dev/zfs || test -d /proc/1/root/sys/module/zfs; then
+        pools=$(nsenter --mount=/proc/1/ns/mnt --root=/proc/1/root -- /usr/local/sbin/zpool list -H -o name)
+        test -z "$pools"
+      fi
+      echo 'ZFS initial state verified'
+
+- name: Restore the explicit kernel module with the same ZFS restriction
+  ansible.builtin.command:
+    argv: "{{ talos_authenticated_client + ['apply-config', '--mode=no-reboot', '--file', talos_controlplane_config_path, '--config-patch', '@' + talos_zfs_guard_file] }}"
+  changed_when: true
+
+- name: Wait for the restricted ZFS service to finish startup
+  ansible.builtin.command:
+    argv: "{{ talos_authenticated_client + ['get', 'services', 'ext-zfs-service', '-o', 'yaml'] }}"
+  register: talos_running_zfs
+  changed_when: false
+  until: talos_running_zfs.rc == 0 and (talos_running_zfs.stdout | from_yaml).spec.running
+  retries: "{{ talos_api_wait_retries }}"
+  delay: "{{ talos_api_wait_delay }}"
+  timeout: 15
+
+- name: Confirm the running extension imported no pool after the explicit module
+  ansible.builtin.include_tasks: probe_zfs.yml
+  vars:
+    talos_zfs_probe_expected: ZFS pool list is empty
+    talos_zfs_probe_script: |-
+      set -eu
+      pools=$(nsenter --mount=/proc/1/ns/mnt --root=/proc/1/root -- /usr/local/sbin/zpool list -H -o name)
+      test -z "$pools"
+      echo 'ZFS pool list is empty'

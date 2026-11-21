@@ -1,0 +1,197 @@
+---
+defaultPodOptions:
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: homelab
+
+controllers:
+  snapshot:
+    type: cronjob
+    cronjob:
+      schedule: "7 * * * *"
+      timeZone: Europe/Warsaw
+      concurrencyPolicy: Forbid
+    containers:
+      app:
+        image:
+          repository: ghcr.io/prometheus-community/smartctl-exporter
+          tag: v0.15.0@sha256:a76e08dbf5db4781fefd1ed81c65ad46ae8d2849dae6b6d3acebcde2fc4e59d6
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env:
+          POOL_GUID:
+            valueFrom:
+              configMapKeyRef:
+                name: storage-identity
+                key: pool-guid
+          SYSTEM_DISK:
+            valueFrom:
+              configMapKeyRef:
+                name: storage-identity
+                key: system-disk
+        command:
+          - "/bin/sh"
+          - "/scripts/run"
+          - "snapshot"
+  scrub:
+    type: cronjob
+    cronjob:
+      schedule: "30 1 * * *"
+      timeZone: Europe/Warsaw
+      concurrencyPolicy: Forbid
+    containers:
+      app:
+        image:
+          repository: ghcr.io/prometheus-community/smartctl-exporter
+          tag: v0.15.0@sha256:a76e08dbf5db4781fefd1ed81c65ad46ae8d2849dae6b6d3acebcde2fc4e59d6
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env:
+          POOL_GUID:
+            valueFrom:
+              configMapKeyRef:
+                name: storage-identity
+                key: pool-guid
+          SYSTEM_DISK:
+            valueFrom:
+              configMapKeyRef:
+                name: storage-identity
+                key: system-disk
+        command:
+          - "/bin/sh"
+          - "/scripts/run"
+          - "scrub"
+  smart:
+    type: cronjob
+    cronjob:
+      schedule: "30 7 * * 3"
+      timeZone: Europe/Warsaw
+      concurrencyPolicy: Forbid
+    containers:
+      app:
+        image:
+          repository: ghcr.io/prometheus-community/smartctl-exporter
+          tag: v0.15.0@sha256:a76e08dbf5db4781fefd1ed81c65ad46ae8d2849dae6b6d3acebcde2fc4e59d6
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env:
+          POOL_GUID:
+            valueFrom:
+              configMapKeyRef:
+                name: storage-identity
+                key: pool-guid
+          SYSTEM_DISK:
+            valueFrom:
+              configMapKeyRef:
+                name: storage-identity
+                key: system-disk
+        command:
+          - "/bin/sh"
+          - "/scripts/run"
+          - "smart"
+  health:
+    strategy: Recreate
+    containers:
+      check:
+        image:
+          repository: ghcr.io/prometheus-community/smartctl-exporter
+          tag: v0.15.0@sha256:a76e08dbf5db4781fefd1ed81c65ad46ae8d2849dae6b6d3acebcde2fc4e59d6
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env:
+          POOL_GUID:
+            valueFrom:
+              configMapKeyRef:
+                name: storage-identity
+                key: pool-guid
+          SYSTEM_DISK:
+            valueFrom:
+              configMapKeyRef:
+                name: storage-identity
+                key: system-disk
+        command:
+          - "/bin/sh"
+          - "-ec"
+          - "while :; do sleep 3600; done"
+        probes:
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - "/bin/sh"
+                  - "/scripts/run"
+                  - "health"
+              periodSeconds: 300
+              timeoutSeconds: 60
+              failureThreshold: 1
+      http:
+        image:
+          repository: busybox
+          tag: 1.37.0
+        command:
+          - "/bin/sh"
+          - "-ec"
+          - "echo healthy > /www/index.html && exec httpd -f -p 8080 -h /www"
+service:
+  main:
+    controller: health
+    ports:
+      http:
+        port: 8080
+persistence:
+  scripts:
+    type: configMap
+    name: storage-maintenance-scripts
+    globalMounts:
+      - path: /scripts
+        readOnly: true
+  web:
+    type: emptyDir
+    advancedMounts:
+      health:
+        http:
+          - path: /www
+  host-root:
+    type: hostPath
+    hostPath: /
+    hostPathType: Directory
+    advancedMounts:
+      health:
+        check:
+          - path: /host
+            readOnly: true
+            mountPropagation: HostToContainer
+      snapshot:
+        app:
+          - path: /host
+            readOnly: true
+            mountPropagation: HostToContainer
+      scrub:
+        app:
+          - path: /host
+            readOnly: true
+            mountPropagation: HostToContainer
+      smart:
+        app:
+          - path: /host
+            readOnly: true
+            mountPropagation: HostToContainer
+  disk-identities:
+    type: hostPath
+    hostPath: /dev/disk/by-id
+    hostPathType: Directory
+    advancedMounts:
+      health:
+        check:
+          - path: /dev/disk/by-id
+            readOnly: true
+      smart:
+        app:
+          - path: /dev/disk/by-id
+            readOnly: true

@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: migration-mounts-
+  namespace: kube-system
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: homelab
+  tolerations:
+    - operator: Exists
+  containers:
+    - name: verify
+      image: "{{ migration_check_image }}"
+      securityContext:
+        privileged: true
+      command:
+        - sh
+        - -ec
+        - |
+          zpool() { chroot /host /usr/local/sbin/zpool "$@"; }
+          zfs() { chroot /host /usr/local/sbin/zfs "$@"; }
+          test "$(zpool get -Hp -o value guid dpool)" = "$POOL_GUID"
+          test "$(zpool list -H -o health dpool)" = ONLINE
+          test "$(zfs list -H -o name dpool/k8s)" = dpool/k8s
+          mountcheck() {
+            awk -v path="/host/var/mnt/$1" -v source="$1" '$4 == "/" && $5 == path {for (i=7;i<=NF;i++) if ($i=="-" && $(i+1)=="zfs" && $(i+2)==source) found=1} END {exit !found}' /proc/self/mountinfo
+          }
+          mountcheck dpool/media
+          # Match kubelet's OnRootMismatch ownership test before any media writer starts.
+          test "$(stat -c %g /host/var/mnt/dpool/media)" = 0
+          mode=$(stat -c %a /host/var/mnt/dpool/media)
+          test "$((0$mode & 02770))" -eq "$((02770))"
+          mountcheck dpool/restic
+{% if migration_check_stage | default(false) | bool %}
+          mountcheck {{ migration_dataset }}
+          test "$(zfs get -H -o value readonly {{ migration_dataset }})" = on
+          test "$(zfs get -Hp -o value guid "{{ migration_dataset }}@$SNAPSHOT")" = "$SNAPSHOT_GUID"
+{% endif %}
+      env:
+        - name: POOL_GUID
+          value: "{{ migration_identity.resources[0].data['pool-guid'] }}"
+        - name: SNAPSHOT_GUID
+          value: "{{ migration_snapshot_guid }}"
+        - name: SNAPSHOT
+          value: "{{ migration_snapshot }}"
+      volumeMounts:
+        - name: host
+          mountPath: /host
+          readOnly: true
+          mountPropagation: HostToContainer
+  volumes:
+    - name: host
+      hostPath:
+        path: /
+        type: Directory

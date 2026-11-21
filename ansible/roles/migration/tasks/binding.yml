@@ -1,0 +1,22 @@
+---
+- name: Inspect the physical backing volume
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: PersistentVolume
+    name: "pvc-{{ migration_uid }}"
+  register: migration_pv
+
+- name: Require the original retained OpenEBS binding
+  ansible.builtin.assert:
+    that:
+      - migration_pv.resources | length == 1
+      - migration_pv.resources[0].status.phase == 'Bound'
+      - migration_pv.resources[0].spec.claimRef.uid == migration_uid
+      - migration_pv.resources[0].spec.claimRef.namespace == migration_ns
+      - migration_pv.resources[0].spec.claimRef.name == migration_name
+      - migration_pv.resources[0].spec.storageClassName == 'zfs-appdata'
+      - migration_pv.resources[0].spec.persistentVolumeReclaimPolicy == 'Retain'
+      - migration_pv.resources[0].spec.csi.driver == 'zfs.csi.openebs.io'
+      - migration_pv.resources[0].spec.csi.volumeHandle == 'pvc-' ~ migration_uid

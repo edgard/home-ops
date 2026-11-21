@@ -7,6 +7,16 @@
       - k8s_version | length > 0
     fail_msg: TALOS_NODE and k8s_version are required.
 
+- name: Verify Kubernetes and Talos target the same physical node
+  ansible.builtin.include_role:
+    name: platform
+    tasks_from: target
+
+- name: Verify the live datasets before upgrading
+  ansible.builtin.include_role:
+    name: migration
+    tasks_from: mounts
+
 - name: Upgrade Kubernetes control plane
   when: not ansible_check_mode
   ansible.builtin.command:

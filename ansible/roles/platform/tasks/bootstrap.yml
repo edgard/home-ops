@@ -2,6 +2,14 @@
 - name: Run platform bootstrap preflight
   ansible.builtin.import_tasks: preflight.yml
 
+- name: Verify the physical node and Kubernetes context
+  ansible.builtin.import_tasks: target.yml
+
+- name: Verify the released storage policy before installing the foundation
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: require_zfs_release
+
 - name: Build bootstrap release specs
   ansible.builtin.set_fact:
     platform_bootstrap_release_specs: []
@@ -17,6 +25,9 @@
 
 - name: Warm bootstrap images
   ansible.builtin.import_tasks: k8tz_warmup.yml
+
+- name: Record the expected pool identity before CSI can start
+  ansible.builtin.import_tasks: storage_identity.yml
 
 - name: Install foundational bootstrap releases
   ansible.builtin.include_tasks: install_release_with_manifests.yml
@@ -37,6 +48,9 @@
 
 - name: Bootstrap External Secrets
   ansible.builtin.import_tasks: external_secrets.yml
+
+- name: Provide access to the existing Restic repository for recovery
+  ansible.builtin.import_tasks: restic_access.yml
 
 - name: Bootstrap Argo CD
   ansible.builtin.import_tasks: argocd.yml

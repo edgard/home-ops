@@ -14,6 +14,17 @@ controllers:
     type: deployment
     replicas: 1
     strategy: Recreate
+    initContainers:
+      verify-media:
+        image:
+          repository: busybox
+          tag: 1.37.0
+        command:
+          - /bin/sh
+          - -ec
+          - |
+            test "$(cat /storage-check/verified-boot)" = "$(cat /proc/sys/kernel/random/boot_id)"
+            awk '$4 == "/" && $5 == "/media" {for (i=7;i<NF;i++) if ($i=="-" && $(i+1)=="zfs" && $(i+2)=="dpool/media") ok=1} END {exit !ok}' /proc/self/mountinfo
     containers:
       app:
         image:
@@ -128,6 +139,15 @@ route:
             port: 8080
 
 persistence:
+  boot-check:
+    type: hostPath
+    hostPath: /run/home-ops-storage
+    hostPathType: DirectoryOrCreate
+    advancedMounts:
+      main:
+        verify-media:
+          - path: /storage-check
+            readOnly: true
   data:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
@@ -141,6 +161,9 @@ persistence:
     existingClaim: media
     advancedMounts:
       main:
+        verify-media:
+          - path: /media
+            readOnly: true
         app:
           - path: /media
   dev-net-tun:

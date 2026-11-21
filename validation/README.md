@@ -42,7 +42,7 @@ results are retained even on failure; Quality Gate requires every job to succeed
 
 The serial Kubernetes adapter owns a temporary workspace, private Helm homes,
 and a small explicit environment. It pulls each distinct chart once per run,
-renders all apps including CRDs, exports served schemas, then runs native
+renders all apps with their production release names and namespaces, checks that each managed appdata PVC has a read-only Restic mount at its canonical backup path, includes CRDs, exports served schemas, then runs native
 validators. It has bounded subprocesses/retries and cleans up on success or
 failure. CRD conversion and schema precedence retain their existing behavior;
 kubeconform has no new `-strict` or missing-schema exemption. Raw validation

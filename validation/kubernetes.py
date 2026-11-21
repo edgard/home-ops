@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from validation.data import check_paperless, check_resources
+from validation.data import check_backup_mounts, check_paperless, check_resources
 from validation.schemas import SchemaError, export
 from validation.sources import SourceError, applications, manifest_paths, read_yaml
 
@@ -92,6 +92,7 @@ def validate(root):
             )
 
         charts, rendered = {}, []
+        rendered_apps = {}
         for app in apps:
             label = f"{app.category}/{app.name}"
             print(f"Validating {label}", flush=True)
@@ -126,8 +127,10 @@ def validate(root):
                 [
                     "helm",
                     "template",
-                    "test",
+                    app.name,
                     charts[key],
+                    "--namespace",
+                    app.category,
                     "--include-crds",
                     "--values",
                     app.path / "values.yaml",
@@ -147,6 +150,8 @@ def validate(root):
             if app.name == "paperless":
                 check_paperless(app.values, documents)
             rendered.append(target)
+            rendered_apps[app.category, app.name] = documents
+        check_backup_mounts(rendered_apps)
         export(output / "schemas", sources + rendered)
         template = "{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
         schema_args = [

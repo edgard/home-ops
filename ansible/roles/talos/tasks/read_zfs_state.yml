@@ -1,0 +1,17 @@
+---
+- name: Inspect the active and staged native machine configurations
+  no_log: true
+  ansible.builtin.command:
+    argv: "{{ talos_authenticated_client + ['get', 'machineconfigs', '-o', 'yaml'] }}"
+  register: talos_machine_configs
+  changed_when: false
+  until: talos_machine_configs.rc == 0
+  retries: "{{ talos_api_wait_retries }}"
+  delay: "{{ talos_api_wait_delay }}"
+  timeout: 15
+  check_mode: false
+
+- name: Extract only the verified live storage policy
+  ansible.builtin.set_fact:
+    talos_live_zfs: "{{ talos_machine_configs.stdout | talos_zfs_state }}"
+  no_log: true

@@ -1,0 +1,41 @@
+---
+fullnameOverride: zfs-localpv
+analytics:
+  enabled: false
+zfs:
+  bin: /usr/local/sbin/zfs
+zfsNode:
+  encrKeysDir: /var/mnt/openebs-keys
+  additionalVolumes:
+    storage-check:
+      hostPath:
+        path: /run/home-ops-storage
+        type: DirectoryOrCreate
+  initContainers:
+    - name: verify-storage
+      image: busybox:1.37.0
+      securityContext:
+        privileged: true
+      env:
+        - name: EXPECTED_POOL_GUID
+          valueFrom:
+            configMapKeyRef:
+              name: storage-identity
+              key: pool-guid
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          set -eu
+          case "$EXPECTED_POOL_GUID" in ""|*[!0-9]*) exit 1 ;; esac
+          test "$(chroot /host /usr/local/sbin/zpool get -Hp -o value guid dpool)" = "$EXPECTED_POOL_GUID"
+          test "$(chroot /host /usr/local/sbin/zfs list -H -o type dpool/k8s)" = filesystem
+          cat /proc/sys/kernel/random/boot_id > /storage-check/verified-boot.tmp
+          mv /storage-check/verified-boot.tmp /storage-check/verified-boot
+      volumeMounts:
+        - name: host-root
+          mountPath: /host
+          mountPropagation: HostToContainer
+          readOnly: true
+        - name: storage-check
+          mountPath: /storage-check

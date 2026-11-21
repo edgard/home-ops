@@ -1,93 +1,93 @@
 ---
-- name: Normalize restore mode
+- name: Validate requested restore selection
   ansible.builtin.assert:
     that:
       - restic_restore_mode in ["app", "all"]
       - restic_restore_mode == "all" or restic_restore_app | length > 0
-    fail_msg: "Use restic_restore_mode=app with restic_restore_app, or restic_restore_mode=all."
 
-- name: Set effective snapshot
-  ansible.builtin.set_fact:
-    restic_restore_effective_snapshot: "{{ restic_restore_snapshot | default('latest', true) }}"
-
-- name: Read Argo CD Applications
+- name: Read live restore inventory
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
-    api_version: argoproj.io/v1alpha1
-    kind: Application
-    namespace: "{{ restic_restore_argocd_namespace }}"
-  register: restic_restore_live_applications
+    api_version: "{{ item.version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace | default(omit) }}"
+  loop:
+    - {version: argoproj.io/v1alpha1, kind: Application, namespace: "{{ restic_restore_argocd_namespace }}"}
+    - {version: v1, kind: PersistentVolumeClaim}
+    - {version: v1, kind: PersistentVolume}
+    - {version: apps/v1, kind: Deployment}
+    - {version: apps/v1, kind: StatefulSet}
+    - {version: batch/v1, kind: CronJob}
+  register: restic_restore_inventory
 
-- name: Read PVCs
+- name: Index live inventory by kind
+  ansible.builtin.set_fact:
+    restic_restore_objects: >-
+      {{ dict(restic_restore_inventory.results | map(attribute='item.kind') |
+              zip(restic_restore_inventory.results | map(attribute='resources'))) }}
+
+- name: Find the verified repository server
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
     api_version: v1
-    kind: PersistentVolumeClaim
-  register: restic_restore_live_pvcs
+    kind: Pod
+    namespace: "{{ restic_restore_namespace }}"
+    label_selectors:
+      - app.kubernetes.io/instance=restic
+      - app.kubernetes.io/controller=main
+    field_selectors:
+      - status.phase=Running
+  register: restic_restore_servers
 
-- name: Read Deployments
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: apps/v1
-    kind: Deployment
-  register: restic_restore_live_deployments
-
-- name: Read StatefulSets
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: apps/v1
-    kind: StatefulSet
-  register: restic_restore_live_statefulsets
-
-- name: Normalize source facts
-  ansible.builtin.set_fact:
-    restic_restore_source_applications: "{{ restic_restore_live_applications.resources | default([]) }}"
-    restic_restore_source_pvcs: "{{ restic_restore_live_pvcs.resources | default([]) }}"
-    restic_restore_source_workloads: >-
-      {{
-        (restic_restore_live_deployments.resources | default([])) + (restic_restore_live_statefulsets.resources | default([]))
-      }}
-
-- name: Select restore applications
-  ansible.builtin.set_fact:
-    restic_restore_selected_applications: >-
-      {{
-        restic_restore_source_applications
-        | selectattr('metadata.name', 'defined')
-        | rejectattr('metadata.name', 'in', restic_restore_excluded_apps)
-        | list
-      }}
-
-- name: Restrict selected applications for single app restore
-  when: restic_restore_mode == "app"
-  ansible.builtin.set_fact:
-    restic_restore_selected_applications: "{{ restic_restore_selected_applications | selectattr('metadata.name', 'equalto', restic_restore_app) | list }}"
-
-- name: Assert requested app exists in Argo CD
-  when: restic_restore_mode == "app"
+- name: Require a single repository server
   ansible.builtin.assert:
     that:
-      - restic_restore_selected_applications | length == 1
-    fail_msg: "Argo CD Application not found or excluded: {{ restic_restore_app }}"
+      - restic_restore_servers.resources | length == 1
+      - restic_restore_servers.resources[0].metadata.deletionTimestamp is not defined
 
-- name: Reset restore plan
+- name: Read appdata snapshot IDs and backup paths
+  kubernetes.core.k8s_exec:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    namespace: "{{ restic_restore_namespace }}"
+    pod: "{{ restic_restore_servers.resources[0].metadata.name }}"
+    container: app
+    command: >-
+      /tools/restic --no-lock snapshots --json
+      --host {{ restic_restore_snapshot_host | quote }} --tag {{ restic_restore_snapshot_tag | quote }}
+  changed_when: false
+  check_mode: false
+  register: restic_restore_snapshot_catalog
+  failed_when: restic_restore_snapshot_catalog.rc != 0
+
+- name: Match Argo apps to concrete snapshot IDs and bound OpenEBS volumes
   ansible.builtin.set_fact:
-    restic_restore_plan: []
+    restic_restore_plan: >-
+      {{ restic_restore_selected | restic_restore_bindings(
+           restic_restore_objects.PersistentVolumeClaim, restic_restore_objects.PersistentVolume,
+           restic_restore_objects.Deployment + restic_restore_objects.StatefulSet,
+           restic_restore_snapshot_catalog.stdout | from_json, restic_restore_snapshot,
+           restic_restore_snapshot_root, restic_restore_excluded_pvcs) }}
+  vars:
+    restic_restore_apps: "{{ restic_restore_objects.Application | rejectattr('metadata.name', 'in', restic_restore_excluded_apps) }}"
+    restic_restore_selected: >-
+      {{ restic_restore_apps | list if restic_restore_mode == 'all'
+         else restic_restore_apps | selectattr('metadata.name', 'equalto', restic_restore_app) | list }}
 
-- name: Build restore plan entries
+- name: Require restorable appdata for the selected apps
+  ansible.builtin.assert:
+    that: restic_restore_plan | length > 0
+    fail_msg: "No matching Argo Application with a restorable bound zfs-appdata claim. SparkyFitness requires native SQL recovery."
+
+- name: Validate each snapshot tree before any workload or data changes
   ansible.builtin.include_tasks: plan_app.yml
-  loop: "{{ restic_restore_selected_applications | sort(attribute='metadata.name') }}"
+  loop: "{{ restic_restore_plan }}"
   loop_control:
-    loop_var: restic_restore_application
-    label: "{{ restic_restore_application.metadata.name }}"
+    loop_var: restic_restore_app_plan
+    label: "{{ restic_restore_app_plan.app }}"
 
-- name: Assert single app restore has restorable appdata
-  when: restic_restore_mode == "app"
-  ansible.builtin.assert:
-    that:
-      - restic_restore_plan | length == 1
-    fail_msg: "No restorable nfs-fast appdata PVC found for app: {{ restic_restore_app }}"
+- name: Record CronJobs that back up the selected claims or prune the repository
+  ansible.builtin.set_fact:
+    restic_restore_cronjobs: "{{ restic_restore_objects.CronJob | restic_claim_consumers(restic_restore_plan, 'cronjob') }}"

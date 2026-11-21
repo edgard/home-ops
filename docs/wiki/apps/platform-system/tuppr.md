@@ -1,12 +1,14 @@
 # Tuppr
 
 Purpose: Tuppr manages the declared Kubernetes upgrade target.
-Status: current. Reviewed against: `8b3bfc0792a0532ee6d27bea1802d0642db102ae`.
+Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
 
 ## Dependencies
 
 Validation reads the Kubernetes target from its KubernetesUpgrade manifest;
-Tuppr uses the node health check during upgrades.
+Tuppr requires the named physical node to be Ready and the current OpenEBS
+node DaemonSet generation to have one updated Ready pod. Its storage init
+container checks the imported pool GUID before the CSI pod can become Ready.
 
 ## Data and recovery
 
@@ -31,7 +33,7 @@ the declared target is intended for the running cluster.
 - [Helm values](../../../../apps/platform-system/tuppr/values.yaml)
 - [Raw manifests](../../../../apps/platform-system/tuppr/manifests)
 
-- [Native suspension and version checks](https://github.com/home-operations/tuppr/tree/0.5.10/internal/controller/kubernetesupgrade)
+- [Native suspension and version checks](https://github.com/home-operations/tuppr/tree/0.5.14/internal/controller/kubernetesupgrade)
 
 ## Related pages
 

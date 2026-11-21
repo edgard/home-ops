@@ -1,0 +1,8 @@
+---
+- name: Read the installed node's current storage discovery policy
+  ansible.builtin.include_tasks: read_zfs_state.yml
+
+- name: Require the released four-member policy before starting the platform
+  ansible.builtin.assert:
+    that: talos_live_zfs.released
+    fail_msg: Stage the four verified ZFS member partitions, reboot and verify the pool and its datasets before running platform:foundation.

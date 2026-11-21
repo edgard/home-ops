@@ -79,3 +79,41 @@ def check_paperless(values, documents):
     assert (
         len(durable) == 1 and {"/app/config", "/app/prompts", "/app/db"} <= durable[0]
     ), "Paperless: GPT config, prompts and history require writable PVC mounts"
+
+
+def check_backup_mounts(rendered_apps):
+    """A new app PVC needs a read-only source in its namespace's Restic backup."""
+    claims = set()
+    protected = set()
+    for (namespace, _), documents in rendered_apps.items():
+        for doc in documents:
+            if (
+                doc["kind"] == "PersistentVolumeClaim"
+                and doc["spec"].get("storageClassName", "zfs-appdata") == "zfs-appdata"
+            ):
+                claims.add((namespace, doc["metadata"]["name"]))
+            if doc["kind"] != "CronJob":
+                continue
+            pod = doc["spec"]["jobTemplate"]["spec"]["template"]["spec"]
+            volumes = {
+                v["name"]: v["persistentVolumeClaim"]["claimName"]
+                for v in pod.get("volumes", [])
+                if "persistentVolumeClaim" in v
+            }
+            for container in pod["containers"]:
+                if not container["image"].startswith("restic/restic:"):
+                    continue
+                for mount in container.get("volumeMounts", []):
+                    name = volumes.get(mount["name"])
+                    if (
+                        name
+                        and mount["mountPath"] == f"/data/appdata/{namespace}/{name}"
+                    ):
+                        assert mount.get("readOnly") is True, (
+                            f"writable backup source: {namespace}/{name}"
+                        )
+                        protected.add((namespace, name))
+    assert claims == protected, (
+        f"appdata backup mount mismatch: missing={sorted(claims - protected)}, "
+        f"unexpected={sorted(protected - claims)}"
+    )

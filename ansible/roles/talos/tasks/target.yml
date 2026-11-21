@@ -1,0 +1,57 @@
+---
+- name: Check target inputs
+  ansible.builtin.import_tasks: target_inputs.yml
+
+- name: Select the Talos endpoint for this operation
+  vars:
+    talos_fingerprint_flags: "{{ ['--cert-fingerprint', talos_maintenance_fingerprint] if talos_maintenance_fingerprint else [] }}"
+  ansible.builtin.set_fact:
+    talos_target_endpoint: "{{ talos_first_contact | default('') or talos_node }}"
+    talos_target_auth_flags: "{{ ['--insecure'] + talos_fingerprint_flags if talos_first_contact | default('') else [] }}"
+
+- name: Select the authenticated client and target arguments
+  ansible.builtin.set_fact:
+    talos_target_client: "{{ ['talosctl', '--talosconfig', talos_config_path, '--endpoints', talos_target_endpoint, '--nodes', talos_target_endpoint] }}"
+
+- name: Identify the system disk of the pre-flashed Talos node
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['get', 'systemdisk', 'system-disk', '-o', 'yaml'] + talos_target_auth_flags }}"
+  register: talos_system_disk
+  changed_when: false
+  check_mode: false
+  timeout: 20
+
+- name: Read the physical system disk
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['get', 'disk', (talos_system_disk.stdout | from_yaml).spec.diskID, '-o', 'yaml'] + talos_target_auth_flags }}"
+  register: talos_physical_disk
+  changed_when: false
+  check_mode: false
+  timeout: 20
+
+- name: Verify the boot SSD hardware identities and media type
+  vars:
+    talos_disk: "{{ (talos_physical_disk.stdout | from_yaml).spec }}"
+  ansible.builtin.assert:
+    that:
+      - not talos_install_wwid or talos_disk.wwid | default('') == talos_install_wwid
+      - >-
+        talos_disk.serial | default('') == talos_install_serial or
+        (talos_install_wwid | length > 0 and talos_disk.serial | default('') == '')
+      - talos_install_disk in talos_disk.symlinks
+      - not (talos_disk.rotational | default(false)) and not talos_disk.readonly
+    fail_msg: The live Talos system SSD differs from the selected target.
+
+- name: Read physical link identities
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['get', 'links', '-o', 'yaml'] + talos_target_auth_flags }}"
+  register: talos_physical_links
+  changed_when: false
+  check_mode: false
+  timeout: 20
+
+- name: Verify the bridge uplink exists exactly once
+  ansible.builtin.assert:
+    that:
+      - talos_physical_links.stdout | from_yaml_all | map(attribute='spec') | selectattr('permanentAddr', 'defined') | selectattr('permanentAddr', 'equalto', talos_uplink_mac) | list | length == 1
+    fail_msg: The selected permanent Ethernet MAC must match one link on the physical host.

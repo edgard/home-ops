@@ -1,7 +1,0 @@
----
-chart:
-  repo: https://kubernetes-csi.github.io/csi-driver-nfs
-  name: csi-driver-nfs
-  version: 4.13.6
-sync:
-  wave: "-3"

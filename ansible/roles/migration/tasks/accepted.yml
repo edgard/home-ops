@@ -1,0 +1,42 @@
+---
+- name: Verify permanent pool and mount identities after handoff
+  ansible.builtin.include_tasks: mounts.yml
+
+- name: Read the live appdata claim inventory
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: PersistentVolumeClaim
+  register: migration_live_claims
+
+- name: Select provisioned OpenEBS appdata claims
+  ansible.builtin.set_fact:
+    migration_accepted_claims: >-
+      {{ migration_live_claims.resources | selectattr('spec.storageClassName', 'defined')
+         | selectattr('spec.storageClassName', 'equalto', 'zfs-appdata') | selectattr('spec.volumeName', 'defined') | list }}
+
+- name: Require bound, active appdata on the accepted target
+  ansible.builtin.assert:
+    that:
+      - migration_accepted_claims | map(attribute='status.phase') | unique | list == ['Bound']
+      - migration_accepted_claims | selectattr('metadata.deletionTimestamp', 'defined') | list | length == 0
+
+- name: Check the provisioned volume names against the current PVC UIDs
+  ansible.builtin.assert:
+    that:
+      - item.spec.volumeName == 'pvc-' ~ item.metadata.uid
+  loop: "{{ migration_accepted_claims }}"
+  loop_control:
+    label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+
+- name: Verify every provisioned appdata claim still has its retained OpenEBS binding
+  ansible.builtin.include_tasks: binding.yml
+  vars:
+    migration_ns: "{{ migration_claim.metadata.namespace }}"
+    migration_name: "{{ migration_claim.metadata.name }}"
+    migration_uid: "{{ migration_claim.metadata.uid }}"
+  loop: "{{ migration_accepted_claims }}"
+  loop_control:
+    loop_var: migration_claim
+    label: "{{ migration_claim.metadata.namespace }}/{{ migration_claim.metadata.name }}"

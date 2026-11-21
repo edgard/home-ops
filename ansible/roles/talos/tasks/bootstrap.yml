@@ -24,22 +24,28 @@
   delay: "{{ talos_api_wait_delay }}"
   changed_when: false
 
-- name: Bootstrap Talos control plane
+- name: Verify physical hardware before bootstrapping etcd
+  ansible.builtin.import_tasks: target.yml
+
+- name: Read the local etcd member before requesting initialization
   when: not ansible_check_mode
   ansible.builtin.command:
-    argv:
-      - talosctl
-      - --talosconfig
-      - "{{ talos_config_path }}"
-      - --endpoints
-      - "{{ talos_node }}"
-      - bootstrap
-      - --nodes
-      - "{{ talos_node }}"
+    argv: "{{ talos_target_client + ['get', 'etcdmembers', '-o', 'yaml'] }}"
+  register: talos_existing_etcd
+  changed_when: false
+
+- name: Initialize fresh etcd when Talos has no healthy local member
+  when:
+    - not ansible_check_mode
+    - talos_existing_etcd.stdout | trim | length == 0
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['bootstrap'] }}"
   register: talos_bootstrap_result
-  failed_when:
-    - talos_bootstrap_result.rc != 0
-    - "'already bootstrapped' not in ((talos_bootstrap_result.stdout | default('') + talos_bootstrap_result.stderr | default('')) | lower)"
+  # An earlier request can initialize storage before the healthy member resource appears.
+  # The health and membership checks below must still succeed before issuing credentials.
+  failed_when: >-
+    talos_bootstrap_result.rc != 0 and
+    'code = AlreadyExists desc = etcd data directory is not empty' not in talos_bootstrap_result.stderr
   changed_when: talos_bootstrap_result.rc == 0
 
 - name: Wait for Talos health
@@ -57,6 +63,36 @@
       - --wait-timeout
       - "{{ talos_health_wait_timeout }}"
   changed_when: false
+
+- name: Read the healthy local etcd member ID from Talos
+  when: not ansible_check_mode
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['get', 'etcdmembers', 'local', '-o', 'yaml'] }}"
+  register: talos_local_etcd
+  changed_when: false
+
+- name: Query the etcd membership through the authenticated physical node
+  when: not ansible_check_mode
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['etcd', 'members'] }}"
+  register: talos_etcd_members
+  changed_when: false
+
+- name: Require exactly one voting member matching this physical control plane
+  when: not ansible_check_mode
+  vars:
+    talos_member_id: "{{ (talos_local_etcd.stdout | from_yaml).spec.memberID }}"
+    talos_member_row: "{{ talos_etcd_members.stdout_lines[-1].split() }}"
+  ansible.builtin.assert:
+    that:
+      - talos_member_id is match('^[0-9a-f]{16}$') and talos_member_id != '0000000000000000'
+      - talos_etcd_members.stdout_lines | length == 2
+      - talos_member_row | length == 6
+      - talos_member_row[:3] == [talos_node, talos_member_id, 'homelab']
+      - "'https://' + talos_node + ':2380' in talos_member_row[3].split(',')"
+      - "'https://' + talos_node + ':2379' in talos_member_row[4].split(',')"
+      - talos_member_row[5] == 'false'
+    fail_msg: Etcd must report one healthy voting homelab member on the verified physical address before kubeconfig is issued.
 
 - name: Ensure kubeconfig parent exists
   when: not ansible_check_mode

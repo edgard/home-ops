@@ -1,0 +1,6 @@
+---
+apiVersion: v1alpha1
+kind: LinkAliasConfig
+name: uplink
+selector:
+  match: mac(link.permanent_addr) == "{{ talos_uplink_mac }}"

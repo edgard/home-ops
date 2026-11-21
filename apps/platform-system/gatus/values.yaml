@@ -58,6 +58,14 @@ config:
         success-threshold: 2
         send-on-resolved: true
   endpoints:
+    - name: storage
+      group: infrastructure
+      url: http://storage-maintenance.kube-system.svc.cluster.local:8080/
+      interval: 1m
+      conditions:
+        - "[STATUS] == 200"
+      alerts:
+        - type: telegram
     - name: argocd
       group: apps
       url: https://argocd.edgard.org

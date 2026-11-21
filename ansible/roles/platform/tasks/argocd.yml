@@ -16,14 +16,3 @@
   ansible.builtin.include_tasks: wait_items.yml
   vars:
     platform_wait_items: "{{ platform_argocd_waits }}"
-
-- name: Apply Argo CD root application
-  kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    state: present
-    apply: true
-    src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
-
-- name: Verify committed GitOps handoff and fresh application secrets
-  ansible.builtin.include_tasks: handoff.yml

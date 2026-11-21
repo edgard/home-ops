@@ -35,6 +35,12 @@
     fail_msg: TALOS_NODE, TALOS_CLUSTER_NAME, and TALOS_INSTALL_DISK are required.
   when: platform_preflight_cluster | bool
 
+- name: Validate physical cluster inputs before generation
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: target_inputs
+  when: platform_preflight_cluster | bool
+
 - name: Record required bootstrap input paths
   ansible.builtin.set_fact:
     platform_required_yaml_paths: >-
@@ -43,6 +49,10 @@
          + platform_external_secrets_bootstrap_manifests
          + [platform_k8tz_app_metadata, platform_external_secrets_store_manifest,
             platform_argocd_repo_credentials_manifest, platform_argocd_root_application_manifest,
+            'apps/selfhosted/restic/app.yaml', 'apps/selfhosted/restic/values.yaml',
+            'apps/selfhosted/restic/manifests/restic-repo.persistentvolume.yaml',
+            'apps/selfhosted/restic/manifests/restic-repo.persistentvolumeclaim.yaml',
+            'apps/selfhosted/restic/manifests/restic-credentials.externalsecret.yaml',
             'ansible/roles/talos/files/controlplane-patch.yaml'] }}
 
 - name: Require bootstrap files and installed Kubernetes modules
@@ -53,7 +63,9 @@
     {{ platform_required_yaml_paths +
        ['.ansible/collections/ansible_collections/kubernetes/core/plugins/modules/k8s.py',
         '.ansible/collections/ansible_collections/kubernetes/core/plugins/modules/k8s_info.py',
-        '.ansible/collections/ansible_collections/kubernetes/core/plugins/modules/helm.py'] }}
+        '.ansible/collections/ansible_collections/kubernetes/core/plugins/modules/helm.py',
+        '.ansible/collections/ansible_collections/kubernetes/core/plugins/modules/helm_template.py',
+        '.ansible/collections/ansible_collections/kubernetes/core/plugins/modules/k8s_exec.py'] }}
 
 - name: Parse all required bootstrap YAML before mutation
   ansible.builtin.set_fact:

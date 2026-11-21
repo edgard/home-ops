@@ -1,89 +1,121 @@
----
-# Kubernetes Restic Restore Runbook
+# Kubernetes Restic restore runbook
 
-Purpose: operator procedure for a Kubernetes appdata restore.
-Status: current. Reviewed against: `bc7def5e0566e3d0285eb28df9e10bae4c387d8a`.
+Purpose: recover existing Kubernetes appdata and verify the independent copy of the shared Restic repository.
+Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3` plus the bare-metal migration changes in this revision.
 
-The `restic` app backs up Kubernetes appdata and serves the same repository used
-by the macOS and Windows workstation backups. Kubernetes owns repository
-maintenance; workstations only create backup snapshots.
+## Repository and backups
 
-Use this runbook to restore Kubernetes appdata from the shared restic repo.
+The server uses the retained local `selfhosted/restic-repo` claim at
+`/var/mnt/dpool/restic`. Its startup checks the pool verification marker for
+the current boot, the mounted ZFS filesystem `dpool/restic`, the original
+`.htpasswd`, and the decrypted repository ID. Supply the existing
+`restic_server_password` and `restic_repository_id` from Bitwarden. Keep the
+original repository, HTTP credentials and workstation endpoint during recovery.
 
-## Reference
+Kubernetes clients use `rest:http://restic.selfhosted.svc.cluster.local:8000/`.
+The workstation endpoint is `rest:http://restic.edgard.org:8000/`. Inspect the
+actual workstation snapshot families and pins in that same repository before
+cutover. Only the Kubernetes maintenance job performs retention.
 
-| Item | Value |
-| --- | --- |
-| In-cluster repo | `rest:http://restic.selfhosted.svc.cluster.local:8000/` |
-| Workstation repo | `rest:http://restic.edgard.org:8000/` |
-| Repo storage | `/mnt/dpool/restic` |
-| Appdata storage | `/mnt/spool/appdata` |
-| Snapshot root | `/data/appdata` |
-| PVC path | `/data/appdata/<namespace>/<pvc-name>` |
-| Restore mount | `/restore/data/appdata` |
+After Argo handoff the three namespace backup CronJobs are scheduled daily.
+Each mounts its enumerated appdata claims read-only, verifies source mounts and
+repository identity, and backs up `/data/appdata/<namespace>` with host
+`homelab` and tag `appdata`. Claim directories within both these snapshots and
+older aggregate snapshots use `/data/appdata/<namespace>/<actual-pvc-name>`.
+Shared media is outside this backup. When adding a persistent application,
+add its actual claim to the namespace job and verify a snapshot containing it.
+These backups read live files. Use native application backups or a
+writer-quiesced copy for database-consistent recovery points.
 
-Kubernetes snapshots are selected with host `homelab`, tag `appdata`, and path
-`/data/appdata`. Workstation snapshots share the repo but use different hosts
-and paths:
+## Offsite copy and retention
 
-| Host | Path | Tag |
-| --- | --- | --- |
-| `homelab` | `/data/appdata` | `appdata` |
-| `edgards-mini` | `/Users/edgard/Documents` | `documents` |
-| `edgard-desktop` | `C:\Users\Edgard\Documents` | `documents` |
+Keep the established B2 bucket, prefix, encryption password/salt, and crypt
+settings in the scoped Bitwarden item `restic_b2_rclone_config`. The supplied
+rclone configuration must define the `restic-cloud` crypt remote with
+`filename_encryption = off` over the existing B2 destination. Preserve
+independent access to these settings and the Restic password for disaster
+recovery. The home-automation reader can fetch only
+`selfhosted/restic-credentials`.
 
-The workstation entries come from the
-[pre-migration runbook](https://github.com/edgard/home-ops/blob/2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b/docs/restic-backup-restore-runbook.md).
-This repository does not manage those clients; verify actual snapshots before
-using a workstation entry.
+Before enabling the scheduled copy, use a trusted machine and independent copy
+of that configuration to open the B2 repository read-only. For example, set
+`RCLONE_CONFIG` to the private configuration file and `RESTIC_PASSWORD_FILE`
+to the private repository password file. Supply the expected repository ID
+from the cutover record. Check a known application snapshot and a workstation
+snapshot and restore a representative file from each into private scratch
+storage. Compare contents to previously recorded hashes.
 
-The backup and maintenance schedules and retention are defined in
-[Restic values](../../../apps/selfhosted/restic/values.yaml); consult that file
-before relying on a schedule.
+```sh
+export RESTIC_REPOSITORY=rclone:restic-cloud:
+restic --no-lock cat config
+restic --no-lock snapshots
+restic --no-lock restore "$SNAPSHOT_ID" --target "$PRIVATE_SCRATCH" --include "$KNOWN_FILE" --verify
+```
 
-## Rules
+After a successful drill, set `SNAPSHOT_ID` to one full 64-character ID just
+verified from B2. Enable copying once in the recovered cluster.
 
-- Always preview first. Restore tasks are plan-only unless
-  `confirm_restore=true` is set.
-- Ansible check mode remains plan-only even when confirmation is supplied.
-  The role guards both transaction entry and individual pod exec tasks because
-  pod commands require an explicit check-mode guard.
-- `snapshot` defaults to `latest`.
-- `latest` is filtered to the Kubernetes snapshot family, so workstation
-  snapshots are not eligible.
-- Restore-all includes Argo-managed `nfs-fast` appdata PVCs and excludes
-  shared/static storage: `media`, `restic-repo`, and `restic-appdata`.
-- A confirmed restore creates a temporary `restic-restore` Job, pauses the
-  `apps` ApplicationSet, disables automated sync for target apps, scales
-  workloads down, deletes existing target contents under `/restore/data/appdata`,
-  restores with `--exclude-xattr '*'`, resumes workloads/sync policy, and
-  removes the restore Job.
-- If a confirmed restore fails, inspect the data before manually resuming apps or
-  clearing the restore Job.
+```sh
+kubectl -n selfhosted create configmap restic-cloud-approval --from-literal=snapshot-id="$SNAPSHOT_ID"
+```
 
-## Restore One App
+The maintenance CronJob requires that marker, verifies the existing encrypted
+destination config byte-for-byte against the local repository, and checks the
+approved remote snapshot object's SHA-256 before writing. It copies packs and
+indexes before publishing the snapshot IDs present at the start of the copy.
+It skips locks and performs no remote deletion. The remote accumulates retired
+objects and old snapshot IDs, so monitor B2 storage independently. Repository
+maintenance runs the weekly local retention and integrity checks after a
+successful copy. Missing approval or a failed check stops both operations.
+Inspect the CronJob's most recent Job and perform periodic independent restore
+drills. The schedules and retention counts live in the namespace values
+linked below.
+
+## Restore one application
+
+Use these commands with a running cluster, existing bound claims, the
+verified repository server and their owning Argo Applications. The default
+preview and Ansible check mode read snapshot metadata. `latest` resolves the
+newest matching aggregate or namespace snapshot per application namespace.
+The plan displays the full snapshot ID, namespace, claim, destination dataset
+and workload replica counts. Confirm with that exact ID to reproduce a preview.
 
 ```sh
 task restic:restore app=paperless
-task restic:restore app=paperless confirm_restore=true
+task restic:restore app=paperless snapshot="$SNAPSHOT_ID" confirm_restore=true
 ```
 
-Use an explicit snapshot when needed:
+The transaction acquires the exclusive `selfhosted/restic-restore-lock`,
+pauses cluster-wide Argo application reconciliation, suspends relevant CronJobs
+and waits for their existing Jobs to drain. It scales down selected application
+writers and requires their claims to have no active Pod consumers. A Job in
+each application's namespace checks the actual ZFS dataset and mounts the
+bound claims at `/restore/<claim>`. Restic restores only the explicitly pinned
+subtree, removes extra destination files, and verifies restored content.
+Legacy aggregate snapshots use the existing xattr exclusion. New native-ZFS
+snapshots restore their supported metadata. Successful completion returns
+workloads, CronJobs and the controller to their captured configuration.
+
+If execution stops, inspect the restore Job and the lock's
+`plan.json`, `cronjobs.json`, and `controller-replicas` entries.
+Inspect recovery data before restarting writers. The lock prevents concurrent
+or accidental reruns. After manually finishing or rolling back that transaction,
+return the recorded settings, remove its inspected Job and then remove the
+lock. Keep a copy of the recovery record until application checks pass.
+
+## Restore all appdata
 
 ```sh
-task restic:restore app=paperless snapshot=<snapshot-id> confirm_restore=true
+task restic:restore-all
+task restic:restore-all confirm_restore=true
 ```
 
-Home Assistant example:
-
-```sh
-task restic:restore app=homeassistant
-task restic:restore app=homeassistant confirm_restore=true
-```
-
-The plan shows the app, namespace, source paths, restore paths, and workloads
-that will be stopped and resumed. A single-PVC restore is the same command:
-restore the Argo CD app that owns the PVC.
+An explicit historical aggregate snapshot can cover all namespaces. To pin
+different modern snapshots in one transaction, pass a namespace-to-full-ID
+mapping as the Ansible extra variable `restic_restore_snapshot`. A modern
+snapshot from one namespace cannot restore another namespace. Restore-all
+selects Argo-owned, bound `zfs-appdata` claims. Media, repository storage
+and SparkyFitness have their own recovery procedures.
 
 ## SparkyFitness database and files
 
@@ -122,59 +154,106 @@ records, and uploads after the swap before removing the retained copies.
 See the [app page](../apps/selfhosted/sparkyfitness.md) and
 [backup implementation](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/SparkyFitnessServer/services/backupService.ts).
 
-The existing role's `restic_restore_excluded_apps` default excludes SparkyFitness
-from the generic file transaction, including restore-all and cluster recovery.
-Recover it with the sequence above. The generic transaction resumes its selected
-apps automatically, so keep this exclusion when overriding that setting.
-Other apps retain the existing file restore workflow below; the only additional
-recovery configuration is this entry in the existing exclusion list.
+The generic role excludes both the SparkyFitness app and its data claim,
+including during restore-all.
 
-## Restore All Appdata
+## Fresh cluster or missing storage
+
+Use the [bare-metal migration and recovery procedure](truenas-migration.md)
+for a fresh control plane. Keep writers and Argo handoff withheld until
+the actual `dpool` GUID, boot-time mount identities, retained repository,
+and expected data have been verified. Recover the original Kubernetes/Talos
+identity and etcd/PV metadata where available. For an intentional rebuild
+with new claim identities, use the pre-handoff restore into freshly
+provisioned claims and verify the data. The ordinary restore role requires
+already-owned, bound claims and an active Argo application controller.
+
+### Retained ZFS data after loss of etcd
+
+While the cluster is healthy, keep a current etcd snapshot and a binding map
+off-node with the Talos recovery keys. Refresh the map after changing claims.
+The CSI handle identifies the physical dataset, and a newly created claim
+gets a different UID. Capture a mapping without reading Kubernetes Secrets.
 
 ```sh
-task restic:restore-all
-task restic:restore-all confirm_restore=true
+kubectl get pv -o json | jq -r '
+  .items[] | select(.spec.csi.driver == "zfs.csi.openebs.io") |
+  [.spec.claimRef.namespace, .spec.claimRef.name, .spec.claimRef.uid,
+   .spec.csi.volumeHandle, .spec.capacity.storage] | @tsv' > "$PRIVATE_DIR/claims.tsv"
 ```
 
-Use an explicit snapshot when needed:
+1. Fence all writers. Prefer recovering the matching etcd snapshot with its
+   original Talos identity, node name and pool GUID. Compare the recovered PVC
+   UID, PV handle, OpenEBS ZFSVolume and actual dataset with the saved map
+   before admitting workloads. Keep an off-pool copy of current data during
+   recovery. [Talos disaster recovery](https://docs.siderolabs.com/talos/v1.13/build-and-extend-talos/cluster-operations-and-maintenance/disaster-recovery)
+2. When etcd cannot be recovered, preserve the retained datasets and their
+   existing holds. On a trusted recovery system with exclusive access to the
+   pool, select and hold a consistent snapshot set. Use the saved map to match
+   every expected namespace/claim to exactly one old
+   `dpool/k8s/<volume-handle>@<snapshot>`. Record each GUID. Mount read-only
+   clones of the selected snapshots at private paths. A recursive snapshot
+   creates separate snapshots for descendant datasets. Reading only the
+   parent snapshot does not recover their contents. Use application checks
+   and native database recovery for crash-consistent snapshots. If a handle
+   cannot be identified, recover that namespace/claim by known path from a
+   verified Restic snapshot instead of guessing the dataset.
+3. Create a **new flat filesystem** below `dpool/migration` such as
+   `dpool/migration/rebuild-20261121`. Mount it at
+   `/var/mnt/<dataset-name>` with the target POSIX ACL/xattr policy. Keep the
+   original migration stage. Size free space for this stage and the new CSI
+   datasets, in addition to retained originals. For each claim, make a plain
+   `<namespace>/<claim>` directory inside this single filesystem; nested
+   mounted datasets would be excluded from the eventual stage snapshot.
+   Copy from its read-only clone below and require an empty checksum comparison.
+   Run these commands as a privileged recovery operator with the paths
+   individually checked against the saved binding map.
 
-```sh
-task restic:restore-all snapshot=<snapshot-id> confirm_restore=true
-```
+   ```sh
+   rsync -aHAXS --numeric-ids "$READ_ONLY_CLONE/" "$STAGE/$NS/$CLAIM/"
+   rsync -aHAXSnic --delete --numeric-ids "$READ_ONLY_CLONE/" "$STAGE/$NS/$CLAIM/"
+   ```
 
-## Cluster DR
+4. For a claim available only through Restic, restore the full pinned
+   `<id>:/data/appdata/<namespace>/<claim>` subtree into its empty stage
+   directory with `--verify`. Use the legacy xattr treatment for an aggregate
+   NFS snapshot. For SparkyFitness, rebuild a complete operable PostgreSQL
+   database and uploads from its native archive in isolation, and stop the
+   database cleanly before copying its recovered files into the stage.
+   Complete independent application checks and record their results.
+5. Snapshot this flat stage, hold that snapshot, set the stage read-only, and
+   record its actual GUID. Return the pool exclusively to the target if using a
+   separate recovery host. Set `MIGRATION_DATASET` to this new dataset and
+   supply `MIGRATION_POOL_GUID`, `MIGRATION_SNAPSHOT` and
+   `MIGRATION_SNAPSHOT_GUID` for the selected source. Use
+   `task platform:foundation`, `MIGRATION_CONFIRM=restore task migration:restore`,
+   `task migration:verify` and the explicitly confirmed
+   `task platform:handoff` in the order specified by the
+   [cutover procedure](truenas-migration.md). Carry the same stage identity
+   through verification and handoff. The fresh claims receive fresh CSI
+   volumes. Keep old datasets, clones, and holds through a successful
+   post-recovery backup and independent restore.
 
-1. Rebuild Talos/Kubernetes.
-2. Restore or reattach `/mnt/dpool/restic`.
-3. Recreate `/mnt/spool/appdata`.
-4. Let Argo CD deploy External Secrets and `restic`.
-5. Run `task restic:restore-all` first without confirmation.
-6. Review the plan.
-7. Run `task restic:restore-all confirm_restore=true`.
-8. Verify apps.
-9. Run a fresh backup.
-
-## CLI Fallback
-
-Use the Ansible role for normal restores. If manual debugging is required, keep
-these constraints:
-
-- Restore into `/restore`.
-- Include only paths under `/data/appdata/<namespace>/<pvc-name>`.
-- Delete only contents under `/restore/data/appdata/<namespace>/<pvc-name>`.
-- Use `--exclude-xattr '*'` for NFS-backed appdata.
-- Filter `latest` with `--host homelab --tag appdata --path /data/appdata`.
+If the repository itself was lost, recover the verified B2 copy into a separate
+empty filesystem before attaching it to a server. Validate repository ID,
+integrity, workstation snapshots and app snapshot restores there. Recover the
+original HTTP authentication file and repository decryption credentials.
+Keep the old source, cloud and other recovery copies untouched while choosing
+a recovery version. See the [migration runbook](truenas-migration.md) for
+independent boot, pool and cold staging recovery.
 
 ## Sources
 
-- [Restic deployment](../../../apps/selfhosted/restic/values.yaml)
+- [Selfhosted backup, server and cloud maintenance](../../../apps/selfhosted/restic/values.yaml)
+- [Home automation backup](../../../apps/home-automation/home-automation-backup/values.yaml)
+- [Media backup](../../../apps/media/media-backup/values.yaml)
 - [Restore task entry points](../../../Taskfile.yaml)
-- [Restore role](../../../ansible/roles/restic/tasks/execute.yml)
-- [Restore entry point](../../../ansible/roles/restic/tasks/main.yml)
-- [Restore planning role](../../../ansible/roles/restic/tasks/plan.yml)
-- [Restore automation PR](https://github.com/edgard/home-ops/pull/261)
+- [Snapshot and claim selection](../../../ansible/roles/restic/filter_plugins/restic_restore.py)
+- [Restore transaction](../../../ansible/roles/restic/tasks/execute.yml)
+- [Namespace restore Job](../../../ansible/roles/restic/templates/restore-job.yml.j2)
 
 ## Related pages
 
 - [Backup and recovery architecture](../architecture/backup-recovery.md)
 - [Storage](../architecture/storage.md)
+- [Bare-metal migration and recovery](truenas-migration.md)

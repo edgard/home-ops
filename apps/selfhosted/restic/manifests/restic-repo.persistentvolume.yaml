@@ -7,17 +7,19 @@ spec:
   capacity:
     storage: 5Ti
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
-  mountOptions:
-    - nfsvers=4.2
-    - hard
-    - noatime
-    - nconnect=16
-  csi:
-    driver: nfs.csi.k8s.io
-    volumeHandle: truenas-dpool-restic
-    volumeAttributes:
-      server: 192.168.1.254
-      share: /mnt/dpool/restic
+  claimRef:
+    namespace: selfhosted
+    name: restic-repo
+  local:
+    path: /var/mnt/dpool/restic
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - homelab

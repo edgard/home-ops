@@ -26,7 +26,7 @@ Download failures still block PRs. Diagnostics omit configuration payloads.
 Data guards reject populated Secrets and unsafe app-template PVC rollout settings,
 preserve shared-media ownership, and protect Paperless GPT persistence and
 non-destructive OCR/metadata settings. One replica and Deployment Recreate do
-not establish exclusive access across apps or external NFS writers.
+not establish exclusive access across apps or other filesystem writers.
 
 The offline suite covers credential scopes/artifacts, production secret/material
 functions, platform compatibility relationships, schema conversion, and wiki
