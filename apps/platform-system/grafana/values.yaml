@@ -16,22 +16,6 @@ controllers:
     strategy: Recreate
     annotations:
       reloader.stakater.com/auto: "true"
-    initContainers:
-      copy-data:
-        image:
-          repository: busybox
-          tag: 1.37.0
-        command:
-          - /bin/sh
-          - /migration/copy.sh
-          - dpool/pvc-43153b5f-95e7-4574-812c-89d680efdf6a
-          - grafana.db
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-              - ALL
     containers:
       app:
         image:
@@ -90,32 +74,9 @@ persistence:
     accessMode: ReadWriteOnce
     storageClass: zfs-appdata
     size: 1Gi
-    advancedMounts:
-      main:
-        app:
-          - path: /var/lib/grafana
-            subPath: data
-        copy-data:
-          - path: /destination
-  original:
-    type: custom
-    volumeSpec:
-      persistentVolumeClaim:
-        claimName: grafana
-        readOnly: true
-    advancedMounts:
-      main:
-        copy-data:
-          - path: /original
-            readOnly: true
-  migration:
-    type: configMap
-    name: telemetry-storage-migration
-    advancedMounts:
-      main:
-        copy-data:
-          - path: /migration
-            readOnly: true
+    globalMounts:
+      - path: /var/lib/grafana
+        subPath: data
   datasource:
     type: configMap
     name: grafana-datasource

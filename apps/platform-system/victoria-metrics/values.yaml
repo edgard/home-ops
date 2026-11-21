@@ -18,22 +18,6 @@ controllers:
       reloader.stakater.com/auto: "true"
     serviceAccount:
       identifier: main
-    initContainers:
-      copy-data:
-        image:
-          repository: busybox
-          tag: 1.37.0
-        command:
-          - /bin/sh
-          - /migration/copy.sh
-          - dpool/pvc-eaa3d6a3-3989-4535-9021-5f550ad366ba
-          - metadata
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-              - ALL
     containers:
       app:
         image:
@@ -111,32 +95,9 @@ persistence:
     accessMode: ReadWriteOnce
     storageClass: zfs-appdata
     size: 64Gi
-    advancedMounts:
-      main:
-        app:
-          - path: /storage
-            subPath: data
-        copy-data:
-          - path: /destination
-  original:
-    type: custom
-    volumeSpec:
-      persistentVolumeClaim:
-        claimName: victoria-metrics
-        readOnly: true
-    advancedMounts:
-      main:
-        copy-data:
-          - path: /original
-            readOnly: true
-  migration:
-    type: configMap
-    name: telemetry-storage-migration
-    advancedMounts:
-      main:
-        copy-data:
-          - path: /migration
-            readOnly: true
+    globalMounts:
+      - path: /storage
+        subPath: data
   config:
     type: configMap
     name: victoria-metrics-scrape

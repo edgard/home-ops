@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-22] revision | Retire the temporary telemetry storage class
+
+[PR #521](https://github.com/edgard/home-ops/pull/521) moved both databases to
+standard appdata. The [namespace backup](apps/platform-system/platform-system-backup.md)
+and ordinary retained PVCs now provide their recovery paths.
+
 ## [2026-11-22] revision | Move telemetry to standard appdata and Restic
 
 The [storage architecture](architecture/storage.md#local-telemetry) and

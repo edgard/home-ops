@@ -106,10 +106,6 @@ data:
             if not (snapshot / "metadata").is_dir() or not (snapshot / "data").is_dir():
                 raise ValueError("API snapshot missing on mounted volume")
             link_parts(snapshot, target, data)
-            # During the storage migration the app init container checks this record.
-            marker = data / ".home-ops-copied-from"
-            if marker.is_file():
-                subprocess.run(["cp", "-a", "--", marker, target], check=True)
             copy_metadata(data, target)
         finally:
             snapshot_api("delete", snapshot=name)
