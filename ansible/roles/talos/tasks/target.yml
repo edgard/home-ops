@@ -29,12 +29,15 @@
   check_mode: false
   timeout: 20
 
-- name: Verify the boot SSD serial, by-id path and media type
+- name: Verify the boot SSD hardware identities and media type
   vars:
     talos_disk: "{{ (talos_physical_disk.stdout | from_yaml).spec }}"
   ansible.builtin.assert:
     that:
-      - talos_disk.serial == talos_install_serial
+      - not talos_install_wwid or talos_disk.wwid | default('') == talos_install_wwid
+      - >-
+        talos_disk.serial | default('') == talos_install_serial or
+        (talos_install_wwid | length > 0 and talos_disk.serial | default('') == '')
       - talos_install_disk in talos_disk.symlinks
       - not (talos_disk.rotational | default(false)) and not talos_disk.readonly
     fail_msg: The live Talos system SSD differs from the selected target.

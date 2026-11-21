@@ -24,8 +24,14 @@ current system disk and NIC before sending configuration. On the installed
 node, the platform additionally matches the Kubernetes node's hardware UUID
 and InternalIP against the authenticated Talos endpoint.
 
-The Talos 1.14 installation selector matches both the SSD serial and its
-whole-disk by-id symlink, with wiping disabled. The generated
+The Talos 1.14 installation selector matches the SSD serial and its whole-disk
+by-id symlink, with wiping disabled. When the physical Talos disk resource
+omits the serial, set `TALOS_INSTALL_WWID` to the SSD's independently recorded
+NAA identifier from the source inventory. Verify that it matches the live
+`spec.wwid`, and that the exact whole ATA by-id path ends in the recorded
+serial. Regenerate the machine configuration with the same Talos identity.
+Both first apply and later operations then check the WWID and that path.
+Any reported serial must also match. The generated
 `KubeNodeConfig` removes the control-plane scheduling taint and load-balancer
 exclusion on this single node. Talos 1.14 isolates Kubernetes workloads in
 their own PID and mount namespaces. The OpenEBS pool guard and maintenance

@@ -4,5 +4,10 @@ kind: UnattendedInstallConfig
 provisioning:
   diskSelector:
     match: >-
-      {{ talos_install_disk | to_json }} in disk.symlinks && disk.serial == {{ talos_install_serial | to_json }}
+      {{ talos_install_disk | to_json }} in disk.symlinks &&
+{% if talos_install_wwid %}
+      disk.wwid == {{ talos_install_wwid | to_json }} && (disk.serial == {{ talos_install_serial | to_json }} || disk.serial == "")
+{% else %}
+      disk.serial == {{ talos_install_serial | to_json }}
+{% endif %}
   wipe: false

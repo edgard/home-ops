@@ -10,6 +10,15 @@
       - not talos_maintenance_node or (talos_maintenance_node is match('^192[.]168[.]1[.][0-9]{1,3}$') and talos_maintenance_node.split('.')[-1] | int in range(1, 255) and talos_maintenance_node != talos_node)
     fail_msg: Set TALOS_NODE, TALOS_INSTALL_DISK (whole-disk by-id path), TALOS_INSTALL_SERIAL and TALOS_UPLINK_MAC for the physical host.
 
+- name: Require a serial-qualified ATA identity for optional WWID matching
+  when: talos_install_wwid | length > 0
+  ansible.builtin.assert:
+    that:
+      - talos_install_wwid is match('^naa[.]([0-9a-f]{16}|[0-9a-f]{32})\Z')
+      - talos_install_disk.startswith('/dev/disk/by-id/ata-')
+      - talos_install_disk.endswith('_' + talos_install_serial)
+    fail_msg: Set TALOS_INSTALL_WWID to the independently verified NAA identifier and TALOS_INSTALL_DISK to the original whole ATA by-id path ending in the recorded serial.
+
 - name: Validate the optional maintenance server public key fingerprint
   ansible.builtin.assert:
     that: talos_maintenance_fingerprint | length == 44 and talos_maintenance_fingerprint is match('^[A-Za-z0-9+/]{43}=$')

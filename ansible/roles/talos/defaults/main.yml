@@ -8,6 +8,7 @@ talos_api_wait_retries: 30
 talos_api_wait_delay: 5
 talos_health_wait_timeout: 5m
 talos_install_serial: "{{ lookup('env', 'TALOS_INSTALL_SERIAL') }}"
+talos_install_wwid: "{{ lookup('env', 'TALOS_INSTALL_WWID') }}"
 talos_uplink_mac: "{{ lookup('env', 'TALOS_UPLINK_MAC') | lower }}"
 talos_maintenance_node: "{{ lookup('env', 'TALOS_MAINTENANCE_NODE') }}"
 talos_maintenance_fingerprint: "{{ lookup('env', 'TALOS_MAINTENANCE_FINGERPRINT') }}"
