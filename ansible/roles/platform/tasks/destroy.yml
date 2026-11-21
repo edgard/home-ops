@@ -1,4 +1,35 @@
 ---
+- name: Require explicit target teardown
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: destroy_target
+
+- name: Verify the selected Kubernetes context before removing any resources
+  ansible.builtin.import_tasks: target.yml
+
+- name: Read persistent volumes before deleting GitOps resources
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: PersistentVolume
+  register: platform_destroy_pvs
+
+- name: Read OpenEBS volume records before uninstalling its CRDs
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: zfs.openebs.io/v1
+    kind: ZFSVolume
+  register: platform_destroy_zfs
+
+- name: Protect volumes still managed by Kubernetes or the CSI release
+  ansible.builtin.assert:
+    that:
+      - platform_destroy_pvs.resources | selectattr('spec.csi.driver', 'defined') | selectattr('spec.csi.driver', 'equalto', 'zfs.csi.openebs.io') | list | length == 0
+      - platform_destroy_zfs.resources | default([]) | length == 0
+    fail_msg: Teardown would discard active OpenEBS volume metadata. Preserve and retire these volumes before removing the platform.
+
 - name: Delete Argo CD root application
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"

@@ -1,50 +1,46 @@
 ---
-cluster:
-  allowSchedulingOnControlPlanes: true
-  apiServer:
-    disablePodSecurityPolicy: true
-    admissionControl:
-      - name: PodSecurity
-        configuration:
-          apiVersion: pod-security.admission.config.k8s.io/v1alpha1
-          kind: PodSecurityConfiguration
-          defaults:
-            audit: privileged
-            audit-version: latest
-            enforce: privileged
-            enforce-version: latest
-            warn: privileged
-            warn-version: latest
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+installer:
+  image: factory.talos.dev/metal-installer/39699a54506a4570606671d813387abadbba0767ec91769b57e993f3387795d9:v1.14.6
+---
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  node.kubernetes.io/exclude-from-external-load-balancers:
+    $patch: delete
+taints:
+  node-role.kubernetes.io/control-plane:
+    $patch: delete
+---
+apiVersion: v1alpha1
+kind: KubeAdmissionControlConfig
+name: PodSecurity
+configuration:
+  defaults:
+    audit: privileged
+    enforce: privileged
+    warn: privileged
+---
+apiVersion: v1alpha1
+kind: KernelModuleConfig
+name: zfs
+---
+apiVersion: v1alpha1
+kind: SysctlConfig
+params:
+  fs.inotify.max_user_instances: "8192"
+  fs.inotify.max_user_watches: "1048576"
+  net.core.rmem_max: "67108864"
+  net.core.wmem_max: "67108864"
+  net.ipv4.neigh.default.gc_thresh1: "4096"
+  net.ipv4.neigh.default.gc_thresh2: "8192"
+  net.ipv4.neigh.default.gc_thresh3: "16384"
+  net.ipv4.tcp_fastopen: "3"
+  user.max_user_namespaces: "11255"
+---
+version: v1alpha1
 machine:
-  install:
-    image: factory.talos.dev/metal-installer/135cb2840c3e39194d5d5d20ead2d6bdcade91a6c06eb5b8ad6939e1e1e55ddf:v1.13.12
-  network:
-    interfaces:
-      - interface: br0
-        dhcp: true
-  nodeLabels:
-    node.kubernetes.io/exclude-from-external-load-balancers:
-      $patch: delete
-  files:
-    - op: overwrite
-      path: /etc/nfsmount.conf
-      permissions: 0o644 # yamllint disable-line rule:octal-values
-      content: |-
-        [ NFSMount_Global_Options ]
-        nfsvers=4.2
-        hard=True
-        noatime=True
-        nconnect=16
-  sysctls:
-    fs.inotify.max_user_instances: "8192"
-    fs.inotify.max_user_watches: "1048576"
-    net.core.rmem_max: "67108864"
-    net.core.wmem_max: "67108864"
-    net.ipv4.neigh.default.gc_thresh1: "4096"
-    net.ipv4.neigh.default.gc_thresh2: "8192"
-    net.ipv4.neigh.default.gc_thresh3: "16384"
-    net.ipv4.tcp_fastopen: "3"
-    user.max_user_namespaces: "11255"
   features:
     kubernetesTalosAPIAccess:
       enabled: true
@@ -58,6 +54,21 @@ kind: BridgeConfig
 name: br0
 hardwareAddr: "02:42:c0:a8:01:fd"
 links:
-  - ens2
+  - uplink
 stp:
   enabled: false
+---
+apiVersion: v1alpha1
+kind: DHCPv4Config
+name: br0
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: homelab
+auto:
+  $patch: delete
+---
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: openebs-keys
+volumeType: directory

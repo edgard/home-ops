@@ -10,4 +10,10 @@ spec:
   healthChecks:
     - apiVersion: v1
       kind: Node
+      name: homelab
       expr: status.conditions.exists(c, c.type == "Ready" && c.status == "True")
+    - apiVersion: apps/v1
+      kind: DaemonSet
+      namespace: kube-system
+      name: zfs-localpv-node
+      expr: status.observedGeneration == object.metadata.generation && status.desiredNumberScheduled == 1 && status.updatedNumberScheduled == 1 && status.numberReady == 1

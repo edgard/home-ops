@@ -1,0 +1,60 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ restic_restore_job_name }}-{{ restic_restore_app_plan.app }}
+  namespace: {{ restic_restore_app_plan.namespace }}
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: restic
+          image: {{ restic_restore_image }}
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              set -eu
+              case "$RESTIC_REPOSITORY_ID" in ""|*[!0-9a-f]*) exit 1 ;; esac
+              test "$(printf %s "$RESTIC_REPOSITORY_ID" | wc -c)" -eq 64
+              actual=$(restic --no-lock cat config | sed -n 's/^ *"id": *"\([0-9a-f]*\)"[,]*$/\1/p')
+              test "$actual" = "$RESTIC_REPOSITORY_ID"
+{% for claim in restic_restore_app_plan.claims %}
+              awk -v dir="{{ restic_restore_target_root }}/{{ claim.name }}" -v dataset="{{ claim.dataset }}" '
+                $5 == dir && $4 == "/" {for (i=7; i<NF; i++) if ($i == "-" && $(i+1) == "zfs" && $(i+2) == dataset) ok=1}
+                END {exit !ok}' /proc/self/mountinfo
+{% endfor %}
+{% for claim in restic_restore_app_plan.claims %}
+              restic --retry-lock {{ restic_restore_retry_lock | quote }} restore {{ restic_restore_app_plan.snapshot.id }}:{{ claim.path }} \
+                --target {{ restic_restore_target_root }}/{{ claim.name }} --delete --verify {{ "--exclude-xattr '*'" if restic_restore_app_plan.snapshot.legacy else "" }}
+{% endfor %}
+          envFrom:
+            - secretRef:
+                name: {{ restic_restore_credentials_secret }}
+          env:
+            - name: RESTIC_REPOSITORY
+              value: {{ restic_restore_repo_url | to_json }}
+            - name: RESTIC_REST_USERNAME
+              value: {{ restic_restore_rest_username | to_json }}
+            - name: RESTIC_REST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ restic_restore_credentials_secret }}
+                  key: {{ restic_restore_credentials_key }}
+          volumeMounts:
+{% for claim in restic_restore_app_plan.claims %}
+            - name: claim-{{ loop.index }}
+              mountPath: {{ restic_restore_target_root }}/{{ claim.name }}
+{% endfor %}
+      volumes:
+{% for claim in restic_restore_app_plan.claims %}
+        - name: claim-{{ loop.index }}
+          persistentVolumeClaim:
+            claimName: {{ claim.name }}
+{% endfor %}

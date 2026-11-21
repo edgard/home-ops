@@ -1,21 +1,23 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `d897e58d4dbc5cd0609e9b6dc3098d88fb887639`.
+Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
 
-The Restic application serves a repository and runs appdata backup and
-maintenance workloads. Restore commands enter the Ansible role in plan-only
-mode by default. A confirmed restore selects eligible appdata PVCs, pauses
-Argo-managed updates, stops target workloads, restores data, and resumes the
-original policy. Shared media and repository storage are outside the appdata
-restore set. Check mode never enters the restore transaction, including when
-confirmation is supplied. The [runbook](../operations/restic-backup-restore.md) is the
-operator procedure; this page is an architectural map.
+The original Restic repository stays on the retained `dpool/restic` dataset
+and serves the Kubernetes cluster and existing workstation clients. Separate
+CronJobs in home-automation, media and selfhosted read their concrete appdata
+claims and publish namespace snapshots that retain the historical claim paths.
+An explicitly approved maintenance job copies the repository to its established
+encrypted B2 destination, then applies local retention on its weekly cadence.
+Verify independent remote restores as described in the [runbook](../operations/restic-backup-restore.md).
 
-The transaction and failure behavior are documented in the
-[restore decision](../decisions/restic-restore-transaction.md). A deployed
-backup configuration does not prove a recent successful backup or a usable
-snapshot; validate those separately before recovery work.
+The ordinary restore role resolves full snapshot IDs and bound OpenEBS
+datasets before stopping consumers. It uses per-application Jobs in the
+claim's namespace and restores the previous controller and scheduler state
+after verified completion. Shared media and repository storage have separate
+recovery paths. The [restore decision](../decisions/restic-restore-transaction.md)
+records the transaction boundary. Rebuilding an empty cluster requires the
+[pre-handoff migration procedure](../operations/truenas-migration.md).
 
 Cluster recovery also requires Bitwarden availability and an operator token;
 see [secret recovery](../operations/secrets-maintenance.md). The existing Talos

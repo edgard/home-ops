@@ -1,0 +1,9 @@
+---
+- name: Verify restored storage and release GitOps workloads
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Apply the verified GitOps handoff
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: release_root

@@ -14,7 +14,7 @@ motivated the edit.
 
 - [Shared media change, PR #406](https://github.com/edgard/home-ops/pull/406)
 - [Rendered data guards](../../../validation/data.py)
-- [Media claim](../../../apps/kube-system/nfs-provisioner/manifests/nfs-provisioner-media.persistentvolumeclaim.yaml)
+- [Media claim](../../../apps/kube-system/zfs-localpv/manifests/zfs-localpv-media.persistentvolumeclaim.yaml)
 
 ## Related pages
 

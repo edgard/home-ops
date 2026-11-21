@@ -63,12 +63,12 @@ def assert_targets(talos, kubernetes, patch, installer):
     assert all(
         isinstance(value, str) and value for value in (talos, kubernetes, patch)
     ), "nonempty upgrade targets"
-    assert SemanticVersion(talos.removeprefix("v")) < SemanticVersion("1.14.0"), (
-        "Talos installer migration required"
+    assert SemanticVersion(talos.removeprefix("v")) in SpecifierSet(">=1.14,<1.15"), (
+        "cutover requires the verified Talos 1.14 installer contract"
     )
-    assert SemanticVersion(kubernetes.removeprefix("v")) < SemanticVersion("1.37.0"), (
-        "upgrade deployed Talos before Kubernetes"
-    )
+    assert SemanticVersion(kubernetes.removeprefix("v")) in SpecifierSet(
+        ">=1.36,<1.37"
+    ), "cutover retains the existing Kubernetes 1.36 series"
     assert patch == installer, "Talos patch/default alignment"
 
 
@@ -183,9 +183,12 @@ def test_talos_targets_align_and_stay_within_migration_bounds(repo_root):
     installer = read_yaml(repo_root / "ansible/roles/talos/defaults/main.yml")[
         "talos_upgrade"
     ]["installer"]
-    patch = read_yaml(
+    patches = read_yaml(
         repo_root / "ansible/roles/talos/files/controlplane-patch.yaml", multiple=True
-    )[0]
+    )
+    (install,) = (
+        doc for doc in patches if doc.get("kind") == "UnattendedInstallConfig"
+    )
     upgrade = read_yaml(
         repo_root
         / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
@@ -193,7 +196,7 @@ def test_talos_targets_align_and_stay_within_migration_bounds(repo_root):
     assert_targets(
         installer["version"],
         upgrade["spec"]["kubernetes"]["version"],
-        patch["machine"]["install"]["image"],
+        install["installer"]["image"],
         installer["repository"] + ":" + installer["version"],
     )
 

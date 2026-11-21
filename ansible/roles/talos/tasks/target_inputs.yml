@@ -1,0 +1,17 @@
+---
+- name: Require the reserved API address and the operator's physical device identities
+  ansible.builtin.assert:
+    that:
+      - talos_node == '192.168.1.253'
+      - talos_install_disk is match('^/dev/disk/by-id/[A-Za-z0-9._:+-]+$')
+      - not talos_install_disk is search('-part[0-9]+$')
+      - talos_install_serial | trim | length > 0
+      - talos_uplink_mac is match('^([0-9a-f]{2}:){5}[0-9a-f]{2}$')
+      - not talos_maintenance_node or (talos_maintenance_node is match('^192[.]168[.]1[.][0-9]{1,3}$') and talos_maintenance_node.split('.')[-1] | int in range(1, 255) and talos_maintenance_node != talos_node)
+    fail_msg: Set TALOS_NODE, TALOS_INSTALL_DISK (whole-disk by-id path), TALOS_INSTALL_SERIAL and TALOS_UPLINK_MAC for the physical host.
+
+- name: Validate the optional maintenance server public key fingerprint
+  ansible.builtin.assert:
+    that: talos_maintenance_fingerprint | length == 44 and talos_maintenance_fingerprint is match('^[A-Za-z0-9+/]{43}=$')
+    fail_msg: TALOS_MAINTENANCE_FINGERPRINT must be a padded, base64-encoded SHA-256 digest of the attested server public key.
+  when: talos_maintenance_fingerprint | length > 0

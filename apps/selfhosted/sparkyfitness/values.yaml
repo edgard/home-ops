@@ -274,7 +274,7 @@ persistence:
     type: persistentVolumeClaim
     forceRename: sparkyfitness-data
     accessMode: ReadWriteOnce
-    storageClass: nfs-fast
+    storageClass: zfs-appdata
     size: 20Gi
     retain: true
     advancedMounts:

@@ -1,0 +1,50 @@
+set -eu
+host() { nsenter --mount=/proc/1/ns/mnt --root=/proc/1/root -- "$@"; }
+zp() { host /usr/local/sbin/zpool "$@"; }
+zf() { host /usr/local/sbin/zfs "$@"; }
+
+test "$(zp list -H -o name)" = dpool
+test "$(zp get -Hp -o value guid dpool)" = '{{ talos_zfs_release_guid }}'
+test "$(zp get -H -o value health dpool)" = ONLINE
+test "$(zp get -H -o value readonly dpool)" = off
+test "$(zp get -H -o value altroot dpool)" = '-'
+test "$(zf get -Hp -o value guid 'dpool/migration/appdata@{{ talos_zfs_snapshot }}')" = '{{ talos_zfs_snapshot_guid }}'
+holds=$(zf holds -H 'dpool/migration/appdata@{{ talos_zfs_snapshot }}')
+test -n "$holds"
+test "$(zf get -H -o value readonly dpool/migration/appdata)" = on
+test "$(zf list -H -o type dpool/k8s)" = filesystem
+
+properties=$(zf list -Hr -t filesystem -o name,canmount,mountpoint,sharenfs,sharesmb dpool)
+printf '%s\n' "$properties" | awk -F '\t' '
+  $4 != "off" || $5 != "off" {exit 1}
+  $2 == "on" && $3 != "none" && $3 != "legacy" && $3 !~ "^/var/mnt(/|$)" {exit 1}
+'
+for dataset in dpool/media dpool/restic dpool/migration/appdata; do
+  test "$(zf get -H -o value canmount "$dataset")" = on
+  test "$(zf get -H -o value mountpoint "$dataset")" = "/var/mnt/$dataset"
+  test "$(zf get -H -o value mounted "$dataset")" = yes
+  awk -v path="/var/mnt/$dataset" -v dataset="$dataset" '
+    $4 == "/" && $5 == path { for (i=7; i<=NF; i++) if ($i=="-" && $(i+1)=="zfs" && $(i+2)==dataset) found=1 }
+    END { exit !found }
+  ' /proc/1/mountinfo
+done
+
+status=$(zp status -LP dpool)
+members=$(printf '%s\n' "$status" | awk '$1 ~ "^/dev/" {if ($2 != "ONLINE") exit 1; print $1}')
+set -- $members
+test "$#" -eq 4
+for member in "$@"; do
+  test -b "/proc/1/root$member"
+  devnum=$(stat -Lc '%t:%T' "/proc/1/root$member")
+  test -n "$devnum"
+  count=0
+  for link in /proc/1/root/dev/disk/by-partuuid/*; do
+    if test -b "$link" && test "$(stat -Lc '%t:%T' "$link")" = "$devnum"; then
+      test -b "$link"
+      count=$((count + 1))
+      echo "ZFS_MEMBER=/dev/disk/by-partuuid/${link##*/}"
+    fi
+  done
+  test "$count" -eq 1
+done
+echo 'ZFS release checks passed'

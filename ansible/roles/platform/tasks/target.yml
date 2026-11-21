@@ -1,0 +1,30 @@
+---
+- name: Identify the bare-metal Talos endpoint
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: target
+
+- name: Read the Kubernetes nodes from the selected operator context
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Node
+  register: platform_target_nodes
+
+- name: Read the hardware UUID from the verified Talos endpoint
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['get', 'systeminformation', '-o', 'yaml'] }}"
+  register: platform_target_system
+  changed_when: false
+  check_mode: false
+  timeout: 20
+
+- name: Require the Kubernetes context and Talos client to identify the same physical node
+  ansible.builtin.assert:
+    that:
+      - platform_target_nodes.resources | length == 1
+      - platform_target_nodes.resources[0].metadata.name == 'homelab'
+      - platform_target_nodes.resources[0].status.nodeInfo.systemUUID | lower == (platform_target_system.stdout | from_yaml).spec.uuid | lower
+      - talos_node in (platform_target_nodes.resources[0].status.addresses | selectattr('type', 'equalto', 'InternalIP') | map(attribute='address') | list)
+    fail_msg: The selected Kubernetes context must be the single-node bare-metal homelab.

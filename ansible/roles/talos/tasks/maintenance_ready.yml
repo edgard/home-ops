@@ -1,0 +1,11 @@
+---
+- name: Require the unconfigured Talos node to be ready in maintenance
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['get', 'machinestatus', 'machine', '-o', 'yaml'] + talos_target_auth_flags }}"
+  register: talos_maintenance_state
+  changed_when: false
+  failed_when: >-
+    talos_maintenance_state.rc != 0 or
+    (talos_maintenance_state.stdout | from_yaml).spec.stage != 'maintenance' or
+    not (talos_maintenance_state.stdout | from_yaml).spec.status.ready or
+    (talos_maintenance_state.stdout | from_yaml).spec.status.unmetConditions | length != 0

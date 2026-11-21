@@ -1,9 +1,6 @@
 ---
-- name: Require Talos node
-  ansible.builtin.assert:
-    that:
-      - talos_node | length > 0
-    fail_msg: TALOS_NODE is required.
+- name: Verify the selected SSD and explicit teardown confirmation
+  ansible.builtin.import_tasks: destroy_target.yml
 
 - name: Reset Talos node
   when: not ansible_check_mode
@@ -18,5 +15,6 @@
       - --nodes
       - "{{ talos_node }}"
       - --graceful=false
+      - --wipe-mode=system-disk
       - --reboot
   changed_when: true

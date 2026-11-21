@@ -1,0 +1,29 @@
+# ZFS and disk maintenance
+
+Purpose: describe storage dependencies, recovery and monitoring for ZFS and disk maintenance.
+Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
+
+This application takes hourly recursive snapshots beneath `dpool/k8s`.
+Retention applies only to snapshots carrying its own policy and name prefix.
+It schedules a scrub after 35 days and weekly extended SMART tests across
+the four pool members and the recorded system SSD. A successful SMART Job
+records when it started the tests. Check their eventual device self-test
+logs at acceptance. Readiness uses current SMART health, prefail attributes
+and self-test results. Superseded historical errors alone do not hold it down. The private health
+service exposes readiness to Gatus. Pool errors, SMART failures and overdue
+maintenance make it unready. After first handoff, start one Job from each
+maintenance CronJob and check its successful completion before accepting the
+new alert path. A complete node outage requires independent observation.
+Keep an independent backup of any irreplaceable media and the Restic mirror
+off-node. A pool snapshot and its source share the same disks.
+
+## Sources
+
+- [Application](../../../../apps/kube-system/storage-maintenance/app.yaml)
+- [Values](../../../../apps/kube-system/storage-maintenance/values.yaml)
+- [Manifests](../../../../apps/kube-system/storage-maintenance/manifests)
+
+## Related pages
+
+- [Storage](../../architecture/storage.md)
+- [TrueNAS migration](../../operations/truenas-migration.md)

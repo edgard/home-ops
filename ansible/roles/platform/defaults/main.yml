@@ -3,6 +3,8 @@ platform_repository_identity_url: https://api.github.com/user
 platform_helm_timeout: 600s
 platform_helm_history_max: 5
 platform_bitwarden_access_token: "{{ lookup('env', 'ESO_BWS_ACCESS_TOKEN') }}"
+platform_pool_guid: "{{ lookup('env', 'MIGRATION_POOL_GUID') }}"
+platform_handoff_confirm: "{{ lookup('env', 'PLATFORM_HANDOFF_CONFIRM') | default('false', true) }}"
 
 platform_wait_default_delay: 5
 platform_wait_default_retries: 24
@@ -11,14 +13,16 @@ platform_k8tz_app_metadata: apps/kube-system/k8tz/app.yaml
 platform_k8tz_warmup_pod_name: bootstrap-image-warmup-k8tz
 
 platform_bootstrap_namespaces:
+  - home-automation
   - media
+  - selfhosted
 
 platform_bootstrap_releases:
-  - name: nfs-provisioner
+  - name: zfs-localpv
     namespace: kube-system
-    app_metadata: apps/kube-system/nfs-provisioner/app.yaml
-    values_file: apps/kube-system/nfs-provisioner/values.yaml
-    manifests_dir: apps/kube-system/nfs-provisioner/manifests
+    app_metadata: apps/kube-system/zfs-localpv/app.yaml
+    values_file: apps/kube-system/zfs-localpv/values.yaml
+    manifests_dir: apps/kube-system/zfs-localpv/manifests
     phase: storage
 
   - name: multus

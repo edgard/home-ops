@@ -1,7 +1,7 @@
 # Secrets maintenance and recovery
 
 Purpose: provision and operate the unified Bitwarden delivery paths.
-Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
+Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
 
 ## Setup without cluster access
 
@@ -54,7 +54,8 @@ names, including `tailscale_oauth_` names. Deduplicate records representing the 
 credential and consumers; equal values alone do not make unrelated service accounts
 or encryption/session keys interchangeable.
 
-`talos:gen`, `platform:create`, `cluster:create`, `tf:plan`, and `tf:apply` resolve
+`talos:gen`, `platform:foundation`, `platform:handoff`, `cluster:create`,
+`tf:plan`, and `tf:apply` resolve
 only their named scopes through the checked-in manifest. They clear inherited
 legacy credentials and SecretSpec overrides. The native BWS provider reads
 through a read-only adapter that rejects duplicates, malformed data, writes,
@@ -130,11 +131,11 @@ and machine configuration. Do not generate a new identity for an existing
 cluster. Verify client access before applying node configuration. Kubernetes
 Secrets remain ESO delivery artifacts; maintain their values in Bitwarden.
 
-A full cold bootstrap is proved only on a disposable Talos environment with the
-external NAS/storage/network prerequisites. Do not rebuild production to validate
-this refactor. Bootstrap preflight authenticates to Bitwarden and Git and requires
+Cold-bootstrap acceptance requires the physical SSD, verified ZFS pool and
+network reservations described in the [migration runbook](truenas-migration.md).
+Bootstrap preflight authenticates to Bitwarden and Git and requires
 a clean checkout matching remote `master` before node mutation. ESO readiness
-must pass before Argo root handoff; handoff checks the captured revision and
+and recovery receipts must pass before Argo root handoff. Handoff checks the captured revision and
 ApplicationSet children, followed by fresh ExternalSecret reconciliation.
 
 ## Sources

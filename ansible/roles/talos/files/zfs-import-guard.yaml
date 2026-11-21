@@ -1,0 +1,6 @@
+---
+apiVersion: v1alpha1
+kind: ExtensionServiceConfig
+name: zfs-service
+environment:
+  - ZPOOL_IMPORT_PATH=/dev/null

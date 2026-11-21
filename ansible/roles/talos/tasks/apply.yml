@@ -1,53 +1,96 @@
 ---
-- name: Require Talos node
+- name: Require authenticated access and explicit pool identity for releasing discovery
+  when: talos_release_zfs | default(false) | bool
   ansible.builtin.assert:
     that:
-      - talos_node | length > 0
-    fail_msg: TALOS_NODE is required.
+      - not talos_maintenance_node
+      - talos_zfs_release_guid is match('^[1-9][0-9]{0,19}$')
+      - lookup('env', 'TALOS_ZFS_RELEASE_CONFIRM') == talos_zfs_release_guid
+      - talos_debug_image | length > 0
+      - talos_zfs_snapshot is match('^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$')
+      - talos_zfs_snapshot_guid is match('^[1-9][0-9]{0,19}$')
+    fail_msg: Clear TALOS_MAINTENANCE_NODE and supply the verified pool and snapshot identities, DEBUG_IMAGE and TALOS_ZFS_RELEASE_CONFIRM equal to MIGRATION_POOL_GUID.
 
-- name: Configure Talos endpoint
+- name: Identify the physical node before applying its machine configuration
+  ansible.builtin.import_tasks: target.yml
+  vars:
+    talos_first_contact: "{{ talos_maintenance_node }}"
+
+- name: Reject a stale machine configuration from the virtual machine or a different target
+  no_log: true
+  vars:
+    talos_documents: "{{ lookup('ansible.builtin.file', talos_controlplane_config_path) | from_yaml_all | selectattr('kind', 'defined') | list }}"
+    talos_generated_install: "{{ talos_documents | selectattr('kind', 'equalto', 'UnattendedInstallConfig') | first }}"
+    talos_generated_cluster: "{{ talos_documents | selectattr('kind', 'equalto', 'KubeClusterConfig') | first }}"
+    talos_expected_install: "{{ lookup('ansible.builtin.template', 'install-target.yaml.j2') | from_yaml }}"
+  ansible.builtin.assert:
+    that:
+      - talos_generated_install.provisioning == talos_expected_install.provisioning
+      - talos_generated_install.installer.image == talos_upgrade.installer.repository ~ ':' ~ talos_upgrade.installer.version
+      - talos_generated_cluster.endpoint == 'https://' ~ talos_node ~ ':6443'
+      - talos_generated_cluster.clusterName == talos_cluster_name
+      - lookup('ansible.builtin.template', 'uplink.yaml.j2') | from_yaml in talos_documents
+      - talos_documents | selectattr('kind', 'equalto', 'ExtensionServiceConfig') | selectattr('name', 'equalto', 'zfs-service') | list | length == 0
+      - talos_documents | selectattr('kind', 'equalto', 'KernelModuleConfig') | selectattr('name', 'equalto', 'zfs') | list | length == 1
+
+- name: Guard ZFS discovery before the first complete machine configuration
+  ansible.builtin.include_tasks: preseed_zfs.yml
+  when: talos_maintenance_node | length > 0 and not ansible_check_mode
+
+- name: Wait for the control plane to acquire its final DHCP address
+  ansible.builtin.wait_for:
+    host: "{{ talos_node }}"
+    port: 50000
+    connect_timeout: 3
+    timeout: "{{ talos_api_wait_retries | int * talos_api_wait_delay | int }}"
+  when: talos_maintenance_node | length > 0 and not ansible_check_mode
+
+- name: Verify the active and staged storage policies using the authenticated endpoint
+  ansible.builtin.include_tasks: read_zfs_state.yml
+  when: not ansible_check_mode
+
+- name: Identify the final authenticated physical node
+  ansible.builtin.include_tasks: target.yml
+  vars:
+    talos_first_contact: ""
+  when: talos_maintenance_node | length > 0 and not ansible_check_mode
+
+- name: Preserve staged configuration across routine reapply
+  ansible.builtin.assert:
+    that:
+      - not talos_live_zfs.pending
+      - not talos_maintenance_node or talos_live_zfs.v1alpha1.policy == talos_zfs_guard
+    fail_msg: A different machine configuration is staged or the first-boot restriction changed. Inspect the active and persistent resources before continuing.
+  when: not ansible_check_mode
+
+- name: Finish guarded bootstrap or recover an interrupted first apply
+  ansible.builtin.include_tasks: complete_zfs.yml
+  when:
+    - not ansible_check_mode
+    - not (talos_release_zfs | default(false) | bool)
+    - not talos_live_zfs.v1alpha1.module
+
+- name: Apply control plane configuration with the current ZFS discovery policy
+  ansible.builtin.command:
+    argv: "{{ talos_authenticated_client + ['apply-config', '--file', talos_controlplane_config_path, '--config-patch', talos_live_zfs.v1alpha1.policy | to_json] }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - not (talos_release_zfs | default(false) | bool)
+    - talos_live_zfs.v1alpha1.module
+
+- name: Verify and stage the four-member import policy for the next planned boot
+  ansible.builtin.include_tasks: release_zfs.yml
+  when: talos_release_zfs | default(false) | bool and not ansible_check_mode
+
+- name: Configure the final authenticated Talos endpoint
   when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl
       - --talosconfig
       - "{{ talos_config_path }}"
-      - --endpoints
-      - "{{ talos_node }}"
       - config
       - endpoints
       - "{{ talos_node }}"
   changed_when: false
-
-- name: Check whether Talos API already trusts local config
-  when: not ansible_check_mode
-  ansible.builtin.command:
-    argv:
-      - talosctl
-      - --talosconfig
-      - "{{ talos_config_path }}"
-      - --endpoints
-      - "{{ talos_node }}"
-      - version
-      - --nodes
-      - "{{ talos_node }}"
-      - --short
-  register: talos_apply_version_check
-  failed_when: false
-  changed_when: false
-
-- name: Apply Talos control plane config
-  when: not ansible_check_mode
-  ansible.builtin.command:
-    argv: >-
-      {{
-        ['talosctl', '--talosconfig', talos_config_path, '--endpoints', talos_node, 'apply-config']
-        + (['--insecure'] if talos_apply_version_check.rc != 0 else [])
-        + [
-          '--nodes',
-          talos_node,
-          '--file',
-          talos_controlplane_config_path
-        ]
-      }}
-  changed_when: true

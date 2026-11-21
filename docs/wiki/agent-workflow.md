@@ -101,9 +101,9 @@ controllers:
   backend. A complete outage of this single node cannot trigger an alert.
 
 ### Storage
-- `nfs-fast`: `/mnt/spool/appdata` (default)
-- `nfs-media`: `/mnt/dpool/media` (use `existingClaim: media`)
-- `nfs-restic`: `/mnt/dpool/restic`
+- Managed appdata uses the default `zfs-appdata` class on `dpool/k8s`.
+- Mount the existing `media` claim for shared media and `restic-repo` for the repository. Verify their mounted ZFS source before writers start.
+- Include each new appdata claim in its namespace backup and verify its restore path.
 
 ### ArgoCD Sync Waves
 `-4` CRDs → `-3` Controllers/DNS → `-2` Mesh/PVCs → `-1` k8tz → `0` Apps

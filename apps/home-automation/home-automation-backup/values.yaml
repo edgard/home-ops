@@ -1,0 +1,64 @@
+---
+defaultPodOptions:
+  securityContext:
+    runAsGroup: 0
+    runAsNonRoot: false
+    runAsUser: 0
+  automountServiceAccountToken: false
+
+controllers:
+  backup:
+    type: cronjob
+    cronjob:
+      schedule: "5 3 * * *"
+      concurrencyPolicy: Forbid
+    containers:
+      app:
+        image:
+          repository: restic/restic
+          tag: 0.20.0
+        securityContext:
+          allowPrivilegeEscalation: false
+        command:
+          - /bin/sh
+          - -ec
+          - |
+            case "$RESTIC_REPOSITORY_ID" in ""|*[!0-9a-f]*) exit 1 ;; esac
+            test "$(printf %s "$RESTIC_REPOSITORY_ID" | wc -c)" -eq 64
+            actual=$(restic --no-lock cat config | sed -n 's/^ *"id": *"\([0-9a-f]*\)"[,]*$/\1/p')
+            test "$actual" = "$RESTIC_REPOSITORY_ID"
+            for claim in /data/appdata/home-automation/*; do
+              awk -v dir="$claim" '$4 == "/" && $5 == dir && $6 ~ /(^|,)ro(,|$)/ {
+                for (i=7; i<NF; i++) if ($i == "-" && $(i+1) == "zfs" && $(i+2) ~ /^dpool\/k8s\/pvc-/) ok=1
+              } END {exit !ok}' /proc/self/mountinfo
+            done
+            exec restic --retry-lock 30m backup /data/appdata/home-automation --host homelab --tag appdata
+        env:
+          RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
+          RESTIC_REST_USERNAME: restic
+          RESTIC_REST_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+        envFrom:
+          - secretRef:
+              name: restic-credentials
+
+persistence:
+  homeassistant:
+    type: persistentVolumeClaim
+    existingClaim: homeassistant
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata/home-automation/homeassistant
+            readOnly: true
+  scrypted:
+    type: persistentVolumeClaim
+    existingClaim: scrypted
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata/home-automation/scrypted
+            readOnly: true
