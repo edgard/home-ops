@@ -1,0 +1,101 @@
+---
+defaultPodOptions:
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: homelab
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+
+controllers:
+  main:
+    type: deployment
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      samba:
+        image:
+          repository: quay.io/samba.org/samba-server
+          tag: latest@sha256:dd8ea6beceed95f2bced55c8ab4b22157b21937948d3a4dc29cbab7d73a6ee4b
+        command:
+          - /bin/sh
+          - /etc/samba-site/start
+        ports:
+          - name: smb
+            containerPort: 1445
+            hostIP: 192.168.1.253
+            hostPort: 445
+            protocol: TCP
+        probes:
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command:
+                  - /bin/sh
+                  - -ec
+                  - |
+                    for share in /shares/*; do
+                      smbclient "//127.0.0.1/${share##*/}" -p 1445 -U % -N -c quit >/dev/null
+                    done
+              periodSeconds: 30
+              timeoutSeconds: 8
+              failureThreshold: 2
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+          runAsGroup: 0
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - SETGID
+              - SETUID
+
+serviceAccount:
+  main:
+    enabled: false
+
+service:
+  main:
+    enabled: false
+
+persistence:
+  config:
+    type: configMap
+    name: samba-config
+    globalMounts:
+      - path: /etc/samba-site
+        readOnly: true
+  storage-tools:
+    type: configMap
+    name: samba-storage-check
+    globalMounts:
+      - path: /storage-tools
+        readOnly: true
+  storage-check:
+    type: hostPath
+    hostPath: /run/home-ops-storage
+    hostPathType: Directory
+    globalMounts:
+      - path: /storage-check
+        readOnly: true
+  dump:
+    type: hostPath
+    hostPath: /var/mnt/dpool/dump
+    hostPathType: Directory
+    globalMounts:
+      - path: /shares/dump
+  media:
+    type: hostPath
+    hostPath: /var/mnt/dpool/media
+    hostPathType: Directory
+    globalMounts:
+      - path: /shares/media
+  state:
+    type: emptyDir
+    globalMounts:
+      - path: /var/lib/samba

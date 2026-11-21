@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-21] revision | Serve shared datasets over SMB
+
+Documented the file server in the existing selfhosted namespace, explicit ZFS mounts, LAN listener and
+guest identity for Samba. Cold recovery also checks for direct pool writers.
+The [Samba page](apps/selfhosted/samba.md) covers access and verification.
+
 ## [2026-11-21] revision | Verify restore coverage and coordinate manual upgrades
 
 The [Restic runbook](operations/restic-backup-restore.md) explains how a full

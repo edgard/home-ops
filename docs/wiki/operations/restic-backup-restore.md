@@ -1,7 +1,7 @@
 # Kubernetes Restic restore runbook
 
 Purpose: recover existing Kubernetes appdata and verify the independent copy of the shared Restic repository.
-Status: current. Reviewed against: `09ff984c2258c4403ef203631fd580106f839e53` and this revision.
+Status: current. Reviewed against: `50dc84a27f19eac0ca5d644abdeccc2d4383bc48` and this revision.
 
 ## Repository and backups
 
@@ -21,7 +21,7 @@ Each mounts its enumerated appdata claims read-only, verifies source mounts and
 repository identity, and backs up `/data/appdata/<namespace>` with host
 `homelab` and tag `appdata`. Claim directories within both these snapshots and
 older aggregate snapshots use `/data/appdata/<namespace>/<actual-pvc-name>`.
-Shared media is outside this backup. When adding a persistent application,
+The shared media and dump filesystems are outside this backup. When adding a persistent application,
 add its actual claim to the namespace job and verify a snapshot containing it.
 These backups read live files. Use native application backups or a
 writer-quiesced copy for database-consistent recovery points.

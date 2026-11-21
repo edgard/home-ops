@@ -1,7 +1,7 @@
 # Storage and shared media
 
 Purpose: explain appdata provisioning and the two shared filesystem mounts.
-Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1` and this revision.
+Status: current. Reviewed against: `50dc84a27f19eac0ca5d644abdeccc2d4383bc48` and this revision.
 
 OpenEBS provisions a ZFS filesystem under `dpool/k8s` when a Pod first
 consumes a managed claim. The default class retains the dataset after PVC
@@ -22,7 +22,10 @@ existing PVC/PV records. Keep an independent copy of the Restic repository
 for recovery if the pool is lost. On a rebuilt control plane, verify the
 actual bound datasets before starting applications. The [Restic runbook](../operations/restic-backup-restore.md)
 covers recovery of namespace backups and application-native databases.
-Shared media needs its own backup.
+The [Samba service](../apps/selfhosted/samba.md) mounts the media and dump
+filesystems directly from its own namespace. Its startup checks the pool marker
+and each ZFS mount before allowing LAN guests to write. These shared datasets
+need independent backups.
 
 ## Prepare storage for a Talos install
 
@@ -36,12 +39,16 @@ plane, reuse the existing filesystems, repository and credentials.
 | --- | --- | --- |
 | `dpool` | `/var/mnt/dpool` | Talos host |
 | `dpool/k8s` | `none` | OpenEBS creates each claim's filesystem below this parent |
+| `dpool/dump` | `/var/mnt/dpool/dump` | File services on the LAN |
 | `dpool/media` | `/var/mnt/dpool/media` | Prebound shared media PV |
 | `dpool/restic` | `/var/mnt/dpool/restic` | Prebound backup repository PV |
 
+Foundation verifies the media and repository mounts. Samba verifies its two
+exported mounts when the pod starts.
+
 For a site built on empty disks, prepare this layout on the verified storage
 host. Use POSIX ACLs and extended attributes on the OpenEBS parent
-(`acltype=posixacl`, `xattr=sa`). The three host mountpoints use
+(`acltype=posixacl`, `xattr=sa`). The host-mounted filesystems use
 `canmount=on`. Disable ZFS NFS and SMB sharing. Inspect the effective
 properties with `zfs list -r -o name,canmount,mountpoint,sharenfs,sharesmb dpool`
 and record the GUID with `zpool get -Hp -o value guid dpool` before exporting
