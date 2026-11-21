@@ -110,14 +110,14 @@ controllers:
 - Multus LAN IP (media apps): `k8s.v1.cni.cncf.io/networks: [{"name":"multus-lan-bridge","namespace":"kube-system","ips":["192.168.1.X/24"]}]`
 
 ### Monitoring
-- Gatus is the only uptime checker and Telegram alert engine. Its routed app,
+- Gatus owns production uptime and Telegram during the Grafana comparison. Its routed app,
   DNS, and ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
 - Review explicit Gatus targets when changing routes. Keep Jellyfin `/health`
   and CrossWatch `/healthz`; automated route-coverage assertions are retired.
 - Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
   annotations to routed apps; Gatus does not use route discovery.
-- Gatus uses memory storage without a PVC. There is no metrics or searchable log
-  backend. A complete outage of this single node cannot trigger an alert.
+- Gatus uses memory storage without a PVC. VictoriaMetrics stores metrics locally. Update its explicit Blackbox
+  targets alongside Gatus until the [cutover](architecture/uptime.md) is complete. A complete outage of this single node cannot trigger an alert.
 
 ### Storage
 - Managed appdata uses the default `zfs-appdata` class on `dpool/k8s`.

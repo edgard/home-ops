@@ -1,0 +1,27 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: victoria-metrics-kubelet-ca
+  namespace: platform-system
+data:
+  ca.crt: |-
+    -----BEGIN CERTIFICATE-----
+    MIIDBDCCAeygAwIBAgIIErBNRMC+OWgwDQYJKoZIhvcNAQELBQAwIDEeMBwGA1UE
+    AwwVaG9tZWxhYi1jYUAxNzk1Mjg1NTI0MB4XDTI2MTEyMTE3MjUyNFoXDTI3MTEy
+    MTE3MjUyNFowIDEeMBwGA1UEAwwVaG9tZWxhYi1jYUAxNzk1Mjg1NTI0MIIBIjAN
+    BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvjecVXWns03+4sEXNZ6zYm3E7+Sj
+    Dql4lzDmzl19sXaUdhYO/nBBSYvk5Sedj4Y33mMhlOHF0Y0zA8XLuiDHF/lNYHL9
+    V4b+28MpVzgP9MGQVPPX3MhNlZCUtqJUw9uSIRltH+mUYqw6d9bsxyXAgLT75+jB
+    d/FalLw3vsojrloweMeWKcGBOpWUqUX6jXcnsPgmmX+96lbesaY6CoGiUmmEqU62
+    MRmhD/2avNN/YLWNIUmbPge4+xBV9zdd4imrdRMrI6fbF1YnOXtUcFXMrthQ/JUv
+    yoXEY4ojIj3n1NZBU5c8EYdvD5OWRph+RBKiEP2xhXPjHi6gZUAiWqdTqwIDAQAB
+    o0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU
+    0nGUSLUX8kWJWUG74zHcIUc4LQEwDQYJKoZIhvcNAQELBQADggEBAJYkTLTHX/gb
+    Yjnqnlv1L41okovdNTHR1GiwcbYVALja+OWycBB5ymBJOSoPb6DOUqZwmWqg++uY
+    +bxnPpADbY5jMRG/PZDnr5KFIBM4WyqteJUGkG+fYPfjArB6vHgo5bzTTPc5crcS
+    paXHgs71n50Go7JnTCwiuJuhWMNr+rxJh2RP7hlhVeDwK31JG/vyspzqkGaVVwzc
+    8rAG0wVALo2cv2FpopTdNrzGLCoHtRlNGvL9v/NcHorhQsPmidgWXcpJlm32J30h
+    LyPVzVEoo3h/bY6fnGIcTFi4NqI6R9IQ4mUnZNThKOggp2s+WP1sxzEPJmJ/uzy6
+    aSuVSU2n+sU=
+    -----END CERTIFICATE-----

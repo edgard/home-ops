@@ -1,0 +1,99 @@
+---
+defaultPodOptions:
+  automountServiceAccountToken: false
+  securityContext:
+    fsGroup: 472
+    fsGroupChangePolicy: OnRootMismatch
+    runAsUser: 472
+    runAsGroup: 472
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+controllers:
+  main:
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      app:
+        image:
+          repository: grafana/grafana
+          tag: 13.3.1@sha256:0615ec4fbd4072004b7d86b46ded63013a74b7d6eb1119273dd89e8fa25c13cf
+        envFrom:
+          - secretRef:
+              name: grafana-credentials
+        env:
+          GF_SERVER_ROOT_URL: https://grafana.edgard.org
+          GF_AUTH_ANONYMOUS_ENABLED: "false"
+          GF_USERS_ALLOW_SIGN_UP: "false"
+          GF_ANALYTICS_REPORTING_ENABLED: "false"
+          GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+          GF_PLUGINS_PREINSTALL_DISABLED: "true"
+          GF_UNIFIED_ALERTING_MIN_INTERVAL: 10s
+        probes:
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/health
+                port: 3000
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 3000
+route:
+  main:
+    parentRefs:
+      - name: gateway
+        namespace: platform-system
+        sectionName: https
+    hostnames:
+      - grafana.edgard.org
+    rules:
+      - backendRefs:
+          - identifier: main
+            port: 3000
+persistence:
+  data:
+    type: persistentVolumeClaim
+    existingClaim: grafana
+    globalMounts:
+      - path: /var/lib/grafana
+  datasource:
+    type: configMap
+    name: grafana-datasource
+    globalMounts:
+      - path: /etc/grafana/provisioning/datasources
+        readOnly: true
+  alerts:
+    type: configMap
+    name: grafana-alerts
+    globalMounts:
+      - path: /etc/grafana/provisioning/alerting
+        readOnly: true
+  provider:
+    type: configMap
+    name: grafana-provider
+    globalMounts:
+      - path: /etc/grafana/provisioning/dashboards
+        readOnly: true
+  dashboards:
+    type: configMap
+    name: grafana-dashboards
+    globalMounts:
+      - path: /etc/grafana/dashboards
+        readOnly: true

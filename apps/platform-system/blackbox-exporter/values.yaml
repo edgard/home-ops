@@ -1,0 +1,90 @@
+---
+defaultPodOptions:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+    sysctls:
+      - name: net.ipv4.ping_group_range
+        value: "65534 65534"
+
+controllers:
+  main:
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    containers:
+      app:
+        image:
+          repository: quay.io/prometheus/blackbox-exporter
+          tag: v0.29.1@sha256:ea1c7aa3ef3f307cd03e85f34abb604478ccb90b567fc690da0cd9776da76b13
+        args:
+          - --config.file=/config/blackbox.yaml
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+        probes:
+          readiness:
+            enabled: true
+            type: HTTP
+            path: /-/healthy
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 9115
+
+persistence:
+  config:
+    type: configMap
+    identifier: main
+    globalMounts:
+      - path: /config
+        readOnly: true
+
+configMaps:
+  main:
+    data:
+      blackbox.yaml: |-
+        modules:
+          http_2xx:
+            prober: http
+            timeout: 10s
+            http:
+              preferred_ip_protocol: ip4
+              follow_redirects: true
+          storage_200:
+            prober: http
+            timeout: 10s
+            http:
+              preferred_ip_protocol: ip4
+              valid_status_codes: [200]
+              follow_redirects: true
+          dns_a:
+            prober: dns
+            timeout: 2s
+            dns:
+              preferred_ip_protocol: ip4
+              transport_protocol: udp
+              query_name: edgard.org.
+              query_type: A
+              valid_rcodes: [NOERROR]
+          icmp_v4:
+            prober: icmp
+            timeout: 10s
+            icmp:
+              preferred_ip_protocol: ip4
+              ip_protocol_fallback: false

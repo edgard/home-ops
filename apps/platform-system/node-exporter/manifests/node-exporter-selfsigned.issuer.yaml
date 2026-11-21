@@ -1,0 +1,8 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: node-exporter-selfsigned
+  namespace: platform-system
+spec:
+  selfSigned: {}

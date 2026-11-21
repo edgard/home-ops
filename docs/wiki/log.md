@@ -3,6 +3,11 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-22] revision | Stage local Grafana monitoring
+
+Documented [parallel probe comparison and cutover](architecture/uptime.md),
+Talos host and workload metrics, and the [local telemetry storage class](architecture/storage.md#local-telemetry).
+
 ## [2026-11-21] revision | Consolidate operator setup and recovery entry points
 
 The README links each install or recovery scenario to its procedure. The

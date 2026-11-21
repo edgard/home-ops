@@ -1,0 +1,122 @@
+---
+defaultPodOptions:
+  automountServiceAccountToken: true
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    fsGroup: 65534
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+
+controllers:
+  main:
+    replicas: 1
+    strategy: Recreate
+    annotations:
+      reloader.stakater.com/auto: "true"
+    serviceAccount:
+      identifier: main
+    containers:
+      app:
+        image:
+          repository: victoriametrics/victoria-metrics
+          tag: v1.156.0@sha256:da8a90ac0912f16589be2b96a6441a2fca4bca415c83783d972d92e3b5b66970
+        args:
+          - -storageDataPath=/storage
+          - -retentionPeriod=1y
+          - -promscrape.config=/config/scrape.yaml
+          - -deleteAuthKey=file:///run/vm-admin/key
+          - -memory.allowedBytes=192MiB
+          - -storage.minFreeDiskSpaceBytes=1GiB
+        env:
+          KUBELET_ADDRESS:
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        probes:
+          readiness:
+            enabled: true
+            type: HTTP
+            path: /health
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+
+serviceAccount:
+  main:
+    enabled: true
+
+rbac:
+  roles:
+    main:
+      type: ClusterRole
+      rules:
+        - apiGroups:
+            - ""
+          resources:
+            - nodes/metrics
+          resourceNames:
+            - homelab
+          verbs:
+            - get
+  bindings:
+    main:
+      type: ClusterRoleBinding
+      roleRef:
+        identifier: main
+      subjects:
+        - identifier: main
+          kind: ServiceAccount
+
+service:
+  main:
+    controller: main
+    ports:
+      http:
+        port: 8428
+
+persistence:
+  storage:
+    type: persistentVolumeClaim
+    existingClaim: victoria-metrics
+    globalMounts:
+      - path: /storage
+  config:
+    type: configMap
+    name: victoria-metrics-scrape
+    globalMounts:
+      - path: /config
+        readOnly: true
+  kubelet-ca:
+    type: configMap
+    name: victoria-metrics-kubelet-ca
+    globalMounts:
+      - path: /tls/kubelet
+        readOnly: true
+  exporter-client:
+    type: secret
+    name: node-exporter-client-tls
+    globalMounts:
+      - path: /tls/node-exporter
+        readOnly: true
+  delete-key:
+    type: projected
+    sources:
+      - serviceAccountToken:
+          audience: victoria-metrics-delete
+          expirationSeconds: 3600
+          path: key
+    globalMounts:
+      - path: /run/vm-admin
+        readOnly: true

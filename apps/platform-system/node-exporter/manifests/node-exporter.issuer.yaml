@@ -1,0 +1,9 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: node-exporter
+  namespace: platform-system
+spec:
+  ca:
+    secretName: node-exporter-ca
