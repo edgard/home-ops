@@ -5,7 +5,7 @@ Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
 
 ## Dependencies
 
-Uses the shared Gateway, NFS appdata class, and a repository ConfigMap for configuration.
+Uses the shared Gateway, OpenEBS ZFS appdata class, and a repository ConfigMap for configuration.
 
 ## Data and recovery
 

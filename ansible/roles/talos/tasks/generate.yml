@@ -1,4 +1,7 @@
 ---
+- name: Verify bare-metal generation inputs
+  ansible.builtin.import_tasks: target_inputs.yml
+
 - name: Require Talos generation variables
   ansible.builtin.assert:
     that:
@@ -50,6 +53,8 @@
           - "{{ talos_install_disk }}"
           - --config-patch-control-plane
           - "@{{ talos_controlplane_patch_file }}"
+          - --config-patch-control-plane
+          - "{{ lookup('ansible.builtin.template', 'uplink.yaml.j2') }}"
           - --with-secrets
           - "{{ talos_generate_secrets_temp.path }}"
           - --output-dir

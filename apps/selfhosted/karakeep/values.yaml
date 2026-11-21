@@ -186,7 +186,7 @@ persistence:
   data:
     type: persistentVolumeClaim
     accessMode: ReadWriteOnce
-    size: 5Gi
+    size: 30Gi
     advancedMounts:
       main:
         app:

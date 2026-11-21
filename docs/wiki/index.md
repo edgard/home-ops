@@ -22,7 +22,7 @@ remain authoritative; verify the running system separately.
 - [Talos and platform bootstrap](architecture/talos-bootstrap.md) — node and foundational services.
 - [Networking and ingress](architecture/networking.md) — Gateway, DNS, Tailscale, and Multus.
 - [Secrets and credentials](architecture/secrets.md) — Bitwarden, External Secrets, and scoped CLI inputs.
-- [Storage and shared media](architecture/storage.md) — NFS appdata, media, and repository boundaries.
+- [Storage and shared media](architecture/storage.md) — OpenEBS appdata and shared ZFS filesystems.
 - [Backup and recovery](architecture/backup-recovery.md) — Restic and restore transaction.
 - [Uptime monitoring](architecture/uptime.md) — Gatus targets and alerting limit.
 - [Terraform](architecture/terraform.md) — Cloudflare, Tailscale, and backend.
@@ -50,6 +50,7 @@ The app pages describe dependencies and unusual behavior. Read the linked
 
 ### Home automation
 
+- [Namespace backup](apps/home-automation/home-automation-backup.md)
 - [Home Assistant](apps/home-automation/homeassistant.md)
 - [Scrypted](apps/home-automation/scrypted.md)
 
@@ -60,10 +61,12 @@ The app pages describe dependencies and unusual behavior. Read the linked
 - [k8tz](apps/kube-system/k8tz.md)
 - [metrics-server](apps/kube-system/metrics-server.md)
 - [Multus](apps/kube-system/multus.md)
-- [NFS provisioner](apps/kube-system/nfs-provisioner.md)
+- [OpenEBS ZFS LocalPV](apps/kube-system/zfs-localpv.md)
+- [Storage maintenance](apps/kube-system/storage-maintenance.md)
 
 ### Media
 
+- [Namespace backup](apps/media/media-backup.md)
 - [Bazarr](apps/media/bazarr.md)
 - [CrossWatch](apps/media/crosswatch.md)
 - [FlareSolverr](apps/media/flaresolverr.md)

@@ -80,7 +80,7 @@
     - name: Require every remote application key and repository credential
       ansible.builtin.assert:
         that:
-          - platform_secret_manifests | map(attribute='spec.data') | flatten | map(attribute='remoteRef.key') | difference(platform_application_values.keys() | list) | length == 0
+          - platform_secret_manifests | selectattr('spec.secretStoreRef.name', 'equalto', 'external-secrets-store') | map(attribute='spec.data') | flatten | map(attribute='remoteRef.key') | difference(platform_application_values.keys() | list) | length == 0
           - platform_application_values.argocd_repo_username | default("") | length > 0
           - platform_application_values.argocd_repo_password | default("") | length > 0
   rescue:

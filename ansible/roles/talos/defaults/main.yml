@@ -7,10 +7,14 @@ talos_secrets_yaml: "{{ lookup('env', 'TALOS_SECRETS_YAML') }}"
 talos_api_wait_retries: 30
 talos_api_wait_delay: 5
 talos_health_wait_timeout: 5m
+talos_install_serial: "{{ lookup('env', 'TALOS_INSTALL_SERIAL') }}"
+talos_uplink_mac: "{{ lookup('env', 'TALOS_UPLINK_MAC') | lower }}"
+talos_maintenance_node: "{{ lookup('env', 'TALOS_MAINTENANCE_NODE') }}"
+talos_destroy_confirm: "{{ lookup('env', 'TALOS_DESTROY_CONFIRM') }}"
 
 talos_upgrade:
   installer:
-    repository: factory.talos.dev/metal-installer/135cb2840c3e39194d5d5d20ead2d6bdcade91a6c06eb5b8ad6939e1e1e55ddf
+    repository: factory.talos.dev/metal-installer/39699a54506a4570606671d813387abadbba0767ec91769b57e993f3387795d9
     # renovate: datasource=github-releases depName=siderolabs/talos
     version: v1.13.12
   upgrade:

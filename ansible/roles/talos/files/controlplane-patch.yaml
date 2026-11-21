@@ -17,7 +17,10 @@ cluster:
             warn-version: latest
 machine:
   install:
-    image: factory.talos.dev/metal-installer/135cb2840c3e39194d5d5d20ead2d6bdcade91a6c06eb5b8ad6939e1e1e55ddf:v1.13.12
+    image: factory.talos.dev/metal-installer/39699a54506a4570606671d813387abadbba0767ec91769b57e993f3387795d9:v1.13.12
+  kernel:
+    modules:
+      - name: zfs
   network:
     interfaces:
       - interface: br0
@@ -25,16 +28,6 @@ machine:
   nodeLabels:
     node.kubernetes.io/exclude-from-external-load-balancers:
       $patch: delete
-  files:
-    - op: overwrite
-      path: /etc/nfsmount.conf
-      permissions: 0o644 # yamllint disable-line rule:octal-values
-      content: |-
-        [ NFSMount_Global_Options ]
-        nfsvers=4.2
-        hard=True
-        noatime=True
-        nconnect=16
   sysctls:
     fs.inotify.max_user_instances: "8192"
     fs.inotify.max_user_watches: "1048576"
@@ -58,6 +51,17 @@ kind: BridgeConfig
 name: br0
 hardwareAddr: "02:42:c0:a8:01:fd"
 links:
-  - ens2
+  - uplink
 stp:
   enabled: false
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: homelab
+auto:
+  $patch: delete
+---
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: openebs-keys
+volumeType: directory

@@ -1,0 +1,26 @@
+---
+- name: Require the held source snapshot identifiers
+  ansible.builtin.assert:
+    that:
+      - migration_dataset is regex('dpool/migration/[A-Za-z0-9][A-Za-z0-9_.-]*', match_type='fullmatch')
+      - migration_snapshot_guid is regex('[0-9]+', match_type='fullmatch')
+      - migration_snapshot is regex('[A-Za-z0-9_][A-Za-z0-9_.-]*', match_type='fullmatch')
+    fail_msg: Supply the verified snapshot name and GUID and a direct child of dpool/migration as the source dataset.
+
+- name: Verify source and destination mounts
+  ansible.builtin.include_tasks: mounts.yml
+  vars:
+    migration_check_stage: true
+
+- name: Render the production PVC inventory
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python_interpreter }}"
+      - "{{ role_path }}/files/claims.py"
+      - "{{ repo_root }}"
+  changed_when: false
+  register: migration_rendered
+
+- name: Collect app-owned claims
+  ansible.builtin.set_fact:
+    migration_claims: "{{ migration_rendered.stdout | from_json }}"

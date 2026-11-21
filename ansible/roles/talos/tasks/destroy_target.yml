@@ -1,0 +1,10 @@
+---
+- name: Require the boot disk serial again for intentional teardown
+  ansible.builtin.assert:
+    that:
+      - talos_destroy_confirm | length > 0
+      - talos_destroy_confirm == talos_install_serial
+    fail_msg: Teardown requires TALOS_DESTROY_CONFIRM equal to the verified TALOS_INSTALL_SERIAL.
+
+- name: Verify the selected physical system disk
+  ansible.builtin.import_tasks: target.yml

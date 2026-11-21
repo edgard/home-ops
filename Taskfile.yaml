@@ -291,7 +291,7 @@ tasks:
 
   # High-level cluster lifecycle
   cluster:create:
-    desc: Install, configure, and bootstrap Talos + platform
+    desc: Configure the pre-flashed Talos SSD and bootstrap the held foundation
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
@@ -382,8 +382,10 @@ tasks:
       - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-upgrade-k8s.yml"
 
   # Platform and Argo operations
-  platform:create:
-    desc: Create platform components via Ansible
+  platform:foundation:
+    aliases:
+      - platform:create
+    desc: Install storage, networking, secrets, private Restic and Argo with workloads held
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
@@ -392,6 +394,33 @@ tasks:
         vars:
           scope: platform
           playbook: platform-bootstrap.yml
+
+  platform:handoff:
+    desc: Verify seeded claims and release workloads to Argo CD
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - task: secrets:invoke
+        vars:
+          scope: platform
+          playbook: platform-handoff.yml
+
+  migration:restore:
+    desc: Populate the managed claims from the held read-only ZFS snapshot
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-restore.yml"
+
+  migration:verify:
+    desc: Verify the current bindings and completed copy receipts before handoff
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-verify.yml"
 
   platform:destroy:
     desc: Destroy platform components via Ansible

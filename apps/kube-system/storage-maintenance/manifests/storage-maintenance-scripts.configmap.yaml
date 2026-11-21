@@ -1,0 +1,96 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storage-maintenance-scripts
+  namespace: kube-system
+data:
+  run: |-
+    #!/bin/sh
+    set -eu
+    zp() { chroot /host /usr/local/sbin/zpool "$@"; }
+    fs() { chroot /host /usr/local/sbin/zfs "$@"; }
+    case "$POOL_GUID" in ""|*[!0-9]*) exit 1 ;; esac
+    test "$(zp get -Hp -o value guid dpool)" = "$POOL_GUID"
+    test "$(zp list -H -o health dpool)" = ONLINE
+    test "$(fs list -H -o type dpool/k8s)" = filesystem
+    disks() {
+      # Resolve only the four RAIDZ members and the immutable system-disk identity.
+      zp status -LP dpool > /tmp/storage-topology
+      awk '$1 ~ /^\/dev\// {print $1}' /tmp/storage-topology > /tmp/members
+      test "$(wc -l < /tmp/members)" -eq 4
+      : > /tmp/devices
+      while read -r part; do
+        node=$(basename "$part")
+        if [ -f "/sys/class/block/$node/partition" ]; then
+          node=$(basename "$(dirname "$(readlink -f "/sys/class/block/$node")")")
+        fi
+        test -b "/dev/$node"
+        echo "/dev/$node" >> /tmp/devices
+      done < /tmp/members
+      case "$SYSTEM_DISK" in /dev/disk/by-id/*) ;; *) exit 1 ;; esac
+      ssd=$(basename "$(readlink -f "$SYSTEM_DISK")")
+      test -b "/dev/$ssd" && test ! -f "/sys/class/block/$ssd/partition"
+      echo "/dev/$ssd" >> /tmp/devices
+      test "$(sort -u /tmp/devices | wc -l)" -eq 5
+    }
+    now=$(date -u +%s)
+    case "$1" in
+      snapshot)
+        stamp="home-ops-hourly-$(date -u +%Y%m%dT%H)"
+        if ! fs list -Ht snapshot "dpool/k8s@$stamp" >/dev/null 2>&1; then
+          fs snapshot -r -o org.home-ops:policy=hourly "dpool/k8s@$stamp"
+        fi
+        cutoff=$((now - 7 * 86400))
+        fs list -Hpr -t snapshot -o name,creation,org.home-ops:policy dpool/k8s > /tmp/snapshots
+        while read -r snap created policy; do
+          case "$snap" in *@home-ops-hourly-*) ;; *) continue ;; esac
+          if [ "$policy" = hourly ] && [ "$created" -lt "$cutoff" ] &&
+             [ "$(fs get -H -o source org.home-ops:policy "$snap")" = local ]; then
+            fs destroy "$snap"
+          fi
+        done < /tmp/snapshots
+        ;;
+      scrub)
+        last=$(zp get -Hp -o value org.home-ops:last-scrub dpool)
+        case "$last" in -) last=0 ;; *[!0-9]*) exit 1 ;; esac
+        if [ "$((now - last))" -ge 3024000 ]; then
+          # Wait for an existing scrub or initiate the next one. Record only a healthy result.
+          zp status dpool > /tmp/status
+          if grep -q 'scrub in progress' /tmp/status; then zp wait -t scrub dpool; else zp scrub -w dpool; fi
+          # A canceled scrub can leave the pool ONLINE. Require completed scan results.
+          zp status dpool > /tmp/status
+          grep -Eq 'scan: scrub repaired .* with 0 errors on' /tmp/status
+          test "$(zp status -x dpool)" = "pool 'dpool' is healthy"
+          zp set "org.home-ops:last-scrub=$(date -u +%s)" dpool
+        fi
+        ;;
+      smart)
+        disks
+        while read -r dev; do smartctl -t long "$dev"; done < /tmp/devices
+        zp set "org.home-ops:last-smart=$now" dpool
+        ;;
+      health)
+        test "$(zp status -x dpool)" = "pool 'dpool' is healthy"
+        disks
+        while read -r dev; do
+          rc=0
+          smartctl -H -A -l selftest "$dev" >/dev/null || rc=$?
+          # Current health, prefail thresholds, device I/O and current self-test failures.
+          # Historical threshold/error-log entries alone do not keep readiness down forever.
+          test "$((rc & 159))" -eq 0
+        done < /tmp/devices
+        # Surface missed schedules as well as hardware and pool errors.
+        for check in "last-scrub:3801600" "last-smart:777600"; do
+          last=$(zp get -Hp -o value "org.home-ops:${check%:*}" dpool)
+          case "$last" in ""|*[!0-9]*) exit 1 ;; esac
+          test "$last" -le "$now"
+          test "$((now - last))" -lt "${check#*:}"
+        done
+        fs list -Hpr -t snapshot -o name,creation,org.home-ops:policy dpool/k8s > /tmp/snapshots
+        awk -v limit="$((now - 10800))" -v now="$now" '
+          $1 ~ /^dpool\/k8s@home-ops-hourly-[0-9]+T[0-9]+$/ && $3=="hourly" && $2>limit && $2<=now {ok=1}
+          END {exit !ok}' /tmp/snapshots
+        ;;
+      *) exit 1 ;;
+    esac

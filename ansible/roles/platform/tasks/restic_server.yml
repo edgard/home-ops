@@ -1,0 +1,113 @@
+---
+- name: Apply the prebound repository volume and recovery credentials
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    src: "{{ platform_restic_dir }}/manifests/{{ item }}.yaml"
+  loop:
+    - restic-repo.persistentvolume
+    - restic-repo.persistentvolumeclaim
+    - restic-credentials.externalsecret
+
+- name: Wait for the existing repository credentials
+  ansible.builtin.include_tasks: wait_items.yml
+  vars:
+    platform_wait_items:
+      - api_version: external-secrets.io/v1
+        kind: ExternalSecret
+        namespace: selfhosted
+        name: restic-credentials
+        condition_type: Ready
+
+- name: Render the committed Restic release with a private read-only server
+  vars:
+    platform_restic_chart: "{{ (lookup('file', platform_restic_dir ~ '/app.yaml') | from_yaml).chart }}"
+    platform_restic_values: "{{ lookup('file', platform_restic_dir ~ '/values.yaml') | from_yaml }}"
+    platform_restic_main: "{{ platform_restic_values.controllers.main }}"
+    platform_restic_annotations: >-
+      {{ platform_restic_main.pod.annotations | dict2items | rejectattr('key', 'equalto', 'k8s.v1.cni.cncf.io/networks') | items2dict }}
+    platform_restic_pod: "{{ platform_restic_main.pod | combine({'annotations': platform_restic_annotations}) }}"
+    platform_restic_private_main: "{{ platform_restic_main | combine({'pod': platform_restic_pod}) }}"
+    platform_restic_private_controllers: "{{ platform_restic_values.controllers | combine({'main': platform_restic_private_main}) }}"
+  kubernetes.core.helm_template:
+    release_name: restic
+    release_namespace: selfhosted
+    chart_ref: "{{ platform_restic_chart.repo }}"
+    chart_version: "{{ platform_restic_chart.version }}"
+    release_values: >-
+      {{ platform_restic_values | combine({'controllers': platform_restic_private_controllers})
+         | combine({'persistence': {'repo': {'advancedMounts': {'main': {'app': [{'path': '/repository', 'readOnly': true}]}}}}}, recursive=true) }}
+  register: platform_restic_render
+  changed_when: false
+
+- name: Select only the server and its ServiceAccount and ClusterIP Service
+  ansible.builtin.set_fact:
+    platform_restic_objects: >-
+      {{ platform_restic_render.stdout | from_yaml_all | select('mapping') | selectattr('kind', 'in', ['ServiceAccount', 'Service', 'Deployment']) | list }}
+
+- name: Require the production selectors and the private recovery boundary
+  vars:
+    platform_restic_service: "{{ platform_restic_objects | selectattr('kind', 'equalto', 'Service') | first }}"
+    platform_restic_deploy: "{{ platform_restic_objects | selectattr('kind', 'equalto', 'Deployment') | first }}"
+    platform_restic_pod: "{{ platform_restic_deploy.spec.template }}"
+  ansible.builtin.assert:
+    that:
+      - platform_restic_objects | length == 3
+      - platform_restic_service.metadata.name == 'restic'
+      - platform_restic_service.spec.type | default('ClusterIP') == 'ClusterIP'
+      - platform_restic_service.spec.selector == platform_restic_deploy.spec.selector.matchLabels
+      - platform_restic_deploy.metadata.name == 'restic-main'
+      - "'k8s.v1.cni.cncf.io/networks' not in (platform_restic_pod.metadata.annotations | default({}))"
+      - (platform_restic_pod.spec.containers[0].volumeMounts | selectattr('mountPath', 'equalto', '/repository') | first).readOnly
+      - platform_restic_pod.spec.volumes | selectattr('persistentVolumeClaim', 'defined') | map(attribute='persistentVolumeClaim.claimName') | list == ['restic-repo']
+
+- name: Start the private repository server
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    namespace: selfhosted
+    state: present
+    apply: true
+    # Argo must remove our private readOnly field when its writable mount takes over.
+    server_side_apply:
+      field_manager: argocd-controller
+    definition: "{{ platform_restic_objects }}"
+    wait: true
+    wait_timeout: 300
+
+- name: Find the running Restic server
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Pod
+    namespace: selfhosted
+    label_selectors:
+      - app.kubernetes.io/controller=main
+      - app.kubernetes.io/instance=restic
+    field_selectors:
+      - status.phase=Running
+  register: platform_restic_pods
+
+- name: Verify the repository ID and read its snapshot list through the authenticated private Service
+  vars:
+    platform_restic_check: |
+      export RESTIC_REPOSITORY=rest:http://restic.selfhosted.svc.cluster.local:8000/
+      export RESTIC_REST_USERNAME=restic RESTIC_REST_PASSWORD="$RESTIC_PASSWORD"
+      config=$(/tools/restic --no-cache --no-lock cat config)
+      id=$(printf '%s\n' "$config" | sed -n 's/^ *"id": *"\([0-9a-f]*\)"[,]*$/\1/p')
+      test "$(printf %s "$id" | wc -c)" -eq 64 && test "$id" = "$RESTIC_REPOSITORY_ID" || exit 1
+      /tools/restic --no-cache --no-lock snapshots --json > /dev/null
+  kubernetes.core.k8s_exec:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    namespace: selfhosted
+    pod: "{{ (platform_restic_pods.resources | first).metadata.name }}"
+    container: app
+    command: "/bin/sh -ec {{ platform_restic_check | quote }}"
+  register: platform_restic_access
+  failed_when: platform_restic_access.rc | default(1) != 0
+  changed_when: false
+  no_log: true

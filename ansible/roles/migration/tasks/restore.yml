@@ -1,0 +1,32 @@
+---
+- name: Require an explicit cold-copy operation
+  ansible.builtin.assert:
+    that:
+      - not ansible_check_mode
+      - lookup('env', 'MIGRATION_CONFIRM') == 'restore'
+
+- name: Check that the target is still behind the GitOps handoff
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.ns }}"
+    name: "{{ item.name }}"
+  loop:
+    - {api: argoproj.io/v1alpha1, kind: Application, ns: argocd, name: root}
+    - {api: v1, kind: ConfigMap, ns: kube-system, name: migration-handed-off}
+  register: migration_handoff_objects
+  failed_when: not migration_handoff_objects.api_found or migration_handoff_objects.resources | length != 0
+
+- name: Discover and verify migration inputs
+  ansible.builtin.include_tasks: inventory.yml
+
+- name: Seed managed appdata
+  ansible.builtin.include_tasks: claim.yml
+  loop: "{{ migration_claims }}"
+  loop_control:
+    loop_var: migration_claim
+    label: "{{ migration_claim.metadata.namespace }}/{{ migration_claim.metadata.name }}"
+  vars:
+    migration_seed: true

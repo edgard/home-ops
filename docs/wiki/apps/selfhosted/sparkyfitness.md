@@ -56,7 +56,7 @@ transports. OpenAI processes submitted AI text, images and audio.
 
 ## Storage and backups
 
-One retained NFS claim contains PostgreSQL, uploads and backup subdirectories.
+One retained OpenEBS ZFS claim contains PostgreSQL, uploads and backup subdirectories.
 The backend mounts the parent at `/data` and uses `/data/uploads` and
 `/data/backups`. Native restore swaps staged entries into the uploads directory
 on the same filesystem and retains the previous files. PostgreSQL mounts only its own subdirectory

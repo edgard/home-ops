@@ -1,20 +1,22 @@
 # Plan and guard appdata restores
 
 Purpose: explain the restore transaction's safety boundary.
-Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
+Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
 
 [PR #260](https://github.com/edgard/home-ops/pull/260) retained the shared
 Restic repository as the recovery source. [PR #261](https://github.com/edgard/home-ops/pull/261)
 added plan-only Taskfile entry points and an Ansible role that chooses
-Argo-managed appdata PVCs, excluding shared/static storage. Confirmed restores
-pause app updates, stop targets, restore data, and resume policy. If a
-destructive restore fails, the role leaves state for inspection rather than
-silently resuming incomplete data.
+Argo-managed appdata PVCs, excluding shared/static storage. The OpenEBS migration preserves this preview boundary and the legacy snapshot
+layout. The role binds each PVC to its exact CSI dataset and resolves its
+snapshot ID before changing cluster state. Per-namespace mounts follow
+Kubernetes PVC ownership and allow Restic to verify the selected claim subtree.
 
-The [runbook](../operations/restic-backup-restore.md) holds the operator steps.
-Do not infer backup freshness from this design; inspect snapshots before
-restoring. Permanent restore/rollback simulations are retired; changes to this
-procedure need targeted implementation verification and review.
+A confirmed transaction records the previous replica and CronJob settings in
+an exclusively created ConfigMap. It temporarily pauses the Argo application
+controller so the root app and app children cannot restart writers, drains
+scheduled consumers, and stops target workloads. Only successful restores
+resume operations automatically. On failure retain the lock and inspect the
+record; the [runbook](../operations/restic-backup-restore.md) describes recovery.
 
 ## Sources
 

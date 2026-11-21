@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+{% if migration_compare_only | default(false) %}
+  generateName: "migration-verify-"
+{% else %}
+  name: "{{ migration_job }}"
+{% endif %}
+  namespace: "{{ migration_ns }}"
+  annotations:
+    home-ops.edgard.org/source-snapshot-guid: "{{ migration_snapshot_guid }}"
+    home-ops.edgard.org/source-pool-guid: "{{ migration_identity.resources[0].data['pool-guid'] }}"
+spec:
+  backoffLimit: {{ 0 if migration_compare_only | default(false) else 2 }}
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: homelab
+      containers:
+        - name: copy
+          image: "{{ migration_copy_image }}"
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              check_mount() {
+                awk -v path="$1" -v src="$2" -v root="$3" '$4 == root && $5 == path {for (i=7;i<NF;i++) if ($i=="-" && $(i+1)=="zfs" && $(i+2)==src) ok=1} END {exit !ok}' /proc/self/mountinfo
+              }
+              check_mount /source '{{ migration_dataset }}@{{ migration_snapshot }}' '/{{ migration_ns }}/{{ migration_name }}'
+              check_mount /target 'dpool/k8s/pvc-{{ migration_uid }}' /
+{% if not migration_compare_only | default(false) %}
+              marker=.home-ops-copy-in-progress
+              test ! -e "/source/$marker"
+              test ! -L "/source/$marker"
+              if [ -e "/target/$marker" ]; then
+                test ! -L "/target/$marker"
+                test "$(cat "/target/$marker")" = '{{ migration_uid }}:{{ migration_snapshot_guid }}'
+              else
+                # A retry after marker removal can only acknowledge an already identical tree.
+                if [ -n "$(ls -A /target)" ]; then
+                  rsync -aHAXSnic --delete --numeric-ids /source/ /target/ > /tmp/differences
+                  test ! -s /tmp/differences
+                  exit 0
+                fi
+                echo '{{ migration_uid }}:{{ migration_snapshot_guid }}' > "/target/$marker"
+              fi
+              rsync -aHAXS --numeric-ids --exclude="/$marker" /source/ /target/
+              rsync -aHAXSnic --delete --numeric-ids --exclude="/$marker" /source/ /target/ > /tmp/differences
+              test ! -s /tmp/differences
+              rm "/target/$marker"
+              # Removing the marker changes the root mtime. Restore it and compare the entire tree.
+              touch -r /source /target
+{% endif %}
+              rsync -aHAXSnic --delete --numeric-ids /source/ /target/ > /tmp/differences
+              test ! -s /tmp/differences
+          volumeMounts:
+            - name: source
+              mountPath: /source
+              readOnly: true
+            - name: target
+              mountPath: /target
+{% if migration_compare_only | default(false) %}
+              readOnly: true
+{% endif %}
+      volumes:
+        - name: source
+          hostPath:
+            path: "{{ migration_mount }}/.zfs/snapshot/{{ migration_snapshot }}/{{ migration_ns }}/{{ migration_name }}"
+            type: Directory
+        - name: target
+          persistentVolumeClaim:
+            claimName: "{{ migration_name }}"

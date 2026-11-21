@@ -1,0 +1,9 @@
+---
+- name: Verify the bare-metal storage cutover
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Verify physical storage and all migrated claims
+      ansible.builtin.include_role:
+        name: migration
+        tasks_from: verify

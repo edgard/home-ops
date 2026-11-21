@@ -173,9 +173,9 @@
       labels: [],
     },
 
-    // Talos 1.14 retires this installer; migrate to Image Factory before lifting.
+    // Keep the verified bare-metal and OpenZFS versions together through cutover.
     {
-      description: "Keep Talos on 1.13 until the installer migration is complete",
+      description: "Keep Talos on 1.13 until the bare-metal upgrade is verified",
       matchDatasources: ["github-releases"],
       matchPackageNames: ["siderolabs/talos"],
       allowedVersions: "<1.14.0",

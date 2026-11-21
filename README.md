@@ -26,7 +26,9 @@ task deps                         # Synchronize locked Python dependencies and p
 # Set local CLI inputs
 export TALOS_NODE="192.168.1.253"
 export TALOS_CLUSTER_NAME="homelab"
-export TALOS_INSTALL_DISK="/dev/vda"
+export TALOS_INSTALL_DISK="/dev/disk/by-id/<whole-system-ssd>"
+export TALOS_INSTALL_SERIAL="<verified-system-ssd-serial>"
+export TALOS_UPLINK_MAC="<permanent-physical-uplink-mac>"
 export KUBE_CONTEXT="admin@homelab"
 ```
 
@@ -44,18 +46,18 @@ task secrets:check scope=terraform
 
 ### Bootstrap Cluster
 
-```bash
-task cluster:create                  # Install Talos, bootstrap Kubernetes, then install the platform
-task cluster:destroy                 # Destroy platform components, then reset the Talos node
-task platform:create                 # Install platform Helm releases and Argo CD root app
-task platform:destroy                # Uninstall platform bootstrap components
-```
+Follow the [TrueNAS migration runbook](docs/wiki/operations/truenas-migration.md)
+to fence the source, preserve the SSD rollback bundle and import the retained
+pool. Use the [Talos bootstrap procedure](docs/wiki/architecture/talos-bootstrap.md)
+for the maintenance address, physical identity checks and secret inputs.
+`platform:foundation` keeps app writers held. `migration:restore` seeds the
+new claims and `platform:handoff` verifies them before releasing Argo.
 
 ## Common Commands
 
 ```bash
 # Cluster management
-task cluster:create                  # Install Talos, bootstrap Kubernetes, then install the platform
+task cluster:create                  # Configure the pre-flashed SSD and bootstrap the held foundation
 task cluster:destroy                 # Destroy platform components, then reset the Talos node
 task talos:gen                       # Generate Talos machine configuration
 task talos:apply                     # Apply Talos machine configuration to the node
@@ -64,7 +66,9 @@ task talos:upgrade                   # Upgrade Talos using the pinned role versi
 task talos:upgrade-k8s K8S_VERSION="${TARGET_KUBERNETES_VERSION}"  # Upgrade Kubernetes to the requested version
 
 # Platform management
-task platform:create                 # Install platform Helm releases and Argo CD root app
+task platform:foundation             # Install the held foundation and private Restic service
+task migration:verify                # Verify the seeded PVCs against the held snapshot
+task platform:handoff                # Release workloads after operator acceptance
 task platform:destroy                # Uninstall platform bootstrap components
 
 # Argo CD

@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-21] revision | Run appdata on bare-metal OpenEBS
+
+Split foundation and GitOps handoff. Documented local dataset bindings,
+snapshot-based claim migration, namespace backups and guarded restores,
+storage monitoring, and bare-metal lifecycle checks.
+
 ## [2026-11-21] revision | Stage a cold TrueNAS migration
 
 Added operator tasks and a runbook for preserving the source appdata, shared

@@ -24,6 +24,9 @@
   delay: "{{ talos_api_wait_delay }}"
   changed_when: false
 
+- name: Verify physical hardware before bootstrapping etcd
+  ansible.builtin.import_tasks: target.yml
+
 - name: Bootstrap Talos control plane
   when: not ansible_check_mode
   ansible.builtin.command:

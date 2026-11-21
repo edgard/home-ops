@@ -1,0 +1,7 @@
+---
+chart:
+  repo: https://openebs.github.io/zfs-localpv
+  name: zfs-localpv
+  version: 2.11.2
+sync:
+  wave: "-3"

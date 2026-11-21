@@ -1,219 +1,160 @@
 ---
-- name: Assert restore plan is not empty
-  ansible.builtin.assert:
-    that:
-      - restic_restore_plan | length > 0
-    fail_msg: "No restorable appdata PVCs found."
-
-- name: Remove stale restic restore job
-  kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: batch/v1
-    kind: Job
-    name: "{{ restic_restore_job_name }}"
-    namespace: "{{ restic_restore_namespace }}"
-    state: absent
-    wait: true
-    wait_timeout: 120
-
-- name: Read stale restic restore pods
+- name: Read the application controller replica count
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
-    api_version: v1
-    kind: Pod
-    namespace: "{{ restic_restore_namespace }}"
-    label_selectors:
-      - "job-name={{ restic_restore_job_name }}"
-  register: restic_restore_stale_pods
+    api_version: apps/v1
+    kind: StatefulSet
+    namespace: "{{ restic_restore_argocd_namespace }}"
+    name: "{{ restic_restore_controller }}"
+  register: restic_restore_controller_info
 
-- name: Remove stale restic restore pods
-  kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: v1
-    kind: Pod
-    name: "{{ item.metadata.name }}"
-    namespace: "{{ restic_restore_namespace }}"
-    state: absent
-    wait: true
-    wait_timeout: 120
-  loop: "{{ restic_restore_stale_pods.resources | default([]) }}"
-  loop_control:
-    label: "{{ item.metadata.name }}"
+- name: Require an active controller before entering maintenance
+  ansible.builtin.assert:
+    that:
+      - restic_restore_controller_info.resources | length == 1
+      - restic_restore_controller_info.resources[0].spec.replicas | int > 0
 
-- name: Run confirmed restore transaction
-  block:
-    - name: Create restic restore job
-      kubernetes.core.k8s:
-        kubeconfig: "{{ kubeconfig_path }}"
-        context: "{{ kube_context }}"
-        state: present
-        definition:
-          apiVersion: batch/v1
-          kind: Job
-          metadata:
-            name: "{{ restic_restore_job_name }}"
-            namespace: "{{ restic_restore_namespace }}"
-          spec:
-            template:
-              spec:
-                restartPolicy: Never
-                containers:
-                  - name: restic
-                    image: "{{ restic_restore_image }}"
-                    command:
-                      - /bin/sh
-                      - -c
-                      - sleep 3600
-                    env:
-                      - name: RESTIC_REPOSITORY
-                        value: "{{ restic_restore_repo_url }}"
-                      - name: RESTIC_REST_USERNAME
-                        value: "{{ restic_restore_rest_username }}"
-                      - name: RESTIC_REST_PASSWORD
-                        valueFrom:
-                          secretKeyRef:
-                            name: "{{ restic_restore_credentials_secret }}"
-                            key: "{{ restic_restore_credentials_key }}"
-                      - name: RESTIC_PASSWORD
-                        valueFrom:
-                          secretKeyRef:
-                            name: "{{ restic_restore_credentials_secret }}"
-                            key: "{{ restic_restore_credentials_key }}"
-                    volumeMounts:
-                      - name: appdata
-                        mountPath: "{{ restic_restore_target_root }}{{ restic_restore_snapshot_root }}"
-                volumes:
-                  - name: appdata
-                    persistentVolumeClaim:
-                      claimName: "{{ restic_restore_appdata_pvc }}"
-
-    - name: Read current ApplicationSet sync policy
-      kubernetes.core.k8s_info:
-        kubeconfig: "{{ kubeconfig_path }}"
-        context: "{{ kube_context }}"
-        api_version: argoproj.io/v1alpha1
-        kind: ApplicationSet
-        namespace: "{{ restic_restore_argocd_namespace }}"
-        name: "{{ restic_restore_applicationset_name }}"
-      register: restic_restore_applicationset_info
-
-    - name: Assert ApplicationSet exists
-      ansible.builtin.assert:
-        that:
-          - restic_restore_applicationset_info.resources | length == 1
-        fail_msg: "ApplicationSet not found: {{ restic_restore_argocd_namespace }}/{{ restic_restore_applicationset_name }}"
-
-    - name: Record current ApplicationSet sync policy
-      ansible.builtin.set_fact:
-        restic_restore_applicationset_had_sync_policy: "{{ restic_restore_applicationset_info.resources[0].spec.syncPolicy is defined }}"
-        restic_restore_applicationset_original_sync_policy: "{{ restic_restore_applicationset_info.resources[0].spec.syncPolicy | default({}) }}"
-
-    - name: Read restic restore job pod
-      kubernetes.core.k8s_info:
-        kubeconfig: "{{ kubeconfig_path }}"
-        context: "{{ kube_context }}"
-        api_version: v1
-        kind: Pod
+- name: Acquire exclusive restore lock and persist the recovery record
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ kubeconfig_path }}"
+      - --context
+      - "{{ kube_context }}"
+      - create
+      - -f
+      - "-"
+    stdin: "{{ restic_restore_lock | to_json }}"
+  changed_when: true
+  vars:
+    restic_restore_lock:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: restic-restore-lock
         namespace: "{{ restic_restore_namespace }}"
-        label_selectors:
-          - "job-name={{ restic_restore_job_name }}"
-      register: restic_restore_job_pods
-      until:
-        - restic_restore_job_pods.resources | length == 1
-        - restic_restore_job_pods.resources[0].status.phase == "Running"
-        - restic_restore_job_pods.resources[0].status.containerStatuses | default([]) | selectattr('ready', 'equalto', true) | list | length == 1
-      retries: 30
-      delay: 2
+      immutable: true
+      data:
+        plan.json: "{{ restic_restore_plan | to_json }}"
+        cronjobs.json: "{{ restic_restore_cronjobs | to_json }}"
+        controller-replicas: "{{ restic_restore_controller_info.resources[0].spec.replicas | string }}"
 
-    - name: Record restore pod name
-      ansible.builtin.set_fact:
-        restic_restore_pod_name: "{{ restic_restore_job_pods.resources[0].metadata.name }}"
+- name: Restore the selected claims while GitOps and scheduled consumers are paused
+  block:
+    - name: Pause Argo workload reconciliation
+      kubernetes.core.k8s_scale:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: apps/v1
+        kind: StatefulSet
+        namespace: "{{ restic_restore_argocd_namespace }}"
+        name: "{{ restic_restore_controller }}"
+        replicas: 0
+        wait: true
+        wait_timeout: 300
 
-    - name: Pause generated app updates
+    - name: Suspend scheduled jobs that could observe partial data or prune a selected snapshot
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         context: "{{ kube_context }}"
         state: patched
         definition:
-          apiVersion: argoproj.io/v1alpha1
-          kind: ApplicationSet
+          apiVersion: batch/v1
+          kind: CronJob
           metadata:
-            name: "{{ restic_restore_applicationset_name }}"
-            namespace: "{{ restic_restore_argocd_namespace }}"
+            name: "{{ item.name }}"
+            namespace: "{{ item.namespace }}"
           spec:
-            syncPolicy:
-              applicationsSync: create-only
+            suspend: true
+      loop: "{{ restic_restore_cronjobs }}"
 
-    - name: Prepare planned apps
+    - name: Wait for existing jobs issued by the suspended schedulers to finish
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: batch/v1
+        kind: Job
+        namespace: "{{ item.namespace }}"
+      register: restic_restore_scheduled_jobs
+      until: restic_restore_scheduled_jobs.resources | restic_unfinished_jobs(item.name) | length == 0
+      retries: 240
+      delay: 30
+      loop: "{{ restic_restore_cronjobs }}"
+
+    - name: Scale down selected applications
       ansible.builtin.include_tasks: execute_prepare_app.yml
       loop: "{{ restic_restore_plan }}"
       loop_control:
         loop_var: restic_restore_app_plan
         label: "{{ restic_restore_app_plan.app }}"
 
-    - name: Restore planned app data
+    - name: Require every selected claim to have zero running consumers
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: Pod
+      register: restic_restore_consumers
+      until: restic_restore_consumers.resources | restic_claim_consumers(restic_restore_plan, 'pod') | length == 0
+      retries: 60
+      delay: 5
+
+    - name: Restore and verify each application
       ansible.builtin.include_tasks: execute_restore_app.yml
       loop: "{{ restic_restore_plan }}"
       loop_control:
         loop_var: restic_restore_app_plan
         label: "{{ restic_restore_app_plan.app }}"
 
-    - name: Resume planned apps
+    - name: Return applications to their original replica counts
       ansible.builtin.include_tasks: execute_resume_app.yml
       loop: "{{ restic_restore_plan }}"
       loop_control:
         loop_var: restic_restore_app_plan
         label: "{{ restic_restore_app_plan.app }}"
 
-    - name: Restore original ApplicationSet sync policy
-      when: restic_restore_applicationset_had_sync_policy | bool
+    - name: Return scheduled jobs to their previous state
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         context: "{{ kube_context }}"
         state: patched
         definition:
-          apiVersion: argoproj.io/v1alpha1
-          kind: ApplicationSet
+          apiVersion: batch/v1
+          kind: CronJob
           metadata:
-            name: "{{ restic_restore_applicationset_name }}"
-            namespace: "{{ restic_restore_argocd_namespace }}"
+            name: "{{ item.name }}"
+            namespace: "{{ item.namespace }}"
           spec:
-            syncPolicy: "{{ restic_restore_applicationset_original_sync_policy }}"
+            suspend: "{{ item.suspend }}"
+      loop: "{{ restic_restore_cronjobs }}"
 
-    - name: Remove temporary ApplicationSet sync policy
-      when: not (restic_restore_applicationset_had_sync_policy | bool)
-      kubernetes.core.k8s_json_patch:
+    - name: Resume Argo workload reconciliation
+      kubernetes.core.k8s_scale:
         kubeconfig: "{{ kubeconfig_path }}"
         context: "{{ kube_context }}"
-        api_version: argoproj.io/v1alpha1
-        kind: ApplicationSet
+        api_version: apps/v1
+        kind: StatefulSet
         namespace: "{{ restic_restore_argocd_namespace }}"
-        name: "{{ restic_restore_applicationset_name }}"
-        patch:
-          - op: remove
-            path: /spec/syncPolicy
+        name: "{{ restic_restore_controller }}"
+        replicas: "{{ restic_restore_controller_info.resources[0].spec.replicas }}"
+        wait: true
+        wait_timeout: 300
 
-    - name: Delete restic restore job after successful restore
+    - name: Release the transaction lock
       kubernetes.core.k8s:
         kubeconfig: "{{ kubeconfig_path }}"
         context: "{{ kube_context }}"
-        api_version: batch/v1
-        kind: Job
-        name: "{{ restic_restore_job_name }}"
+        api_version: v1
+        kind: ConfigMap
+        name: restic-restore-lock
         namespace: "{{ restic_restore_namespace }}"
         state: absent
-        wait: true
-        wait_timeout: 120
-
   rescue:
-    - name: Stop after failed destructive restore
+    - name: Preserve the recovery record for manual inspection
       ansible.builtin.fail:
         msg: >-
-          Restic restore failed after execution started. The ApplicationSet or
-          individual Argo CD app sync policies may still be paused, one or more
-          workloads may still be scaled to zero or partially resumed, and the
-          restore job is left for inspection. Do not manually resume apps until
-          the restored data has been inspected.
+          Restore stopped. Inspect Jobs named {{ restic_restore_job_name }}-<app> in the selected namespaces
+          and {{ restic_restore_namespace }}/restic-restore-lock for pinned snapshot IDs, claims, workload replicas,
+          controller replicas and CronJob states. Verify the data before resuming workloads or clearing the lock.

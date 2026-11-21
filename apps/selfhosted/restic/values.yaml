@@ -1,11 +1,10 @@
 ---
 defaultPodOptions:
   securityContext:
-    fsGroup: 0
-    fsGroupChangePolicy: OnRootMismatch
     runAsGroup: 0
     runAsNonRoot: false
     runAsUser: 0
+  automountServiceAccountToken: false
 
 controllers:
   main:
@@ -23,26 +22,28 @@ controllers:
             "mac": "02:42:c0:a8:01:f4"
           }]
     initContainers:
-      init:
+      check:
         image:
-          repository: restic/rest-server
-          tag: 0.14.0
+          repository: restic/restic
+          tag: 0.20.0
         command:
           - /bin/sh
-          - -c
+          - -ec
           - |
-            if [ ! -f /repository/.htpasswd ]; then
-              echo "Creating htpasswd file..."
-              htpasswd -Bbc /repository/.htpasswd restic "$RESTIC_PASSWORD"
-            fi
+            test "$(cat /storage-check/verified-boot)" = "$(cat /proc/sys/kernel/random/boot_id)"
+            awk '$4 == "/" && $5 == "/repository" {for (i=7; i<NF; i++) if ($i == "-" && $(i+1) == "zfs" && $(i+2) == "dpool/restic") ok=1} END {exit !ok}' /proc/self/mountinfo
+            test -s /repository/config
+            test -s /repository/.htpasswd
+            case "$RESTIC_REPOSITORY_ID" in ""|*[!0-9a-f]*) exit 1 ;; esac
+            test "$(printf %s "$RESTIC_REPOSITORY_ID" | wc -c)" -eq 64
+            actual=$(restic --no-lock cat config | sed -n 's/^ *"id": *"\([0-9a-f]*\)"[,]*$/\1/p')
+            test "$actual" = "$RESTIC_REPOSITORY_ID"
+            cp "$(command -v restic)" /tools/restic
         env:
-          RESTIC_PASSWORD:
-            valueFrom:
-              secretKeyRef:
-                name: restic-credentials
-                key: RESTIC_PASSWORD
-        securityContext:
-          allowPrivilegeEscalation: false
+          RESTIC_REPOSITORY: /repository
+        envFrom:
+          - secretRef:
+              name: restic-credentials
     containers:
       app:
         image:
@@ -55,6 +56,11 @@ controllers:
         args:
           - --path=/repository
           - --htpasswd-file=/repository/.htpasswd
+        env:
+          RESTIC_REPOSITORY: /repository
+        envFrom:
+          - secretRef:
+              name: restic-credentials
         probes:
           startup:
             enabled: true
@@ -65,37 +71,8 @@ controllers:
   backup:
     type: cronjob
     cronjob:
-      schedule: "0 3 * * *"
-    pod:
-      restartPolicy: OnFailure
-    initContainers:
-      init:
-        image:
-          repository: restic/restic
-          tag: 0.20.0
-        securityContext:
-          allowPrivilegeEscalation: false
-        command:
-          - /bin/sh
-          - -c
-          - |
-            if ! restic --retry-lock 30m snapshots > /dev/null 2>&1; then
-              echo "Initializing restic repository..."
-              restic --retry-lock 30m init
-            fi
-        env:
-          RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
-          RESTIC_PASSWORD:
-            valueFrom:
-              secretKeyRef:
-                name: restic-credentials
-                key: RESTIC_PASSWORD
-          RESTIC_REST_PASSWORD:
-            valueFrom:
-              secretKeyRef:
-                name: restic-credentials
-                key: RESTIC_PASSWORD
-          RESTIC_REST_USERNAME: restic
+      schedule: "25 3 * * *"
+      concurrencyPolicy: Forbid
     containers:
       app:
         image:
@@ -103,90 +80,113 @@ controllers:
           tag: 0.20.0
         securityContext:
           allowPrivilegeEscalation: false
-        args:
-          - --retry-lock
-          - 30m
-          - backup
-          - /data/appdata
-          - --host
-          - homelab
-          - --tag
-          - appdata
-          - --verbose
-          - --exclude
-          - /data/appdata/selfhosted/sparkyfitness-data/postgresql
-          - --exclude
-          - /data/appdata/selfhosted/sparkyfitness-data/backups/.tmp
+        command:
+          - /bin/sh
+          - -ec
+          - |
+            case "$RESTIC_REPOSITORY_ID" in ""|*[!0-9a-f]*) exit 1 ;; esac
+            test "$(printf %s "$RESTIC_REPOSITORY_ID" | wc -c)" -eq 64
+            actual=$(restic --no-lock cat config | sed -n 's/^ *"id": *"\([0-9a-f]*\)"[,]*$/\1/p')
+            test "$actual" = "$RESTIC_REPOSITORY_ID"
+            for claim in /data/appdata/selfhosted/*; do
+              awk -v dir="$claim" '$4 == "/" && $5 == dir && $6 ~ /(^|,)ro(,|$)/ {
+                for (i=7; i<NF; i++) if ($i == "-" && $(i+1) == "zfs" && $(i+2) ~ /^dpool\/k8s\/pvc-/) ok=1
+              } END {exit !ok}' /proc/self/mountinfo
+            done
+            exec restic --retry-lock 30m backup /data/appdata/selfhosted --host homelab --tag appdata \
+              --exclude /data/appdata/selfhosted/sparkyfitness-data/postgresql \
+              --exclude /data/appdata/selfhosted/sparkyfitness-data/backups/.tmp
         env:
           RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
-          RESTIC_PASSWORD:
-            valueFrom:
-              secretKeyRef:
-                name: restic-credentials
-                key: RESTIC_PASSWORD
+          RESTIC_REST_USERNAME: restic
           RESTIC_REST_PASSWORD:
             valueFrom:
               secretKeyRef:
                 name: restic-credentials
                 key: RESTIC_PASSWORD
-          RESTIC_REST_USERNAME: restic
-        probes:
-          liveness:
-            enabled: false
-          readiness:
-            enabled: false
-          startup:
-            enabled: false
+        envFrom:
+          - secretRef:
+              name: restic-credentials
   maintenance:
     type: cronjob
     cronjob:
-      schedule: "0 4 * * 1"
-    pod:
-      restartPolicy: OnFailure
+      schedule: "0 4 * * *"
+      concurrencyPolicy: Forbid
+    initContainers:
+      check:
+        image:
+          repository: restic/restic
+          tag: 0.20.0
+        command:
+          - /bin/sh
+          - -ec
+          - |
+            test "$(cat /storage-check/verified-boot)" = "$(cat /proc/sys/kernel/random/boot_id)"
+            awk '$4 == "/" && $5 == "/repository" {for (i=7; i<NF; i++) if ($i == "-" && $(i+1) == "zfs" && $(i+2) == "dpool/restic") ok=1} END {exit !ok}' /proc/self/mountinfo
+            test -s /repository/config
+            test -s /repository/.htpasswd
+            case "$RESTIC_REPOSITORY_ID" in ""|*[!0-9a-f]*) exit 1 ;; esac
+            test "$(printf %s "$RESTIC_REPOSITORY_ID" | wc -c)" -eq 64
+            actual=$(restic --no-lock cat config | sed -n 's/^ *"id": *"\([0-9a-f]*\)"[,]*$/\1/p')
+            test "$actual" = "$RESTIC_REPOSITORY_ID"
+        env:
+          RESTIC_REPOSITORY: /repository
+        envFrom:
+          - secretRef:
+              name: restic-credentials
+      cloud:
+        image:
+          repository: rclone/rclone
+          tag: 1.76.0
+        env:
+          RCLONE_CONFIG: /cloud/rclone.conf
+        command:
+          - /bin/sh
+          - -ec
+          - |
+            test -s /approval/snapshot-id || { echo "Waiting for the independent B2 restore drill and restic-cloud-approval"; exit 1; }
+            snapshot=$(cat /approval/snapshot-id)
+            case "$snapshot" in ""|*[!0-9a-f]*) exit 1 ;; esac
+            test "$(printf %s "$snapshot" | wc -c)" -eq 64
+            # Confirm the existing encrypted destination decrypts to the local repository config.
+            rclone config redacted restic-cloud | awk '
+              /^type = crypt$/ {crypt=1}
+              /^filename_encryption = off$/ {plain=1}
+              END {exit !(crypt && plain)}'
+            rclone cat restic-cloud:config > /tmp/cloud-config
+            cmp -s /tmp/cloud-config /repository/config
+            rclone cat "restic-cloud:snapshots/$snapshot" > /tmp/cloud-snapshot
+            printf '%s  %s\n' "$snapshot" /tmp/cloud-snapshot | sha256sum -c -
+            # Publish only snapshots present before their immutable packs are copied.
+            rclone lsf --files-only /repository/snapshots > /tmp/snapshot-list
+            test -s /tmp/snapshot-list
+            rclone copy /repository restic-cloud: --exclude '/locks/**' --exclude '/snapshots/**' --exclude '/.zfs/**'
+            rclone copy /repository/snapshots restic-cloud:snapshots --files-from /tmp/snapshot-list
     containers:
       app:
         image:
           repository: restic/restic
           tag: 0.20.0
-        securityContext:
-          allowPrivilegeEscalation: false
         command:
           - /bin/sh
-          - -c
+          - -ec
           - |
-            echo "Running forget with retention policy..."
-            restic --retry-lock 30m forget \
-              --group-by host,paths,tags \
-              --keep-daily 14 \
-              --keep-weekly 8 \
-              --keep-monthly 12 \
-              --keep-yearly 3 \
-              --prune \
-              --verbose
-            echo "Running repository metadata check..."
-            restic --retry-lock 30m check --verbose
-            echo "Running partial data verification..."
-            restic --retry-lock 30m check --read-data-subset=10% --verbose
+            [ "$(date +%u)" = 1 ] || exit 0
+            restic --retry-lock 30m forget --group-by host,paths,tags \
+              --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --keep-yearly 3 --prune
+            restic --retry-lock 30m check
+            restic --retry-lock 30m check --read-data-subset=10%
         env:
           RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
-          RESTIC_PASSWORD:
-            valueFrom:
-              secretKeyRef:
-                name: restic-credentials
-                key: RESTIC_PASSWORD
+          RESTIC_REST_USERNAME: restic
           RESTIC_REST_PASSWORD:
             valueFrom:
               secretKeyRef:
                 name: restic-credentials
                 key: RESTIC_PASSWORD
-          RESTIC_REST_USERNAME: restic
-        probes:
-          liveness:
-            enabled: false
-          readiness:
-            enabled: false
-          startup:
-            enabled: false
+        envFrom:
+          - secretRef:
+              name: restic-credentials
 
 service:
   main:
@@ -200,13 +200,106 @@ persistence:
   repo:
     type: persistentVolumeClaim
     existingClaim: restic-repo
-    globalMounts:
-      - path: /repository
-  appdata:
+    advancedMounts:
+      main:
+        check:
+          - {path: /repository, readOnly: true}
+        app:
+          - {path: /repository}
+      maintenance:
+        check:
+          - {path: /repository, readOnly: true}
+        cloud:
+          - {path: /repository, readOnly: true}
+  boot-check:
+    type: hostPath
+    hostPath: /run/home-ops-storage
+    hostPathType: DirectoryOrCreate
+    advancedMounts:
+      main:
+        check:
+          - {path: /storage-check, readOnly: true}
+      maintenance:
+        check:
+          - {path: /storage-check, readOnly: true}
+  tools:
+    type: emptyDir
+    advancedMounts:
+      main:
+        check:
+          - {path: /tools}
+        app:
+          - {path: /tools, readOnly: true}
+  cloud-approval:
+    type: projected
+    sources:
+      - configMap:
+          name: restic-cloud-approval
+          optional: true
+    advancedMounts:
+      maintenance:
+        cloud:
+          - {path: /approval, readOnly: true}
+  cloud-config:
+    type: secret
+    name: restic-cloud-credentials
+    advancedMounts:
+      maintenance:
+        cloud:
+          - {path: /cloud, readOnly: true}
+  atuin:
     type: persistentVolumeClaim
-    existingClaim: restic-appdata
+    existingClaim: atuin
     advancedMounts:
       backup:
         app:
-          - path: /data/appdata
+          - path: /data/appdata/selfhosted/atuin
+            readOnly: true
+  bambuddy:
+    type: persistentVolumeClaim
+    existingClaim: bambuddy
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata/selfhosted/bambuddy
+            readOnly: true
+  changedetection:
+    type: persistentVolumeClaim
+    existingClaim: changedetection
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata/selfhosted/changedetection
+            readOnly: true
+  karakeep:
+    type: persistentVolumeClaim
+    existingClaim: karakeep
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata/selfhosted/karakeep
+            readOnly: true
+  paperless:
+    type: persistentVolumeClaim
+    existingClaim: paperless
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata/selfhosted/paperless
+            readOnly: true
+  sparkyfitness-data:
+    type: persistentVolumeClaim
+    existingClaim: sparkyfitness-data
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata/selfhosted/sparkyfitness-data
+            readOnly: true
+  twitch-drops-miner:
+    type: persistentVolumeClaim
+    existingClaim: twitch-drops-miner
+    advancedMounts:
+      backup:
+        app:
+          - path: /data/appdata/selfhosted/twitch-drops-miner
             readOnly: true

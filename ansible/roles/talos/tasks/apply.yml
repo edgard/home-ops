@@ -1,53 +1,37 @@
 ---
-- name: Require Talos node
+- name: Identify the physical node before applying its machine configuration
+  ansible.builtin.import_tasks: target.yml
+  vars:
+    talos_first_contact: "{{ talos_maintenance_node }}"
+
+- name: Reject a stale machine configuration from the virtual machine or a different target
+  no_log: true
+  vars:
+    talos_documents: "{{ lookup('ansible.builtin.file', talos_controlplane_config_path) | from_yaml_all | list }}"
+    talos_generated_machine: "{{ (talos_documents | selectattr('machine', 'defined') | first).machine }}"
+    talos_generated_cluster: "{{ (talos_documents | selectattr('cluster', 'defined') | first).cluster }}"
+    talos_generated_links: "{{ talos_documents | selectattr('kind', 'defined') | selectattr('kind', 'equalto', 'LinkAliasConfig') | list }}"
   ansible.builtin.assert:
     that:
-      - talos_node | length > 0
-    fail_msg: TALOS_NODE is required.
+      - talos_generated_machine.install.disk == talos_install_disk
+      - talos_generated_machine.install.image == talos_upgrade.installer.repository ~ ':' ~ talos_upgrade.installer.version
+      - talos_generated_cluster.controlPlane.endpoint == 'https://' ~ talos_node ~ ':6443'
+      - lookup('ansible.builtin.template', 'uplink.yaml.j2') | from_yaml in talos_generated_links
 
-- name: Configure Talos endpoint
+- name: Apply verified control plane configuration
+  when: not ansible_check_mode
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['apply-config', '--file', talos_controlplane_config_path] + talos_target_auth_flags }}"
+  changed_when: true
+
+- name: Configure the final authenticated Talos endpoint
   when: not ansible_check_mode
   ansible.builtin.command:
     argv:
       - talosctl
       - --talosconfig
       - "{{ talos_config_path }}"
-      - --endpoints
-      - "{{ talos_node }}"
       - config
       - endpoints
       - "{{ talos_node }}"
   changed_when: false
-
-- name: Check whether Talos API already trusts local config
-  when: not ansible_check_mode
-  ansible.builtin.command:
-    argv:
-      - talosctl
-      - --talosconfig
-      - "{{ talos_config_path }}"
-      - --endpoints
-      - "{{ talos_node }}"
-      - version
-      - --nodes
-      - "{{ talos_node }}"
-      - --short
-  register: talos_apply_version_check
-  failed_when: false
-  changed_when: false
-
-- name: Apply Talos control plane config
-  when: not ansible_check_mode
-  ansible.builtin.command:
-    argv: >-
-      {{
-        ['talosctl', '--talosconfig', talos_config_path, '--endpoints', talos_node, 'apply-config']
-        + (['--insecure'] if talos_apply_version_check.rc != 0 else [])
-        + [
-          '--nodes',
-          talos_node,
-          '--file',
-          talos_controlplane_config_path
-        ]
-      }}
-  changed_when: true

@@ -18,7 +18,8 @@ while the VM is serving workloads. Record its merged commit as the rollback
 revision. The separate bare-metal cutover PR changes the ApplicationSet's
 discovered apps. Keep that PR open until the old VM, fileservices and other
 writers are fenced. After the SSD backup and physical checks, merge the cutover
-PR and check out the clean merged `master` on the Mac before bootstrapping the
+PR into `master` (retarget the stacked PR after preparation merges) and check
+out the clean merged `master` on the Mac before bootstrapping the
 target foundation. Foundation verifies that local HEAD equals remote master.
 
 ## Prepare recovery while everything is online
@@ -204,7 +205,11 @@ which recovering TrueNAS requires the saved three-piece bundle. Flash the
 reviewed RAW to that same whole device. Sync and read back the first 2246 MiB before boot, for example
 `sudo dd if=/dev/rdiskN bs=1m count=2246 | shasum -a 256` on the Mac.
 Require the same uncompressed hash and eject the disk cleanly.
-Use the bare-metal profile and the independent LAN maintenance address. Boot
+On a headless host, confirm how firmware will reach the RAW image's EFI loader
+and how you will regain control if the NIC never receives its maintenance
+lease. Verify the fallback loader on the SSD and retain the tested original
+boot-entry recovery path. Use the bare-metal profile and the independent LAN
+maintenance address. Boot
 with the pool disks isolated until the intended ZFS import behavior has been
 verified against sacrificial storage. The extension can auto-import visible
 pools; connecting production disks is a separate operator action.
@@ -310,36 +315,67 @@ under actual workload IDs before handoff. Keep the immutable staged copy.
 If the target cannot read the stage's security metadata, finish that
 translation with the source tooling before permitting writers.
 
-Reboot with `talosctl -n "$NODE" reboot`. Verify `talosctl -n "$NODE" mounts`
-in the new boot, recheck the GUID and observe the missing-pool fail-closed
-behavior on the isolated rehearsal. With the dormant target manifests
-selected on this cluster and the source identities set, run
-`task platform:foundation` before the restore. This installs the platform
-without admitting application writers.
+Reboot with `talosctl -n "$NODE" reboot`. Verify the pool GUID and mounts
+after reboot. In the isolated rehearsal, verify that an absent pool or
+an ordinary directory at either local mount stops writers. To recover from
+a missing-pool boot, verify the GUID and import/mount the original pool first.
+Wait for the CSI node to become Ready. Recreate blocked static-volume Pods
+so kubelet rebinds the recovered filesystems. Check their init-container
+results before resuming writers.
 
 ### Restore and hand off
 
-1. Pass the preserved identities into the target migration. Use the actual
-   private evidence directory in these examples.
+1. **Install the held foundation.** Confirm the source is fenced and the
+   cutover PR is merged. Use a clean checkout of the resulting `master`.
+   Keep the physical Talos inputs from the [bootstrap guide](../architecture/talos-bootstrap.md)
+   in the environment. Set the old repository's decrypted ID and its existing
+   password in the [Restic secret inputs](restic-backup-restore.md). Use the
+   private evidence produced by the source tasks.
 
    ```sh
    evidence="$(dirname "$MIGRATION_CONFIG")"
    export MIGRATION_POOL_GUID="$(jq -er .pool_guid "$evidence/stage.json")"
    export MIGRATION_SNAPSHOT="$(jq -er .snapshot "$MIGRATION_CONFIG")"
    export MIGRATION_SNAPSHOT_GUID="$(jq -er .snapshot_guid "$evidence/stage.json")"
+   task platform:foundation
+   ```
+
+2. **Seed and compare the appdata.** The copy Jobs provision on the physical
+   node, check the mount sources, preserve numeric owners, POSIX ACLs, xattrs
+   and hardlinks, then compare content and metadata. Verification mounts each
+   target read-only and computes another comparison against the snapshot.
+   Keep the completed Jobs as receipts. If a copy Job exhausts its retries,
+   inspect its logs and resolve the cause. Delete only that failed Job and
+   retry using the original PVC, UID, and held snapshot.
+
+   ```sh
    MIGRATION_CONFIRM=restore task migration:restore
    task migration:verify
    ```
 
-2. Verify all required app PVCs, data/ownership checks, Restic repository ID,
-   retained workstation snapshots and application-specific canaries before
-   `task platform:handoff`. Recheck name resolution, external workstation
-   backups through the existing Restic REST endpoint, one application restore,
-   media read/write roles and hardlinks, and a cold reboot. Only one cluster
-   may own the original addresses. Enable one set of backup and maintenance
-   jobs after a successful restore drill. Keep B2 writes disabled until a
-   cutover-compatible repository has been verified and its restore tested.
-   Keep the held snapshots and SSD recovery pieces through acceptance.
+3. **Authorize application startup.** Check claim bindings and capacities,
+   source ACL evidence and the private Restic snapshot list. Record the
+   cluster configuration/volume mapping off-node. Release application writers
+   with `PLATFORM_HANDOFF_CONFIRM=true task platform:handoff`. The handoff
+   repeats verification and records an immutable marker before starting Argo.
+
+4. **Accept the applications.** Check the API and LAN DNS, Jellyfin's
+   read-only library and playback, hardlinks across download/import paths,
+   qBittorrent's VPN, Home Assistant/Scrypted discovery, Paperless document
+   retrieval, Karakeep assets, and SparkyFitness's native database and uploads.
+   Test one restore into scratch storage and a workstation Restic backup.
+   Verify backup coverage in all three namespaces. Initialize and inspect
+   the storage maintenance Jobs and their Gatus check. Test one cold boot
+   with workloads held, then verify production services and the pool identity.
+   Shared file access from outside Kubernetes requires a separately selected
+   service; the former SMB/NFS shares retire at this cutover.
+
+5. **Authorize the off-site copy.** Restore a known snapshot through the
+   existing B2 crypt configuration and compare the file hash. Enable the
+   target mirror using the snapshot-ID approval in the [Restic runbook](restic-backup-restore.md).
+   Keep TrueNAS schedules and clients fenced until the corresponding target
+   jobs succeed. Keep the held snapshots and all three SSD recovery pieces
+   until you accept the cutover.
 
 ## Roll back to TrueNAS on the same SSD
 
@@ -417,7 +453,7 @@ cleanup decision after the rollback window.
 
 - [Source playbook](../../../ansible/playbooks/migration-source.yml) and [source operation entry point](../../../ansible/roles/truenas_migration/files/source_operator.py)
 - [TrueNAS staging and archive checks](../../../ansible/roles/truenas_migration/files/source.py)
-- [Current storage definitions](../../../apps/kube-system/nfs-provisioner/values.yaml) and [Restic service configuration](../../../apps/selfhosted/restic/values.yaml)
+- [Current storage definitions](../../../apps/kube-system/zfs-localpv/values.yaml) and [Restic service configuration](../../../apps/selfhosted/restic/values.yaml)
 - [TrueNAS configuration recovery](https://www.truenas.com/docs/scale/25.10/scaletutorials/systemsettings/advanced/managesysconfig/) explains the password secret seed.
 - [TrueNAS pool management](https://www.truenas.com/docs/scale/25.10/scaletutorials/storage/managepoolsscale/) documents the export and configuration removal options.
 - [TrueNAS cloud encryption](https://www.truenas.com/docs/scale/25.10/scaleuireference/dataprotection/cloudsynctasksscreensscale/) describes remote encryption and filename settings.
