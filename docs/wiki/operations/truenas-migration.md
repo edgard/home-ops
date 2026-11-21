@@ -379,7 +379,8 @@ from the private source receipts. Run
 `TALOS_ZFS_RELEASE_CONFIRM="$MIGRATION_POOL_GUID" task talos:release-zfs`.
 It stages discovery limited to the four member partition UUIDs for the next
 boot. Match those four paths to preflight. Confirm durable UEFI boot order,
-then reboot with `talosctl -n "$NODE" reboot`. Verify the importer scope,
+then use `talosctl -n "$NODE" reboot --mode=powercycle` to exercise the
+firmware path. Verify the changed boot ID, the importer scope,
 the original pool GUID, all four members online, the expected mounts and
 the held stage snapshot after reboot. In the isolated rehearsal, verify that an absent pool or
 an ordinary directory at either local mount stops writers. To recover from
