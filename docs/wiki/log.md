@@ -7,7 +7,8 @@ revisions. Ordinary questions and dependency bumps do not need entries.
 
 Split foundation and GitOps handoff. Documented local dataset bindings,
 snapshot-based claim migration, namespace backups and guarded restores,
-storage monitoring, and bare-metal lifecycle checks.
+storage monitoring, and bare-metal lifecycle checks. Added a headless rescue
+USB route for capturing and reimaging an installed SSD over the LAN.
 
 ## [2026-11-21] revision | Stage a cold TrueNAS migration
 

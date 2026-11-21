@@ -155,7 +155,8 @@ new cutover session.
    existing file. Save private `archive.json` off the NAS. The archive contains
    the original appdata, VM zvol, pool GUID, snapshots, and residual data from
    the partition. Restrict access accordingly.
-7. Gracefully shut down TrueNAS. Wait for power-off before pulling the SSD.
+7. Gracefully shut down TrueNAS. The [headless USB option](#leave-the-ssd-in-a-headless-host)
+   keeps the SSD installed. For the Mac enclosure route, wait for power-off before pulling the SSD.
    Leave the HDD members together. On the Mac, attach only the source SSD
    being prepared. Identify the external whole disk with `diskutil list` and
    `diskutil info`, check its physical size and logical sector size, then
@@ -213,6 +214,40 @@ maintenance address. Boot
 with the pool disks isolated until the intended ZFS import behavior has been
 verified against sacrificial storage. The extension can auto-import visible
 pools; connecting production disks is a separate operator action.
+
+### Leave the SSD in a headless host
+
+An independent Linux rescue USB can capture the same boot bundle over Ethernet
+and write the reviewed Talos RAW directly to the internal SSD. TrueNAS recovery
+is a rollback procedure. The forward migration can use the installed, fenced
+TrueNAS system briefly to select the rescue USB if the firmware boots the SSD first.
+
+1. Prepare an amd64 UEFI rescue stick with wired DHCP, the physical NIC driver
+   and firmware, key-only SSH and a host key pinned on the Mac. For SystemRescue,
+   include `copytoram` and `nomdlvm` in the default kernel command line.
+   Rehearse boot and SSH on the finished image, then read the written USB back.
+2. Check firmware Secure Boot compatibility. On a host without a working boot
+   menu, the current OS can register the verified USB's EFI loader with
+   `efibootmgr --create-only` and set that entry as `BootNext`, preserving
+   the original boot order. Identify the stick by its partition signature and
+   EFI loader. Record the original and requested entries. Keep the source
+   services fenced if booting TrueNAS for this step.
+3. With the host powered off, isolate the surviving pool disks. After USB boot,
+   authenticate the SSH host key and confirm UEFI, the expected physical NIC,
+   the RAM-backed rescue root and the absence of production HDDs. Match the
+   internal SSD's stable ID, serial, sector size, total size and both GPTs to
+   preflight. Check that its children have no mounts, swap or active holders.
+4. From the Mac, stream the exact prefix and secondary GPT ranges from that
+   cold SSD to private local files. Verify their byte counts and independent
+   SHA-256 readbacks. Hash the middle partition on the NAS and compare it to
+   the archive receipt. The repository's `migration:boot-backup` command
+   targets a locally attached macOS disk; the rescue route needs a verified
+   Linux reader and the same range and identity checks.
+5. After accepting the three recovery pieces, write the reviewed Talos image
+   using the same SSD identity, signature-clearing and readback checks as the
+   enclosure route. From rescue, verify Talos's new EFI partition and loader,
+   and select it for the next boot. Keep the rescue USB available until the
+   physical Talos API responds. Keep the pool disks isolated for the first boot.
 
 ## Bring up the new cluster
 
@@ -401,7 +436,8 @@ results before resuming writers.
    client or share online. Account for TrueNAS's import altroot when comparing
    effective paths. Recheck all changed values against the journal and keep
    the source system dataset and operator home available on TrueNAS.
-3. Gracefully shut down the bare-metal node. Put the SSD on the Mac and
+3. Gracefully shut down the bare-metal node. Put the SSD on the Mac, or boot
+   the verified rescue USB with the HDDs isolated and the SSD installed, and
    independently recheck physical identity, disk size and sector size against
    `preflight.json`. Talos has changed its GPT. With that disk unmounted and
    your source files hash-verified, write **only** the saved boot prefix at byte
@@ -458,6 +494,8 @@ cleanup decision after the rollback window.
 - [TrueNAS pool management](https://www.truenas.com/docs/scale/25.10/scaletutorials/storage/managepoolsscale/) documents the export and configuration removal options.
 - [TrueNAS cloud encryption](https://www.truenas.com/docs/scale/25.10/scaleuireference/dataprotection/cloudsynctasksscreensscale/) describes remote encryption and filename settings.
 - [OpenZFS send](https://openzfs.github.io/openzfs-docs/man/master/8/zfs-send.8.html) documents snapshot streams and property replication.
+- [SystemRescue boot options](https://www.system-rescue.org/manual/Booting_SystemRescue/) documents RAM boot and disabling automatic storage activation.
+- [efibootmgr](https://manpages.debian.org/trixie/efibootmgr/efibootmgr.8.en.html) documents one-time UEFI boot selection and creating entries without changing the boot order.
 - [Talos privileged debug implementation](https://github.com/siderolabs/talos/blob/v1.14.6/internal/app/debug/debug.go) documents host PID access in the release debugging profile.
 - [Talos ZFS extension](https://github.com/siderolabs/extensions/tree/main/storage/zfs) documents import behavior and compatible mount paths.
 

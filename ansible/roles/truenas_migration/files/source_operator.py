@@ -265,7 +265,7 @@ def mac_capture(directory, g):
     )
     info = mac_diskinfo(disk)
     require(
-        info.get("Whole") is True
+        info.get("WholeDisk", info.get("Whole")) is True
         and info.get("Internal") is False
         and info.get("VirtualOrPhysical") == "Physical",
         "selected device is not an external physical whole disk",
