@@ -1,7 +1,7 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1`.
+Status: current. Reviewed against: `09ff984c2258c4403ef203631fd580106f839e53` and this revision.
 
 The original Restic repository stays on the retained `dpool/restic` dataset
 and serves the Kubernetes cluster and existing workstation clients. Separate
@@ -12,7 +12,10 @@ encrypted B2 destination, then applies local retention on its weekly cadence.
 Verify independent remote restores as described in the [runbook](../operations/restic-backup-restore.md).
 
 The ordinary restore role resolves full snapshot IDs and bound OpenEBS
-datasets before stopping consumers. It uses per-application Jobs in the
+datasets before stopping consumers. A full restore compares its plan with
+current Helm-rendered claim names, namespaces and owners. The runbook also
+covers taking a held rollback snapshot after writers stop and before the
+first in-place write. The transaction uses per-application Jobs in the
 claim's namespace and restores the previous controller and scheduler state
 after verified completion. Shared media and repository storage have separate
 recovery paths. The [restore decision](../decisions/restic-restore-transaction.md)

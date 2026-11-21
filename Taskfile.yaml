@@ -351,14 +351,13 @@ tasks:
       - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-upgrade.yml"
 
   talos:upgrade-k8s:
-    desc: Upgrade Kubernetes control plane
+    desc: Apply the committed Kubernetes version manually while Tuppr is suspended
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
     requires:
       vars:
         - TALOS_NODE
-        - K8S_VERSION
     cmds:
       - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-upgrade-k8s.yml"
 

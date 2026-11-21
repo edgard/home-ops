@@ -1,0 +1,67 @@
+---
+- name: Read Kubernetes upgrades visible to the Tuppr controller
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ talos_generation_upgrade.apiVersion }}"
+    kind: KubernetesUpgrade
+  register: talos_tuppr_upgrades
+
+- name: Require acknowledgement that Tuppr suspended the repository target
+  vars:
+    talos_tuppr: "{{ talos_tuppr_upgrades.resources | first }}"
+  ansible.builtin.assert:
+    that:
+      - talos_tuppr_upgrades.api_found and talos_tuppr_upgrades.resources | length == 1
+      - talos_tuppr.metadata.name == talos_generation_upgrade.metadata.name
+      - talos_tuppr.metadata.deletionTimestamp is undefined
+      - talos_tuppr.spec.kubernetes.version == talos_generation_targets.kubernetes
+      - "'tuppr.home-operations.com/suspend' in talos_tuppr.metadata.annotations | default({})"
+      - talos_tuppr.status.phase | default('') == 'Pending'
+      - >-
+        talos_tuppr.status.conditions | default([]) | selectattr('type', 'equalto', 'Progressing') |
+        selectattr('status', 'equalto', 'False') | selectattr('reason', 'equalto', 'Suspended') |
+        selectattr('observedGeneration', 'equalto', talos_tuppr.metadata.generation) | list | length == 1
+    fail_msg: Suspend the matching KubernetesUpgrade and wait for Tuppr to acknowledge its current generation before a manual upgrade.
+
+- name: Read Tuppr's Kubernetes upgrade Jobs
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: batch/v1
+    kind: Job
+    namespace: platform-system
+    label_selectors:
+      - app.kubernetes.io/part-of=tuppr
+      - app.kubernetes.io/name=kubernetes-upgrade
+  register: talos_tuppr_jobs
+
+- name: Require every previously scheduled upgrade Job to be terminal
+  ansible.builtin.assert:
+    that: >-
+      item.status.conditions | default([]) | selectattr('type', 'in', ['Complete', 'Failed']) |
+      selectattr('status', 'equalto', 'True') | list | length > 0
+    fail_msg: Wait for the existing Tuppr upgrade Job to finish before running a manual upgrade.
+  loop: "{{ talos_tuppr_jobs.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Check for remaining upgrade workers including orphaned Pods
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Pod
+    namespace: platform-system
+    label_selectors:
+      - app.kubernetes.io/part-of=tuppr
+      - app.kubernetes.io/name=kubernetes-upgrade
+    field_selectors:
+      - status.phase!=Succeeded
+      - status.phase!=Failed
+  register: talos_tuppr_workers
+
+- name: Require the Tuppr upgrade workers to have stopped
+  ansible.builtin.assert:
+    that: talos_tuppr_workers.resources | length == 0
+    fail_msg: A Tuppr upgrade Pod is still running or pending.

@@ -21,7 +21,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 ```bash
 # Install CLI tools (macOS)
-brew install python@3.14 helm talosctl go-task opentofu uv yamlfmt pluto kubeconform actionlint shellcheck node@24
+brew install python@3.14 helm kubernetes-cli talosctl go-task opentofu uv yamlfmt pluto kubeconform actionlint shellcheck node@24
 task deps                         # Synchronize locked Python dependencies and pinned collections
 
 # Set local CLI inputs
@@ -79,7 +79,7 @@ task talos:apply                     # Apply Talos machine configuration to the 
 task talos:bootstrap                 # Bootstrap Kubernetes on the Talos node
 TALOS_ZFS_RELEASE_CONFIRM="$ZFS_POOL_GUID" task talos:release-zfs  # Stage verified dpool members for reboot
 task talos:upgrade                   # Upgrade Talos using the pinned role version
-task talos:upgrade-k8s K8S_VERSION="${TARGET_KUBERNETES_VERSION}"  # Upgrade Kubernetes to the requested version
+task talos:upgrade-k8s                # Apply the committed target manually after suspending Tuppr
 
 # Platform management
 task platform:foundation             # Install platform services and the private Restic endpoint

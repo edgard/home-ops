@@ -1,7 +1,7 @@
 # Kubernetes Restic restore runbook
 
 Purpose: recover existing Kubernetes appdata and verify the independent copy of the shared Restic repository.
-Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1`.
+Status: current. Reviewed against: `09ff984c2258c4403ef203631fd580106f839e53` and this revision.
 
 ## Repository and backups
 
@@ -93,9 +93,16 @@ It skips locks and performs no remote deletion. The remote accumulates retired
 objects and old snapshot IDs, so monitor B2 storage independently. Repository
 maintenance runs the weekly local retention and integrity checks after a
 successful copy. Missing approval or a failed check stops both operations.
-Inspect the CronJob's most recent Job and perform periodic independent restore
-drills. The schedules and retention counts live in the namespace values
-linked below. B2 can allow object listings while rejecting downloads with
+Storage readiness monitors local ZFS maintenance and SMART. Check the
+namespace backups and B2 copy separately for missed runs, inspect failed
+Job logs and perform periodic independent restore drills. Compare the last
+scheduled and successful times against each expected cadence.
+
+```sh
+kubectl get cronjobs -A -o custom-columns='NAMESPACE:.metadata.namespace,JOB:.metadata.name,SCHEDULE:.spec.schedule,LAST-SCHEDULE:.status.lastScheduleTime,LAST-SUCCESS:.status.lastSuccessfulTime' | grep -E 'NAMESPACE|home-automation-backup|media-backup|restic-(backup|maintenance)'
+```
+
+The schedules and retention counts live in the namespace values linked below. B2 can allow object listings while rejecting downloads with
 `403 download_cap_exceeded`. Compare actual bytes or a known digest when
 checking recovery. The daily cap also applies to independent restore drills.
 [Backblaze data caps](https://www.backblaze.com/docs/cloud-storage-data-caps-and-alerts)
@@ -107,7 +114,10 @@ verified repository server and their owning Argo Applications. The default
 preview and Ansible check mode read snapshot metadata. `latest` resolves the
 newest matching aggregate or namespace snapshot per application namespace.
 The plan displays the full snapshot ID, namespace, claim, destination dataset
-and workload replica counts. Confirm with that exact ID to reproduce a preview.
+and workload replica counts. An explicit snapshot ID pins the source.
+Each invocation resolves the current PVC UID, CSI dataset, Helm owner and
+Argo tracking identity again. Compare the destination UID and dataset with
+the preview before proceeding if a claim may have been recreated.
 
 ```sh
 task restic:restore app=paperless
@@ -132,6 +142,60 @@ or accidental reruns. After manually finishing or rolling back that transaction,
 return the recorded settings, remove its inspected Job and then remove the
 lock. Keep a copy of the recovery record until application checks pass.
 
+### Preserve the current data before an in-place restore
+
+The hourly ZFS snapshot can predate the last application writes. To preserve
+the exact state a restore will replace, run the confirmed playbook in step
+mode after reviewing the pinned plan. Set the same explicit `KUBECONFIG` and
+`KUBE_CONTEXT` in both terminals. For a single app:
+
+```sh
+.venv/bin/ansible-playbook --step ansible/playbooks/restic-restore.yml \
+  -e restic_restore_mode=app -e "restic_restore_app=$APP" \
+  -e "restic_restore_snapshot=$SNAPSHOT_ID" -e restic_restore_confirm=true
+```
+
+Answer `y` through **Require every selected claim to have zero running consumers**.
+At **Restore and verify each application**, leave the prompt unanswered. In the
+second terminal, save the original plan and snapshot exactly its selected
+datasets while the writers, schedulers and Argo controller remain stopped.
+
+```sh
+set -eu
+umask 077
+k() { kubectl --kubeconfig "$KUBECONFIG" --context "$KUBE_CONTEXT" "$@"; }
+k -n selfhosted get configmap restic-restore-lock -o json > "$PRIVATE_DIR/restore-lock.json"
+jq -er '
+  .metadata.uid as $tx | (.data["plan.json"] | fromjson) |
+  [.[].claims[] | if .dataset == ("dpool/k8s/pvc-" + .uid)
+    then .dataset + "@before-restore-" + $tx else error("unexpected dataset") end] |
+  unique | if length > 0 then .[] else error("empty plan") end
+' "$PRIVATE_DIR/restore-lock.json" > "$PRIVATE_DIR/rollback-snapshots"
+k -n kube-system exec -i deploy/storage-maintenance-health -c check -- sh -ec '
+  zfs() { chroot /host /usr/local/sbin/zfs "$@"; }
+  test "$(chroot /host /usr/local/sbin/zpool get -Hp -o value guid dpool)" = "$POOL_GUID"
+  set --
+  while IFS= read -r snapshot; do set -- "$@" "$snapshot"; done
+  test "$#" -gt 0
+  zfs snapshot "$@"
+  zfs hold home-ops-restore "$@"
+  zfs get -Hp -o name,value guid "$@"
+  zfs holds -H "$@"
+' < "$PRIVATE_DIR/rollback-snapshots" > "$PRIVATE_DIR/rollback-proof"
+```
+
+Check the saved GUID and hold for every snapshot before answering `c` to
+continue. A failure leaves the restore paused for inspection. To recover
+the pre-write version, stop all restore Jobs and consumers and compare the
+saved snapshot and destination identities. On a fenced dataset whose checkpoint
+is still the newest snapshot, `zfs rollback "$snapshot"` discards later file
+changes. When newer snapshots exist, keep them and recover the held source
+through a read-only clone and checksum-verified copy. Verify every selected
+claim and the application before resuming its writers. Release the holds and
+retire selected rollback snapshots only after acceptance.
+[OpenZFS rollback](https://openzfs.github.io/openzfs-docs/man/master/8/zfs-rollback.8.html)
+and [Ansible step mode](https://docs.ansible.com/projects/ansible/latest/playbook_guide/playbooks_startnstep.html)
+
 ## Restore all appdata
 
 ```sh
@@ -151,7 +215,10 @@ task restic:restore-all snapshot="$(jq -c . "$PINS")" confirm_restore=true
 
 A modern
 snapshot from one namespace cannot restore another namespace. Restore-all
-selects Argo-owned, bound `zfs-appdata` claims. Media, repository storage
+requires its planned namespace/claim names and Argo owners to match the
+current Helm-rendered appdata inventory, with the declared exclusions. Full
+preview therefore needs access to the pinned app chart. Single-app recovery
+uses its live Argo resource inventory. Media, repository storage
 and SparkyFitness have their own recovery procedures.
 
 ## SparkyFitness database and files
@@ -301,8 +368,9 @@ take a destination snapshot, hold it and record its GUID. Supply manual
 entries in the owner-private `PLATFORM_RECOVERY_FILE` JSON object with
 decimal-string `pool_guid` and a `claims` array.
 Each entry records `namespace`, `name`, new PVC `uid`, `dataset_guid`,
-destination `snapshot` basename, `snapshot_guid` and `verification`, using
-`restic-verify`, `retained-checksum` or `native-postgresql`. SparkyFitness
+destination `snapshot` basename, `snapshot_guid` and `verification`. Manual
+entries use `retained-checksum` or `native-postgresql`. The automatic checkpoint
+uses `restic-verify`. SparkyFitness
 requires the native method. Every current claim must have exactly one
 accepted automatic or manual proof. The first `task platform:handoff` checks the
 held snapshot, unchanged destination and complete claim inventory before
