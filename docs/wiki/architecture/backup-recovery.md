@@ -1,7 +1,7 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
+Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1`.
 
 The original Restic repository stays on the retained `dpool/restic` dataset
 and serves the Kubernetes cluster and existing workstation clients. Separate
@@ -16,8 +16,11 @@ datasets before stopping consumers. It uses per-application Jobs in the
 claim's namespace and restores the previous controller and scheduler state
 after verified completion. Shared media and repository storage have separate
 recovery paths. The [restore decision](../decisions/restic-restore-transaction.md)
-records the transaction boundary. Rebuilding an empty cluster requires the
-[pre-handoff migration procedure](../operations/truenas-migration.md).
+records the transaction boundary. A fresh cluster without etcd prepares new OpenEBS claims before Argo starts.
+The cold restore verifies the selected snapshot against each empty new
+filesystem through the read-only foundation repository. Retained data can
+also seed a new claim from a known held snapshot. First handoff verifies
+per-claim destination evidence. [Fresh-cluster recovery](../operations/restic-backup-restore.md#new-cluster-or-lost-etcd-state)
 
 Cluster recovery also requires Bitwarden availability and an operator token;
 see [secret recovery](../operations/secrets-maintenance.md). The existing Talos
@@ -36,6 +39,7 @@ list keeps this app out of automatic file-restore/resume transactions. See the
 
 - [Restic values](../../../apps/selfhosted/restic/values.yaml)
 - [Restore planning tasks](../../../ansible/roles/restic/tasks/plan.yml)
+- [Fresh-claim recovery](../../../ansible/roles/restic/tasks/cold.yml)
 - [Restore entry point](../../../ansible/roles/restic/tasks/main.yml)
 - [Restore execution tasks](../../../ansible/roles/restic/tasks/execute.yml)
 - [Restore Taskfile entry points](../../../Taskfile.yaml)

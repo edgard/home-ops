@@ -1,0 +1,25 @@
+---
+- name: Check for GitOps owners and workloads that could use appdata
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+  loop:
+    - {api: argoproj.io/v1alpha1, kind: Application}
+    - {api: argoproj.io/v1alpha1, kind: ApplicationSet}
+    - {api: apps/v1, kind: Deployment}
+    - {api: apps/v1, kind: StatefulSet}
+    - {api: apps/v1, kind: DaemonSet}
+    - {api: apps/v1, kind: ReplicaSet}
+    - {api: batch/v1, kind: CronJob}
+    - {api: batch/v1, kind: Job}
+    - {api: v1, kind: Pod}
+  register: platform_writer_inventory
+
+- name: Require exclusive access before recovery or first handoff
+  vars:
+    platform_writers: "{{ platform_writer_inventory.results | platform_recovery_consumers(platform_bootstrap_namespaces) }}"
+  ansible.builtin.assert:
+    that: platform_writers | length == 0
+    fail_msg: "Fence these GitOps owners or storage consumers first: {{ platform_writers | join(', ') }}"

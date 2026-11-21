@@ -33,7 +33,8 @@ Helm, and OpenTofu inputs in the CI toolchain.
 Two custom managers read the Helm chart pins from ApplicationSet inputs and
 the annotated versions and image tags elsewhere. Put a `# renovate:` comment
 directly above the matching key for upgrade targets, remaining CI tool pins,
-Gateway API, the Restic restore image, or the runtime SecretSpec pin. When
+Gateway API, the Restic restore image, the storage inspection image, or the
+runtime SecretSpec pin. When
 moving a pin, check its manager's file patterns and compare the dependencies
 reported by a local extraction dry run.
 
@@ -61,7 +62,8 @@ rendering and offline checks leave deployed workloads, provider plans, and
 operator procedures outside their coverage. Kubernetes and Talos release-line
 changes and downgrades require review of live upgrade preconditions. Their
 ordinary patches remain eligible for automerge within the version and release-age
-limits in the repository configuration.
+limits in the repository configuration. When changing the Talos release line,
+review its Kubernetes ceiling against the [Talos support matrix](https://docs.siderolabs.com/talos/v1.14/getting-started/support-matrix).
 
 Gotenberg stays within the major supported by Paperless's bundled conversion
 client. The [Paperless operational note](paperless.md) records the request-field

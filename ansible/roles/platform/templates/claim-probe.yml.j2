@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: platform-claims-
+  namespace: "{{ platform_claim_namespace }}"
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: homelab
+  tolerations:
+    - operator: Exists
+  containers:
+    - name: verify
+      image: "{{ platform_check_image }}"
+      command:
+        - sh
+        - -ec
+        - |
+{% if platform_new_site | default(false) | bool %}
+{% for claim in platform_probe_claims %}
+          path=/claims/{{ claim.metadata.name }}
+          source=dpool/k8s/pvc-{{ platform_bound_uids[platform_claim_namespace ~ '/' ~ claim.metadata.name] }}
+          awk -v p="$path" -v src="$source" '$5==p {n++
+            if ($4=="/" && $6 ~ /(^|,)ro(,|$)/) for(i=7;i<NF;i++) if($i=="-" && $(i+1)=="zfs" && $(i+2)==src) ok=1
+          } END {exit !(n==1 && ok)}' /proc/self/mountinfo
+          entry=$(find "$path" -mindepth 1 -maxdepth 1 ! -name .zfs -print -quit)
+          [ -z "$entry" ] || { echo "Existing contents in $path" >&2; exit 1; }
+{% endfor %}
+{% else %}
+          true
+{% endif %}
+      volumeMounts:
+{% for claim in platform_probe_claims %}
+        - name: claim-{{ loop.index }}
+          mountPath: /claims/{{ claim.metadata.name }}
+          readOnly: true
+{% endfor %}
+  volumes:
+{% for claim in platform_probe_claims %}
+    - name: claim-{{ loop.index }}
+      persistentVolumeClaim:
+        claimName: "{{ claim.metadata.name }}"
+        readOnly: true
+{% endfor %}

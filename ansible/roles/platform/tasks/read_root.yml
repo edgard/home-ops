@@ -1,0 +1,14 @@
+---
+- name: Read the existing root before classifying the handoff
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: argocd
+    name: root
+  register: platform_existing_root
+
+- name: Require the installed Argo CD API
+  ansible.builtin.assert:
+    that: platform_existing_root.api_found

@@ -1,6 +1,0 @@
----
-- name: Prepare the TrueNAS migration and the offline SSD recovery bundle
-  hosts: localhost
-  gather_facts: false
-  roles:
-    - role: truenas_migration

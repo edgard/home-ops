@@ -31,6 +31,38 @@ def select_snapshot(snapshots, requested, root, namespace):
     return {"id": snapshot["id"], "legacy": snapshot["paths"] == [root]}
 
 
+def claim_binding(pvc, pv, root):
+    ns, key = pvc["metadata"]["namespace"], pvc["metadata"]["name"]
+    spec = pv.get("spec", {})
+    ref, csi = spec.get("claimRef", {}), spec.get("csi", {})
+    uid = pvc["metadata"]["uid"]
+    handle = csi.get("volumeHandle", "")
+    if (
+        pvc["status"]["phase"] != "Bound"
+        or pvc["metadata"].get("deletionTimestamp")
+        or pv.get("metadata", {}).get("deletionTimestamp")
+        or (ref.get("namespace"), ref.get("name"), ref.get("uid")) != (ns, key, uid)
+        or pv.get("status", {}).get("phase") != "Bound"
+        or spec.get("persistentVolumeReclaimPolicy") != "Retain"
+        or spec.get("volumeMode", "Filesystem") != "Filesystem"
+        or spec.get("storageClassName") != "zfs-appdata"
+        or pvc["spec"].get("storageClassName") != "zfs-appdata"
+        or pv["metadata"]["name"] != pvc["spec"].get("volumeName")
+        or csi.get("driver") != "zfs.csi.openebs.io"
+        or handle != f"pvc-{uid}"
+        or not re.fullmatch(r"pvc-[0-9a-f-]{36}", handle)
+    ):
+        raise AnsibleFilterError(
+            f"Unexpected ownership or OpenEBS binding for {ns}/{key}"
+        )
+    return {
+        "name": key,
+        "uid": uid,
+        "dataset": f"dpool/k8s/{handle}",
+        "path": f"{root}/{ns}/{key}",
+    }
+
+
 def restore_plan(
     applications, pvcs, pvs, workloads, snapshots, requested, root, excluded
 ):
@@ -68,36 +100,13 @@ def restore_plan(
                 raise AnsibleFilterError(f"Missing claim {ns}/{key} in {name}")
             if pvc["spec"].get("storageClassName") != "zfs-appdata":
                 continue
-            pv = volumes.get(pvc["spec"].get("volumeName"), {})
-            spec = pv.get("spec", {})
-            ref, csi = spec.get("claimRef", {}), spec.get("csi", {})
-            handle = csi.get("volumeHandle", "")
-            if (
-                ns != namespace
-                or (ns, key) in seen
-                or pvc["status"]["phase"] != "Bound"
-                or (ref.get("namespace"), ref.get("name"), ref.get("uid"))
-                != (ns, key, pvc["metadata"]["uid"])
-                or pv.get("status", {}).get("phase") != "Bound"
-                or spec.get("persistentVolumeReclaimPolicy") != "Retain"
-                or spec.get("volumeMode", "Filesystem") != "Filesystem"
-                or spec.get("storageClassName") != "zfs-appdata"
-                or csi.get("driver") != "zfs.csi.openebs.io"
-                or handle != f"pvc-{ref.get('uid')}"
-                or not re.fullmatch(r"pvc-[0-9a-f-]{36}", handle)
-            ):
+            if ns != namespace or (ns, key) in seen:
                 raise AnsibleFilterError(
-                    f"Unexpected ownership or OpenEBS binding for {ns}/{key}"
+                    f"Duplicate or cross-namespace claim {ns}/{key}"
                 )
+            pv = volumes.get(pvc["spec"].get("volumeName"), {})
+            selected.append(claim_binding(pvc, pv, root))
             seen.add((ns, key))
-            selected.append(
-                {
-                    "name": key,
-                    "uid": ref["uid"],
-                    "dataset": f"dpool/k8s/{handle}",
-                    "path": f"{root}/{ns}/{key}",
-                }
-            )
         if selected:
             snapshot = select_snapshot(snapshots, requested, root, namespace)
             plan.append(
@@ -163,6 +172,8 @@ class FilterModule:
     def filters(self):
         return {
             "restic_restore_bindings": restore_plan,
+            "restic_claim_binding": claim_binding,
+            "restic_select_snapshot": select_snapshot,
             "restic_claim_consumers": claim_consumers,
             "restic_unfinished_jobs": unfinished_jobs,
         }

@@ -1,0 +1,39 @@
+---
+- name: Inspect this namespace's PVC mounts without starting workloads
+  vars:
+    platform_probe_claims: "{{ platform_claims | selectattr('metadata.namespace', 'equalto', platform_claim_namespace) }}"
+  block:
+    - name: Start a read-only PVC consumer
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: present
+        definition: "{{ lookup('template', 'claim-probe.yml.j2') | from_yaml }}"
+      register: platform_claim_probe
+
+    - name: Await the consumer's result
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        kind: Pod
+        namespace: "{{ platform_claim_namespace }}"
+        name: "{{ platform_claim_probe.result.metadata.name }}"
+      register: platform_claim_result
+      until: platform_claim_result.resources and platform_claim_result.resources[0].status.phase in ['Succeeded', 'Failed']
+      retries: 60
+      delay: 5
+
+    - name: Require every claim to be mounted and inspected successfully
+      ansible.builtin.assert:
+        that: platform_claim_result.resources[0].status.phase == 'Succeeded'
+  always:
+    - name: Remove the temporary consumer
+      when: platform_claim_probe.result.metadata.name is defined
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        kind: Pod
+        namespace: "{{ platform_claim_namespace }}"
+        name: "{{ platform_claim_probe.result.metadata.name }}"
+        state: absent
+        wait: true

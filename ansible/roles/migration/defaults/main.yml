@@ -1,8 +1,0 @@
----
-migration_pool_guid: "{{ lookup('env', 'MIGRATION_POOL_GUID') }}"
-migration_snapshot_guid: "{{ lookup('env', 'MIGRATION_SNAPSHOT_GUID') }}"
-migration_snapshot: "{{ lookup('env', 'MIGRATION_SNAPSHOT') }}"
-migration_copy_image: ghcr.io/instrumentisto/rsync-ssh:alpine3.23-r3@sha256:6cbad37c2fbdca4ac7ad9d1c1bb8990af9efd4dc76321b349935876cbb1e9e4a
-migration_check_image: docker.io/library/busybox:1.37.0@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
-migration_dataset: "{{ lookup('env', 'MIGRATION_DATASET') | default('dpool/migration/appdata', true) }}"
-migration_mount: "/var/mnt/{{ migration_dataset }}"

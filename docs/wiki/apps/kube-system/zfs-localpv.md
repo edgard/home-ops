@@ -1,7 +1,7 @@
 # OpenEBS ZFS LocalPV
 
 Purpose: describe storage dependencies, recovery and monitoring for OpenEBS ZFS LocalPV.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
+Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1` and this revision.
 
 The CSI node verifies the physical pool GUID against the immutable foundation
 record before accepting provisioning requests. The controller and node plugin
@@ -19,4 +19,4 @@ Neither component exposes a LAN service.
 ## Related pages
 
 - [Storage](../../architecture/storage.md)
-- [TrueNAS migration](../../operations/truenas-migration.md)
+- [Talos bootstrap](../../architecture/talos-bootstrap.md)

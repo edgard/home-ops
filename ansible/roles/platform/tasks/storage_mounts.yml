@@ -1,0 +1,95 @@
+---
+- name: Require the active Talos pool member policy
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: require_zfs_release
+
+- name: Read the enrolled pool and boot disk identity
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: ConfigMap
+    namespace: kube-system
+    name: storage-identity
+  register: platform_mount_identity
+
+- name: Resolve the already enrolled or explicitly supplied pool GUID
+  ansible.builtin.set_fact:
+    platform_verified_pool_guid: "{{ platform_mount_identity.resources[0].data['pool-guid'] if platform_mount_identity.resources else platform_pool_guid }}"
+
+- name: Require the enrolled physical pool and system disk
+  ansible.builtin.assert:
+    that:
+      - platform_mount_identity.resources | length == 1 or platform_enroll_identity | default(false) | bool
+      - not platform_mount_identity.resources or platform_mount_identity.resources[0].immutable | default(false)
+      - not platform_mount_identity.resources or platform_mount_identity.resources[0].data['system-disk'] == talos_install_disk
+      - platform_verified_pool_guid is match('^[1-9][0-9]{0,19}$') and platform_verified_pool_guid | int < 2 ** 64
+      - not platform_pool_guid or platform_pool_guid == platform_verified_pool_guid
+      - talos_zfs_member_paths | length == 4
+      - talos_zfs_member_paths | select('match', '^/dev/disk/by-partuuid/[0-9a-f-]{36}$') | unique | length == 4
+    fail_msg: First enrollment requires ZFS_POOL_GUID. The physical boot disk, pool and four active member paths must match.
+
+- name: Read automatic verified restore checkpoints for a cold handoff
+  when: platform_verify_recovery | default(false) | bool
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: ConfigMap
+    label_selectors:
+      - app.kubernetes.io/managed-by=platform-recovery
+  register: platform_recorded_recoveries
+
+- name: Validate all recovery input before using any value in the observer
+  ansible.builtin.set_fact:
+    platform_recovery_claims: >-
+      {{ platform_recovery_document | default(none) | platform_recovery_claims(platform_verified_pool_guid, platform_recorded_recoveries.resources)
+         if platform_verify_recovery | default(false) | bool else [] }}
+
+- name: Inspect this boot's storage in a temporary observer
+  block:
+    - name: Start the read-only host observer
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        definition: "{{ lookup('template', 'storage-check.yml.j2') | from_yaml }}"
+        state: present
+      register: platform_mount_pod
+
+    - name: Await mount inspection
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        kind: Pod
+        namespace: kube-system
+        name: "{{ platform_mount_pod.result.metadata.name }}"
+      register: platform_mount_result
+      until: platform_mount_result.resources and platform_mount_result.resources[0].status.phase in ['Succeeded', 'Failed']
+      retries: 60
+      delay: 3
+
+    - name: Read native dataset names and GUIDs
+      kubernetes.core.k8s_log:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        namespace: kube-system
+        name: "{{ platform_mount_pod.result.metadata.name }}"
+        container: verify
+      register: platform_mount_log
+
+    - name: Require healthy pool members and expected mounts
+      ansible.builtin.assert:
+        that: platform_mount_result.resources[0].status.phase == 'Succeeded'
+        fail_msg: "Storage inspection failed. {{ platform_mount_log.log }}"
+
+  always:
+    - name: Remove the temporary observer
+      when: platform_mount_pod.result.metadata.name is defined
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        kind: Pod
+        namespace: kube-system
+        name: "{{ platform_mount_pod.result.metadata.name }}"
+        state: absent

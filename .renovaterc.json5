@@ -42,16 +42,16 @@
     // Put the Renovate annotation immediately above the version or image.
     {
       customType: "regex",
-      description: "Annotated versions and restore image tags",
+      description: "Annotated versions and operational images",
       managerFilePatterns: [
         ".github/actions/setup-toolchain/action.yml",
         "apps/platform-system/tuppr/manifests/**/*.kubernetesupgrade.{yml,yaml}",
         "apps/platform-system/gateway-api/manifests/gateway-api-version.configmap.{yml,yaml}",
-        "ansible/roles/{talos,cli_secrets,restic}/defaults/main.{yml,yaml}",
+        "ansible/roles/{talos,cli_secrets,restic,platform}/defaults/main.{yml,yaml}",
       ],
       matchStrings: [
         "(?:^|\\r?\\n)[ \\t]*# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)[ \\t]*\\r?\\n[ \\t]*(?:version|IMAGE_TAG|kubeconform-version|YAMLFMT_VERSION|ACTIONLINT_VERSION|cli_secrets_secretspec_version):[ \\t]*[\"']?(?<currentValue>v?[0-9][^\\s\"']*)",
-        "(?:^|\\r?\\n)[ \\t]*# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)[ \\t]*\\r?\\n[ \\t]*restic_restore_image:[ \\t]*[\"']?[^:\\s]+:(?<currentValue>[^\\s\"']+)",
+        "(?:^|\\r?\\n)[ \\t]*# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)[ \\t]*\\r?\\n[ \\t]*(?:restic_restore_image|platform_check_image):[ \\t]*[\"']?[^:\\s]+:(?<currentValue>[^\\s@\"']+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?",
       ],
     },
   ],
@@ -100,8 +100,8 @@
       matchDatasources: ["docker"],
       matchDepNames: ["/factory\\.talos\\.dev\\/metal-installer\\//"],
       matchPackageNames: ["/factory\\.talos\\.dev\\/metal-installer\\//"],
-      overridePackageName: "ghcr.io/siderolabs/installer",
-      allowedVersions: "/^v?1\\.14\\.[0-9]+$/",
+      overridePackageName: "ghcr.io/siderolabs/installer-base",
+      allowedVersions: "/^v?[0-9]+\\.[0-9]+\\.[0-9]+$/",
     },
 
     // LinuxServer retains historic base-image tags such as 20.04.1 alongside qBittorrent releases.
@@ -173,22 +173,13 @@
       labels: [],
     },
 
-    // Keep the verified bare-metal and OpenZFS versions together through cutover.
-    {
-      description: "Keep Talos on the tested 1.14 series through cutover",
-      matchDatasources: ["github-releases"],
-      matchPackageNames: ["siderolabs/talos"],
-      allowedVersions: ">=1.14.0 <1.15.0",
-    },
-
-    // Keep the existing Kubernetes 1.36 series during the bare-metal migration.
+    // Keep Kubernetes within the deployed Talos support matrix and allow schema publication.
     // https://docs.siderolabs.com/talos/v1.14/getting-started/support-matrix
-    // Delay Kubernetes upgrades so validation schemas have time to publish
     {
-      description: "Defer Kubernetes upgrades",
+      description: "Defer Kubernetes upgrades within the supported Talos range",
       matchDatasources: ["github-tags"],
       matchPackageNames: ["siderolabs/kubelet"],
-      allowedVersions: "<1.37.0",
+      allowedVersions: "<1.38.0",
       minimumReleaseAge: "7 days",
       internalChecksFilter: "strict",
     },
@@ -229,7 +220,7 @@
       ],
       matchPackageNames: [
         "siderolabs/talos",
-        "ghcr.io/siderolabs/installer",
+        "ghcr.io/siderolabs/installer-base",
         "/^factory\\.talos\\.dev\\/metal-installer\\//",
       ],
       matchUpdateTypes: ["major", "minor", "rollback"],

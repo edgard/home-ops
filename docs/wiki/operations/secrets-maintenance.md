@@ -1,7 +1,7 @@
 # Secrets maintenance and recovery
 
 Purpose: provision and operate the unified Bitwarden delivery paths.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
+Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1` and this revision.
 
 ## Setup without cluster access
 
@@ -131,11 +131,11 @@ and machine configuration. Do not generate a new identity for an existing
 cluster. Verify client access before applying node configuration. Kubernetes
 Secrets remain ESO delivery artifacts; maintain their values in Bitwarden.
 
-Cold-bootstrap acceptance requires the physical SSD, verified ZFS pool and
-network reservations described in the [migration runbook](truenas-migration.md).
+Use the [Talos bootstrap procedure](../architecture/talos-bootstrap.md) to
+identify the physical SSD and pool members and configure the node network.
 Bootstrap preflight authenticates to Bitwarden and Git and requires
 a clean checkout matching remote `master` before node mutation. ESO readiness
-and recovery receipts must pass before Argo root handoff. Handoff checks the captured revision and
+and storage checks must pass before Argo starts workloads. Handoff checks the captured revision and
 ApplicationSet children, followed by fresh ExternalSecret reconciliation.
 
 ## Sources

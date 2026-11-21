@@ -3,7 +3,11 @@ platform_repository_identity_url: https://api.github.com/user
 platform_helm_timeout: 600s
 platform_helm_history_max: 5
 platform_bitwarden_access_token: "{{ lookup('env', 'ESO_BWS_ACCESS_TOKEN') }}"
-platform_pool_guid: "{{ lookup('env', 'MIGRATION_POOL_GUID') }}"
+platform_pool_guid: "{{ lookup('env', 'ZFS_POOL_GUID') }}"
+platform_new_appdata: "{{ lookup('env', 'PLATFORM_NEW_APPDATA') | default('false', true) }}"
+platform_recovery_file: "{{ lookup('env', 'PLATFORM_RECOVERY_FILE') }}"
+# renovate: datasource=docker depName=library/busybox
+platform_check_image: docker.io/library/busybox:1.37.0@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
 platform_handoff_confirm: "{{ lookup('env', 'PLATFORM_HANDOFF_CONFIRM') | default('false', true) }}"
 
 platform_wait_default_delay: 5

@@ -1,7 +1,7 @@
 # ZFS and disk maintenance
 
 Purpose: describe storage dependencies, recovery and monitoring for ZFS and disk maintenance.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
+Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1` and this revision.
 
 This application takes hourly recursive snapshots beneath `dpool/k8s`.
 Retention applies only to snapshots carrying its own policy and name prefix.
@@ -26,4 +26,4 @@ off-node. A pool snapshot and its source share the same disks.
 ## Related pages
 
 - [Storage](../../architecture/storage.md)
-- [TrueNAS migration](../../operations/truenas-migration.md)
+- [Talos bootstrap](../../architecture/talos-bootstrap.md)

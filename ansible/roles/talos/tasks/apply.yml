@@ -5,18 +5,20 @@
     that:
       - not talos_maintenance_node
       - talos_zfs_release_guid is match('^[1-9][0-9]{0,19}$')
+      - talos_zfs_release_guid | int < 2 ** 64
       - lookup('env', 'TALOS_ZFS_RELEASE_CONFIRM') == talos_zfs_release_guid
       - talos_debug_image | length > 0
-      - talos_zfs_snapshot is match('^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$')
-      - talos_zfs_snapshot_guid is match('^[1-9][0-9]{0,19}$')
-    fail_msg: Clear TALOS_MAINTENANCE_NODE and supply the verified pool and snapshot identities, DEBUG_IMAGE and TALOS_ZFS_RELEASE_CONFIRM equal to MIGRATION_POOL_GUID.
+      - talos_zfs_member_uuids | length == 4
+      - talos_zfs_member_uuids | unique | length == 4
+      - talos_zfs_member_uuids | select('match', '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$') | list | length == 4
+    fail_msg: Clear TALOS_MAINTENANCE_NODE and supply DEBUG_IMAGE, the recorded ZFS_POOL_GUID, its four space-separated lowercase ZFS_MEMBER_PARTUUIDS and TALOS_ZFS_RELEASE_CONFIRM equal to that GUID.
 
 - name: Identify the physical node before applying its machine configuration
   ansible.builtin.import_tasks: target.yml
   vars:
     talos_first_contact: "{{ talos_maintenance_node }}"
 
-- name: Reject a stale machine configuration from the virtual machine or a different target
+- name: Verify the generated machine configuration matches the selected target
   no_log: true
   vars:
     talos_documents: "{{ lookup('ansible.builtin.file', talos_controlplane_config_path) | from_yaml_all | selectattr('kind', 'defined') | list }}"

@@ -1,0 +1,115 @@
+---
+# Called by the verified cold restore while its exclusive storage lock is held.
+- name: Validate the completed Restic Job identifiers
+  ansible.builtin.assert:
+    that:
+      - platform_recovered_namespace in platform_bootstrap_namespaces
+      - platform_recovered_name is match('^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$')
+      - platform_recovered_uid is match('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')
+      - platform_restic_snapshot_id is match('^[0-9a-f]{64}$')
+      - (platform_recovered_namespace, platform_recovered_name) != ('selfhosted', 'sparkyfitness-data')
+
+- name: Read the completed restore Job, bound claim and enrolled pool
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.ns }}"
+    name: "{{ item.name }}"
+  loop:
+    - {api: batch/v1, kind: Job, ns: "{{ platform_recovered_namespace }}", name: "restic-recover-{{ platform_recovered_uid }}"}
+    - {api: v1, kind: PersistentVolumeClaim, ns: "{{ platform_recovered_namespace }}", name: "{{ platform_recovered_name }}"}
+    - {api: v1, kind: ConfigMap, ns: kube-system, name: storage-identity}
+  register: platform_checkpoint_objects
+
+- name: Verify the exact completed restore before granting a checkpoint
+  vars:
+    platform_job: "{{ platform_checkpoint_objects.results[0].resources[0] }}"
+    platform_pvc: "{{ platform_checkpoint_objects.results[1].resources[0] }}"
+    platform_identity: "{{ platform_checkpoint_objects.results[2].resources[0] }}"
+  ansible.builtin.assert:
+    that:
+      - platform_job.metadata.deletionTimestamp is undefined
+      - platform_job.metadata.uid is match('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')
+      - platform_job.metadata.annotations['home-ops.edgard.org/recovery-source'] == platform_restic_snapshot_id
+      - platform_job.metadata.annotations['home-ops.edgard.org/recovery-claim-uid'] == platform_recovered_uid
+      - platform_job.metadata.annotations['home-ops.edgard.org/recovery-claim-name'] == platform_recovered_name
+      - platform_job.status.conditions | selectattr('type', 'equalto', 'Complete') | selectattr('status', 'equalto', 'True') | list | length == 1
+      - platform_pvc.metadata.uid == platform_recovered_uid and platform_pvc.metadata.deletionTimestamp is undefined
+      - platform_pvc.status.phase == 'Bound' and platform_pvc.spec.volumeName == 'pvc-' ~ platform_recovered_uid
+      - platform_identity.immutable and platform_identity.data['pool-guid'] is match('^[1-9][0-9]{0,19}$')
+
+- name: Require the completed volume to have no remaining consumers
+  ansible.builtin.import_tasks: writers_absent.yml
+
+- name: Checkpoint the verified contents and store their native identities
+  vars:
+    platform_checkpoint_snapshot: "recovery-{{ platform_checkpoint_objects.results[0].resources[0].metadata.uid }}"
+    platform_checkpoint_guid: "{{ platform_checkpoint_objects.results[2].resources[0].data['pool-guid'] }}"
+  block:
+    - name: Start the native checkpoint
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: present
+        definition: "{{ lookup('template', 'recovery-checkpoint.yml.j2') | from_yaml }}"
+      register: platform_checkpoint_pod
+
+    - name: Await the native snapshot and hold
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        kind: Pod
+        namespace: "{{ platform_recovered_namespace }}"
+        name: "{{ platform_checkpoint_pod.result.metadata.name }}"
+      register: platform_checkpoint_result
+      until: platform_checkpoint_result.resources and platform_checkpoint_result.resources[0].status.phase in ['Succeeded', 'Failed']
+      retries: 60
+      delay: 3
+
+    - name: Require the held filesystem and snapshot identifiers
+      vars:
+        platform_completed_pod: "{{ platform_checkpoint_result.resources[0] }}"
+      ansible.builtin.assert:
+        that:
+          - platform_completed_pod.status.phase == 'Succeeded'
+          - platform_completed_pod.status.containerStatuses[0].state.terminated.message is match('^[1-9][0-9]{0,19} [1-9][0-9]{0,19}$')
+
+    - name: Persist the destination evidence for first handoff
+      vars:
+        platform_guids: "{{ platform_checkpoint_result.resources[0].status.containerStatuses[0].state.terminated.message.split() }}"
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: "platform-recovery-{{ platform_recovered_uid }}"
+            namespace: "{{ platform_recovered_namespace }}"
+            labels:
+              app.kubernetes.io/managed-by: platform-recovery
+          immutable: true
+          data:
+            namespace: "{{ platform_recovered_namespace }}"
+            name: "{{ platform_recovered_name }}"
+            uid: "{{ platform_recovered_uid }}"
+            pool_guid: "{{ platform_checkpoint_guid | string }}"
+            dataset_guid: "{{ platform_guids[0] | string }}"
+            snapshot: "{{ platform_checkpoint_snapshot }}"
+            snapshot_guid: "{{ platform_guids[1] | string }}"
+            restic_snapshot: "{{ platform_restic_snapshot_id }}"
+            verification: restic-verify
+  always:
+    - name: Remove the completed checkpoint observer
+      when: platform_checkpoint_pod.result.metadata.name is defined
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        kind: Pod
+        namespace: "{{ platform_recovered_namespace }}"
+        name: "{{ platform_checkpoint_pod.result.metadata.name }}"
+        state: absent
+        wait: true

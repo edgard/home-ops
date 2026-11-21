@@ -1,0 +1,56 @@
+---
+- name: Select recovery or empty-site checks for first release
+  ansible.builtin.set_fact:
+    platform_new_site: "{{ not platform_existing_root.resources and platform_new_appdata | bool }}"
+    platform_verify_recovery: "{{ not platform_existing_root.resources and not platform_new_appdata | bool }}"
+
+- name: Validate an operator-supplied recovery evidence path
+  when: not platform_existing_root.resources and platform_recovery_file
+  ansible.builtin.assert:
+    that:
+      - not platform_new_site
+      - platform_recovery_file is abs
+    fail_msg: Supply an absolute PLATFORM_RECOVERY_FILE for manually verified data, or select an empty installation.
+
+- name: Read any independently verified native recovery records
+  ansible.builtin.set_fact:
+    platform_recovery_document: >-
+      {{ (lookup('file', platform_recovery_file) | from_json) if platform_verify_recovery and platform_recovery_file else none }}
+
+- name: Read current chart-owned PVC definitions
+  ansible.builtin.import_tasks: render_claims.yml
+
+- name: Verify physical pool, filesystem mounts and any supplied recovery checkpoints
+  ansible.builtin.import_tasks: storage_mounts.yml
+
+- name: Read the cluster UID and storage inventory
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace | default(omit) }}"
+    name: "{{ item.name | default(omit) }}"
+  loop:
+    - {api: v1, kind: Namespace, name: kube-system}
+    - {api: v1, kind: PersistentVolumeClaim}
+    - {api: v1, kind: PersistentVolume}
+    - {api: storage.k8s.io/v1, kind: StorageClass}
+    - {api: zfs.openebs.io/v1, kind: ZFSVolume, namespace: kube-system}
+  register: platform_binding_inventory
+
+- name: Match the chart claims to current retained PVs, CSI records and on-disk datasets
+  ansible.builtin.set_fact:
+    platform_bound_uids: >-
+      {{ platform_claims | platform_storage_bindings(platform_binding_inventory.results, platform_mount_log.log,
+         platform_recovery_claims, platform_new_site, platform_binding_inventory.results[0].resources[0].metadata.uid) }}
+
+- name: Verify repository credentials and recovery history
+  ansible.builtin.import_tasks: restic_repository.yml
+
+- name: Require every bound filesystem to be empty for a new site
+  when: platform_new_site | bool
+  ansible.builtin.include_tasks: claim_probe.yml
+  loop: "{{ platform_claims | map(attribute='metadata.namespace') | unique }}"
+  loop_control:
+    loop_var: platform_claim_namespace

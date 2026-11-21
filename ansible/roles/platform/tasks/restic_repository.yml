@@ -1,0 +1,45 @@
+---
+- name: Find the running Restic server
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Pod
+    namespace: selfhosted
+    label_selectors:
+      - app.kubernetes.io/controller=main
+      - app.kubernetes.io/instance=restic
+    field_selectors:
+      - status.phase=Running
+  register: platform_restic_pods
+
+- name: Require one active repository server
+  ansible.builtin.assert:
+    that:
+      - platform_restic_pods.resources | length == 1
+      - platform_restic_pods.resources[0].metadata.deletionTimestamp is undefined
+
+- name: Verify the repository ID and read its snapshot list through the authenticated private Service
+  vars:
+    platform_restic_check: |
+      export RESTIC_REPOSITORY=rest:http://restic.selfhosted.svc.cluster.local:8000/
+      export RESTIC_REST_USERNAME=restic RESTIC_REST_PASSWORD="$RESTIC_PASSWORD"
+      config=$(/tools/restic --no-cache --no-lock cat config)
+      id=$(printf '%s\n' "$config" | sed -n 's/^ *"id": *"\([0-9a-f]*\)"[,]*$/\1/p')
+      test "$(printf %s "$id" | wc -c)" -eq 64 && test "$id" = "$RESTIC_REPOSITORY_ID" || exit 1
+      /tools/restic --no-cache --no-lock snapshots --json > /dev/null
+      {% if platform_new_site | default(false) | bool %}
+      prior=$(/tools/restic --no-cache --no-lock snapshots --json --host homelab --tag appdata)
+      test "$(printf '%s' "$prior" | tr -d '[:space:]')" = '[]'
+      {% endif %}
+  kubernetes.core.k8s_exec:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    namespace: selfhosted
+    pod: "{{ (platform_restic_pods.resources | first).metadata.name }}"
+    container: app
+    command: "/bin/sh -ec {{ platform_restic_check | quote }}"
+  register: platform_restic_access
+  failed_when: platform_restic_access.rc | default(1) != 0
+  changed_when: false
+  no_log: true

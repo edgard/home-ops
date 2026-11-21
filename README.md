@@ -6,6 +6,7 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 - Talos Linux
 - Kubernetes
+- OpenEBS ZFS LocalPV for appdata, local ZFS filesystems for media and backups
 - Argo CD
 - Istio Gateway API
 - External Secrets with Bitwarden
@@ -28,6 +29,7 @@ export TALOS_NODE="192.168.1.253"
 export TALOS_CLUSTER_NAME="homelab"
 export TALOS_INSTALL_DISK="/dev/disk/by-id/<whole-system-ssd>"
 export TALOS_INSTALL_SERIAL="<verified-system-ssd-serial>"
+# If Talos exposes only the disk WWID, also set TALOS_INSTALL_WWID.
 export TALOS_UPLINK_MAC="<permanent-physical-uplink-mac>"
 export KUBE_CONTEXT="admin@homelab"
 ```
@@ -46,16 +48,25 @@ task secrets:check scope=terraform
 
 ### Bootstrap Cluster
 
-Follow the [TrueNAS migration runbook](docs/wiki/operations/truenas-migration.md)
-to fence the source, preserve the SSD rollback bundle and import the retained
-pool. Use the [Talos bootstrap procedure](docs/wiki/architecture/talos-bootstrap.md)
-for the maintenance address, physical identity checks and secret inputs.
-On first boot, `cluster:create` configures Talos and bootstraps etcd with
-automatic pool import disabled. Inspect the pool and remap the datasets,
-then use `talos:release-zfs` to stage the four verified member partitions.
-Verify their mounts after reboot before running `platform:foundation`.
-`migration:restore` seeds the claims while writers are held.
-`platform:handoff` verifies them before releasing Argo.
+1. Prepare the [site storage](docs/wiki/architecture/storage.md#prepare-storage-for-a-talos-install).
+   Identify the system SSD and uplink. Set the maintenance endpoint, its
+   trusted fingerprint and the host-inspection `DEBUG_IMAGE` described in the
+   bootstrap procedure. On a first install, `task cluster:create`
+   bootstraps Kubernetes with pool discovery disabled. When recovering a
+   control plane with an etcd snapshot, follow the recovery procedure before
+   bootstrapping etcd. [Talos bootstrap](docs/wiki/architecture/talos-bootstrap.md)
+2. Set `ZFS_POOL_GUID` and `ZFS_MEMBER_PARTUUIDS` from the verified pool
+   inventory. Release the four member partitions, reboot
+   and verify the imported datasets. Then run `task platform:foundation`.
+3. With fresh etcd, use `task platform:claims` to bind the appdata
+   claims before starting writers. For recovery, restore those volumes and
+   verify the native database. For a first-ever install with empty appdata,
+   select `PLATFORM_NEW_APPDATA=true`. Release the workloads with
+   `PLATFORM_HANDOFF_CONFIRM=true task platform:handoff`. [GitOps bootstrap](docs/wiki/architecture/gitops-delivery.md)
+   · [Restic recovery](docs/wiki/operations/restic-backup-restore.md)
+
+After restoring matching etcd state, verify its existing PV/PVC bindings
+against the saved inventory before resuming writers.
 
 ## Common Commands
 
@@ -66,15 +77,19 @@ task cluster:destroy                 # Destroy platform components, then reset t
 task talos:gen                       # Generate Talos machine configuration
 task talos:apply                     # Apply Talos machine configuration to the node
 task talos:bootstrap                 # Bootstrap Kubernetes on the Talos node
-TALOS_ZFS_RELEASE_CONFIRM="$MIGRATION_POOL_GUID" task talos:release-zfs  # Stage verified dpool members for reboot
+TALOS_ZFS_RELEASE_CONFIRM="$ZFS_POOL_GUID" task talos:release-zfs  # Stage verified dpool members for reboot
 task talos:upgrade                   # Upgrade Talos using the pinned role version
 task talos:upgrade-k8s K8S_VERSION="${TARGET_KUBERNETES_VERSION}"  # Upgrade Kubernetes to the requested version
 
 # Platform management
-task platform:foundation             # Install the held foundation and private Restic service
-task migration:verify                # Verify the seeded PVCs against the held snapshot
-task platform:handoff                # Release workloads after operator acceptance
+task platform:foundation             # Install platform services and the private Restic endpoint
+task platform:claims                 # Bind application storage before starting writers
+PLATFORM_HANDOFF_CONFIRM=true task platform:handoff  # Verify storage and start workloads
 task platform:destroy                # Uninstall platform bootstrap components
+
+# Restic recovery previews
+task restic:restore app=jellyfin       # Resolve the snapshot and destination PVC
+task restic:restore-all                # Preview all supported in-place restores
 
 # Argo CD
 task argo:sync                       # Refresh every Argo CD application
@@ -134,5 +149,3 @@ Changes go through pull requests only.
 Start with the [knowledge wiki](docs/wiki/index.md) for system relationships and
 decision history. The [Restic restore runbook](docs/wiki/operations/restic-backup-restore.md)
 covers recovery. Agent and contributor guidance starts in [AGENTS.md](AGENTS.md).
-
-For the planned bare-metal installation, follow the [TrueNAS migration runbook](docs/wiki/operations/truenas-migration.md) before changing disks or stopping the VM.

@@ -1,9 +1,0 @@
----
-- name: Restore appdata into a fresh bare-metal cluster
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Seed managed claims from the cold source
-      ansible.builtin.include_role:
-        name: migration
-        tasks_from: restore

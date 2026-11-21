@@ -16,7 +16,7 @@ catalog is a guide to it, not a copy of all tracked files.
 | App discovery and reconciliation | [ApplicationSet](../../argocd/appsets/apps.appset.yaml) | [GitOps delivery](architecture/gitops-delivery.md) |
 | App definitions | [Apps](../../apps) | [App catalog](index.md#applications) |
 | SparkyFitness deployment and native recovery | [Application](../../apps/selfhosted/sparkyfitness) | [SparkyFitness](apps/selfhosted/sparkyfitness.md) |
-| TrueNAS migration evidence | [Source preparation role](../../ansible/roles/truenas_migration) | [Operator procedure](operations/truenas-migration.md) |
+| Persistent storage | [OpenEBS and local volumes](../../apps/kube-system/zfs-localpv), [Restic roles](../../ansible/roles/restic) | [Storage](architecture/storage.md), [backup and restore](operations/restic-backup-restore.md) |
 | Bootstrap and operations | [Ansible](../../ansible) and [Taskfile](../../Taskfile.yaml) | [Talos](architecture/talos-bootstrap.md), [recovery](architecture/backup-recovery.md) |
 | Secrets and CLI inputs | [SecretSpec](../../secretspec.toml), [CLI role](../../ansible/roles/cli_secrets), [platform playbooks](../../ansible/playbooks) | [Secrets](architecture/secrets.md), [maintenance](operations/secrets-maintenance.md) |
 | External infrastructure | [Terraform](../../terraform) and [provider lock](../../terraform/.terraform.lock.hcl) | [Terraform](architecture/terraform.md) |

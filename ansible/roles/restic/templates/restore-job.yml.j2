@@ -2,8 +2,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ restic_restore_job_name }}-{{ restic_restore_app_plan.app }}
+  name: {{ restic_job_name }}
   namespace: {{ restic_restore_app_plan.namespace }}
+{% if restic_restore_mode == 'cold' %}
+  annotations:
+    home-ops.edgard.org/recovery-source: {{ restic_restore_app_plan.snapshot.id | to_json }}
+    home-ops.edgard.org/recovery-claim-uid: {{ restic_recovery_uid | to_json }}
+    home-ops.edgard.org/recovery-claim-name: {{ restic_recovery_claim | to_json }}
+{% endif %}
 spec:
   backoffLimit: 0
   template:
@@ -29,10 +35,14 @@ spec:
               awk -v dir="{{ restic_restore_target_root }}/{{ claim.name }}" -v dataset="{{ claim.dataset }}" '
                 $5 == dir && $4 == "/" {for (i=7; i<NF; i++) if ($i == "-" && $(i+1) == "zfs" && $(i+2) == dataset) ok=1}
                 END {exit !ok}' /proc/self/mountinfo
+{% if restic_restore_mode == 'cold' %}
+              first=$(find {{ restic_restore_target_root }}/{{ claim.name }} -mindepth 1 -maxdepth 1 ! -name .zfs -print -quit)
+              test -z "$first" || { echo 'Fresh recovery requires an empty destination' >&2; exit 1; }
+{% endif %}
 {% endfor %}
 {% for claim in restic_restore_app_plan.claims %}
-              restic --retry-lock {{ restic_restore_retry_lock | quote }} restore {{ restic_restore_app_plan.snapshot.id }}:{{ claim.path }} \
-                --target {{ restic_restore_target_root }}/{{ claim.name }} --delete --verify {{ "--exclude-xattr '*'" if restic_restore_app_plan.snapshot.legacy else "" }}
+              restic {{ '--no-lock' if restic_restore_mode == 'cold' else '--retry-lock ' ~ (restic_restore_retry_lock | quote) }} restore {{ restic_restore_app_plan.snapshot.id }}:{{ claim.path }} \
+                --target {{ restic_restore_target_root }}/{{ claim.name }} {{ "--delete " if restic_restore_mode != "cold" else "" }}--verify {{ "--exclude-xattr '*'" if restic_restore_app_plan.snapshot.legacy else "" }}
 {% endfor %}
           envFrom:
             - secretRef:

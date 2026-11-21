@@ -1,130 +1,173 @@
 # Talos and platform bootstrap
 
-Purpose: locate the cluster creation and upgrade boundaries.
-Status: current. Reviewed against: `e46461cb42fb9ec5470e3346789620c4f26845c0`.
+Purpose: identify the physical node, rebuild its control plane and admit the correct storage before starting workloads.
+Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1`.
 
-The [migration runbook](../operations/truenas-migration.md) covers the cold
-source capture, SSD imaging, physical pool import and recovery. The fresh
-control plane uses the existing Bitwarden Talos identity. The former VM stays
-off once the physical host takes its API address.
+## Identify the node
 
-Set `TALOS_NODE` to the final reserved address. Supply the SSD's whole-disk
-`TALOS_INSTALL_DISK` by-id path, its `TALOS_INSTALL_SERIAL`, and the physical
-Ethernet port's permanent `TALOS_UPLINK_MAC`. The configuration binds that
-port to `br0`, preserves the bridge's DHCP reservation, and names the node
-`homelab`. For first contact with the pre-flashed SSD, set
-`TALOS_MAINTENANCE_NODE` to the physical NIC's distinct initial DHCP address.
-After verifying the physical node, export the attested TLS public key fingerprint
-as `TALOS_MAINTENANCE_FINGERPRINT`. Use the padded base64 SHA-256 fingerprint
-from the trusted first-contact receipt or physical console. With this value set,
-every maintenance read and both configuration submissions verify the same key.
-Clear both maintenance variables after applying the machine configuration. The
-final endpoint uses the generated Talos client credentials. Every apply checks the
-current system disk and NIC before sending configuration. On the installed
-node, the platform additionally matches the Kubernetes node's hardware UUID
-and InternalIP against the authenticated Talos endpoint.
+Retain the cluster's Bitwarden Talos identity, a current etcd snapshot, the boot
+SSD's whole-disk by-id path and serial, and the Ethernet port's permanent MAC.
+Also keep the numeric `dpool` GUID and the four data partition UUIDs in the
+operator's recovery inventory. On an enrolled cluster the pool GUID is in
+`kube-system/storage-identity` and the authenticated Talos resource
+`extensionserviceconfigs zfs-service` gives the four approved by-partuuid paths.
+Record replacement disks when their identities change. The
+[storage architecture](storage.md) defines the required physical pool, dataset
+properties and media and backup repository layout.
 
-The Talos 1.14 installation selector matches the SSD serial and its whole-disk
-by-id symlink, with wiping disabled. When the physical Talos disk resource
-omits the serial, set `TALOS_INSTALL_WWID` to the SSD's independently recorded
-NAA identifier from the source inventory. Verify that it matches the live
-`spec.wwid`, and that the exact whole ATA by-id path ends in the recorded
-serial. Regenerate the machine configuration with the same Talos identity.
-Both first apply and later operations then check the WWID and that path.
-Any reported serial must also match. The generated
-`KubeNodeConfig` removes the control-plane scheduling taint and load-balancer
-exclusion on this single node. Talos 1.14 isolates Kubernetes workloads in
-their own PID and mount namespaces. The OpenEBS pool guard and maintenance
-Pods use explicit host mounts and the host's ZFS extension binaries. Verify
-the CSI driver can provision and mount a test volume on a sacrificial pool
-during rehearsal. Host administration through
-`talosctl debug --namespace inmem` uses Talos's system container runtime.
+Use the [Image Factory installer](../decisions/talos-image-factory.md) on
+the target SSD. Set `TALOS_NODE` to the final reserved address,
+`TALOS_INSTALL_DISK` to the SSD's whole-disk by-id path,
+`TALOS_INSTALL_SERIAL` to its serial and `TALOS_UPLINK_MAC` to the
+physical port's permanent MAC. The generated configuration names the node
+`homelab`, binds the port to `br0` and preserves the bridge's DHCP reservation.
+The Talos installation selector requires the selected serial and by-id path,
+with wiping disabled. When Talos omits the SSD serial, also set
+`TALOS_INSTALL_WWID` to its independently recorded NAA identifier. The role
+checks the live WWID, the serial suffix on the exact ATA by-id and any serial
+the kernel does report. Regenerate the machine configuration with these inputs
+when replacing the boot device.
 
-The four HDDs can stay attached during first boot. Set `DEBUG_IMAGE` to an
-approved image or local archive with a shell and util-linux `nsenter`.
-`task talos:apply` sends a standalone `zfs-service` configuration that sets
-`ZPOOL_IMPORT_PATH=/dev/null`. It verifies the rendered service status while
-Talos is still in maintenance, then submits the control plane configuration
-with the same restriction. At the final authenticated address it checks the
-effective setting and confirms that ZFS is unloaded or the pool list is empty.
-It then loads the explicit module and verifies that the running extension
-imported no pool. If the bridge switched before an interruption,
-clear `TALOS_MAINTENANCE_NODE` and rerun the task.
+For a new node, set `TALOS_MAINTENANCE_NODE` to the physical NIC's initial
+DHCP address. Set `TALOS_MAINTENANCE_FINGERPRINT` to the padded base64 SHA-256
+public-key fingerprint from the trusted physical console or first-contact
+record. Each maintenance read and configuration submission then verifies the
+same key. The final endpoint uses authenticated Talos credentials. Every apply
+checks the system disk and NIC before submitting configuration. Platform
+operations also match the Kubernetes node's hardware UUID and InternalIP
+against that endpoint.
 
-Keep discovery disabled while inspecting the recorded pool and remapping its
-filesystems. After the [storage procedure](../operations/truenas-migration.md),
-export the verified `MIGRATION_POOL_GUID`, `MIGRATION_SNAPSHOT` and
-`MIGRATION_SNAPSHOT_GUID`. Run
-`TALOS_ZFS_RELEASE_CONFIRM="$MIGRATION_POOL_GUID" task talos:release-zfs`.
-It checks the live pool, held snapshot and mount properties, then stages an
-import path containing the four member partition UUIDs. Keep writers stopped
-for the planned reboot. Verify the remounted pool and datasets before
-starting the foundation. Routine applies preserve the current discovery
-policy and stop if a different machine configuration is already staged.
-A pool member replacement changes its partition UUID. Update the verified
-import path as part of disk replacement before depending on the next reboot.
+## First boot and pool enrollment
 
-`task cluster:create` generates and applies the machine configuration and
-bootstraps fresh etcd. If interrupted before writing kubeconfig, rerun
-`task talos:bootstrap` with the same target environment. It resumes from a
-healthy local member and verifies Talos health, the member ID, voting status
-and advertised endpoints before issuing credentials. A nonempty etcd
-directory by itself cannot satisfy these checks.
+The four data HDDs can stay attached. Set `DEBUG_IMAGE` to a trusted Linux
+debug image or local archive with a shell, util-linux `nsenter` and standard
+coreutils. Host administration uses `talosctl debug --namespace inmem`.
+`task talos:gen` generates the machine and client configuration.
+`task talos:apply` first sends the standalone `zfs-service` setting
+`ZPOOL_IMPORT_PATH=/dev/null`, checks its rendered status while Talos is
+still in maintenance, then applies the control plane with that restriction.
+At the final authenticated address it verifies the setting, loads the explicit
+ZFS kernel module and confirms the running extension imported no pool.
+Clear both maintenance variables after this transition. If the bridge changed
+addresses before an interruption, rerun at the final address.
 
-Cluster creation holds the platform while ZFS discovery is disabled.
-With the four-member policy active it continues to the foundation. For a
-staged recovery, run the Talos tasks individually. After accepting the cold
-boot, `task platform:foundation` checks that the released member policy is
-active with no pending machine configuration, then installs CSI, networking, certificates, ESO and a
-private read-only Restic server. Before installing Argo CD, it establishes the
-vendored Gateway API CRDs and checks that Kubernetes serves the HTTPRoute used
-by the Argo CD Helm chart. Set `MIGRATION_POOL_GUID` to the
-source-recorded dpool GUID on first foundation bootstrap. The immutable storage
-identity preserves that GUID and the boot SSD by-id path across reruns.
-The temporary Restic server verifies the existing repository ID and lists its
-snapshots through authenticated cluster DNS. It shares the eventual GitOps
-Deployment and Service names so restored workloads can take over in place.
+`task cluster:create` generates and applies this configuration and bootstraps
+fresh etcd. It pauses before platform installation while pool discovery is
+disabled. For an interrupted fresh bootstrap, `task talos:bootstrap` checks
+the local etcd member's health, voting status and advertised endpoints before
+issuing kubeconfig. For recovery of existing PVC bindings, follow the
+[etcd recovery procedure](#recover-the-existing-control-plane) before running
+either fresh bootstrap command.
 
-Restore the claims and verify their contents before running
-`PLATFORM_HANDOFF_CONFIRM=true task platform:handoff`. Handoff checks the
-per-claim receipts and dataset mounts, records the merged revision, pool and snapshot in an
-immutable ConfigMap, then applies the root Application. A later foundation
-run leaves the GitOps-owned Restic server in place. Root reconciliation and
-ApplicationSet ownership have a 300-second deadline, followed by 600 seconds
-for fresh application secrets. See the
-[maintenance and recovery runbook](../operations/secrets-maintenance.md)
-for external credentials.
+To enroll storage, export the independently recorded `ZFS_POOL_GUID` and
+`ZFS_MEMBER_PARTUUIDS`. The latter is a space-separated list of four lowercase
+GPT partition UUIDs. After confirming exclusive ownership of the pool, run
+the release task with its GUID.
 
-The [Image Factory installer decision](../decisions/talos-image-factory.md)
-covers the RAW image and installer. Take a restricted etcd snapshot before a
-live Talos upgrade. The upgrade checks physical/Kubernetes identity and mounted
-datasets, drains the node and keeps it cordoned across reboot. After validating
-the server version and the returned pool and mounts, the role releases the
-cordon. A failed check leaves scheduling paused for investigation.
+```sh
+TALOS_ZFS_RELEASE_CONFIRM="$ZFS_POOL_GUID" task talos:release-zfs
+```
 
-Platform preflight keeps the GitHub identity endpoint in the nonsecret
-`platform_repository_identity_url` role default. CLI commands use the GitHub
-endpoint; permanent loopback bootstrap simulations are retired.
+With discovery disabled, the task requires an empty imported-pool list.
+It limits discovery to the four partitions and imports the numeric GUID
+read-only, with mounting and cache-file updates disabled. It checks that the four online leaves
+are partitions on different disks, all separate from the system SSD, verifies
+the permanent dataset properties and exports the pool. If OpenZFS requires a
+forced import, first establish exclusive ownership and recover a cleanly
+exported pool before retrying this task.
 
-Platform removal forwards `platform_helm_timeout` through `wait_timeout`: the
-pinned Kubernetes collection's uninstall path does not forward its preferred
-`timeout` parameter. Collection upgrades require targeted verification of
-uninstall waiting and failure propagation; no permanent CLI simulation remains.
+The task stages the four verified partition paths for the next planned reboot.
+After reboot, `task platform:foundation` checks the active policy, physical
+pool, member identities and live dataset mounts before installing CSI. On its
+first enrollment set `ZFS_POOL_GUID`; the immutable `kube-system/storage-identity`
+records the expected GUID and system SSD by-id for subsequent checks. See
+[storage architecture](storage.md) for the restore and GitOps release sequence.
+
+## Recover the existing control plane
+
+On the healthy node, use the authenticated Talos client to save an etcd
+snapshot to a new filename in an owner-only, encrypted directory off-node.
+Keep its reported revision, key count and hash together with the matching
+Talos identity, component versions and PVC-to-dataset inventory.
+
+```sh
+umask 077
+talosctl -e "$TALOS_NODE" -n "$TALOS_NODE" etcd snapshot "$SNAPSHOT"
+```
+
+1. Power off the former node. On the replacement boot SSD, generate and
+   apply the matching configuration with `task talos:gen` and
+   `task talos:apply`. Verify that the discovery restriction is active and
+   no pool is imported. Keep that restriction across the etcd restore.
+   Isolate the recovery network from application clients, external services
+   and remote backup destinations. Permit operator access and the infrastructure
+   required to bring up the control plane. A restored Pod can already have a
+   node assignment and can start as soon as the API returns.
+2. Check `talosctl -e "$TALOS_NODE" -n "$TALOS_NODE" service etcd`. When
+   the verified node's service is in `Preparing`, recover the snapshot with
+   its built-in hash check. Confirm the recovered revision and key count
+   match the backup and the single voting member is healthy.
+
+   ```sh
+   talosctl -e "$TALOS_NODE" -n "$TALOS_NODE" bootstrap --recover-from="$SNAPSHOT"
+   talosctl -e "$TALOS_NODE" -n "$TALOS_NODE" etcd members
+   talosctl -e "$TALOS_NODE" -n "$TALOS_NODE" etcd status
+   ```
+
+3. Use the matching kubeconfig against this node. Before releasing the pool,
+   record the restored workload state, scale the Argo CD application and
+   ApplicationSet controllers to zero, suspend backup and maintenance CronJobs,
+   stop their active Jobs, and scale all application writers to zero. Verify
+   that their Pods have terminated, including existing Pods bound to the node.
+4. Compare the recovered PVC UIDs, PV claim references and CSI handles, and
+   OpenEBS ZFSVolumes against the off-node inventory. If the replacement SSD
+   has a new by-id, save the old immutable `kube-system/storage-identity`.
+   Independently verify the new SSD and the retained pool GUID and four member
+   partitions. Recreate the ConfigMap with the updated system disk while
+   controllers and workloads remain fenced.
+5. Enroll the verified pool, reboot and check its native dataset GUIDs, live
+   mounts, storage identity and bindings against the inventory. Restore the
+   saved replica counts and schedules, GitOps reconciliation and client access
+   after those checks. For missing control-plane state, use the
+   [fresh-claim recovery procedure](../operations/restic-backup-restore.md#new-cluster-or-lost-etcd-state).
+
+The upstream guide covers the service states, snapshot integrity and official
+recovery command. [Talos 1.14 disaster recovery](https://docs.siderolabs.com/talos/v1.14/build-and-extend-talos/cluster-operations-and-maintenance/disaster-recovery)
+
+## Routine operation
+
+Ordinary `task talos:apply` preserves the active discovery policy and stops
+if a different machine configuration is already staged. A member replacement
+changes its partition UUID. Once the pool is healthy and resilvering has
+finished, update the recovery inventory and run the same explicit release
+with the new four UUIDs. On an enrolled node the task verifies the mounted
+pool in place and stages the changed paths for a planned reboot. Repeating
+release with the existing paths verifies the pool without staging another
+configuration.
+
+Take a restricted etcd snapshot before a live Talos upgrade. The upgrade
+checks physical and Kubernetes identity, pool membership and the mounted
+datasets, then drains the single node and keeps it cordoned through reboot.
+The role releases the cordon after verifying the new server version and the
+returned storage. The workload PID and mount namespaces in Talos 1.14 remain
+isolated. OpenEBS and maintenance Pods use explicit host mounts and the host's
+ZFS extension tools.
+
+Platform foundation installs the Gateway API CRDs and verifies HTTPRoute
+discovery before installing Argo CD. Its private Restic service opens the
+existing repository and checks its ID and snapshot listing. See
+[operator credential maintenance](../operations/secrets-maintenance.md)
+for its external credentials. Platform removal forwards its timeout through
+the Kubernetes collection's Helm `wait_timeout` parameter.
 
 ## Sources
 
-- [CLI secret contract](../../../secretspec.toml)
-- [First-boot ZFS restriction](../../../ansible/roles/talos/tasks/preseed_zfs.yml) and [four-member release](../../../ansible/roles/talos/tasks/release_zfs.yml)
+- [Operator tasks](../../../Taskfile.yaml) and [CLI secret contract](../../../secretspec.toml)
+- [Talos defaults](../../../ansible/roles/talos/defaults/main.yml) and [machine configuration generation](../../../ansible/roles/talos/tasks/generate.yml)
 - [Physical target checks](../../../ansible/roles/talos/tasks/target.yml)
-- [Private repository bootstrap](../../../ansible/roles/platform/tasks/restic_server.yml)
-- [GitOps release](../../../ansible/roles/platform/tasks/release_root.yml)
-- [Maintenance runbook](../operations/secrets-maintenance.md)
-
-- [Talos role defaults](../../../ansible/roles/talos/defaults/main.yml)
-- [Talos generation tasks](../../../ansible/roles/talos/tasks/generate.yml)
-- [Talos upgrade tasks](../../../ansible/roles/talos/tasks/upgrade.yml)
-- [Platform bootstrap tasks](../../../ansible/roles/platform/tasks/bootstrap.yml)
-- [Operator tasks](../../../Taskfile.yaml)
+- [First-boot ZFS restriction](../../../ansible/roles/talos/tasks/preseed_zfs.yml) and [four-member release](../../../ansible/roles/talos/tasks/release_zfs.yml)
+- [Storage admission](../../../ansible/roles/platform/tasks/storage_mounts.yml) and [Talos upgrades](../../../ansible/roles/talos/tasks/upgrade.yml)
+- [Platform bootstrap](../../../ansible/roles/platform/tasks/bootstrap.yml) and [GitOps release](../../../ansible/roles/platform/tasks/release_root.yml)
 
 ## Related pages
 

@@ -1,0 +1,40 @@
+---
+- name: Check for an existing claim
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: PersistentVolumeClaim
+    namespace: "{{ platform_claim.metadata.namespace }}"
+    name: "{{ platform_claim.metadata.name }}"
+  register: platform_prior_claim
+
+- name: Require an existing claim to belong to this preparation
+  when: platform_prior_claim.resources | length > 0
+  ansible.builtin.assert:
+    that:
+      - platform_prior_claim.resources[0].metadata.annotations['home-ops.edgard.org/recovery-claim'] | default('') == platform_kube_system.resources[0].metadata.uid
+      - platform_prior_claim.resources[0].metadata.deletionTimestamp is undefined
+      - platform_prior_claim.resources[0].spec.storageClassName == 'zfs-appdata'
+      - platform_prior_claim.resources[0].spec.accessModes == ['ReadWriteOnce']
+    fail_msg: An existing claim has another owner. Preserve it and inspect its binding.
+
+- name: Create the fresh app-owned claim without adopting existing data
+  when: not platform_prior_claim.resources
+  vars:
+    platform_annotation:
+      metadata:
+        annotations:
+          home-ops.edgard.org/recovery-claim: "{{ platform_kube_system.resources[0].metadata.uid }}"
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ kubeconfig_path }}"
+      - --context
+      - "{{ kube_context }}"
+      - create
+      - -f
+      - "-"
+    stdin: "{{ platform_claim | combine(platform_annotation, recursive=true) | to_json }}"
+  changed_when: true
