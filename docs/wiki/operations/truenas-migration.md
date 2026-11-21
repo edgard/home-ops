@@ -363,6 +363,13 @@ migration and migration/appdata filesystems in that order. Check each source
 and filesystem type in `/proc/1/mountinfo`, the read-only stage and its
 snapshot GUID. Keep the home and dump datasets unmounted for inspection.
 
+During restore and verification, the migration Pod explicitly mounts the held
+snapshot read-only under the stage's `.zfs/snapshot/<name>`. Talos can expose
+an empty control directory there when OpenZFS's automatic mount helper is
+unavailable. The Pod verifies the pool and snapshot GUIDs, hold, stage
+filesystem, and the resulting snapshot in the host's mount table before
+kubelet binds any claim directory. [OpenZFS snapshot mount implementation](https://github.com/openzfs/zfs/blob/zfs-2.4.4/module/os/linux/zfs/zfs_ctldir.c)
+
 ### Create the OpenEBS parent
 
 If Phase 1 created `dpool/k8s`, check its recorded GUID and properties and
@@ -424,9 +431,15 @@ results before resuming writers.
    ```
 
 2. **Seed and compare the appdata.** The copy Jobs provision on the physical
-   node, check the mount sources, preserve numeric owners, POSIX ACLs, xattrs
-   and hardlinks, then compare content and metadata. Verification mounts each
-   target read-only and computes another comparison against the snapshot.
+   node, check the mount sources, preserve numeric owners, POSIX ACLs,
+   hardlinks and application xattrs, then compare content and metadata.
+   Talos assigns the destination SELinux context. Copies, retries and checksum
+   comparisons leave `security.selinux` under target policy and handle POSIX
+   ACLs through rsync's ACL support. Each Job first checks the held claim tree
+   for source SELinux labels, including the root directory. A source label
+   stops the Job before it writes to the PVC so the operator can review its
+   policy and choose a compatible restore procedure. Verification mounts each
+   target read-only and compares it with the same snapshot.
    Keep the completed Jobs as receipts. If a copy Job exhausts its retries,
    inspect its logs and resolve the cause. Delete only that failed Job and
    retry using the original PVC, UID, and held snapshot.
@@ -441,6 +454,10 @@ results before resuming writers.
    cluster configuration/volume mapping off-node. Release application writers
    with `PLATFORM_HANDOFF_CONFIRM=true task platform:handoff`. The handoff
    repeats verification and records an immutable marker before starting Argo.
+   It then checks for unfinished copy Jobs and snapshot-consuming Pods and
+   unmounts the exact snapshot view. A busy mount stops handoff. The snapshot
+   and its ZFS holds remain available for recovery. After handoff,
+   `task migration:verify` checks the live bindings and permanent mounts.
 
 4. **Accept the applications.** Check the API and LAN DNS, Jellyfin's
    read-only library and playback, hardlinks across download/import paths,
@@ -544,6 +561,7 @@ cleanup decision after the rollback window.
 
 - [Source playbook](../../../ansible/playbooks/migration-source.yml) and [source operation entry point](../../../ansible/roles/truenas_migration/files/source_operator.py)
 - [TrueNAS staging and archive checks](../../../ansible/roles/truenas_migration/files/source.py)
+- The [claim copy Job](../../../ansible/roles/migration/templates/copy.yml.j2) uses rsync's [xattr filtering rules](https://download.samba.org/pub/rsync/rsync.1#opt--xattrs) during recovery and verification.
 - [Current storage definitions](../../../apps/kube-system/zfs-localpv/values.yaml) and [Restic service configuration](../../../apps/selfhosted/restic/values.yaml)
 - [TrueNAS configuration recovery](https://www.truenas.com/docs/scale/25.10/scaletutorials/systemsettings/advanced/managesysconfig/) explains the password secret seed.
 - [TrueNAS pool management](https://www.truenas.com/docs/scale/25.10/scaletutorials/storage/managepoolsscale/) documents the export and configuration removal options.

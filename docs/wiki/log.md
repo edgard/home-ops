@@ -3,6 +3,18 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-21] revision | Restore and verify appdata on Talos
+
+Documented how migration exposes the held snapshot read-only for kubelet,
+checks source SELinux labels, preserves destination labels and compares claim
+contents and metadata. Handoff detaches the verified snapshot after the final
+comparison. Subsequent checks verify every current app claim and its binding.
+
+## [2026-11-21] revision | Install Gateway API before Argo CD
+
+Documented how foundation installs the GitOps-owned standard bundle and waits
+for HTTPRoute discovery before Helm creates the Argo CD server route.
+
 ## [2026-11-21] revision | Run appdata on bare-metal OpenEBS
 
 Split foundation and GitOps handoff. Documented local dataset bindings,

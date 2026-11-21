@@ -36,7 +36,46 @@ spec:
 {% if migration_check_stage | default(false) | bool %}
           mountcheck {{ migration_dataset }}
           test "$(zfs get -H -o value readonly {{ migration_dataset }})" = on
-          test "$(zfs get -Hp -o value guid "{{ migration_dataset }}@$SNAPSHOT")" = "$SNAPSHOT_GUID"
+          source="{{ migration_dataset }}@$SNAPSHOT"
+          test "$(zfs get -Hp -o value guid "$source")" = "$SNAPSHOT_GUID"
+          zfs holds -H "$source" | awk -F '\t' -v src="$source" '$1 == src && length($2) {ok=1} END {exit !ok}'
+          awk -v src='{{ migration_dataset }}' '$5 == "/stage" {seen++
+            if ($4=="/") for (i=7; i<NF; i++) {
+              if ($i ~ /^shared:/) shared=1
+              if ($i=="-" && $(i+1)=="zfs" && $(i+2)==src) ok=1
+            }
+          } END {exit !(seen==1 && shared && ok)}' /proc/self/mountinfo
+          exec 9</stage
+          flock -x 9
+          path="/stage/.zfs/snapshot/$SNAPSHOT"
+          hostpath="/host{{ migration_mount }}/.zfs/snapshot/$SNAPSHOT"
+          mounted() { awk -v p="$1" '$5==p {ok=1} END {exit !ok}' /proc/self/mountinfo; }
+          readonly_snapshot() {
+            awk -v p="$1" -v src="$source" '$5==p {seen++
+              if ($4=="/" && $6 ~ /(^|,)ro(,|$)/)
+                for(i=7;i<NF;i++) if($i=="-" && $(i+1)=="zfs" && $(i+2)==src) ok=1
+            } END {exit !(seen==1 && ok)}' /proc/self/mountinfo
+          }
+          if mounted "$path"; then
+            readonly_snapshot "$path"
+            readonly_snapshot "$hostpath"
+{% if migration_detach_snapshot | default(false) | bool %}
+            umount "$path"
+{% endif %}
+          else
+            ! mounted "$hostpath" || exit 1
+{% if not migration_detach_snapshot | default(false) | bool %}
+            # OpenZFS's automatic lookup can leave an empty control-directory stub on Talos.
+            mount -i -t zfs -o ro,nodev,nosuid "$source" "$path"
+{% endif %}
+          fi
+{% if migration_detach_snapshot | default(false) | bool %}
+          ! mounted "$path" || exit 1
+          ! mounted "$hostpath" || exit 1
+{% else %}
+          readonly_snapshot "$path"
+          readonly_snapshot "$hostpath"
+{% endif %}
 {% endif %}
       env:
         - name: POOL_GUID
@@ -50,8 +89,19 @@ spec:
           mountPath: /host
           readOnly: true
           mountPropagation: HostToContainer
+{% if migration_check_stage | default(false) | bool %}
+        - name: stage
+          mountPath: /stage
+          mountPropagation: Bidirectional
+{% endif %}
   volumes:
     - name: host
       hostPath:
         path: /
         type: Directory
+{% if migration_check_stage | default(false) | bool %}
+    - name: stage
+      hostPath:
+        path: "{{ migration_mount }}"
+        type: Directory
+{% endif %}

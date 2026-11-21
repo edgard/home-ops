@@ -30,6 +30,18 @@ spec:
               }
               check_mount /source '{{ migration_dataset }}@{{ migration_snapshot }}' '/{{ migration_ns }}/{{ migration_name }}'
               check_mount /target 'dpool/k8s/pvc-{{ migration_uid }}' /
+              # Dry-run the snapshot against itself. Only the reader on the receiving side
+              # sees security.selinux, so a difference identifies a source policy to review.
+              rsync -aXni --out-format='%i' --filter='-xs security.selinux' \
+                --filter='+x security.selinux' --filter='-x *' /source/ /source/ > /tmp/source-labels
+              if [ -s /tmp/source-labels ]; then
+                echo 'Source snapshot contains SELinux labels. Review its policy before restoring to Talos.' >&2
+                exit 1
+              fi
+              sync_tree() {
+                # -x rules replace rsync's default system.* exclusion. -A handles POSIX ACLs.
+                rsync -aHAXS --numeric-ids --filter='-x system.*' --filter='-x security.selinux' "$@" /source/ /target/
+              }
 {% if not migration_compare_only | default(false) %}
               marker=.home-ops-copy-in-progress
               test ! -e "/source/$marker"
@@ -40,20 +52,20 @@ spec:
               else
                 # A retry after marker removal can only acknowledge an already identical tree.
                 if [ -n "$(ls -A /target)" ]; then
-                  rsync -aHAXSnic --delete --numeric-ids /source/ /target/ > /tmp/differences
+                  sync_tree -nic --delete > /tmp/differences
                   test ! -s /tmp/differences
                   exit 0
                 fi
                 echo '{{ migration_uid }}:{{ migration_snapshot_guid }}' > "/target/$marker"
               fi
-              rsync -aHAXS --numeric-ids --exclude="/$marker" /source/ /target/
-              rsync -aHAXSnic --delete --numeric-ids --exclude="/$marker" /source/ /target/ > /tmp/differences
+              sync_tree --exclude="/$marker"
+              sync_tree -nic --delete --exclude="/$marker" > /tmp/differences
               test ! -s /tmp/differences
               rm "/target/$marker"
               # Removing the marker changes the root mtime. Restore it and compare the entire tree.
               touch -r /source /target
 {% endif %}
-              rsync -aHAXSnic --delete --numeric-ids /source/ /target/ > /tmp/differences
+              sync_tree -nic --delete > /tmp/differences
               test ! -s /tmp/differences
           volumeMounts:
             - name: source

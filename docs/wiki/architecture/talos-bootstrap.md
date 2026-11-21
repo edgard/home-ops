@@ -1,7 +1,7 @@
 # Talos and platform bootstrap
 
 Purpose: locate the cluster creation and upgrade boundaries.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
+Status: current. Reviewed against: `e46461cb42fb9ec5470e3346789620c4f26845c0`.
 
 The [migration runbook](../operations/truenas-migration.md) covers the cold
 source capture, SSD imaging, physical pool import and recovery. The fresh
@@ -75,8 +75,10 @@ Cluster creation holds the platform while ZFS discovery is disabled.
 With the four-member policy active it continues to the foundation. For a
 staged recovery, run the Talos tasks individually. After accepting the cold
 boot, `task platform:foundation` checks that the released member policy is
-active with no pending machine configuration, then installs CSI, networking, certificates, ESO, a
-private read-only Restic server and Argo CD. Set `MIGRATION_POOL_GUID` to the
+active with no pending machine configuration, then installs CSI, networking, certificates, ESO and a
+private read-only Restic server. Before installing Argo CD, it establishes the
+vendored Gateway API CRDs and checks that Kubernetes serves the HTTPRoute used
+by the Argo CD Helm chart. Set `MIGRATION_POOL_GUID` to the
 source-recorded dpool GUID on first foundation bootstrap. The immutable storage
 identity preserves that GUID and the boot SSD by-id path across reruns.
 The temporary Restic server verifies the existing repository ID and lists its

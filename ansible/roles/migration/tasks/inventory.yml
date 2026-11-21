@@ -12,15 +12,5 @@
   vars:
     migration_check_stage: true
 
-- name: Render the production PVC inventory
-  ansible.builtin.command:
-    argv:
-      - "{{ ansible_python_interpreter }}"
-      - "{{ role_path }}/files/claims.py"
-      - "{{ repo_root }}"
-  changed_when: false
-  register: migration_rendered
-
-- name: Collect app-owned claims
-  ansible.builtin.set_fact:
-    migration_claims: "{{ migration_rendered.stdout | from_json }}"
+- name: Collect the app-owned PVC inventory
+  ansible.builtin.include_tasks: render_claims.yml
