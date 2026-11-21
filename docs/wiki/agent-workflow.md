@@ -1,12 +1,31 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
+Status: current. Reviewed against: `9ce0904e1fa682e1ad6dee5ff56ace85f03834f7`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 **Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) •
 Gatus • Helm • Ansible • Terraform
+
+## Local setup
+
+On macOS, install the development tools and synchronize the checkout.
+
+```sh
+brew install go-task uv python@3.14 helm opentofu yamlfmt pluto kubeconform actionlint shellcheck
+task deps
+```
+
+When changing Python dependencies in `pyproject.toml`, update `uv.lock`
+with `uv lock`.
+
+For cluster operations, install the clients with `brew install kubernetes-cli talosctl`
+and follow the [SecretSpec and BWS setup](operations/secrets-maintenance.md#setup-without-cluster-access).
+The [Talos bootstrap procedure](architecture/talos-bootstrap.md#identify-the-node)
+lists the node and disk inputs. The [inventory defaults](../../ansible/inventory/group_vars/all.yml)
+select the `homelab` cluster and `admin@homelab` context. Use `task --list`
+to discover operator tasks and their descriptions.
 
 ## Build & Test
 

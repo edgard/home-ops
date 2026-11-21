@@ -63,7 +63,7 @@ merge, remove temporary tests and fixtures and summarize commands/results in the
 PR. Keep a permanent test only for one of the concrete risks above, with minimal
 deterministic code that native validation does not already cover. No blanket
 requirement for a lasting test per behavior change, coverage quota, simulation
-framework, disabled legacy suite, or tests of the runner/toolchain.
+framework, disabled legacy suite, policy inventory, or tests of the runner/toolchain.
 
 Ordinary startup, probes, model/temperature settings, and app API compatibility
 do not become permanent tests by being called compatibility checks. Existing
