@@ -195,8 +195,13 @@ Verify the compressed file with `shasum -a 256` and `zstd -t`.
 For this reviewed build, `zstd -dc IMAGE.raw.zst | shasum -a 256` must match
 the uncompressed hash. A new version or schematic needs its own evidence.
 **Operator disk write:** after confirming all three backup pieces, reidentify
-the external whole SSD by geometry and GPT, unmount it, then flash only that
-device. Sync and read back the first 2246 MiB before boot, for example
+the external whole SSD by geometry and GPT and unmount it. The image covers
+only the start of the larger SSD. Its write leaves the former secondary GPT
+and ZFS labels outside that range. With the HDDs physically isolated, clear
+the old SSD signatures and its original backup GPT before writing the RAW.
+A full zero-fill of this verified SSD is one option. This is the point at
+which recovering TrueNAS requires the saved three-piece bundle. Flash the
+reviewed RAW to that same whole device. Sync and read back the first 2246 MiB before boot, for example
 `sudo dd if=/dev/rdiskN bs=1m count=2246 | shasum -a 256` on the Mac.
 Require the same uncompressed hash and eject the disk cleanly.
 Use the bare-metal profile and the independent LAN maintenance address. Boot
