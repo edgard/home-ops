@@ -120,8 +120,8 @@ new cutover session.
    `held_snapshot_guids` and verify the expected datasets are present. The
    receipt also reports `acl_inventory` for the held snapshots. Review the
    checked entry counts, nontrivial ACL counts and private example paths.
-   Resolve any nontrivial NFSv4 grants or denials before authorizing the SSD
-   overwrite. Check that target workload IDs retain the intended access.
+   Resolve nontrivial ACLs on datasets that will serve workloads before the
+   SSD overwrite. Retain the original policy on datasets kept offline. Check that target workload IDs retain the intended access.
    The receive sets the staged dataset read-only. Keep the original untouched for
    recovery. Snapshotting separate pools uses the preceding writer shutdown
    to establish an application-consistent cutoff.
@@ -180,10 +180,25 @@ authorize the local read-only `dd` operation for this session.
 
 Keep the original bundle private and verify the recorded EFI loader exists on
 the original ESP. Record how to select it on the headless machine if the UEFI
-boot order changes. Before writing Talos, compare the downloaded Image Factory
-RAW checksum to its published checksum and verify the machine schematic and
-version against the intended upgrade installer. Re-identify the external disk
-immediately before writing, flash only that SSD, and verify the image readback.
+boot order changes. The reviewed image is the [v1.13.12 amd64 metal RAW from Image Factory](https://factory.talos.dev/image/39699a54506a4570606671d813387abadbba0767ec91769b57e993f3387795d9/v1.13.12/metal-amd64.raw.zst).
+Match its schematic and version to the cutover installer. These SHA-256
+values were measured from that HTTPS download. The public Factory returned
+HTTP 402 for its separate checksum endpoint. The uncompressed GPT contains
+the amd64 EFI fallback loader at `EFI/BOOT/BOOTX64.EFI`.
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Compressed RAW | 115956026 | `4bda956e6cdc776e35595da30abeb7998544badea70dbf3dceff555b5ebea837` |
+| Uncompressed RAW | 2355101696 | `c43c8c3739a50681495d4119599d64e3342c7482faaac4a657eda5625e6e8b05` |
+
+Verify the compressed file with `shasum -a 256` and `zstd -t`.
+For this reviewed build, `zstd -dc IMAGE.raw.zst | shasum -a 256` must match
+the uncompressed hash. A new version or schematic needs its own evidence.
+**Operator disk write:** after confirming all three backup pieces, reidentify
+the external whole SSD by geometry and GPT, unmount it, then flash only that
+device. Sync and read back the first 2246 MiB before boot, for example
+`sudo dd if=/dev/rdiskN bs=1m count=2246 | shasum -a 256` on the Mac.
+Require the same uncompressed hash and eject the disk cleanly.
 Use the bare-metal profile and the independent LAN maintenance address. Boot
 with the pool disks isolated until the intended ZFS import behavior has been
 verified against sacrificial storage. The extension can auto-import visible
