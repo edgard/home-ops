@@ -1,0 +1,66 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: samba-config
+  namespace: selfhosted
+data:
+  smb.conf: |-
+    [global]
+    server role = standalone server
+    netbios name = HOMELAB
+    server min protocol = SMB2_02
+    smb ports = 1445
+    disable netbios = yes
+    server multi channel support = no
+    hosts allow = 127.0.0.1 192.168.1.0/24 EXCEPT 192.168.1.1 192.168.1.253
+    hosts deny = ALL
+    map to guest = Bad User
+    guest account = smbguest
+    guest ok = yes
+    guest only = yes
+    read only = no
+    inherit permissions = yes
+    map archive = no
+    veto files = /.zfs/
+    follow symlinks = no
+    nt acl support = no
+    smb3 unix extensions = no
+    load printers = no
+    disable spoolss = yes
+    printcap name = /dev/null
+
+    [media]
+    path = /shares/media
+
+    [dump]
+    path = /shares/dump
+
+  start: |-
+    #!/bin/sh
+    set -eu
+    /bin/sh /storage-tools/verify dump media
+
+    if ! getent group 1000 >/dev/null; then
+      if getent group smbguest >/dev/null; then
+        echo 'The smbguest group already has another GID' >&2
+        exit 1
+      fi
+      printf '%s\n' 'smbguest:x:1000:' >> /etc/group
+    fi
+    if ! getent passwd smbguest >/dev/null; then
+      if getent passwd 1000 >/dev/null; then
+        echo 'UID 1000 already belongs to another account' >&2
+        exit 1
+      fi
+      printf '%s\n' 'smbguest:x:1000:1000:SMB guest:/:/bin/false' >> /etc/passwd
+    fi
+    [ "$(id -u smbguest):$(id -g smbguest)" = '1000:1000' ]
+
+    install -d -m 0755 /var/lib/samba /var/lib/samba/lock
+    install -d -m 0700 /var/lib/samba/private
+    conf=/etc/samba-site/smb.conf
+    testparm -s "$conf" >/dev/null
+    # Keep the standalone server SID stable across replacement of the disposable Samba databases.
+    net -s "$conf" setlocalsid S-1-5-21-2164143518-1221874423-1797659367
+    exec smbd --foreground --no-process-group --debug-stdout --configfile="$conf"

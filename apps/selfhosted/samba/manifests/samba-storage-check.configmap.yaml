@@ -1,0 +1,50 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: samba-storage-check
+  namespace: selfhosted
+data:
+  verify: |-
+    #!/bin/sh
+    set -eu
+    fail() { echo "$*" >&2; exit 1; }
+
+    # The ZFS node driver records this boot only after matching the enrolled pool GUID.
+    boot=$(cat /proc/sys/kernel/random/boot_id)
+    verified=$(cat /storage-check/verified-boot)
+    [ -n "$boot" ] && [ "$boot" = "$verified" ] || fail "Storage identity has not been verified on this boot"
+
+    [ "$#" -gt 0 ] || fail "No SMB storage mounts specified"
+    for share do
+      case "$share" in
+        ''|[!a-z0-9]*|*[!a-z0-9_-]*) fail "Expected a simple dataset basename" ;;
+      esac
+    done
+    # Check the writable bind in smbd's own mount namespace before opening the listener.
+    awk -v shares="$*" '
+      BEGIN {
+        count = split(shares, names, " ")
+        for (n = 1; n <= count; n++) {
+          path = "/shares/" names[n]
+          if (path in expected) bad = 1
+          expected[path] = "dpool/" names[n]
+        }
+      }
+      index($5, "/shares/") == 1 {
+        if (!($5 in expected)) { bad = 1; next }
+        seen[$5]++
+        for (i = 7; i <= NF - 3; i++) {
+          if ($i != "-") continue
+          if ($4 == "/" && $6 ~ /(^|,)rw(,|$)/ && $(i+1) == "zfs" &&
+              $(i+2) == expected[$5] && $(i+3) ~ /(^|,)rw(,|$)/) valid[$5] = 1
+          break
+        }
+      }
+      END {
+        for (path in expected) {
+          if (seen[path] != 1 || !valid[path]) bad = 1
+        }
+        exit bad ? 1 : 0
+      }
+    ' /proc/self/mountinfo || fail "Expected one writable ZFS dataset root per SMB share and no other mounts below /shares"

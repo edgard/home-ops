@@ -1,7 +1,7 @@
 # Networking and ingress
 
 Purpose: connect the cluster's routes, local network, and external DNS sources.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `50dc84a27f19eac0ca5d644abdeccc2d4383bc48` and this revision.
 
 Routed apps attach HTTPRoutes to the Istio Gateway API listener in
 `platform-system`. Cloudflare DNS is managed in Terraform, while the cluster
@@ -12,6 +12,10 @@ is reachable from every client.
 Multus supplies a LAN bridge for workloads needing direct LAN traffic, such as
 Jellyfin discovery. Its network attachment and each workload's annotation are
 separate sources; a routed HTTPS endpoint and a direct LAN listener can coexist.
+
+The [Samba pod](../apps/selfhosted/samba.md) uses the node's reserved LAN
+address and TCP port 445. Kubernetes forwards that port to the pod. The service
+uses its own source restrictions, outside the HTTP Gateway and Tailscale routes.
 
 ## Sources
 

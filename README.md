@@ -6,7 +6,8 @@ GitOps-driven Kubernetes homelab running on Talos Linux, managed by Argo CD with
 
 - Talos Linux
 - Kubernetes
-- OpenEBS ZFS LocalPV for appdata, local ZFS filesystems for media and backups
+- OpenEBS ZFS LocalPV for appdata and local ZFS filesystems for shared files and backups
+- [Samba guest shares for dump and media](docs/wiki/apps/selfhosted/samba.md)
 - Argo CD
 - Istio Gateway API
 - External Secrets with Bitwarden

@@ -242,8 +242,7 @@ def recovery_consumers(results, namespaces):
             if kind in ("Application", "ApplicationSet"):
                 offenders.append(f"{kind} {name}")
                 continue
-            if obj["metadata"]["namespace"] not in namespaces:
-                continue
+            app_namespace = obj["metadata"]["namespace"] in namespaces
             if kind == "Job" and any(
                 c["type"] in ("Complete", "Failed") and c["status"] == "True"
                 for c in status.get("conditions", [])
@@ -263,10 +262,14 @@ def recovery_consumers(results, namespaces):
                 and labels.get("app.kubernetes.io/instance") == "restic"
                 and labels.get("app.kubernetes.io/controller") == "main"
             )
-            used = bool(templates)
+            used = app_namespace and bool(templates)
             for volume in pod.get("volumes", []):
                 claim = volume.get("persistentVolumeClaim", {}).get("claimName")
-                if not claim:
+                path = volume.get("hostPath", {}).get("path", "")
+                direct_pool_mount = path == "/var/mnt/dpool" or path.startswith(
+                    "/var/mnt/dpool/"
+                )
+                if not (claim and app_namespace) and not direct_pool_mount:
                     continue
                 mounts = [
                     m
@@ -276,7 +279,10 @@ def recovery_consumers(results, namespaces):
                     for m in c.get("volumeMounts", [])
                     if m["name"] == volume["name"]
                 ]
-                if not (
+                if direct_pool_mount:
+                    if any(not m.get("readOnly") for m in mounts):
+                        used = True
+                elif not (
                     private_restic
                     and claim == "restic-repo"
                     and mounts
