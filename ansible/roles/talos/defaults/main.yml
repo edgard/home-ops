@@ -16,7 +16,7 @@ talos_upgrade:
   installer:
     repository: factory.talos.dev/metal-installer/39699a54506a4570606671d813387abadbba0767ec91769b57e993f3387795d9
     # renovate: datasource=github-releases depName=siderolabs/talos
-    version: v1.13.12
+    version: v1.14.6
   upgrade:
     rebootMode: default
     timeout: 30m

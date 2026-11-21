@@ -1,0 +1,8 @@
+---
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+provisioning:
+  diskSelector:
+    match: >-
+      {{ talos_install_disk | to_json }} in disk.symlinks && disk.serial == {{ talos_install_serial | to_json }}
+  wipe: false

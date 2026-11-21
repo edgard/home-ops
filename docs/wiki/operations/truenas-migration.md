@@ -182,7 +182,7 @@ authorize the local read-only `dd` operation for this session.
 
 Keep the original bundle private and verify the recorded EFI loader exists on
 the original ESP. Record how to select it on the headless machine if the UEFI
-boot order changes. The reviewed image is the [v1.13.12 amd64 metal RAW from Image Factory](https://factory.talos.dev/image/39699a54506a4570606671d813387abadbba0767ec91769b57e993f3387795d9/v1.13.12/metal-amd64.raw.zst).
+boot order changes. The reviewed image is the [v1.14.6 amd64 metal RAW from Image Factory](https://factory.talos.dev/image/39699a54506a4570606671d813387abadbba0767ec91769b57e993f3387795d9/v1.14.6/metal-amd64.raw.zst).
 Match its schematic and version to the cutover installer. These SHA-256
 values were measured from that HTTPS download. The public Factory returned
 HTTP 402 for its separate checksum endpoint. The uncompressed GPT contains
@@ -190,8 +190,8 @@ the amd64 EFI fallback loader at `EFI/BOOT/BOOTX64.EFI`.
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
-| Compressed RAW | 115956026 | `4bda956e6cdc776e35595da30abeb7998544badea70dbf3dceff555b5ebea837` |
-| Uncompressed RAW | 2355101696 | `c43c8c3739a50681495d4119599d64e3342c7482faaac4a657eda5625e6e8b05` |
+| Compressed RAW | 126707234 | `2a78c0531dc3ae45a9f6bf5f4199bba5a6c947bbf7924f12e0d3bb8a73296edc` |
+| Uncompressed RAW | 2355101696 | `48e4d424951748986c14f39374f747dd35b6f38fa24a4674e82a4bc1354dd877` |
 
 Verify the compressed file with `shasum -a 256` and `zstd -t`.
 For this reviewed build, `zstd -dc IMAGE.raw.zst | shasum -a 256` must match
@@ -273,7 +273,7 @@ container with host PID visibility and a separate mount namespace. Run the
 host ZFS binaries in PID 1's mount namespace and root:
 
 ```sh
-talosctl -n "$NODE" debug "$DEBUG_IMAGE" --args /bin/sh
+talosctl -n "$NODE" debug --namespace inmem "$DEBUG_IMAGE" --args /bin/sh
 ```
 
 ```sh

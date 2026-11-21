@@ -19,6 +19,16 @@ current system disk and NIC before sending configuration. On the installed
 node, the platform additionally matches the Kubernetes node's hardware UUID
 and InternalIP against the authenticated Talos endpoint.
 
+The Talos 1.14 installation selector matches both the SSD serial and its
+whole-disk by-id symlink, with wiping disabled. The generated
+`KubeNodeConfig` removes the control-plane scheduling taint and load-balancer
+exclusion on this single node. Talos 1.14 isolates Kubernetes workloads in
+their own PID and mount namespaces. The OpenEBS pool guard and maintenance
+Pods use explicit host mounts and the host's ZFS extension binaries. Verify
+the CSI driver can provision and mount a test volume on a sacrificial pool
+before attaching the production HDDs. Host administration through
+`talosctl debug --namespace inmem` uses Talos's system container runtime.
+
 `task cluster:create` generates the machine configuration, applies it,
 bootstraps fresh etcd and installs the platform foundation. For a staged
 recovery, the Talos tasks can be run individually, then

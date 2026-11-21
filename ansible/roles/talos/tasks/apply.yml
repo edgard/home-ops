@@ -7,16 +7,17 @@
 - name: Reject a stale machine configuration from the virtual machine or a different target
   no_log: true
   vars:
-    talos_documents: "{{ lookup('ansible.builtin.file', talos_controlplane_config_path) | from_yaml_all | list }}"
-    talos_generated_machine: "{{ (talos_documents | selectattr('machine', 'defined') | first).machine }}"
-    talos_generated_cluster: "{{ (talos_documents | selectattr('cluster', 'defined') | first).cluster }}"
-    talos_generated_links: "{{ talos_documents | selectattr('kind', 'defined') | selectattr('kind', 'equalto', 'LinkAliasConfig') | list }}"
+    talos_documents: "{{ lookup('ansible.builtin.file', talos_controlplane_config_path) | from_yaml_all | selectattr('kind', 'defined') | list }}"
+    talos_generated_install: "{{ talos_documents | selectattr('kind', 'equalto', 'UnattendedInstallConfig') | first }}"
+    talos_generated_cluster: "{{ talos_documents | selectattr('kind', 'equalto', 'KubeClusterConfig') | first }}"
+    talos_expected_install: "{{ lookup('ansible.builtin.template', 'install-target.yaml.j2') | from_yaml }}"
   ansible.builtin.assert:
     that:
-      - talos_generated_machine.install.disk == talos_install_disk
-      - talos_generated_machine.install.image == talos_upgrade.installer.repository ~ ':' ~ talos_upgrade.installer.version
-      - talos_generated_cluster.controlPlane.endpoint == 'https://' ~ talos_node ~ ':6443'
-      - lookup('ansible.builtin.template', 'uplink.yaml.j2') | from_yaml in talos_generated_links
+      - talos_generated_install.provisioning == talos_expected_install.provisioning
+      - talos_generated_install.installer.image == talos_upgrade.installer.repository ~ ':' ~ talos_upgrade.installer.version
+      - talos_generated_cluster.endpoint == 'https://' ~ talos_node ~ ':6443'
+      - talos_generated_cluster.clusterName == talos_cluster_name
+      - lookup('ansible.builtin.template', 'uplink.yaml.j2') | from_yaml in talos_documents
 
 - name: Apply verified control plane configuration
   when: not ansible_check_mode

@@ -9,6 +9,8 @@ Split foundation and GitOps handoff. Documented local dataset bindings,
 snapshot-based claim migration, namespace backups and guarded restores,
 storage monitoring, and bare-metal lifecycle checks. Added a headless rescue
 USB route for capturing and reimaging an installed SSD over the LAN.
+Updated the cutover to Talos 1.14, including the new configuration documents
+and an unattended install selector tied to the SSD's stable path and serial.
 
 ## [2026-11-21] revision | Stage a cold TrueNAS migration
 
