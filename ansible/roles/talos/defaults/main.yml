@@ -10,6 +10,7 @@ talos_health_wait_timeout: 5m
 talos_install_serial: "{{ lookup('env', 'TALOS_INSTALL_SERIAL') }}"
 talos_uplink_mac: "{{ lookup('env', 'TALOS_UPLINK_MAC') | lower }}"
 talos_maintenance_node: "{{ lookup('env', 'TALOS_MAINTENANCE_NODE') }}"
+talos_maintenance_fingerprint: "{{ lookup('env', 'TALOS_MAINTENANCE_FINGERPRINT') }}"
 talos_destroy_confirm: "{{ lookup('env', 'TALOS_DESTROY_CONFIRM') }}"
 
 talos_upgrade:

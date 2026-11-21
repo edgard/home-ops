@@ -14,7 +14,12 @@ Ethernet port's permanent `TALOS_UPLINK_MAC`. The configuration binds that
 port to `br0`, preserves the bridge's DHCP reservation, and names the node
 `homelab`. For first contact with the pre-flashed SSD, set
 `TALOS_MAINTENANCE_NODE` to the physical NIC's distinct initial DHCP address.
-Clear it after applying the machine configuration. Every apply checks the
+After verifying the physical node, export the attested TLS public key fingerprint
+as `TALOS_MAINTENANCE_FINGERPRINT`. Use the padded base64 SHA-256 fingerprint
+from the trusted first-contact receipt or physical console. With this value set,
+every maintenance read and both configuration submissions verify the same key.
+Clear both maintenance variables after applying the machine configuration. The
+final endpoint uses the generated Talos client credentials. Every apply checks the
 current system disk and NIC before sending configuration. On the installed
 node, the platform additionally matches the Kubernetes node's hardware UUID
 and InternalIP against the authenticated Talos endpoint.

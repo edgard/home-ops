@@ -3,9 +3,11 @@
   ansible.builtin.import_tasks: target_inputs.yml
 
 - name: Select the Talos endpoint for this operation
+  vars:
+    talos_fingerprint_flags: "{{ ['--cert-fingerprint', talos_maintenance_fingerprint] if talos_maintenance_fingerprint else [] }}"
   ansible.builtin.set_fact:
     talos_target_endpoint: "{{ talos_first_contact | default('') or talos_node }}"
-    talos_target_auth_flags: "{{ ['--insecure'] if talos_first_contact | default('') else [] }}"
+    talos_target_auth_flags: "{{ ['--insecure'] + talos_fingerprint_flags if talos_first_contact | default('') else [] }}"
 
 - name: Select the authenticated client and target arguments
   ansible.builtin.set_fact:

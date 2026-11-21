@@ -9,12 +9,12 @@
 
 - name: Disable automatic ZFS discovery before starting CRI
   ansible.builtin.command:
-    argv: "{{ talos_target_client + ['apply-config', '--insecure', '--mode=no-reboot', '--file', talos_zfs_guard_file] }}"
+    argv: "{{ talos_target_client + ['apply-config', '--mode=no-reboot', '--file', talos_zfs_guard_file] + talos_target_auth_flags }}"
   changed_when: true
 
 - name: Wait until Talos has rendered the restriction for zfs-service
   ansible.builtin.command:
-    argv: "{{ talos_target_client + ['get', 'extensionserviceconfigstatuses', 'zfs-service', '--insecure', '-o', 'yaml'] }}"
+    argv: "{{ talos_target_client + ['get', 'extensionserviceconfigstatuses', 'zfs-service', '-o', 'yaml'] + talos_target_auth_flags }}"
   register: talos_rendered_zfs
   changed_when: false
   until: >-
@@ -37,6 +37,6 @@
       name: zfs
       $patch: delete
   ansible.builtin.command:
-    argv: "{{ talos_target_client + ['apply-config', '--insecure', '--mode=no-reboot', '--file', talos_controlplane_config_path, '--config-patch', '@' + talos_zfs_guard_file, '--config-patch', talos_defer_module] }}"
+    argv: "{{ talos_target_client + ['apply-config', '--mode=no-reboot', '--file', talos_controlplane_config_path, '--config-patch', '@' + talos_zfs_guard_file, '--config-patch', talos_defer_module] + talos_target_auth_flags }}"
     expand_argument_vars: false
   changed_when: true
