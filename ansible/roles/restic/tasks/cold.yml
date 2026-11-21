@@ -1,0 +1,140 @@
+---
+- name: Require a concrete source and exact new destination
+  ansible.builtin.assert:
+    that:
+      - restic_recovery_namespace | default('') in ['media', 'selfhosted', 'home-automation']
+      - restic_recovery_claim | default('') is match('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
+      - restic_recovery_uid | default('') is match('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')
+      - restic_restore_snapshot is match('^[0-9a-f]{64}$')
+
+- name: Refuse a running GitOps instance or application writers
+  ansible.builtin.include_role:
+    name: platform
+    tasks_from: writers_absent
+
+- name: Read the claim, PV, volume and foundation namespace identities
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.namespace | default(omit) }}"
+    name: "{{ item.name }}"
+  loop:
+    - {version: v1, kind: Namespace, name: kube-system}
+    - {version: v1, kind: PersistentVolumeClaim, namespace: "{{ restic_recovery_namespace }}", name: "{{ restic_recovery_claim }}"}
+    - {version: v1, kind: PersistentVolume, name: "pvc-{{ restic_recovery_uid }}"}
+    - {version: zfs.openebs.io/v1, kind: ZFSVolume, namespace: kube-system, name: "pvc-{{ restic_recovery_uid }}"}
+  register: restic_recovery_objects
+
+- name: Require fresh ownership on this prepared cluster
+  vars:
+    pvc: "{{ restic_recovery_objects.results[1].resources[0] }}"
+    volume: "{{ restic_recovery_objects.results[3].resources[0] }}"
+  ansible.builtin.assert:
+    that:
+      - restic_recovery_objects.results | map(attribute='resources') | map('length') | list == [1, 1, 1, 1]
+      - pvc.metadata.uid == restic_recovery_uid
+      - pvc.metadata.annotations['home-ops.edgard.org/recovery-claim'] == restic_recovery_objects.results[0].resources[0].metadata.uid
+      - pvc.spec.accessModes == ['ReadWriteOnce']
+      - pvc.spec.dataSource is undefined and pvc.spec.dataSourceRef is undefined
+      - volume.metadata.deletionTimestamp is undefined
+      - volume.spec.poolName == 'dpool/k8s' and volume.spec.ownerNodeID == 'homelab'
+      - volume.spec.volumeType == 'DATASET' and volume.spec.fsType == 'zfs' and volume.spec.shared == 'yes'
+      - volume.status.state == 'Ready'
+
+- name: Read the foundation repository catalog
+  ansible.builtin.import_tasks: repository.yml
+
+- name: Require the read-only repository on the private recovery server
+  vars:
+    pod: "{{ restic_restore_servers.resources[0] }}"
+    container: "{{ pod.spec.containers | selectattr('name', 'equalto', 'app') | first }}"
+    mount: "{{ container.volumeMounts | selectattr('mountPath', 'equalto', '/repository') | first }}"
+  ansible.builtin.assert:
+    that:
+      - mount.readOnly | default(false) | bool
+      - mount.subPath is undefined and mount.subPathExpr is undefined
+      - (pod.spec.volumes | selectattr('name', 'equalto', mount.name) | first).persistentVolumeClaim.claimName == 'restic-repo'
+      - "'k8s.v1.cni.cncf.io/networks' not in (pod.metadata.annotations | default({}))"
+
+- name: Pin the snapshot and exact verified destination
+  ansible.builtin.set_fact:
+    restic_restore_app_plan:
+      app: "{{ restic_recovery_claim }}"
+      namespace: "{{ restic_recovery_namespace }}"
+      claims:
+        - "{{ restic_recovery_objects.results[1].resources[0] | restic_claim_binding(restic_recovery_objects.results[2].resources[0], restic_restore_snapshot_root) }}"
+      snapshot: "{{ restic_restore_snapshot_catalog.stdout | from_json | restic_select_snapshot(restic_restore_snapshot, restic_restore_snapshot_root, restic_recovery_namespace) }}"
+      workloads: []
+
+- name: Verify the source contains this exact claim directory
+  ansible.builtin.import_tasks: plan_app.yml
+
+- name: Display the fresh recovery plan
+  ansible.builtin.debug:
+    var: restic_restore_app_plan
+
+- name: Seed and verify the empty claim
+  when: restic_restore_confirm | bool and not ansible_check_mode
+  block:
+    - name: Exclude concurrent handoff and storage recovery
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig
+          - "{{ kubeconfig_path }}"
+          - --context
+          - "{{ kube_context }}"
+          - create
+          - -f
+          - "-"
+          - -o
+          - json
+        stdin: "{{ restic_recovery_lock | to_json }}"
+      changed_when: true
+      register: restic_recovery_lock_created
+      vars:
+        restic_recovery_lock:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: restic-restore-lock
+            namespace: "{{ restic_restore_namespace }}"
+          immutable: true
+          data:
+            plan.json: "{{ restic_restore_app_plan | to_json }}"
+
+    - name: Verify application writers and handoff are still absent under the lock
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: writers_absent
+
+    - name: Restore with the normal Job into the empty new volume
+      ansible.builtin.include_tasks: execute_restore_app.yml
+      vars:
+        restic_job_name: "restic-recover-{{ restic_recovery_uid }}"
+
+    - name: Record a held destination checkpoint for ordinary restored files
+      when: (restic_recovery_namespace, restic_recovery_claim) != ('selfhosted', 'sparkyfitness-data')
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: record_recovery
+      vars:
+        platform_recovered_namespace: "{{ restic_recovery_namespace }}"
+        platform_recovered_name: "{{ restic_recovery_claim }}"
+        platform_recovered_uid: "{{ restic_recovery_uid }}"
+        platform_restic_snapshot_id: "{{ restic_restore_snapshot }}"
+
+    - name: Release this successful recovery transaction
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: ConfigMap
+        namespace: "{{ restic_restore_namespace }}"
+        name: restic-restore-lock
+        state: absent
+        delete_options:
+          preconditions:
+            uid: "{{ (restic_recovery_lock_created.stdout | from_json).metadata.uid }}"

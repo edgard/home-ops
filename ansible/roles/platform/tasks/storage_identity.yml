@@ -1,28 +1,6 @@
 ---
-- name: Read the storage pool identity
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: v1
-    kind: ConfigMap
-    namespace: kube-system
-    name: storage-identity
-  register: platform_storage_identity
-
-- name: Require the recorded TrueNAS pool GUID on first bootstrap and reject any mismatch
-  vars:
-    platform_recorded_guid: "{{ platform_storage_identity.resources[0].data['pool-guid'] if platform_storage_identity.resources else platform_pool_guid }}"
-  ansible.builtin.assert:
-    that:
-      - platform_recorded_guid is match('^[1-9][0-9]{0,19}$')
-      - platform_recorded_guid | int < 2 ** 64
-      - not platform_pool_guid or platform_pool_guid == platform_recorded_guid
-      - not platform_storage_identity.resources or platform_storage_identity.resources[0].immutable | default(false) | bool
-      - not platform_storage_identity.resources or platform_storage_identity.resources[0].data['system-disk'] == talos_install_disk
-    fail_msg: Set MIGRATION_POOL_GUID to the verified dpool GUID before first bootstrap. The recorded pool and boot SSD identities must match.
-
 - name: Pin the storage identity before installing the CSI driver
-  when: not platform_storage_identity.resources
+  when: not platform_mount_identity.resources
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -35,5 +13,5 @@
         namespace: kube-system
       immutable: true
       data:
-        pool-guid: "{{ platform_pool_guid | string }}"
+        pool-guid: "{{ platform_verified_pool_guid | string }}"
         system-disk: "{{ talos_install_disk }}"

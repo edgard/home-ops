@@ -1,26 +1,14 @@
 ---
-- name: Check whether GitOps owns the Restic server
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: argoproj.io/v1alpha1
-    kind: Application
-    namespace: argocd
-    name: root
-  register: platform_restic_root
+- name: Check for a GitOps owner under the storage lock
+  ansible.builtin.import_tasks: read_root.yml
 
-- name: Check whether restore writes have already been closed
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: v1
-    kind: ConfigMap
-    namespace: kube-system
-    name: migration-handed-off
-  register: platform_restic_handoff
+- name: Expose the recovery repository only on a writer-free foundation
+  when: not platform_existing_root.resources
+  block:
+    - name: Check for orphaned applications and storage consumers
+      ansible.builtin.import_tasks: writers_absent.yml
 
-- name: Start the private read-only server before handoff
-  when: not platform_restic_root.resources and not platform_restic_handoff.resources
-  ansible.builtin.include_tasks: restic_server.yml
-  vars:
-    platform_restic_dir: "{{ repo_root }}/apps/selfhosted/restic"
+    - name: Start the private read-only server
+      ansible.builtin.include_tasks: restic_server.yml
+      vars:
+        platform_restic_dir: "{{ repo_root }}/apps/selfhosted/restic"

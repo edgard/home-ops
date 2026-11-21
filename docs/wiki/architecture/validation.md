@@ -47,8 +47,9 @@ are removed before merge and evidence is summarized in the PR. Retain only small
 checks for the enumerated risks; do not turn every implementation detail or prior
 outage into a permanent contract. Runtime operator guards remain authoritative.
 Removing lifecycle simulations intentionally removes ongoing bootstrap, restore,
-rollback, and transport regression coverage. Native validation does not prove
-those live operations or deployed application behavior.
+rollback, and transport regression coverage. The permanent recovery check rejects a file-only attestation for SparkyFitness
+because its PostgreSQL data directory is excluded from Restic. Use an actual
+restore drill to verify the service and data.
 
 ## Sources
 

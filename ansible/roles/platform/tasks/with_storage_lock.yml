@@ -1,0 +1,36 @@
+---
+- name: Exclude simultaneous restore or handoff operations
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ kubeconfig_path }}"
+      - --context
+      - "{{ kube_context }}"
+      - --namespace
+      - selfhosted
+      - create
+      - configmap
+      - restic-restore-lock
+      - "--from-literal=operation={{ platform_locked_task }}"
+      - --output=json
+  changed_when: true
+  register: platform_recovery_lock
+
+- name: Run the selected operation under the acquired lock
+  block:
+    - name: Run the protected storage operation
+      ansible.builtin.include_tasks: "{{ platform_locked_task }}"
+  always:
+    - name: Release this operation's lock
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: ConfigMap
+        namespace: selfhosted
+        name: restic-restore-lock
+        state: absent
+        delete_options:
+          preconditions:
+            uid: "{{ (platform_recovery_lock.stdout | from_json).metadata.uid }}"

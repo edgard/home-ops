@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: platform-checkpoint-
+  namespace: "{{ platform_recovered_namespace }}"
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  nodeSelector:
+    kubernetes.io/hostname: homelab
+  containers:
+    - name: checkpoint
+      image: "{{ platform_check_image }}"
+      securityContext:
+        privileged: true
+      command:
+        - sh
+        - -ec
+        - |
+          zfs() { chroot /host /usr/local/sbin/zfs "$@"; }
+          test "$(chroot /host /usr/local/sbin/zpool get -Hp -o value guid dpool)" = '{{ platform_checkpoint_guid }}'
+          fs='dpool/k8s/pvc-{{ platform_recovered_uid }}'
+          awk -v src="$fs" '$5=="/claim" {n++
+            if ($4=="/" && $6 ~ /(^|,)ro(,|$)/) for(i=7;i<NF;i++) if($i=="-" && $(i+1)=="zfs" && $(i+2)==src) ok=1
+          } END {exit !(n==1 && ok)}' /proc/self/mountinfo
+          tag='{{ platform_checkpoint_snapshot }}'
+          snapshot="$fs@$tag"
+          if ! zfs list -H -t snapshot -o name "$snapshot" >/dev/null 2>&1; then
+            zfs snapshot -o 'org.home-ops:restic-snapshot={{ platform_restic_snapshot_id }}' "$snapshot"
+          fi
+          test "$(zfs get -H -o value,source org.home-ops:restic-snapshot "$snapshot")" = "$(printf '%s\tlocal' '{{ platform_restic_snapshot_id }}')"
+          holds=$(zfs holds -H "$snapshot")
+          if ! printf '%s\n' "$holds" | awk -F '\t' -v snap="$snapshot" '$1==snap && $2=="home-ops-recovery"{ok=1} END {exit !ok}'; then
+            zfs hold home-ops-recovery "$snapshot"
+          fi
+          test "$(zfs get -Hp -o value "written@$tag" "$fs")" = 0
+          dataset_guid=$(zfs get -Hp -o value guid "$fs")
+          snapshot_guid=$(zfs get -Hp -o value guid "$snapshot")
+          printf '%s %s' "$dataset_guid" "$snapshot_guid" > /dev/termination-log
+      volumeMounts:
+        - {name: host, mountPath: /host, readOnly: true, mountPropagation: HostToContainer}
+        - {name: claim, mountPath: /claim, readOnly: true}
+  volumes:
+    - name: host
+      hostPath: {path: /, type: Directory}
+    - name: claim
+      persistentVolumeClaim:
+        claimName: "{{ platform_recovered_name }}"
+        readOnly: true

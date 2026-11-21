@@ -27,40 +27,8 @@
       {{ dict(restic_restore_inventory.results | map(attribute='item.kind') |
               zip(restic_restore_inventory.results | map(attribute='resources'))) }}
 
-- name: Find the verified repository server
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: v1
-    kind: Pod
-    namespace: "{{ restic_restore_namespace }}"
-    label_selectors:
-      - app.kubernetes.io/instance=restic
-      - app.kubernetes.io/controller=main
-    field_selectors:
-      - status.phase=Running
-  register: restic_restore_servers
-
-- name: Require a single repository server
-  ansible.builtin.assert:
-    that:
-      - restic_restore_servers.resources | length == 1
-      - restic_restore_servers.resources[0].metadata.deletionTimestamp is not defined
-
-- name: Read appdata snapshot IDs and backup paths
-  kubernetes.core.k8s_exec:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    namespace: "{{ restic_restore_namespace }}"
-    pod: "{{ restic_restore_servers.resources[0].metadata.name }}"
-    container: app
-    command: >-
-      /tools/restic --no-lock snapshots --json
-      --host {{ restic_restore_snapshot_host | quote }} --tag {{ restic_restore_snapshot_tag | quote }}
-  changed_when: false
-  check_mode: false
-  register: restic_restore_snapshot_catalog
-  failed_when: restic_restore_snapshot_catalog.rc != 0
+- name: Read the repository snapshot catalog
+  ansible.builtin.import_tasks: repository.yml
 
 - name: Match Argo apps to concrete snapshot IDs and bound OpenEBS volumes
   ansible.builtin.set_fact:

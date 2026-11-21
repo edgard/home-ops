@@ -1,5 +1,5 @@
 ---
-- name: Run the read-only verification in the Talos host mount namespace
+- name: Verify storage in the Talos host mount namespace
   vars:
     # Keep the entire script in one CLI argument, including for noninteractive clients.
     talos_probe_command: "echo {{ talos_zfs_probe_script | b64encode }} | base64 -d | /bin/sh -e"

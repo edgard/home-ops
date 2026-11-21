@@ -14,8 +14,8 @@
 
 - name: Verify the live datasets before upgrading
   ansible.builtin.include_role:
-    name: migration
-    tasks_from: mounts
+    name: platform
+    tasks_from: storage_mounts
 
 - name: Upgrade Kubernetes control plane
   when: not ansible_check_mode

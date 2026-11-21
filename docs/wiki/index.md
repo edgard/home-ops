@@ -9,7 +9,6 @@ remain authoritative; verify the running system separately.
 
 ## Workflows and operations
 
-- [TrueNAS to bare-metal migration](operations/truenas-migration.md) — offline staging, physical cutover and rollback.
 - [Agent and contributor workflow](agent-workflow.md) — change, validation, and repository conventions.
 - [Restic backup and restore runbook](operations/restic-backup-restore.md) — operator recovery procedure.
 - [Secrets maintenance and recovery](operations/secrets-maintenance.md) — provisioning, scoped commands, rotation, and recovery.

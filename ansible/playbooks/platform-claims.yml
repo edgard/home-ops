@@ -1,0 +1,9 @@
+---
+- name: Prepare app-owned storage before releasing Kubernetes workloads
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Prepare claims for recovery or a new installation
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: prepare_claims

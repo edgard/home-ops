@@ -59,19 +59,6 @@ def assert_secrets(config, tailscale_item, project_id):
     assert shared["ref"]["item"] == tailscale_item, "shared Tailscale application item"
 
 
-def assert_targets(talos, kubernetes, patch, installer):
-    assert all(
-        isinstance(value, str) and value for value in (talos, kubernetes, patch)
-    ), "nonempty upgrade targets"
-    assert SemanticVersion(talos.removeprefix("v")) in SpecifierSet(">=1.14,<1.15"), (
-        "cutover requires the verified Talos 1.14 installer contract"
-    )
-    assert SemanticVersion(kubernetes.removeprefix("v")) in SpecifierSet(
-        ">=1.36,<1.37"
-    ), "cutover retains the existing Kubernetes 1.36 series"
-    assert patch == installer, "Talos patch/default alignment"
-
-
 def terraform_sources(root):
     root = Path(root)
     tracked = subprocess.run(
@@ -179,7 +166,7 @@ def test_private_artifacts_stay_ignored_and_untracked(repo_root):
     assert not tracked.stdout, "sensitive artifacts must not be tracked"
 
 
-def test_talos_targets_align_and_stay_within_migration_bounds(repo_root):
+def test_talos_install_and_upgrade_images_match(repo_root):
     installer = read_yaml(repo_root / "ansible/roles/talos/defaults/main.yml")[
         "talos_upgrade"
     ]["installer"]
@@ -189,15 +176,8 @@ def test_talos_targets_align_and_stay_within_migration_bounds(repo_root):
     (install,) = (
         doc for doc in patches if doc.get("kind") == "UnattendedInstallConfig"
     )
-    upgrade = read_yaml(
-        repo_root
-        / "apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml"
-    )
-    assert_targets(
-        installer["version"],
-        upgrade["spec"]["kubernetes"]["version"],
-        install["installer"]["image"],
-        installer["repository"] + ":" + installer["version"],
+    assert install["installer"]["image"] == (
+        installer["repository"] + ":" + installer["version"]
     )
 
 

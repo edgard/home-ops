@@ -1,7 +1,7 @@
 # Kubernetes Restic restore runbook
 
 Purpose: recover existing Kubernetes appdata and verify the independent copy of the shared Restic repository.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3` plus the bare-metal migration changes in this revision.
+Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1`.
 
 ## Repository and backups
 
@@ -13,11 +13,10 @@ the current boot, the mounted ZFS filesystem `dpool/restic`, the original
 original repository, HTTP credentials and workstation endpoint during recovery.
 
 Kubernetes clients use `rest:http://restic.selfhosted.svc.cluster.local:8000/`.
-The workstation endpoint is `rest:http://restic.edgard.org:8000/`. Inspect the
-actual workstation snapshot families and pins in that same repository before
-cutover. Only the Kubernetes maintenance job performs retention.
+The workstation endpoint is `rest:http://restic.edgard.org:8000/`. Record the actual workstation snapshot families and known-good IDs
+in that same repository when testing recovery. Only the Kubernetes maintenance job performs retention.
 
-After Argo handoff the three namespace backup CronJobs are scheduled daily.
+The three namespace backup CronJobs run daily.
 Each mounts its enumerated appdata claims read-only, verifies source mounts and
 repository identity, and backs up `/data/appdata/<namespace>` with host
 `homelab` and tag `appdata`. Claim directories within both these snapshots and
@@ -37,12 +36,39 @@ independent access to these settings and the Restic password for disaster
 recovery. The home-automation reader can fetch only
 `selfhosted/restic-credentials`.
 
+For the first backup to an intentionally new B2 prefix, keep the scheduled
+copy disabled. Verify the decrypted local repository ID and run `restic check`
+plus a representative restore. Use a held, read-only point-in-time copy of
+the entire repository, including its original `.htpasswd`; this keeps pruning
+and clients from changing the source during upload. Confirm the crypt
+configuration points to a dedicated unused bucket prefix and successfully
+lists it as empty. Use an owner-private working directory on the recovery
+machine for both list files. With the verified copy mounted at `$SOURCE`:
+
+```sh
+set -eu
+umask 077
+rclone lsf restic-cloud: --recursive > "$PRIVATE_DIR/remote-objects"
+test ! -s "$PRIVATE_DIR/remote-objects"
+test -s "$SOURCE/.htpasswd"
+rclone lsf --files-only "$SOURCE/snapshots" > "$PRIVATE_DIR/snapshot-ids"
+test -s "$PRIVATE_DIR/snapshot-ids"
+rclone copy "$SOURCE" restic-cloud: --exclude '/locks/**' --exclude '/snapshots/**' --exclude '/.zfs/**'
+rclone copy "$SOURCE/snapshots" restic-cloud:snapshots --files-from "$PRIVATE_DIR/snapshot-ids"
+```
+
+For an already populated destination, retain its credentials and existing
+data. Verify the repository ID and recover its canaries before permitting
+any scheduled copy. If the initial upload stops partway, keep the source
+snapshot and inventory; verify the partially uploaded objects against that
+source before resuming the same ordered copy.
+
 Before enabling the scheduled copy, use a trusted machine and independent copy
 of that configuration to open the B2 repository read-only. For example, set
 `RCLONE_CONFIG` to the private configuration file and `RESTIC_PASSWORD_FILE`
 to the private repository password file. Supply the expected repository ID
-from the cutover record. Check a known application snapshot and a workstation
-snapshot and restore a representative file from each into private scratch
+from the independently retained local recovery record. Check a known application
+snapshot and a workstation snapshot and restore a representative file from each into private scratch
 storage. Compare contents to previously recorded hashes.
 
 ```sh
@@ -69,7 +95,10 @@ maintenance runs the weekly local retention and integrity checks after a
 successful copy. Missing approval or a failed check stops both operations.
 Inspect the CronJob's most recent Job and perform periodic independent restore
 drills. The schedules and retention counts live in the namespace values
-linked below.
+linked below. B2 can allow object listings while rejecting downloads with
+`403 download_cap_exceeded`. Compare actual bytes or a known digest when
+checking recovery. The daily cap also applies to independent restore drills.
+[Backblaze data caps](https://www.backblaze.com/docs/cloud-storage-data-caps-and-alerts)
 
 ## Restore one application
 
@@ -111,8 +140,16 @@ task restic:restore-all confirm_restore=true
 ```
 
 An explicit historical aggregate snapshot can cover all namespaces. To pin
-different modern snapshots in one transaction, pass a namespace-to-full-ID
-mapping as the Ansible extra variable `restic_restore_snapshot`. A modern
+different modern snapshots in one transaction, save a private JSON object
+mapping each selected namespace to the full ID from its preview. Use the
+same file for both invocations.
+
+```sh
+task restic:restore-all snapshot="$(jq -c . "$PINS")"
+task restic:restore-all snapshot="$(jq -c . "$PINS")" confirm_restore=true
+```
+
+A modern
 snapshot from one namespace cannot restore another namespace. Restore-all
 selects Argo-owned, bound `zfs-appdata` claims. Media, repository storage
 and SparkyFitness have their own recovery procedures.
@@ -125,7 +162,7 @@ files therefore does not restore the database. For a running installation, recov
 the selected completed archive into a temporary directory and use the native
 administrator restore page, retaining the same Bitwarden encryption/auth secrets.
 
-For cold recovery, use this manual application-specific sequence:
+For a stopped or damaged application on a cluster already managed by Argo, use this manual application-specific sequence:
 
 1. Recover the selected completed archive from Restic into temporary storage.
    Preserve the current data if it is still needed; do not overwrite an existing
@@ -154,26 +191,16 @@ records, and uploads after the swap before removing the retained copies.
 See the [app page](../apps/selfhosted/sparkyfitness.md) and
 [backup implementation](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/SparkyFitnessServer/services/backupService.ts).
 
-The generic role excludes both the SparkyFitness app and its data claim,
-including during restore-all.
+The ordinary in-place restore excludes both the SparkyFitness app and its data
+claim, including during restore-all. The fresh-claim path can recover its files
+before a separate native database import.
 
-## Fresh cluster or missing storage
+## New cluster or lost etcd state
 
-Use the [bare-metal migration and recovery procedure](truenas-migration.md)
-for a fresh control plane. Keep writers and Argo handoff withheld until
-the actual `dpool` GUID, boot-time mount identities, retained repository,
-and expected data have been verified. Recover the original Kubernetes/Talos
-identity and etcd/PV metadata where available. For an intentional rebuild
-with new claim identities, use the pre-handoff restore into freshly
-provisioned claims and verify the data. The ordinary restore role requires
-already-owned, bound claims and an active Argo application controller.
-
-### Retained ZFS data after loss of etcd
-
-While the cluster is healthy, keep a current etcd snapshot and a binding map
-off-node with the Talos recovery keys. Refresh the map after changing claims.
-The CSI handle identifies the physical dataset, and a newly created claim
-gets a different UID. Capture a mapping without reading Kubernetes Secrets.
+Keep the Talos identity, current etcd snapshots, the pool and dataset GUIDs,
+the PVC-to-CSI binding map and independent Restic credentials off the node.
+Refresh the map after claim changes. Capture it without reading Kubernetes
+Secrets. Record native ZFS dataset GUIDs beside these handles.
 
 ```sh
 kubectl get pv -o json | jq -r '
@@ -182,65 +209,111 @@ kubectl get pv -o json | jq -r '
    .spec.csi.volumeHandle, .spec.capacity.storage] | @tsv' > "$PRIVATE_DIR/claims.tsv"
 ```
 
-1. Fence all writers. Prefer recovering the matching etcd snapshot with its
-   original Talos identity, node name and pool GUID. Compare the recovered PVC
-   UID, PV handle, OpenEBS ZFSVolume and actual dataset with the saved map
-   before admitting workloads. Keep an off-pool copy of current data during
-   recovery. [Talos disaster recovery](https://docs.siderolabs.com/talos/v1.13/build-and-extend-talos/cluster-operations-and-maintenance/disaster-recovery)
-2. When etcd cannot be recovered, preserve the retained datasets and their
-   existing holds. On a trusted recovery system with exclusive access to the
-   pool, select and hold a consistent snapshot set. Use the saved map to match
-   every expected namespace/claim to exactly one old
-   `dpool/k8s/<volume-handle>@<snapshot>`. Record each GUID. Mount read-only
-   clones of the selected snapshots at private paths. A recursive snapshot
-   creates separate snapshots for descendant datasets. Reading only the
-   parent snapshot does not recover their contents. Use application checks
-   and native database recovery for crash-consistent snapshots. If a handle
-   cannot be identified, recover that namespace/claim by known path from a
-   verified Restic snapshot instead of guessing the dataset.
-3. Create a **new flat filesystem** below `dpool/migration` such as
-   `dpool/migration/rebuild-20261121`. Mount it at
-   `/var/mnt/<dataset-name>` with the target POSIX ACL/xattr policy. Keep the
-   original migration stage. Size free space for this stage and the new CSI
-   datasets, in addition to retained originals. For each claim, make a plain
-   `<namespace>/<claim>` directory inside this single filesystem; nested
-   mounted datasets would be excluded from the eventual stage snapshot.
-   Copy from its read-only clone below and require an empty checksum comparison.
-   Run these commands as a privileged recovery operator with the paths
-   individually checked against the saved binding map.
+When matching etcd state survives, fence writers and recover that state with
+its Talos identity. Verify the recovered node, pool and the live PVC, PV,
+ZFSVolume and native dataset identities against the saved map before allowing
+writers. [Talos recovery procedure](../architecture/talos-bootstrap.md#recover-the-existing-control-plane)
 
-   ```sh
-   rsync -aHAXS --numeric-ids "$READ_ONLY_CLONE/" "$STAGE/$NS/$CLAIM/"
-   rsync -aHAXSnic --delete --numeric-ids "$READ_ONLY_CLONE/" "$STAGE/$NS/$CLAIM/"
-   ```
+When rebuilding without etcd, keep all original datasets, source snapshots
+and holds. Give the recovery node exclusive access to the pool. Run
+`task platform:foundation` and `task platform:claims` before releasing
+Argo. These steps prepare a private read-only repository endpoint and the
+current chart-owned claims. Each prepared PVC gets its own new CSI handle.
+Size the pool for both retained originals and the new filesystems.
 
-4. For a claim available only through Restic, restore the full pinned
-   `<id>:/data/appdata/<namespace>/<claim>` subtree into its empty stage
-   directory with `--verify`. Use the legacy xattr treatment for an aggregate
-   NFS snapshot. For SparkyFitness, rebuild a complete operable PostgreSQL
-   database and uploads from its native archive in isolation, and stop the
-   database cleanly before copying its recovered files into the stage.
-   Complete independent application checks and record their results.
-5. Snapshot this flat stage, hold that snapshot, set the stage read-only, and
-   record its actual GUID. Return the pool exclusively to the target if using a
-   separate recovery host. Set `MIGRATION_DATASET` to this new dataset and
-   supply `MIGRATION_POOL_GUID`, `MIGRATION_SNAPSHOT` and
-   `MIGRATION_SNAPSHOT_GUID` for the selected source. Use
-   `task platform:foundation`, `MIGRATION_CONFIRM=restore task migration:restore`,
-   `task migration:verify` and the explicitly confirmed
-   `task platform:handoff` in the order specified by the
-   [cutover procedure](truenas-migration.md). Carry the same stage identity
-   through verification and handoff. The fresh claims receive fresh CSI
-   volumes. Keep old datasets, clones, and holds through a successful
-   post-recovery backup and independent restore.
+### Restore a freshly prepared claim
 
-If the repository itself was lost, recover the verified B2 copy into a separate
-empty filesystem before attaching it to a server. Validate repository ID,
-integrity, workstation snapshots and app snapshot restores there. Recover the
-original HTTP authentication file and repository decryption credentials.
-Keep the old source, cloud and other recovery copies untouched while choosing
-a recovery version. See the [migration runbook](truenas-migration.md) for
-independent boot, pool and cold staging recovery.
+Choose the complete 64-character snapshot ID that covers the namespace. Read
+the PVC UID from that cluster. Use the same ID and UID for preview and execution.
+
+```sh
+claim_uid=$(kubectl -n "$namespace" get pvc "$claim" -o jsonpath='{.metadata.uid}')
+task restic:recover-claim namespace="$namespace" claim="$claim" uid="$claim_uid" snapshot="$snapshot"
+task restic:recover-claim namespace="$namespace" claim="$claim" uid="$claim_uid" snapshot="$snapshot" confirm_restore=true
+```
+
+The role checks the foundation ownership annotation, exact PVC/PV and CSI
+volume, absent GitOps owners and consumers, private read-only repository,
+and the actual snapshot directory. The Job checks its mounted ZFS source
+and requires an empty destination immediately before restoring. It reads the
+repository without locking through the read-only endpoint and verifies the
+restored subtree. The cluster-wide recovery lock excludes handoff and other
+restore operations. Inspect `restic-recover-<PVC-UID>` in the target namespace
+for the result. A failed execution retains its Job and lock for inspection.
+If its Job failed after starting, preserve the partial contents for inspection
+and prepare a fresh verified destination. If the Job completed and only the
+checkpoint or lock release was interrupted, verify its UID, source annotation,
+successful Restic verification, unchanged destination and absence of writers.
+Keep the exclusive lock while checking an existing automatic proof or taking
+a held destination snapshot and documenting independent manual verification
+for the same PVC. Clear only the inspected lock, using its recorded UID.
+Use native database and application checks before approving recovered data.
+
+If usable data survives only on a retained CSI dataset, select its held
+snapshot by the saved handle and GUID. Access that snapshot read-only on
+a trusted recovery host or recovery Job. Verify the source mount and the
+empty new claim's CSI identity before copying. Preserve numeric owners,
+hardlinks, sparse files, portable xattrs and POSIX ACLs, and leave SELinux
+labels under the target policy. Run the checksum dry-run against the same
+read-only source and require successful execution with empty itemized output.
+These commands assume both roots were independently verified.
+
+```sh
+rsync -aHAXS --numeric-ids --filter='-x system.*' --filter='-x security.selinux' "$source/" "$target/"
+rsync -aHAXSnic --delete --numeric-ids --filter='-x system.*' --filter='-x security.selinux' "$source/" "$target/"
+```
+
+For SparkyFitness before first Argo handoff, restore the claim subtree to
+recover its uploads and completed archives. Run the following recovery with
+application deployments and their Services still absent.
+
+1. Apply the checked-in [SparkyFitness ExternalSecret](../../../apps/selfhosted/sparkyfitness/manifests/sparkyfitness-credentials.externalsecret.yaml)
+   and wait for its `Ready` condition. The Bitwarden entries must contain
+   the original database owner credential and application encryption keys.
+2. Start one temporary PostgreSQL-only Pod in `selfhosted` using the
+   digest-pinned official image, database owner Secret reference, security
+   context, `PGDATA` and `postgresql` PVC subpath from the
+   [PostgreSQL controller values](../../../apps/selfhosted/sparkyfitness/values.yaml).
+   Bind only a local Unix socket with `postgres -c listen_addresses=''`.
+   Verify the mount belongs to the expected new CSI volume before PostgreSQL
+   initializes. Use a private working directory for archive extraction and
+   read the archive from the same restored claim.
+3. For an ordinary completed full archive, extract its gzipped plain SQL
+   and uploads tar. Initialize the target database with its expected owner.
+   Create the `sparky_app` role if necessary, restore SQL over the local
+   socket through `psql --set ON_ERROR_STOP=1`, and restore uploaded files
+   with the backend's expected ownership. A separately recorded custom-format
+   PostgreSQL dump uses `pg_restore --exit-on-error` and its separately saved
+   global roles. Match the archive format before choosing the command.
+4. Check recovered schema, nonempty expected records and representative
+   upload hashes. Stop PostgreSQL cleanly, remove its temporary Pod and all
+   recovery consumers, and capture the verified destination snapshot for
+   handoff. If SQL import or upload verification stops partway, preserve
+   the original archive, inspect the isolated database and partial files,
+   and repeat the import into a clean destination. Record `native-postgresql`
+   only after both checks pass. The normal deployments start after release.
+
+A successful cold Restic Job for an ordinary claim automatically takes a
+destination snapshot, holds it and records the restored source and current
+volume identity in an immutable ConfigMap. For manual retained-data copies
+and SparkyFitness, stop all recovery consumers after application checks,
+take a destination snapshot, hold it and record its GUID. Supply manual
+entries in the owner-private `PLATFORM_RECOVERY_FILE` JSON object with
+decimal-string `pool_guid` and a `claims` array.
+Each entry records `namespace`, `name`, new PVC `uid`, `dataset_guid`,
+destination `snapshot` basename, `snapshot_guid` and `verification`, using
+`restic-verify`, `retained-checksum` or `native-postgresql`. SparkyFitness
+requires the native method. Every current claim must have exactly one
+accepted automatic or manual proof. The first `task platform:handoff` checks the
+held snapshot, unchanged destination and complete claim inventory before
+starting writers. Preserve the independent recovery sources through a new
+backup and tested restore. [Platform bootstrap and handoff](../architecture/talos-bootstrap.md)
+
+If the local repository was lost, recover the verified B2 copy into an empty
+filesystem and verify the decrypted repository identity, workstation and
+application snapshots and representative restores. Recover the original HTTP
+authentication file and decryption credentials before attaching the server.
+Keep the cloud copy and other recovery sources intact throughout selection.
 
 ## Sources
 
@@ -250,10 +323,11 @@ independent boot, pool and cold staging recovery.
 - [Restore task entry points](../../../Taskfile.yaml)
 - [Snapshot and claim selection](../../../ansible/roles/restic/filter_plugins/restic_restore.py)
 - [Restore transaction](../../../ansible/roles/restic/tasks/execute.yml)
+- [Restore a new claim before handoff](../../../ansible/roles/restic/tasks/cold.yml)
 - [Namespace restore Job](../../../ansible/roles/restic/templates/restore-job.yml.j2)
 
 ## Related pages
 
 - [Backup and recovery architecture](../architecture/backup-recovery.md)
 - [Storage](../architecture/storage.md)
-- [Bare-metal migration and recovery](truenas-migration.md)
+- [Platform bootstrap](../architecture/talos-bootstrap.md)

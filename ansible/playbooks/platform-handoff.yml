@@ -1,5 +1,5 @@
 ---
-- name: Verify restored storage and release GitOps workloads
+- name: Verify storage ownership and release GitOps workloads
   hosts: localhost
   gather_facts: false
   tasks:

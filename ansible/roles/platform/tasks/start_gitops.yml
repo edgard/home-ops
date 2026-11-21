@@ -1,0 +1,37 @@
+---
+- name: Read the current GitOps owner
+  ansible.builtin.import_tasks: read_root.yml
+
+- name: Confirm the running root belongs to this repository and cluster
+  when: platform_existing_root.resources | length > 0
+  vars:
+    platform_expected_root: "{{ (lookup('file', repo_root ~ '/' ~ platform_argocd_root_application_manifest) | from_yaml).spec }}"
+    platform_live_root: "{{ platform_existing_root.resources[0] }}"
+  ansible.builtin.assert:
+    that:
+      - platform_live_root.metadata.deletionTimestamp is undefined
+      - platform_live_root.spec.project == platform_expected_root.project
+      - platform_live_root.spec.destination == platform_expected_root.destination
+      - platform_live_root.spec.sources == platform_expected_root.sources
+
+- name: Require idle data before checking recovery evidence
+  when: not platform_existing_root.resources
+  ansible.builtin.import_tasks: writers_absent.yml
+
+- name: Verify the physical pool, current storage owners and repository
+  ansible.builtin.import_tasks: verify_storage.yml
+
+- name: Require a writer-free target before first release
+  when: not platform_existing_root.resources
+  ansible.builtin.import_tasks: writers_absent.yml
+
+- name: Apply Argo CD root application
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
+
+- name: Verify committed GitOps handoff and fresh application secrets
+  ansible.builtin.include_tasks: handoff.yml

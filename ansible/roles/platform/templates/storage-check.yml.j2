@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: platform-storage-check-
+  namespace: kube-system
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  nodeSelector:
+    kubernetes.io/hostname: homelab
+  tolerations:
+    - operator: Exists
+  containers:
+    - name: verify
+      image: "{{ platform_check_image }}"
+      securityContext:
+        privileged: true
+      command:
+        - sh
+        - -ec
+        - |
+          zpool() { chroot /host /usr/local/sbin/zpool "$@"; }
+          zfs() { chroot /host /usr/local/sbin/zfs "$@"; }
+          fail() { echo "$*" >&2; exit 1; }
+          [ "$(zpool list -H -o name)" = dpool ] && [ "$(zpool get -Hp -o value guid dpool)" = "$POOL_GUID" ] || fail "Unexpected pool"
+          [ "$(zpool list -H -o health dpool)" = ONLINE ] && [ "$(zpool get -H -o value readonly dpool)" = off ] || fail "Pool health or access"
+          # Resolve both the enrolled paths and ZFS's kernel device paths inside the host namespace.
+          devices() {
+            for path in "$@"; do [ -b "/host$path" ] && stat -L -c '%t:%T' "/host$path" || return 1; done
+          }
+          # Host by-partuuid links are relative; reject missing devices, aliases and missing leaves.
+          leaves=$(zpool status -LP dpool | awk '$1 ~ /^\/dev\// {if ($2 != "ONLINE") exit 1; print $1}')
+          members=$(devices $MEMBERS)
+          actual=$(devices $leaves)
+          [ "$(printf '%s\n' "$members" | sort -u | wc -l)" -eq 4 ] && [ "$(printf '%s\n' "$actual" | wc -l)" -eq 4 ] &&
+            [ "$(printf '%s\n' "$members" | sort)" = "$(printf '%s\n' "$actual" | sort)" ] || fail "Unexpected pool members"
+          mountcheck() {
+            [ "$(zfs get -H -o value readonly "$1")" = off ] || fail "Read-only dataset $1"
+            awk -v p="/host/var/mnt/$1" -v src="$1" '$5==p {n++
+              if ($4=="/") for(i=7;i<NF;i++) if($i=="-" && $(i+1)=="zfs" && $(i+2)==src) ok=1
+            } END {exit !(n==1 && ok)}' /proc/self/mountinfo || fail "Wrong mount for $1"
+          }
+          mountcheck dpool/media
+          mountcheck dpool/restic
+          [ "$(stat -c %g /host/var/mnt/dpool/media)" = 0 ] || fail "Wrong shared media group"
+          mode=$(stat -c %a /host/var/mnt/dpool/media)
+          [ "$((0$mode & 02770))" -eq "$((02770))" ] || fail "Unsafe shared media mode"
+          [ -s /host/var/mnt/dpool/restic/config ] && [ -s /host/var/mnt/dpool/restic/.htpasswd ] || fail "Repository missing"
+          [ "$(zfs list -H -o type dpool/k8s)" = filesystem ] && [ "$(zfs get -H -o value readonly dpool/k8s)" = off ] &&
+            [ "$(zfs get -H -o value mountpoint dpool/k8s)" = none ] || fail "Wrong CSI parent"
+          zfs list -Hpr -t filesystem,volume -o name,type,guid dpool/k8s
+{% if platform_new_site | default(false) | bool %}
+          snapshots=$(zfs list -H -r -t snapshot -o name dpool/k8s)
+          [ -z "$snapshots" ] || fail "The appdata parent already contains snapshots"
+{% endif %}
+{% for row in platform_recovery_claims | default([]) %}
+          fs='dpool/k8s/pvc-{{ row.uid }}'
+          snap="$fs@{{ row.snapshot }}"
+          [ "$(zfs get -Hp -o value guid "$fs")" = '{{ row.dataset_guid }}' ] &&
+            [ "$(zfs get -Hp -o value guid "$snap")" = '{{ row.snapshot_guid }}' ] &&
+            [ "$(zfs get -Hp -o value 'written@{{ row.snapshot }}' "$fs")" = 0 ] || fail "Recovery checkpoint changed for $fs"
+          holds=$(zfs holds -H "$snap")
+          printf '%s\n' "$holds" | awk -F '\t' -v snap="$snap" '$1==snap && length($2) {ok=1} END {exit !ok}' || fail "Recovery hold missing for $fs"
+{% endfor %}
+      env:
+        - name: POOL_GUID
+          value: "{{ platform_verified_pool_guid }}"
+        - name: MEMBERS
+          value: "{{ talos_zfs_member_paths | join(' ') }}"
+      volumeMounts:
+        - name: host
+          mountPath: /host
+          readOnly: true
+          mountPropagation: HostToContainer
+  volumes:
+    - name: host
+      hostPath: {path: /, type: Directory}

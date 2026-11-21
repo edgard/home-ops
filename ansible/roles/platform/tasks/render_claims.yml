@@ -1,0 +1,13 @@
+---
+- name: Render the PVCs owned by the current GitOps applications
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python_interpreter }}"
+      - "{{ role_path }}/files/claims.py"
+      - "{{ repo_root }}"
+  changed_when: false
+  register: platform_rendered_claims
+
+- name: Collect the desired application PVCs
+  ansible.builtin.set_fact:
+    platform_claims: "{{ platform_rendered_claims.stdout | from_json }}"

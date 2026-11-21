@@ -1,12 +1,12 @@
 # media-backup
 
 Purpose: back up the persistent application claims in the media namespace.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3` plus the bare-metal migration changes in this revision.
+Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1` and this revision.
 
 ## Dependencies and data
 
 The scheduled Restic Job mounts the claims enumerated in its values
-read-only at their historical namespace/claim paths. It checks ZFS source
+read-only at their namespace and claim paths. It checks ZFS source
 mounts and the expected repository ID before submitting the namespace
 snapshot. Include newly provisioned application claims in these mounts.
 Large shared media and the repository itself are outside this backup.
@@ -15,8 +15,8 @@ Large shared media and the repository itself are outside this backup.
 
 The Job uses the internal Restic Service and namespace-scoped credentials.
 Inspect Job completion, snapshot contents and a representative restore.
-The ordinary restore role handles existing bound claims, and the bare-metal
-runbook covers a fresh cluster before writers start.
+Use the Restic runbook to recover an existing claim or populate new claims
+before starting workloads on a rebuilt cluster.
 
 ## Sources
 

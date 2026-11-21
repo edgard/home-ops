@@ -1,0 +1,64 @@
+---
+- name: Collect the committed appdata PVCs
+  ansible.builtin.import_tasks: render_claims.yml
+
+- name: Require a writer-free cluster before creating claims
+  ansible.builtin.import_tasks: writers_absent.yml
+
+- name: Verify the physical storage and repository before binding claims
+  ansible.builtin.import_tasks: storage_mounts.yml
+
+- name: Verify authenticated recovery access
+  ansible.builtin.import_tasks: restic_repository.yml
+
+- name: Apply the scoped recovery credential manifests used by namespace backup Jobs
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    src: "{{ repo_root }}/apps/{{ item }}.yaml"
+  loop:
+    - selfhosted/restic/manifests/restic-secret-reader.serviceaccount
+    - selfhosted/restic/manifests/restic-secret-reader.role
+    - selfhosted/restic/manifests/restic-secret-reader.rolebinding
+    - selfhosted/restic/manifests/restic-credentials-store.clustersecretstore
+    - home-automation/home-automation-backup/manifests/restic-credentials.externalsecret
+    - media/media-backup/manifests/restic-credentials.externalsecret
+
+- name: Wait for namespace recovery credentials
+  ansible.builtin.include_tasks: wait_items.yml
+  vars:
+    platform_wait_items:
+      - api_version: external-secrets.io/v1
+        kind: ExternalSecret
+        namespace: home-automation
+        name: restic-credentials
+        condition_type: Ready
+      - api_version: external-secrets.io/v1
+        kind: ExternalSecret
+        namespace: media
+        name: restic-credentials
+        condition_type: Ready
+
+- name: Identify this Kubernetes installation
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Namespace
+    name: kube-system
+  register: platform_kube_system
+
+- name: Create only absent claims with the installation UID
+  ansible.builtin.include_tasks: create_claim.yml
+  loop: "{{ platform_claims }}"
+  loop_control:
+    loop_var: platform_claim
+    label: "{{ platform_claim.metadata.namespace }}/{{ platform_claim.metadata.name }}"
+
+- name: Bind the new PVCs with a short-lived read-only consumer
+  ansible.builtin.include_tasks: claim_probe.yml
+  loop: "{{ platform_claims | map(attribute='metadata.namespace') | unique }}"
+  loop_control:
+    loop_var: platform_claim_namespace

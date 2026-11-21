@@ -3,6 +3,17 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-21] revision | Install Talos and recover OpenEBS appdata
+
+Replaced source staging and SSD imaging procedures with Talos pool enrollment,
+OpenEBS claim provisioning and Restic recovery before workloads start.
+Documented which data comes from namespace backups and which needs a native
+PostgreSQL restore. Restic records the verified destination for each ordinary
+claim automatically. Renovate uses the published Talos installer-base tags
+and the deployed Talos support matrix for Kubernetes proposals.
+The original storage procedure is preserved in the
+[previous repository revision](https://github.com/edgard/home-ops/tree/e0ffdb032870a9272c7abd691788e9b4e4b48ee1).
+
 ## [2026-11-21] revision | Start Paperless-GPT as its data owner
 
 Documented how the GPT container uses the existing Paperless data ownership

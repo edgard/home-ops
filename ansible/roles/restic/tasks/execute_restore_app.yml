@@ -20,7 +20,7 @@
     api_version: batch/v1
     kind: Job
     namespace: "{{ restic_restore_app_plan.namespace }}"
-    name: "{{ restic_restore_job_name }}-{{ restic_restore_app_plan.app }}"
+    name: "{{ restic_job_name }}"
   register: restic_restore_job
   until: >-
     restic_restore_job.resources | length == 1 and
@@ -34,13 +34,14 @@
     that: restic_restore_job.resources[0].status.succeeded | default(0) | int == 1
 
 - name: Remove the completed restore job
+  when: restic_restore_mode != "cold"
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
     api_version: batch/v1
     kind: Job
     namespace: "{{ restic_restore_app_plan.namespace }}"
-    name: "{{ restic_restore_job_name }}-{{ restic_restore_app_plan.app }}"
+    name: "{{ restic_job_name }}"
     state: absent
     wait: true
     wait_timeout: 120

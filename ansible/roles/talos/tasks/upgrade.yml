@@ -6,8 +6,8 @@
 
 - name: Verify the live datasets before upgrading
   ansible.builtin.include_role:
-    name: migration
-    tasks_from: mounts
+    name: platform
+    tasks_from: storage_mounts
 
 - name: Drain the verified node and hold the cordon across reboot
   when: not ansible_check_mode
@@ -84,8 +84,8 @@
 
 - name: Verify the same data returned before accepting workloads
   ansible.builtin.include_role:
-    name: migration
-    tasks_from: mounts
+    name: platform
+    tasks_from: storage_mounts
 
 - name: Uncordon the verified control plane
   when: not ansible_check_mode

@@ -1,12 +1,11 @@
 # Preserve the Talos Image Factory installer
 
 Purpose: record the upgrade image constraint for the single node.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
+Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1` and this revision.
 
 [PR #394](https://github.com/edgard/home-ops/pull/394) corrected the Talos
 upgrade path to use the installer specified by the committed machine
-configuration, preserving the guest agent on the former VM. The physical
-host's committed schematic includes the OpenZFS tooling, AMD microcode and
+configuration. The bare-metal schematic includes the OpenZFS tooling, AMD microcode and
 Realtek firmware. Submit the schematic to the Factory with this command and
 compare the returned ID with the role defaults and control-plane patch.
 
@@ -17,16 +16,16 @@ curl --fail-with-body --silent --show-error \
   https://factory.talos.dev/schematics
 ```
 
-Use the matching Factory `image/<id>/<version>/metal-amd64.raw.zst` artifact
-when flashing the original boot SSD from a Mac enclosure or a headless rescue
-USB. Use the `metal-installer/<id>:<version>`
-image from the same schematic for installation and future upgrades. The
-generation check verifies that the role and machine patch select the same
-installer. The [migration runbook](../operations/truenas-migration.md) covers
-source backups and the physical handoff.
+For a disk-image installation, use the Factory artifact
+`image/<id>/<version>/metal-amd64.raw.zst` for the verified system SSD.
+Select the `metal-installer/<id>:<version>` image from the same schematic
+for the machine configuration and upgrades. Generation verifies that both
+paths use the same installer. The [Talos bootstrap procedure](../architecture/talos-bootstrap.md)
+describes disk identification, network setup and pool enrollment.
 
 Renovate's Ansible manager reads the image from the bootstrap patch. The
-package lookup override reads upstream installer tags while preserving the
+package lookup uses stable `ghcr.io/siderolabs/installer-base` tags published
+with [Talos releases](https://github.com/siderolabs/talos/releases/tag/v1.14.6), preserving the
 factory schematic path in the patch. The annotated version in the role
 defaults is tracked separately through the custom regex manager. Moving
 either input requires updating its manager's file pattern. Repository

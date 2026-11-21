@@ -2,7 +2,7 @@
 - name: Require explicit authorization to start workloads
   ansible.builtin.assert:
     that: platform_handoff_confirm | bool
-    fail_msg: Set PLATFORM_HANDOFF_CONFIRM=true only after verifying the restored target.
+    fail_msg: Set PLATFORM_HANDOFF_CONFIRM=true only to release the verified storage to application workloads.
 
 - name: Verify the merged repository and scoped credentials
   ansible.builtin.import_tasks: preflight.yml
@@ -10,111 +10,7 @@
 - name: Verify the physical node and Kubernetes context
   ansible.builtin.import_tasks: target.yml
 
-- name: Read the handoff record
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: v1
-    kind: ConfigMap
-    namespace: kube-system
-    name: migration-handed-off
-  register: platform_handoff_marker
-
-- name: Read the existing root before classifying the handoff
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: argoproj.io/v1alpha1
-    kind: Application
-    namespace: argocd
-    name: root
-  register: platform_existing_root
-
-- name: Read the immutable storage identity
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: v1
-    kind: ConfigMap
-    namespace: kube-system
-    name: storage-identity
-  register: platform_handoff_storage
-
-- name: Require the verified boot SSD and the foundation's pool identity
-  ansible.builtin.assert:
-    that:
-      - platform_handoff_storage.resources | length == 1
-      - platform_handoff_storage.resources[0].immutable | default(false) | bool
-      - platform_handoff_storage.resources[0].data['system-disk'] == talos_install_disk
-      - platform_handoff_storage.resources[0].data['pool-guid'] is match('^[1-9][0-9]{0,19}$')
-      - platform_existing_root.api_found
-      - not platform_existing_root.resources or platform_handoff_marker.resources | length == 1
-    fail_msg: The physical target, immutable storage identity and the root's handoff record must agree.
-
-- name: Validate an earlier handoff record
-  when: platform_handoff_marker.resources | length > 0
-  ansible.builtin.assert:
-    that:
-      - platform_handoff_marker.resources[0].immutable | default(false) | bool
-      - platform_handoff_marker.resources[0].data.revision is match('^[0-9a-f]{40}$')
-      - platform_handoff_marker.resources[0].data['pool-guid'] == platform_handoff_storage.resources[0].data['pool-guid']
-      - platform_handoff_marker.resources[0].data['snapshot-guid'] is match('^[1-9][0-9]{0,19}$')
-
-- name: Confirm the running root belongs to this repository and cluster
-  when: platform_existing_root.resources | length > 0
+- name: Release the verified foundation while restores are excluded
+  ansible.builtin.include_tasks: with_storage_lock.yml
   vars:
-    platform_expected_root: "{{ (lookup('file', repo_root ~ '/' ~ platform_argocd_root_application_manifest) | from_yaml).spec }}"
-    platform_live_root: "{{ platform_existing_root.resources[0] }}"
-  ansible.builtin.assert:
-    that:
-      - platform_live_root.metadata.deletionTimestamp is undefined
-      - platform_live_root.spec.project == platform_expected_root.project
-      - platform_live_root.spec.destination == platform_expected_root.destination
-      - platform_live_root.spec.sources | map(attribute='repoURL') | unique | list == platform_expected_root.sources | map(attribute='repoURL') | unique | list
-
-- name: Verify the storage that will be handed to GitOps
-  ansible.builtin.include_role:
-    name: migration
-    tasks_from: "{{ 'accepted' if platform_existing_root.resources else 'verify' }}"
-  vars:
-    migration_acceptance_marker: "{{ platform_handoff_marker.resources | first | default({}) }}"
-
-- name: Require the same snapshot when recovering an interrupted first release
-  when: platform_handoff_marker.resources | length > 0 and not platform_existing_root.resources
-  ansible.builtin.assert:
-    that: platform_handoff_marker.resources[0].data['snapshot-guid'] == migration_verified_snapshot_guid
-
-- name: Close migration writes before releasing the root application
-  when: not platform_handoff_marker.resources
-  kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    state: present
-    definition:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: migration-handed-off
-        namespace: kube-system
-      immutable: true
-      data:
-        revision: "{{ platform_bootstrap_revision }}"
-        pool-guid: "{{ platform_handoff_storage.resources[0].data['pool-guid'] }}"
-        snapshot-guid: "{{ migration_verified_snapshot_guid }}"
-
-- name: Detach the cold snapshot after closing migration writes
-  when: not platform_existing_root.resources
-  ansible.builtin.include_role:
-    name: migration
-    tasks_from: detach
-
-- name: Apply Argo CD root application
-  kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    state: present
-    apply: true
-    src: "{{ repo_root }}/{{ platform_argocd_root_application_manifest }}"
-
-- name: Verify committed GitOps handoff and fresh application secrets
-  ansible.builtin.include_tasks: handoff.yml
+    platform_locked_task: start_gitops.yml

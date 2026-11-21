@@ -5,10 +5,13 @@
 - name: Verify the physical node and Kubernetes context
   ansible.builtin.import_tasks: target.yml
 
-- name: Verify the released storage policy before installing the foundation
-  ansible.builtin.include_role:
-    name: talos
-    tasks_from: require_zfs_release
+- name: Verify the pool and data mounts before enrolling storage
+  ansible.builtin.import_tasks: storage_mounts.yml
+  vars:
+    platform_enroll_identity: true
+
+- name: Record the verified pool and system disk before starting CSI
+  ansible.builtin.import_tasks: storage_identity.yml
 
 - name: Build bootstrap release specs
   ansible.builtin.set_fact:
@@ -25,9 +28,6 @@
 
 - name: Warm bootstrap images
   ansible.builtin.import_tasks: k8tz_warmup.yml
-
-- name: Record the expected pool identity before CSI can start
-  ansible.builtin.import_tasks: storage_identity.yml
 
 - name: Install foundational bootstrap releases
   ansible.builtin.include_tasks: install_release_with_manifests.yml
@@ -49,11 +49,13 @@
 - name: Bootstrap External Secrets
   ansible.builtin.import_tasks: external_secrets.yml
 
-- name: Provide access to the existing Restic repository for recovery
-  ansible.builtin.import_tasks: restic_access.yml
-
 - name: Provide the Gateway API used by the Argo CD Helm chart
   ansible.builtin.import_tasks: gateway_api.yml
 
 - name: Bootstrap Argo CD
   ansible.builtin.import_tasks: argocd.yml
+
+- name: Provide private recovery access before the first GitOps handoff
+  ansible.builtin.include_tasks: with_storage_lock.yml
+  vars:
+    platform_locked_task: restic_access.yml

@@ -1,0 +1,11 @@
+---
+- name: Verify the merged repository and scoped credentials
+  ansible.builtin.import_tasks: preflight.yml
+
+- name: Verify the physical node and Kubernetes context
+  ansible.builtin.import_tasks: target.yml
+
+- name: Prepare storage while restore and handoff operations are excluded
+  ansible.builtin.include_tasks: with_storage_lock.yml
+  vars:
+    platform_locked_task: create_claims.yml

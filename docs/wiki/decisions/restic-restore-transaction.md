@@ -1,13 +1,12 @@
 # Plan and guard appdata restores
 
 Purpose: explain the restore transaction's safety boundary.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
+Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1` and this revision.
 
 [PR #260](https://github.com/edgard/home-ops/pull/260) retained the shared
 Restic repository as the recovery source. [PR #261](https://github.com/edgard/home-ops/pull/261)
 added plan-only Taskfile entry points and an Ansible role that chooses
-Argo-managed appdata PVCs, excluding shared/static storage. The OpenEBS migration preserves this preview boundary and the legacy snapshot
-layout. The role binds each PVC to its exact CSI dataset and resolves its
+Argo-managed appdata PVCs, excluding shared/static storage. The restore planner supports namespace and legacy aggregate snapshots. The role binds each PVC to its exact CSI dataset and resolves its
 snapshot ID before changing cluster state. Per-namespace mounts follow
 Kubernetes PVC ownership and allow Restic to verify the selected claim subtree.
 

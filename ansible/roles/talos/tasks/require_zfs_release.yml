@@ -6,3 +6,7 @@
   ansible.builtin.assert:
     that: talos_live_zfs.released
     fail_msg: Stage the four verified ZFS member partitions, reboot and verify the pool and its datasets before running platform:foundation.
+
+- name: Record the four data partitions authorized by the active Talos configuration
+  ansible.builtin.set_fact:
+    talos_zfs_member_paths: "{{ talos_live_zfs.v1alpha1.policy.environment[0].removeprefix('ZPOOL_IMPORT_PATH=').split(':') }}"

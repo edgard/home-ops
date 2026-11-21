@@ -256,39 +256,6 @@ tasks:
       - task: lint
       - task: test
 
-  # Cold staging on TrueNAS
-  migration:preflight:
-    desc: Record pool, VM, SSD and partition identities without changing the source
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-source.yml -e migration_action=preflight"
-
-  migration:stage:
-    desc: Replicate the cold appdata snapshot into the migration dataset
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-source.yml -e migration_action=stage"
-
-  migration:archive:
-    desc: Capture and verify the exported spool partition
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-source.yml -e migration_action=archive"
-
-  migration:boot-backup:
-    desc: Capture and verify the original SSD boot ranges on the Mac
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-source.yml -e migration_action=boot-backup"
-
   # High-level cluster lifecycle
   cluster:create:
     desc: Bootstrap Talos and Kubernetes, then install the foundation once the ZFS member policy is active
@@ -354,9 +321,8 @@ tasks:
     requires:
       vars:
         - DEBUG_IMAGE
-        - MIGRATION_POOL_GUID
-        - MIGRATION_SNAPSHOT
-        - MIGRATION_SNAPSHOT_GUID
+        - ZFS_POOL_GUID
+        - ZFS_MEMBER_PARTUUIDS
         - TALOS_ZFS_RELEASE_CONFIRM
     cmds:
       - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-apply.yml -e talos_release_zfs=true"
@@ -410,8 +376,19 @@ tasks:
           scope: platform
           playbook: platform-bootstrap.yml
 
+  platform:claims:
+    desc: Provision appdata claims before starting application writers
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    cmds:
+      - task: secrets:invoke
+        vars:
+          scope: platform
+          playbook: platform-claims.yml
+
   platform:handoff:
-    desc: Verify seeded claims and release workloads to Argo CD
+    desc: Verify appdata and storage bindings before starting Argo workloads
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
@@ -420,22 +397,6 @@ tasks:
         vars:
           scope: platform
           playbook: platform-handoff.yml
-
-  migration:restore:
-    desc: Populate the managed claims from the held read-only ZFS snapshot
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-restore.yml"
-
-  migration:verify:
-    desc: Verify the current bindings and completed copy receipts before handoff
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    cmds:
-      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/migration-verify.yml"
 
   platform:destroy:
     desc: Destroy platform components via Ansible
@@ -473,7 +434,7 @@ tasks:
       - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/restic-restore.yml --extra-vars {{dict \"restic_restore_mode\" \"app\" \"restic_restore_app\" .app \"restic_restore_snapshot\" .snapshot \"restic_restore_confirm\" .confirm_restore | toJson | shellQuote}}"
 
   restic:restore-all:
-    desc: Plan or run a restic restore for all appdata PVCs
+    desc: Plan or restore appdata PVCs that support in-place file recovery
     interactive: true
     dir: "{{.TASKFILE_DIR}}"
     deps:
@@ -482,7 +443,32 @@ tasks:
       snapshot: "{{.snapshot | default \"latest\"}}"
       confirm_restore: "{{.confirm_restore | default \"false\"}}"
     cmds:
-      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/restic-restore.yml --extra-vars {{dict \"restic_restore_mode\" \"all\" \"restic_restore_snapshot\" .snapshot \"restic_restore_confirm\" .confirm_restore | toJson | shellQuote}}"
+      - >-
+        "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/restic-restore.yml --extra-vars
+        {{dict "restic_restore_mode" "all"
+        "restic_restore_snapshot" (ternary (.snapshot | fromJson) .snapshot (hasPrefix "{" (trim .snapshot)))
+        "restic_restore_confirm" .confirm_restore | toJson | shellQuote}}
+
+  restic:recover-claim:
+    desc: Preview or recover one appdata claim before starting Argo workloads
+    interactive: true
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    vars:
+      confirm_restore: "{{.confirm_restore | default \"false\"}}"
+    requires:
+      vars:
+        - namespace
+        - claim
+        - uid
+        - snapshot
+    cmds:
+      - >-
+        "{{.ANSIBLE_PLAYBOOK}}" ansible/playbooks/restic-restore.yml --extra-vars
+        {{dict "restic_restore_mode" "cold" "restic_recovery_namespace" .namespace
+        "restic_recovery_claim" .claim "restic_recovery_uid" .uid
+        "restic_restore_snapshot" .snapshot "restic_restore_confirm" .confirm_restore | toJson | shellQuote}}
 
   # Terraform operations
   tf:plan:
