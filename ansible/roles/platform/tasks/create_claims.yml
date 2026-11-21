@@ -25,6 +25,7 @@
     - selfhosted/restic/manifests/restic-credentials-store.clustersecretstore
     - home-automation/home-automation-backup/manifests/restic-credentials.externalsecret
     - media/media-backup/manifests/restic-credentials.externalsecret
+    - platform-system/platform-system-backup/manifests/restic-credentials.externalsecret
 
 - name: Wait for namespace recovery credentials
   ansible.builtin.include_tasks: wait_items.yml
@@ -38,6 +39,11 @@
       - api_version: external-secrets.io/v1
         kind: ExternalSecret
         namespace: media
+        name: restic-credentials
+        condition_type: Ready
+      - api_version: external-secrets.io/v1
+        kind: ExternalSecret
+        namespace: platform-system
         name: restic-credentials
         condition_type: Ready
 

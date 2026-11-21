@@ -29,12 +29,17 @@ need independent backups.
 
 ## Local telemetry
 
-The non-default [telemetry class](../../../apps/kube-system/zfs-localpv/manifests/zfs-telemetry.storageclass.yaml)
-provisions quota-limited filesystems directly under the verified `dpool` pool.
-They are outside the recursive appdata snapshots and namespace Restic jobs.
-Deleting a telemetry claim releases its dataset. During planned teardown retire
-the telemetry claims while CSI is running. After loss of etcd, identify any
-orphan by its former PV handle before reclaiming space.
+Grafana and VictoriaMetrics use the default `zfs-appdata` class with the other
+managed applications. Hourly recursive snapshots cover both databases. The
+[platform namespace backup](../apps/platform-system/platform-system-backup.md)
+protects them in Restic for recovery after loss of the pool. Size the metrics claim
+against observed growth and allow additional pool space for overwritten blocks
+held by local snapshots.
+
+During the migration from the separate telemetry class, each Deployment stops its
+old writer and copies the original read-only dataset before starting on the new
+claim. Preserve the originals through verification. Complete removal of the
+one-time copy init containers before recovering onto a fresh cluster.
 
 ## Prepare storage for a Talos install
 

@@ -2,7 +2,7 @@
 - name: Require a concrete source and exact new destination
   ansible.builtin.assert:
     that:
-      - restic_recovery_namespace | default('') in ['media', 'selfhosted', 'home-automation']
+      - restic_recovery_namespace | default('') in ['home-automation', 'media', 'platform-system', 'selfhosted']
       - restic_recovery_claim | default('') is match('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
       - restic_recovery_uid | default('') is match('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')
       - restic_restore_snapshot is match('^[0-9a-f]{64}$')

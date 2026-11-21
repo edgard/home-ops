@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-22] revision | Move telemetry to standard appdata and Restic
+
+The [storage architecture](architecture/storage.md#local-telemetry) and
+[backup runbook](operations/restic-backup-restore.md) cover the default class,
+snapshot-based backup and platform namespace recovery.
+
 ## [2026-11-22] revision | Stage local Grafana monitoring
 
 Documented [parallel probe comparison and cutover](architecture/uptime.md),

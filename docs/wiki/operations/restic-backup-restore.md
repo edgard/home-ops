@@ -16,14 +16,14 @@ Kubernetes clients use `rest:http://restic.selfhosted.svc.cluster.local:8000/`.
 The workstation endpoint is `rest:http://restic.edgard.org:8000/`. Record the actual workstation snapshot families and known-good IDs
 in that same repository when testing recovery. Only the Kubernetes maintenance job performs retention.
 
-The three namespace backup CronJobs run daily.
+The namespace backup CronJobs run daily.
 Each mounts its enumerated appdata claims read-only, verifies source mounts and
 repository identity, and backs up `/data/appdata/<namespace>` with host
 `homelab` and tag `appdata`. Claim directories within both these snapshots and
 older aggregate snapshots use `/data/appdata/<namespace>/<actual-pvc-name>`.
 The shared media and dump filesystems are outside this backup. When adding a persistent application,
 add its actual claim to the namespace job and verify a snapshot containing it.
-These backups read live files. Use native application backups or a
+The [platform-system job](../apps/platform-system/platform-system-backup.md) captures SQLite and VictoriaMetrics with their online snapshot mechanisms. Other namespace jobs read live files. Use native application backups or a
 writer-quiesced copy for database-consistent recovery points.
 
 ## Offsite copy and retention
@@ -103,7 +103,7 @@ When the time zone field is empty, the controller manager's local time zone
 applies. [Kubernetes CronJob time zones](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#time-zones)
 
 ```sh
-kubectl get cronjobs -A -o custom-columns='NAMESPACE:.metadata.namespace,JOB:.metadata.name,SCHEDULE:.spec.schedule,ZONE:.spec.timeZone,LAST-SCHEDULE:.status.lastScheduleTime,LAST-SUCCESS:.status.lastSuccessfulTime' | grep -E 'NAMESPACE|home-automation-backup|media-backup|restic-(backup|maintenance)'
+kubectl get cronjobs -A -o custom-columns='NAMESPACE:.metadata.namespace,JOB:.metadata.name,SCHEDULE:.spec.schedule,ZONE:.spec.timeZone,LAST-SCHEDULE:.status.lastScheduleTime,LAST-SUCCESS:.status.lastSuccessfulTime' | grep -E 'NAMESPACE|home-automation-backup|media-backup|platform-system-backup|restic-(backup|maintenance)'
 ```
 
 The schedules and retention counts live in the namespace values linked below. B2 can allow object listings while rejecting downloads with
