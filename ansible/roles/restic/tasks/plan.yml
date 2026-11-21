@@ -49,6 +49,20 @@
     that: restic_restore_plan | length > 0
     fail_msg: "No matching Argo Application with a restorable bound zfs-appdata claim. SparkyFitness requires native SQL recovery."
 
+- name: Require every current appdata claim in a full restore
+  when: restic_restore_mode == 'all'
+  block:
+    - name: Render the current chart-owned appdata claims
+      ansible.builtin.include_role:
+        name: platform
+        tasks_from: render_claims
+        apply:
+          check_mode: false
+
+    - name: Compare planned claims and their owners to the rendered inventory
+      ansible.builtin.assert:
+        that: restic_restore_plan | restic_complete_inventory(platform_claims, restic_restore_excluded_apps, restic_restore_excluded_pvcs)
+
 - name: Validate each snapshot tree before any workload or data changes
   ansible.builtin.include_tasks: plan_app.yml
   loop: "{{ restic_restore_plan }}"

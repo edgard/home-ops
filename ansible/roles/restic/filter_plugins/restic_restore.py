@@ -100,6 +100,13 @@ def restore_plan(
                 raise AnsibleFilterError(f"Missing claim {ns}/{key} in {name}")
             if pvc["spec"].get("storageClassName") != "zfs-appdata":
                 continue
+            metadata = pvc["metadata"]
+            if (
+                metadata.get("labels", {}).get("app.kubernetes.io/instance") != name
+                or metadata.get("annotations", {}).get("argocd.argoproj.io/tracking-id")
+                != f"{name}:/PersistentVolumeClaim:{ns}/{key}"
+            ):
+                raise AnsibleFilterError(f"Claim {ns}/{key} is not tracked by {name}")
             if ns != namespace or (ns, key) in seen:
                 raise AnsibleFilterError(
                     f"Duplicate or cross-namespace claim {ns}/{key}"
@@ -119,6 +126,27 @@ def restore_plan(
                 }
             )
     return plan
+
+
+def complete_restore_inventory(plan, desired, excluded_apps, excluded_pvcs):
+    expected = set()
+    for claim in desired:
+        meta = claim["metadata"]
+        key = f"{meta['namespace']}/{meta['name']}"
+        owner = meta["labels"]["app.kubernetes.io/instance"]
+        if key not in excluded_pvcs and owner not in excluded_apps:
+            expected.add((key, owner))
+    actual = {
+        (f"{app['namespace']}/{c['name']}", app["app"])
+        for app in plan
+        for c in app["claims"]
+    }
+    if expected != actual:
+        raise AnsibleFilterError(
+            f"Restore-all differs from chart-owned claims. Missing: {sorted(expected - actual)}. "
+            f"Unexpected: {sorted(actual - expected)}."
+        )
+    return True
 
 
 def claim_consumers(resources, plan, field):
@@ -173,6 +201,7 @@ class FilterModule:
         return {
             "restic_restore_bindings": restore_plan,
             "restic_claim_binding": claim_binding,
+            "restic_complete_inventory": complete_restore_inventory,
             "restic_select_snapshot": select_snapshot,
             "restic_claim_consumers": claim_consumers,
             "restic_unfinished_jobs": unfinished_jobs,

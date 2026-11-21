@@ -1,7 +1,7 @@
 # Talos and platform bootstrap
 
 Purpose: identify the physical node, rebuild its control plane and admit the correct storage before starting workloads.
-Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1`.
+Status: current. Reviewed against: `09ff984c2258c4403ef203631fd580106f839e53` and this revision.
 
 ## Identify the node
 
@@ -152,6 +152,9 @@ The role releases the cordon after verifying the new server version and the
 returned storage. The workload PID and mount namespaces in Talos 1.14 remain
 isolated. OpenEBS and maintenance Pods use explicit host mounts and the host's
 ZFS extension tools.
+
+Tuppr handles ordinary Kubernetes upgrades when Argo applies the committed
+target. For a manual upgrade, follow the [Tuppr suspension procedure](../apps/platform-system/tuppr.md#operational-note).
 
 Platform foundation installs the Gateway API CRDs and verifies HTTPRoute
 discovery before installing Argo CD. Its private Restic service opens the

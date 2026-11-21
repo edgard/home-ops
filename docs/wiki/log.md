@@ -3,6 +3,14 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-21] revision | Verify restore coverage and coordinate manual upgrades
+
+The [Restic runbook](operations/restic-backup-restore.md) explains how a full
+restore checks each claim and its owner against the chart render. It also
+shows when to snapshot the quiesced datasets before replacing their contents.
+The [Tuppr page](apps/platform-system/tuppr.md) documents the committed
+Kubernetes target and the suspension required for a manual upgrade.
+
 ## [2026-11-21] revision | Install Talos and recover OpenEBS appdata
 
 Replaced source staging and SSD imaging procedures with Talos pool enrollment,
