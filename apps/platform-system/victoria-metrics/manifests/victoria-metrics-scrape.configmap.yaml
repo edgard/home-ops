@@ -1,0 +1,103 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: victoria-metrics-scrape
+  namespace: platform-system
+data:
+  scrape.yaml: |-
+    global:
+      scrape_interval: 60s
+      scrape_timeout: 15s
+    scrape_configs:
+      - job_name: victoria-metrics
+        static_configs:
+          - targets: ["localhost:8428"]
+      - job_name: node-exporter
+        scheme: https
+        tls_config:
+          ca_file: /tls/node-exporter/ca.crt
+          cert_file: /tls/node-exporter/tls.crt
+          key_file: /tls/node-exporter/tls.key
+          server_name: node-exporter.platform-system.svc
+        static_configs:
+          - targets: ["node-exporter.platform-system.svc:9100"]
+            labels: {instance: homelab}
+      - job_name: kube-state-metrics
+        static_configs:
+          - targets: ["kube-state-metrics.platform-system.svc:8080"]
+      - job_name: kubelet
+        scheme: https
+        metrics_path: /metrics/resource
+        authorization:
+          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          ca_file: /tls/kubelet/ca.crt
+          server_name: homelab
+        static_configs:
+          - targets: ["%{KUBELET_ADDRESS}:10250"]
+            labels: {instance: homelab}
+      - job_name: uptime
+        metrics_path: /probe
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - target_label: __address__
+            replacement: blackbox-exporter.platform-system.svc:9115
+        static_configs:
+          - targets: ["http://storage-maintenance.kube-system.svc.cluster.local:8080/"]
+            labels: {instance: storage, group: infrastructure, __param_module: storage_200}
+          - targets: ["https://argocd.edgard.org"]
+            labels: {instance: argocd, group: apps, __param_module: http_2xx}
+          - targets: ["https://homeassistant.edgard.org"]
+            labels: {instance: homeassistant, group: apps, __param_module: http_2xx}
+          - targets: ["https://scrypted.edgard.org"]
+            labels: {instance: scrypted, group: apps, __param_module: http_2xx}
+          - targets: ["https://bazarr.edgard.org"]
+            labels: {instance: bazarr, group: apps, __param_module: http_2xx}
+          - targets: ["https://jellyfin.edgard.org/health"]
+            labels: {instance: jellyfin, group: apps, __param_module: http_2xx}
+          - targets: ["https://prowlarr.edgard.org"]
+            labels: {instance: prowlarr, group: apps, __param_module: http_2xx}
+          - targets: ["https://qbittorrent.edgard.org"]
+            labels: {instance: qbittorrent, group: apps, __param_module: http_2xx}
+          - targets: ["https://radarr.edgard.org"]
+            labels: {instance: radarr, group: apps, __param_module: http_2xx}
+          - targets: ["https://sonarr.edgard.org"]
+            labels: {instance: sonarr, group: apps, __param_module: http_2xx}
+          - targets: ["https://atuin.edgard.org"]
+            labels: {instance: atuin, group: apps, __param_module: http_2xx}
+          - targets: ["https://bambuddy.edgard.org"]
+            labels: {instance: bambuddy, group: apps, __param_module: http_2xx}
+          - targets: ["https://changedetection.edgard.org"]
+            labels: {instance: changedetection, group: apps, __param_module: http_2xx}
+          - targets: ["https://crosswatch.edgard.org/healthz"]
+            labels: {instance: crosswatch, group: apps, __param_module: http_2xx}
+          - targets: ["https://echo.edgard.org"]
+            labels: {instance: echo, group: apps, __param_module: http_2xx}
+          - targets: ["https://karakeep.edgard.org"]
+            labels: {instance: karakeep, group: apps, __param_module: http_2xx}
+          - targets: ["https://paperless.edgard.org"]
+            labels: {instance: paperless, group: apps, __param_module: http_2xx}
+          - targets: ["https://sparkyfitness.edgard.org"]
+            labels: {instance: sparkyfitness, group: apps, __param_module: http_2xx}
+          - targets: ["https://twitchdrops.edgard.org"]
+            labels: {instance: twitch-drops-miner, group: apps, __param_module: http_2xx}
+          - targets: ["8.8.8.8:53"]
+            labels: {instance: dns-google, group: dns, __param_module: dns_a}
+          - targets: ["1.1.1.1:53"]
+            labels: {instance: dns-cloudflare, group: dns, __param_module: dns_a}
+          - targets: ["9.9.9.9:53"]
+            labels: {instance: dns-quad9, group: dns, __param_module: dns_a}
+          - targets: ["www.amazon.com"]
+            labels: {instance: internet-amazon, group: internet, __param_module: icmp_v4}
+          - targets: ["www.google.com"]
+            labels: {instance: internet-google, group: internet, __param_module: icmp_v4}
+          - targets: ["www.microsoft.com"]
+            labels: {instance: internet-microsoft, group: internet, __param_module: icmp_v4}
+          - targets: ["www.cloudflare.com"]
+            labels: {instance: internet-cloudflare, group: internet, __param_module: icmp_v4}
+          - targets: ["www.akamai.com"]
+            labels: {instance: internet-akamai, group: internet, __param_module: icmp_v4}
+          - targets: ["www.fastly.com"]
+            labels: {instance: internet-fastly, group: internet, __param_module: icmp_v4}

@@ -27,6 +27,15 @@ filesystems directly from its own namespace. Its startup checks the pool marker
 and each ZFS mount before allowing LAN guests to write. These shared datasets
 need independent backups.
 
+## Local telemetry
+
+The non-default [telemetry class](../../../apps/kube-system/zfs-localpv/manifests/zfs-telemetry.storageclass.yaml)
+provisions quota-limited filesystems directly under the verified `dpool` pool.
+They are outside the recursive appdata snapshots and namespace Restic jobs.
+Deleting a telemetry claim releases its dataset. During planned teardown retire
+the telemetry claims while CSI is running. After loss of etcd, identify any
+orphan by its former PV handle before reclaiming space.
+
 ## Prepare storage for a Talos install
 
 Bootstrap expects a prepared pool named `dpool` with four identified data

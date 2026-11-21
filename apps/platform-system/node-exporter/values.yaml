@@ -1,0 +1,91 @@
+---
+defaultPodOptions:
+  hostNetwork: true
+  hostPID: true
+  dnsPolicy: ClusterFirstWithHostNet
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/os: linux
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+
+controllers:
+  main:
+    type: daemonset
+    containers:
+      app:
+        image:
+          repository: quay.io/prometheus/node-exporter
+          tag: v1.12.1
+        args:
+          - --path.procfs=/host/proc
+          - --path.sysfs=/host/sys
+          - --path.rootfs=/host/root
+          - --path.udev.data=/host/root/run/udev/data
+          - --web.listen-address=:9100
+          - --web.config.file=/etc/node-exporter/config/web.yaml
+          - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/(docker|kubelet|containerd))($|/)
+        probes:
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              tcpSocket:
+                port: 9100
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: 20m
+            memory: 32Mi
+
+service:
+  main:
+    controller: main
+    ports:
+      https:
+        port: 9100
+
+persistence:
+  proc:
+    type: hostPath
+    hostPath: /proc
+    hostPathType: Directory
+    globalMounts:
+      - path: /host/proc
+        readOnly: true
+  sys:
+    type: hostPath
+    hostPath: /sys
+    hostPathType: Directory
+    globalMounts:
+      - path: /host/sys
+        readOnly: true
+  root:
+    type: hostPath
+    hostPath: /
+    hostPathType: Directory
+    globalMounts:
+      - path: /host/root
+        readOnly: true
+        mountPropagation: HostToContainer
+  server-tls:
+    type: secret
+    name: node-exporter-server-tls
+    globalMounts:
+      - path: /etc/node-exporter/tls
+        readOnly: true
+  web-config:
+    type: configMap
+    name: node-exporter-web
+    globalMounts:
+      - path: /etc/node-exporter/config
+        readOnly: true

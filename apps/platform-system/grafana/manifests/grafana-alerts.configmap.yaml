@@ -1,0 +1,114 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alerts
+  namespace: platform-system
+data:
+  notifications.yaml: |
+    apiVersion: 1
+    contactPoints:
+      - orgId: 1
+        name: Telegram
+        receivers:
+          - uid: home-ops-telegram
+            type: telegram
+            disableResolveMessage: false
+            settings:
+              bottoken: $TELEGRAM_BOT_TOKEN
+              chatid: "$TELEGRAM_CHAT_ID"
+    muteTimes:
+      - orgId: 1
+        name: Shadow comparison
+        time_intervals:
+          - times:
+              - start_time: "00:00"
+                end_time: "24:00"
+    policies:
+      - orgId: 1
+        receiver: Telegram
+        group_by: [grafana_folder, alertname, instance]
+        group_wait: 0s
+        group_interval: 30s
+        repeat_interval: 120h
+        routes:
+          - receiver: Telegram
+            mute_time_intervals: [Shadow comparison]
+  rules.yaml: |-
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: Local monitoring
+        folder: Home Ops
+        interval: 20s
+        rules:
+          - uid: uptime-probe
+            title: Uptime probe failed
+            condition: B
+            for: 0s
+            noDataState: KeepLast
+            execErrState: Error
+            annotations:
+              summary: "Five consecutive probes failed for {{ $labels.instance }}"
+            data:
+              - refId: A
+                datasourceUid: metrics
+                relativeTimeRange: {from: 600, to: 0}
+                model:
+                  refId: A
+                  instant: true
+                  range: false
+                  # 2 confirms an incident, 1 preserves state, 0 confirms recovery.
+                  expr: |
+                    WITH (
+                      result = probe_success{job="uptime"},
+                      targets = last_over_time(up{job="uptime"}[1h]),
+                      healthy = (count_over_time(result[2m]) >= 2) and (min_over_time(result[2m]) == 1),
+                      failed = (count_over_time(result[5m]) >= 5) and (max_over_time(result[5m]) == 0)
+                    )
+                    (failed * 0 + 2) or (healthy * 0) or (targets * 0 + 1)
+              - refId: B
+                datasourceUid: __expr__
+                relativeTimeRange: {from: 0, to: 0}
+                model:
+                  refId: B
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: {type: gt, params: [1]}
+                      unloadEvaluator: {type: lt, params: [1]}
+          - uid: monitoring-scrape
+            title: Monitoring scrape missing
+            condition: B
+            for: 2m
+            noDataState: NoData
+            execErrState: Error
+            annotations:
+              summary: "Missing monitoring samples for {{ $labels.job }} / {{ $labels.instance }}"
+            data:
+              - refId: A
+                datasourceUid: metrics
+                relativeTimeRange: {from: 600, to: 0}
+                model:
+                  refId: A
+                  instant: true
+                  range: false
+                  # The historical labels preserve identity when a scrape disappears.
+                  # A successful probe scrape must also contain a fresh result.
+                  expr: |
+                    WITH (
+                      alive = last_over_time(up[90s]) == 1,
+                      available = (alive unless on(job) up{job="uptime"})
+                        or (alive and present_over_time(probe_success{job="uptime"}[90s])),
+                      expected = last_over_time(up[1h])
+                    )
+                    (available * 0) or (expected * 0 + 1)
+              - refId: B
+                datasourceUid: __expr__
+                relativeTimeRange: {from: 0, to: 0}
+                model:
+                  refId: B
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: {type: gt, params: [0]}

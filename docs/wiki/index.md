@@ -23,7 +23,7 @@ remain authoritative; verify the running system separately.
 - [Secrets and credentials](architecture/secrets.md) — Bitwarden, External Secrets, and scoped CLI inputs.
 - [Storage and shared media](architecture/storage.md) — OpenEBS appdata and shared ZFS filesystems.
 - [Backup and recovery](architecture/backup-recovery.md) — Restic and restore transaction.
-- [Uptime monitoring](architecture/uptime.md) — Gatus targets and alerting limit.
+- [Uptime monitoring](architecture/uptime.md) — Gatus, the parallel Grafana stack and cutover checks.
 - [Terraform](architecture/terraform.md) — Cloudflare, Tailscale, and backend.
 - [Validation and PR gate](architecture/validation.md) — native checks, pytest, and CI.
 
@@ -83,6 +83,11 @@ The app pages describe dependencies and unusual behavior. Read the linked
 - [External DNS](apps/platform-system/external-dns.md)
 - [External Secrets](apps/platform-system/external-secrets.md)
 - [Gateway API](apps/platform-system/gateway-api.md)
+- [Blackbox Exporter](apps/platform-system/blackbox-exporter.md)
+- [Grafana](apps/platform-system/grafana.md)
+- [kube-state-metrics](apps/platform-system/kube-state-metrics.md)
+- [Node Exporter](apps/platform-system/node-exporter.md)
+- [VictoriaMetrics](apps/platform-system/victoria-metrics.md)
 - [Gatus](apps/platform-system/gatus.md)
 - [Istio](apps/platform-system/istio.md)
 - [Istio base](apps/platform-system/istio-base.md)

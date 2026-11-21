@@ -1,0 +1,176 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: platform-system
+data:
+  uptime.json: |
+    {
+      "uid": "uptime",
+      "title": "Service uptime",
+      "schemaVersion": 39,
+      "editable": false,
+      "refresh": "1m",
+      "time": {"from": "now-6h", "to": "now"},
+      "timezone": "browser",
+      "annotations": {"list": []},
+      "panels": [
+        {
+          "id": 1,
+          "title": "Probe status",
+          "type": "state-timeline",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 22},
+          "targets": [{"refId": "A", "expr": "WITH (ok = last_over_time(up{job=\"uptime\"}[90s]) == 1) (last_over_time(probe_success{job=\"uptime\"}[90s]) and ok) or (last_over_time(up{job=\"uptime\"}[1h]) * 0 - 1)", "legendFormat": "{{group}} / {{instance}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "none", "mappings": [{"type": "value", "options": {"1": {"text": "Up", "color": "green"}, "0": {"text": "Down", "color": "red"}, "-1": {"text": "Unknown", "color": "gray"}}}]}, "overrides": []},
+          "options": {"mergeValues": true, "showValue": "never", "rowHeight": 0.85, "legend": {"showLegend": false}, "tooltip": {"mode": "single"}}
+        },
+        {
+          "id": 2,
+          "title": "Probe duration",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 22, "w": 24, "h": 10},
+          "targets": [{"refId": "A", "expr": "probe_duration_seconds{job=\"uptime\"}", "legendFormat": "{{instance}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        }
+      ]
+    }
+  talos.json: |
+    {
+      "uid": "talos",
+      "title": "Talos host",
+      "schemaVersion": 39,
+      "editable": false,
+      "refresh": "1m",
+      "time": {"from": "now-6h", "to": "now"},
+      "timezone": "browser",
+      "annotations": {"list": []},
+      "panels": [
+        {
+          "id": 1,
+          "title": "CPU utilization",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 7},
+          "targets": [{"refId": "A", "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[5m])))", "legendFormat": "Busy", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        },
+        {
+          "id": 2,
+          "title": "Memory",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 7, "w": 24, "h": 7},
+          "targets": [{"refId": "A", "expr": "node_memory_MemAvailable_bytes{job=\"node-exporter\"}", "legendFormat": "Available", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}, {"refId": "B", "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"}", "legendFormat": "Total", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        },
+        {
+          "id": 3,
+          "title": "Physical disk throughput",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 14, "w": 24, "h": 7},
+          "targets": [{"refId": "A", "expr": "rate(node_disk_read_bytes_total{job=\"node-exporter\",device=~\"sd[a-z]+|nvme[0-9]+n[0-9]+\"}[5m])", "legendFormat": "{{device}} read", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}, {"refId": "B", "expr": "rate(node_disk_written_bytes_total{job=\"node-exporter\",device=~\"sd[a-z]+|nvme[0-9]+n[0-9]+\"}[5m])", "legendFormat": "{{device}} write", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        },
+        {
+          "id": 4,
+          "title": "Network throughput",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 21, "w": 24, "h": 7},
+          "targets": [{"refId": "A", "expr": "rate(node_network_receive_bytes_total{job=\"node-exporter\",device=~\"br0|en.*|eth.*\"}[5m])", "legendFormat": "{{device}} RX", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}, {"refId": "B", "expr": "rate(node_network_transmit_bytes_total{job=\"node-exporter\",device=~\"br0|en.*|eth.*\"}[5m])", "legendFormat": "{{device}} TX", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        },
+        {
+          "id": 5,
+          "title": "Filesystem space available",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 28, "w": 24, "h": 8},
+          "targets": [{"refId": "A", "expr": "node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=~\"/var|/var/mnt/dpool(/.*)?\"}", "legendFormat": "{{mountpoint}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        },
+        {
+          "id": 6,
+          "title": "ZFS ARC",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 36, "w": 24, "h": 6},
+          "targets": [{"refId": "A", "expr": "node_zfs_arc_size{job=\"node-exporter\"}", "legendFormat": "ARC size", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        },
+        {
+          "id": 7,
+          "title": "ZFS pool state",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 42, "w": 24, "h": 6},
+          "targets": [{"refId": "A", "expr": "node_zfs_zpool_state{job=\"node-exporter\"} == 1", "legendFormat": "{{zpool}} / {{state}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        }
+      ]
+    }
+  workloads.json: |-
+    {
+      "uid": "workloads",
+      "title": "Kubernetes workloads",
+      "schemaVersion": 39,
+      "editable": false,
+      "refresh": "1m",
+      "time": {"from": "now-6h", "to": "now"},
+      "timezone": "browser",
+      "annotations": {"list": []},
+      "panels": [
+        {
+          "id": 1,
+          "title": "Pod CPU usage",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+          "targets": [{"refId": "A", "expr": "topk(10, rate(pod_cpu_usage_seconds_total{job=\"kubelet\"}[5m]))", "legendFormat": "{{namespace}} / {{pod}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "cores"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        },
+        {
+          "id": 2,
+          "title": "Pod working set",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 8, "w": 24, "h": 8},
+          "targets": [{"refId": "A", "expr": "topk(10, pod_memory_working_set_bytes{job=\"kubelet\"})", "legendFormat": "{{namespace}} / {{pod}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        },
+        {
+          "id": 3,
+          "title": "Unavailable deployment replicas",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 16, "w": 24, "h": 7},
+          "targets": [{"refId": "A", "expr": "kube_deployment_spec_replicas{job=\"kube-state-metrics\"} - kube_deployment_status_replicas_available{job=\"kube-state-metrics\"}", "legendFormat": "{{namespace}} / {{deployment}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        },
+        {
+          "id": 4,
+          "title": "Container restarts in the last hour",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 23, "w": 24, "h": 7},
+          "targets": [{"refId": "A", "expr": "sum by (namespace,pod) (increase(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\"}[1h])) > 0", "legendFormat": "{{namespace}} / {{pod}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
+          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+        }
+      ]
+    }

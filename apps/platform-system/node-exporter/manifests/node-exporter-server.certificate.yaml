@@ -1,0 +1,21 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: node-exporter-server
+  namespace: platform-system
+spec:
+  secretName: node-exporter-server-tls
+  dnsNames:
+    - node-exporter
+    - node-exporter.platform-system.svc
+    - node-exporter.platform-system.svc.cluster.local
+  usages:
+    - digital signature
+    - server auth
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    name: node-exporter

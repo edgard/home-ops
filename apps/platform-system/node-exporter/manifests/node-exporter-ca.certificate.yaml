@@ -1,0 +1,17 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: node-exporter-ca
+  namespace: platform-system
+spec:
+  secretName: node-exporter-ca
+  commonName: home-ops-node-exporter-ca
+  isCA: true
+  duration: 43800h
+  privateKey:
+    rotationPolicy: Never
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: node-exporter-selfsigned

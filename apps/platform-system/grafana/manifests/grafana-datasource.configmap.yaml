@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource
+  namespace: platform-system
+data:
+  metrics.yaml: |-
+    apiVersion: 1
+    datasources:
+      - name: VictoriaMetrics
+        uid: metrics
+        type: prometheus
+        access: proxy
+        url: http://victoria-metrics.platform-system.svc:8428
+        isDefault: true
+        editable: false
+        jsonData:
+          timeInterval: 1m
+          prometheusType: Prometheus
