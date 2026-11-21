@@ -125,3 +125,5 @@ Changes go through pull requests only.
 Start with the [knowledge wiki](docs/wiki/index.md) for system relationships and
 decision history. The [Restic restore runbook](docs/wiki/operations/restic-backup-restore.md)
 covers recovery. Agent and contributor guidance starts in [AGENTS.md](AGENTS.md).
+
+For the planned bare-metal installation, follow the [TrueNAS migration runbook](docs/wiki/operations/truenas-migration.md) before changing disks or stopping the VM.
