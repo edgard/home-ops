@@ -1,11 +1,16 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `62ac80dd843b2975b122c9cdf9fd1c1cf67bc060`.
+Status: current. Reviewed against: `bec6f23a0ad540fde038cdcdb7573473089102a0`.
 
 ## Dependencies
 
 Its raw RenovateJob and ExternalSecret link the operator to this Git repository.
+The chart renders its CRDs as regular manifests so Argo CD can discover the
+RenovateJob definition in the same sync and apply it before the wave-1 job.
+In the chart's default hook mode, first-sync validation can fail before the
+hook runs. Argo CD now tracks the CRDs. Review proposed CRD pruning before
+removing the app or changing modes, since deleting a CRD deletes its instances.
 
 ## Data and recovery
 
@@ -88,6 +93,7 @@ defines the upstream compatibility boundary.
 - [App metadata](../../../../apps/selfhosted/renovate-operator/app.yaml)
 - [Helm values](../../../../apps/selfhosted/renovate-operator/values.yaml)
 - [Raw manifests](../../../../apps/selfhosted/renovate-operator/manifests)
+- [Argo CD missing-resource dry runs](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#skip-dry-run-for-new-custom-resources-types) explains first-sync handling when the CRD is in the same sync.
 - [Local extraction dry runs](https://docs.renovatebot.com/modules/platform/local/) explain how to check dependency discovery without creating branches.
 - [Renovate rebasing](https://docs.renovatebot.com/updating-rebasing/) explains how the bot regenerates branches after the base changes.
 

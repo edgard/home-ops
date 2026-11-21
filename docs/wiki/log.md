@@ -3,6 +3,18 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-21] revision | Start Paperless-GPT as its data owner
+
+Documented how the GPT container uses the existing Paperless data ownership
+on OpenEBS. Validation compares its rendered process identity with the user
+and group configured for Paperless.
+
+## [2026-11-21] revision | Render Renovate CRDs before its first job
+
+Documented how the operator chart exposes its CRDs to Argo CD during a fresh
+installation and how that affects later CRD ownership. Kubernetes validation
+now checks the RenovateJob against the same chart schema.
+
 ## [2026-11-21] revision | Restore and verify appdata on Talos
 
 Documented how migration exposes the held snapshot read-only for kubelet,

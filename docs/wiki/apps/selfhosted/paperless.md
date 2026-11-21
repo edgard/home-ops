@@ -1,7 +1,7 @@
 # Paperless
 
 Purpose: Paperless manages documents, extraction, and optional AI processing.
-Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
+Status: current. Reviewed against: `bec6f23a0ad540fde038cdcdb7573473089102a0` with the container identity change in this revision.
 
 ## Dependencies
 
@@ -30,9 +30,11 @@ they contain saved behavior and undo/OCR history. Preserve existing container-lo
 GPT files before first enabling these mounts. Check
 [restore eligibility](../../architecture/backup-recovery.md) against the current
 claim and storage class; restoring this claim affects both Paperless and GPT.
-GPT's `PUID`/`PGID` match Paperless's `USERMAP_UID`/`USERMAP_GID` because the
-Paperless entrypoint recursively sets data-directory ownership on startup.
-Keep these aligned so restarting either controller preserves GPT write access.
+The GPT container starts with the same numeric user and group that Paperless
+assigns to its data directories through `USERMAP_UID` and `USERMAP_GID`.
+Those IDs own the restored settings, prompts and database directories. The
+image's [non-root entrypoint](https://github.com/icereed/paperless-gpt/blob/v0.31.0/entrypoint.sh)
+starts the application directly under that identity.
 The native vector index lives in `data/llm_index` on the same claim. It is derived
 data and can be rebuilt after changing embedding models. Field definitions,
 saved views, and native import workflows live in the Paperless database; GPT

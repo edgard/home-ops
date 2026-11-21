@@ -1,7 +1,7 @@
 # Validation and PR gate
 
 Purpose: distinguish native deployment validation, small offline checks, and live evidence.
-Status: current. Reviewed against: `f73a66d4d60b9fd7e373eb1cfcbde4e8df270083`.
+Status: current. Reviewed against: `bec6f23a0ad540fde038cdcdb7573473089102a0`.
 
 `task check` runs formatting checks, native lint/deployment validation, and the
 small serial pytest suite once. `task lint:kubernetes` renders every app and
@@ -19,8 +19,9 @@ owned raw `.yaml`/`.yml` manifests, and Argo CD sources, not arbitrary repositor
 chart is pulled once per run. Served CRD schemas precede default/catalog fallback.
 Existing CRD strictness, composition, nullable/int-or-string handling, preserved
 unknown fields, conflict rejection, and safe YAML loading are retained. No new
-kubeconform `-strict` flag is implied. Raw skips CRDs and RenovateJob; rendered
-validation skips only CRDs. Tool failures and unknown schemas fail the gate.
+kubeconform `-strict` flag is implied. Raw and rendered validation skip only
+CRD definitions. The RenovateJob uses the schema from its operator chart.
+Tool failures and unknown schemas fail the gate.
 Download failures still block PRs. Diagnostics omit configuration payloads.
 
 Data guards reject populated Secrets and unsafe app-template PVC rollout settings,

@@ -168,12 +168,7 @@ def validate(root):
             "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/" + template,
         ]
         run(
-            schema_args
-            + [
-                "-skip",
-                "CustomResourceDefinition,renovate-operator.mogenius.com/v1alpha1/RenovateJob",
-                *sources,
-            ],
+            schema_args + ["-skip", "CustomResourceDefinition", *sources],
             "raw manifests: kubeconform",
         )
         run(

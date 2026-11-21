@@ -2,6 +2,9 @@
 fullnameOverride: renovate-operator
 replicaCount: 1
 
+crd:
+  mode: template
+
 logging:
   level: info
   format: json
