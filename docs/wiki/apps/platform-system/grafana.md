@@ -3,7 +3,7 @@
 Purpose: serve host, workload and uptime dashboards and evaluate alerts against VictoriaMetrics.
 Status: current. Reviewed against: `cdb7a398deaa06451737a5a43e895942443e7d3c` and this revision.
 
-Use the private Gateway route for Grafana. Git provisions the dashboards, data source and alerting configuration. The appdata volume holds SQLite and UI state across pod replacements. The platform-system Restic backup preserves it for pool recovery. Gatus owns production notifications during comparison.
+Use the private Gateway route for Grafana. Git provisions the dashboards, data source and alerting configuration. The appdata volume holds SQLite and UI state across pod replacements. The platform-system Restic backup preserves it for pool recovery. Grafana routes confirmed incidents and recoveries to Telegram. The status hostname redirects to the shared uptime dashboard.
 
 ## Credentials and status sharing
 

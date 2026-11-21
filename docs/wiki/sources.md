@@ -16,7 +16,7 @@ catalog is a guide to it, not a copy of all tracked files.
 | App discovery and reconciliation | [ApplicationSet](../../argocd/appsets/apps.appset.yaml) | [GitOps delivery](architecture/gitops-delivery.md) |
 | App definitions | [Apps](../../apps) | [App catalog](index.md#applications) |
 | SparkyFitness deployment and native recovery | [Application](../../apps/selfhosted/sparkyfitness) | [SparkyFitness](apps/selfhosted/sparkyfitness.md) |
-| Monitoring | [Grafana](../../apps/platform-system/grafana), [collector](../../apps/platform-system/victoria-metrics) and [Gatus](../../apps/platform-system/gatus) | [Uptime and cutover](architecture/uptime.md) |
+| Monitoring | [Grafana](../../apps/platform-system/grafana), [collector](../../apps/platform-system/victoria-metrics) and [probes](../../apps/platform-system/blackbox-exporter) | [Uptime and cutover](architecture/uptime.md) |
 | Persistent storage | [OpenEBS and local volumes](../../apps/kube-system/zfs-localpv), [Restic roles](../../ansible/roles/restic) | [Storage](architecture/storage.md), [backup and restore](operations/restic-backup-restore.md) |
 | Bootstrap and operations | [Ansible](../../ansible) and [Taskfile](../../Taskfile.yaml) | [Talos](architecture/talos-bootstrap.md), [recovery](architecture/backup-recovery.md) |
 | Secrets and CLI inputs | [SecretSpec](../../secretspec.toml), [CLI role](../../ansible/roles/cli_secrets), [platform playbooks](../../ansible/playbooks) | [Secrets](architecture/secrets.md), [maintenance](operations/secrets-maintenance.md) |

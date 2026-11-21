@@ -10,7 +10,7 @@ the four pool members and the recorded system SSD. A successful SMART Job
 records when it started the tests. Check their eventual device self-test
 logs at acceptance. Readiness uses current SMART health, prefail attributes
 and self-test results. Superseded historical errors alone do not hold it down. The private health
-service exposes readiness to Gatus. Pool errors, SMART failures and overdue
+service exposes readiness to Blackbox Exporter. Pool errors, SMART failures and overdue
 maintenance make it unready. After first handoff, start one Job from each
 maintenance CronJob and check its successful completion before accepting the
 new alert path. A complete node outage requires independent observation.

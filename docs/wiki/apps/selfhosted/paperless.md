@@ -44,7 +44,7 @@ the GPT configuration together before recovery or migration.
 
 ## Networking and monitoring
 
-The app values configure a route through the shared Gateway. Check [Gatus values](../../../../apps/platform-system/gatus/values.yaml) for the current explicit uptime target and probe path.
+The app values configure a route through the shared Gateway. Check [VictoriaMetrics scrape targets](../../../../apps/platform-system/victoria-metrics/manifests/victoria-metrics-scrape.configmap.yaml) for the current explicit uptime target and probe path.
 
 ## Operational note
 
