@@ -76,6 +76,8 @@
   ansible.builtin.include_role:
     name: migration
     tasks_from: "{{ 'accepted' if platform_existing_root.resources else 'verify' }}"
+  vars:
+    migration_acceptance_marker: "{{ platform_handoff_marker.resources | first | default({}) }}"
 
 - name: Require the same snapshot when recovering an interrupted first release
   when: platform_handoff_marker.resources | length > 0 and not platform_existing_root.resources
@@ -99,6 +101,12 @@
         revision: "{{ platform_bootstrap_revision }}"
         pool-guid: "{{ platform_handoff_storage.resources[0].data['pool-guid'] }}"
         snapshot-guid: "{{ migration_verified_snapshot_guid }}"
+
+- name: Detach the cold snapshot after closing migration writes
+  when: not platform_existing_root.resources
+  ansible.builtin.include_role:
+    name: migration
+    tasks_from: detach
 
 - name: Apply Argo CD root application
   kubernetes.core.k8s:

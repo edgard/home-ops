@@ -1,11 +1,16 @@
 # Gateway API
 
 Purpose: Gateway API supplies the route CRDs and version metadata.
-Status: current. Reviewed against: `8595d9d1cc7f418c2836b866809c06665e2487dc`.
+Status: current. Reviewed against: `e46461cb42fb9ec5470e3346789620c4f26845c0`.
 
 ## Dependencies
 
-Istio Gateway and app HTTPRoutes depend on these CRDs.
+Istio Gateway and app HTTPRoutes depend on these CRDs. The Argo CD chart
+creates an HTTPRoute during foundation bootstrap, before the root Application
+can reconcile this app. Foundation applies the same standard bundle with the
+Argo CD field manager, including its upgrade policy and binding, then waits
+for the bundled CRDs to be established and the HTTPRoute v1 API to be served.
+Once Argo CD owns the Gateway API Application, foundation only checks readiness.
 
 ## Data and recovery
 
@@ -36,6 +41,7 @@ contains the policy's validation rules and downgrade instructions.
 - [App metadata](../../../../apps/platform-system/gateway-api/app.yaml)
 - [Helm values](../../../../apps/platform-system/gateway-api/values.yaml)
 - [Raw manifests](../../../../apps/platform-system/gateway-api/manifests)
+- [Foundation install and readiness checks](../../../../ansible/roles/platform/tasks/gateway_api.yml)
 
 ## Related pages
 

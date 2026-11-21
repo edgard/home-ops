@@ -3,7 +3,19 @@
   hosts: localhost
   gather_facts: false
   tasks:
+    - name: Inspect the immutable migration handoff marker
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig_path }}"
+        context: "{{ kube_context }}"
+        api_version: v1
+        kind: ConfigMap
+        namespace: kube-system
+        name: migration-handed-off
+      register: migration_closed
+
     - name: Verify physical storage and all migrated claims
       ansible.builtin.include_role:
         name: migration
-        tasks_from: verify
+        tasks_from: "{{ 'accepted' if migration_closed.resources else 'verify' }}"
+      vars:
+        migration_acceptance_marker: "{{ migration_closed.resources | first | default({}) }}"

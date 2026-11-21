@@ -94,6 +94,7 @@ platform_external_secrets_waits:
 
 platform_external_secrets_store_manifest: apps/platform-system/external-secrets/manifests/external-secrets-store.clustersecretstore.yaml
 
+platform_gateway_api_bundle: apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml
 platform_argocd_repo_credentials_manifest: apps/argocd/argocd/manifests/argocd-repo-credentials.externalsecret.yaml
 platform_argocd_root_application_manifest: argocd/root.app.yaml
 

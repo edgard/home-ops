@@ -52,5 +52,8 @@
 - name: Provide access to the existing Restic repository for recovery
   ansible.builtin.import_tasks: restic_access.yml
 
+- name: Provide the Gateway API used by the Argo CD Helm chart
+  ansible.builtin.import_tasks: gateway_api.yml
+
 - name: Bootstrap Argo CD
   ansible.builtin.import_tasks: argocd.yml

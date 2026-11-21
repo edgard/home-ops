@@ -1,0 +1,50 @@
+---
+- name: Require the snapshot verified for this handoff
+  ansible.builtin.assert:
+    that: migration_verified_snapshot_guid == migration_snapshot_guid
+
+- name: Find migration Jobs before detaching their source
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: batch/v1
+    kind: Job
+  register: migration_detach_jobs
+  no_log: true
+
+- name: Refuse an unfinished copy or verification Job
+  when: (item.metadata.annotations | default({})).get('home-ops.edgard.org/source-snapshot-guid') == migration_snapshot_guid
+  ansible.builtin.assert:
+    that:
+      - not item.status.active | default(0)
+      - item.status.conditions | default([]) | selectattr('status', 'equalto', 'True') | selectattr('type', 'in', ['Complete', 'Failed']) | list | length > 0
+  loop: "{{ migration_detach_jobs.resources }}"
+  loop_control:
+    label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+
+- name: Find remaining source consumers before unmounting
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: v1
+    kind: Pod
+  register: migration_detach_pods
+  no_log: true
+
+- name: Refuse a pending, running or terminating snapshot consumer
+  when: item.status.phase | default('Pending') not in ['Succeeded', 'Failed']
+  vars:
+    migration_source_prefix: "{{ migration_mount }}/.zfs/snapshot/{{ migration_snapshot }}"
+  ansible.builtin.assert:
+    that: >-
+      item.spec.volumes | default([]) | selectattr('hostPath', 'defined') | map(attribute='hostPath.path')
+      | select('match', '^' ~ migration_source_prefix | regex_escape ~ '(/|$)') | list | length == 0
+  loop: "{{ migration_detach_pods.resources }}"
+  loop_control:
+    label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+
+- name: Unmount only the verified read-only snapshot view
+  ansible.builtin.include_tasks: mounts.yml
+  vars:
+    migration_check_stage: true
+    migration_detach_snapshot: true

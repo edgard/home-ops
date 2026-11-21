@@ -1,0 +1,53 @@
+---
+- name: Check whether Argo CD owns the Gateway API bundle
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    name: gateway-api
+    namespace: argocd
+  register: platform_gateway_app
+
+- name: Install the vendored standard Gateway API bundle before GitOps handoff
+  when: not platform_gateway_app.resources
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    server_side_apply:
+      field_manager: argocd-controller
+    src: "{{ repo_root }}/{{ platform_gateway_api_bundle }}"
+
+- name: Wait for each bundled Gateway API CRD to be established
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item }}"
+    wait: true
+    wait_condition:
+      type: Established
+      status: "True"
+    hidden_fields:
+      - metadata.managedFields
+      - spec
+  loop: >-
+    {{ lookup('ansible.builtin.file', repo_root ~ '/' ~ platform_gateway_api_bundle) | from_yaml_all
+       | selectattr('kind', 'equalto', 'CustomResourceDefinition') | map(attribute='metadata.name') | list }}
+  register: platform_gateway_crd
+  failed_when: platform_gateway_crd is failed or platform_gateway_crd.resources | default([]) | length != 1
+
+- name: Wait for discovery of the HTTPRoute API used by Argo CD
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: gateway.networking.k8s.io/v1
+    kind: HTTPRoute
+    namespace: argocd
+  register: platform_gateway_routes
+  until: platform_gateway_routes.api_found | default(false)
+  retries: "{{ platform_wait_default_retries }}"
+  delay: "{{ platform_wait_default_delay }}"
