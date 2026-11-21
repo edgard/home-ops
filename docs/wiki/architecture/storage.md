@@ -36,11 +36,6 @@ protects them in Restic for recovery after loss of the pool. Size the metrics cl
 against observed growth and allow additional pool space for overwritten blocks
 held by local snapshots.
 
-During the migration from the separate telemetry class, each Deployment stops its
-old writer and copies the original read-only dataset before starting on the new
-claim. Preserve the originals through verification. Complete removal of the
-one-time copy init containers before recovering onto a fresh cluster.
-
 ## Prepare storage for a Talos install
 
 Bootstrap expects a prepared pool named `dpool` with four identified data
