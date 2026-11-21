@@ -251,6 +251,54 @@ def hold(snapshot):
         run("zfs", "hold", "home-ops-cutover", snapshot)
 
 
+def acl_inventory(dataset, directory):
+    """Use the TrueNAS ACL reader on every file and directory, without following links."""
+    report = {
+        "acltype": prop(dataset, "acltype"),
+        "checked": 0,
+        "nontrivial": 0,
+        "examples": [],
+    }
+    if report["acltype"].lower() != "nfsv4":
+        return report
+
+    def inspect(paths):
+        output = subprocess.check_output(["nfs4xdr_getfacl", "-jn", *paths])
+        rows = output.splitlines()
+        require(len(rows) == len(paths), "incomplete NFSv4 ACL inventory")
+        for row, path in zip(rows, paths):
+            acl = json.loads(row)
+            require(
+                acl["path"] == str(path) and type(acl["trivial"]) is bool,
+                "unexpected NFSv4 ACL reader output",
+            )
+            report["checked"] += 1
+            if not acl["trivial"]:
+                report["nontrivial"] += 1
+                if len(report["examples"]) < 20:
+                    report["examples"].append(str(path.relative_to(directory)))
+
+    def walk_error(error):
+        raise error
+
+    batch = [directory]
+    for root, folders, files in os.walk(directory, onerror=walk_error):
+        # Snapshot control directories can be visible at the dataset root.
+        if Path(root) == directory and ".zfs" in folders:
+            folders.remove(".zfs")
+        for name in folders + files:
+            path = Path(root, name)
+            if path.is_symlink():
+                continue
+            batch.append(path)
+            if len(batch) == 64:
+                inspect(batch)
+                batch.clear()
+    if batch:
+        inspect(batch)
+    return report
+
+
 def stage(c):
     source = c["source_dataset"]
     target = c["recovery_dataset"] + "/appdata"
@@ -335,6 +383,12 @@ def stage(c):
         "staged_dataset": target,
         "pool_guid": c["data_guid"],
         "held_snapshot_guids": holds,
+        "acl_inventory": {
+            name: acl_inventory(
+                name, mounts(name) / ".zfs" / "snapshot" / c["snapshot"]
+            )
+            for name in holds
+        },
     }
 
 

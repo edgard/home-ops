@@ -118,7 +118,11 @@ new cutover session.
    verifies the replication snapshot GUID and relevant filesystem properties,
    and records the source/destination identity in private `stage.json`. Read
    `held_snapshot_guids` and verify the expected datasets are present. The
-   receive sets the staged dataset read-only. Keep the original untouched for
+   receipt also reports `acl_inventory` for the held snapshots. Review the
+   checked entry counts, nontrivial ACL counts and private example paths.
+   Resolve any nontrivial NFSv4 grants or denials before authorizing the SSD
+   overwrite. Check that target workload IDs retain the intended access.
+   The receive sets the staged dataset read-only. Keep the original untouched for
    recovery. Snapshotting separate pools uses the preceding writer shutdown
    to establish an application-consistent cutoff.
 3. Inspect the staged snapshot's namespace/claim layout. Compare representative
