@@ -255,6 +255,12 @@ TrueNAS system briefly to select the rescue USB if the firmware boots the SSD fi
    and select it for the next boot. Keep the rescue USB available until the
    physical Talos API responds. If the HDDs remain attached, use the guarded
    first configuration below before starting CRI or Kubernetes.
+6. From the authenticated Talos node, read `BootCurrent`, `BootOrder` and
+   their device paths. On this NAS the firmware named the new SSD entry
+   `UEFI OS`, put it first, retained the Kingston second and dropped the old
+   TrueNAS entry. If the SSD partition GUID, extent and EFI loader all
+   match the one-time boot record and the USB device path matches rescue,
+   keep that working order. Save the observed entries off-node.
 
 ## Bring up the new cluster
 
@@ -316,6 +322,17 @@ force import, missing member, encryption lock or unknown feature. After
 accepting the read-only inspection, run `zpool export dpool`, confirm an
 empty pool list and use `candidates -N -o cachefile=none "$DATA_GUID"`
 for the writable import. Keep automatic discovery restricted.
+
+If the ordinary import reports the *previous TrueNAS host*, compare its
+hostname, host ID and last-access time with the source shutdown, and check
+`zdb -l` on all four recorded member partitions. Require exclusive
+physical attachment, the expected pool and member GUIDs, and no active or
+multihost writer. For precisely this stale-owner condition, repeat the
+same GUID-scoped inspection with `candidates -f -N -o readonly=on -o cachefile=none "$DATA_GUID"`.
+Export after inspection. A read-only import can leave the old on-disk owner
+label intact. Try the writable import normally first. If it reports the
+same condition, repeat the identity and ownership checks and keep the
+same four-device and numeric-GUID scope for writable adoption.
 
 Save the displayed property table privately **before changing anything**.
 The source's original table and import prefix are also in `preflight.json`.
@@ -479,8 +496,13 @@ results before resuming writers.
    from `boot-backup.json` and leave the middle partition alone on the Mac.
    Sync and read back the same ranges. Confirm both SHA-256 values, the GPT
    disk GUID, and every partition UUID and extent before powering on the NAS.
-4. Refit the SSD alongside the original HDDs, boot the saved TrueNAS UEFI
-   loader, and keep VM autostart, SMB/NFS and B2 sync disabled. If the HDD
+4. Refit the SSD alongside the original HDDs. If the firmware dropped the
+   old TrueNAS entry, use rescue to verify the restored ESP partition UUID,
+   partition number and loader against the original firmware record. Register
+   that loader on the verified SSD with `efibootmgr --create-only` and
+   select its actual entry with `--bootnext`. Keep the Kingston fallback.
+   Boot the saved TrueNAS UEFI loader and keep VM autostart, SMB/NFS and B2
+   sync disabled. If the HDD
    pool needs importing, select the recorded **existing** GUID, preserving its
    data and original TrueNAS mount prefix. Verify the expected system and
    operator-home datasets, SSH access, and recovery dataset mount. Never
