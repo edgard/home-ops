@@ -19,6 +19,7 @@ platform_k8tz_warmup_pod_name: bootstrap-image-warmup-k8tz
 platform_bootstrap_namespaces:
   - home-automation
   - media
+  - platform-system
   - selfhosted
 
 platform_bootstrap_releases:

@@ -86,6 +86,7 @@ The app pages describe dependencies and unusual behavior. Read the linked
 - [Blackbox Exporter](apps/platform-system/blackbox-exporter.md)
 - [Grafana](apps/platform-system/grafana.md)
 - [kube-state-metrics](apps/platform-system/kube-state-metrics.md)
+- [Platform namespace backup](apps/platform-system/platform-system-backup.md)
 - [Node Exporter](apps/platform-system/node-exporter.md)
 - [VictoriaMetrics](apps/platform-system/victoria-metrics.md)
 - [Gatus](apps/platform-system/gatus.md)

@@ -1,0 +1,118 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-system-backup
+  namespace: platform-system
+data:
+  prepare.py: |-
+    import json
+    import os
+    import re
+    import shutil
+    import sqlite3
+    import subprocess
+    import time
+    from contextlib import closing
+    from pathlib import Path
+    from urllib.parse import urlencode
+    from urllib.request import urlopen
+    from uuid import UUID
+
+    RUN = str(UUID(os.environ["POD_UID"]))
+
+    def stage(claim):
+        fields = [line.split() for line in Path("/proc/self/mountinfo").read_text().splitlines()]
+        mounts = [f for f in fields if f[4] == str(claim)]
+        if len(mounts) != 1:
+            raise ValueError(f"Missing or ambiguous mount: {claim}")
+        mount = mounts[0]
+        i = mount.index("-")
+        if (mount[3] != "/" or "rw" not in mount[5].split(",") or
+                mount[i + 1] != "zfs" or not re.fullmatch(r"dpool/k8s/pvc-[0-9a-f-]{36}", mount[i + 2])):
+            raise ValueError(f"Unexpected appdata mount: {claim}")
+        if not (claim / "data").is_dir() or (claim / "data").is_symlink():
+            raise ValueError(f"Application data not ready: {claim}")
+        staging = claim / ".restic-backup"
+        staging.mkdir(mode=0o700, exist_ok=True)
+        if staging.is_symlink() or staging.stat().st_uid != 0:
+            raise ValueError(f"Unsafe staging directory: {staging}")
+        # Jobs have a six-hour deadline. Keep a full day before reclaiming another run.
+        for entry in staging.iterdir():
+            if (re.fullmatch(r"[0-9a-f-]{36}", entry.name) and not entry.is_symlink()
+                    and entry.is_dir() and (entry.name == RUN or entry.stat().st_mtime < time.time() - 86400)):
+                shutil.rmtree(entry)
+        target = staging / RUN / "data"
+        target.mkdir(parents=True)
+        return target
+
+    def copy_metadata(source, dest):
+        info = source.stat()
+        os.chown(dest, info.st_uid, info.st_gid)
+        shutil.copystat(source, dest)
+
+    def backup_grafana(claim):
+        source = claim / "data"
+        db = source / "grafana.db"
+        if not db.is_file() or db.is_symlink():
+            raise ValueError("Grafana database missing")
+        target = stage(claim)
+        copy = target / "grafana.db"
+        with closing(sqlite3.connect(f"{db.as_uri()}?mode=ro", uri=True)) as live:
+            with closing(sqlite3.connect(copy)) as saved:
+                live.backup(saved, pages=256)
+                if saved.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
+                    raise ValueError("Grafana SQLite integrity check failed")
+        copy_metadata(db, copy)
+        for item in source.iterdir():
+            if item.name not in {"grafana.db", "grafana.db-shm", "grafana.db-wal", "grafana.db-journal"}:
+                subprocess.run(["cp", "-a", "--", item, target], check=True)
+        copy_metadata(source, target)
+
+    def snapshot_api(action, **fields):
+        fields["authKey"] = Path("/run/vm-snapshot/key").read_text().strip()
+        endpoint = "http://victoria-metrics.platform-system.svc:8428/snapshot/" + action
+        with urlopen(endpoint, urlencode(fields).encode(), timeout=300) as reply:
+            result = json.load(reply)
+        if result["status"] != "ok":
+            raise ValueError(f"VictoriaMetrics snapshot {action} failed")
+        return result
+
+    def link_parts(source, target, data):
+        # VM's snapshot contains links into its per-partition immutable snapshot trees.
+        source = source.resolve(strict=True)
+        if not source.is_relative_to(data):
+            raise ValueError(f"Snapshot path outside metrics volume: {source}")
+        if source.is_file():
+            os.link(source, target)
+        elif source.is_dir():
+            target.mkdir(exist_ok=True)
+            for entry in source.iterdir():
+                link_parts(entry, target / entry.name, data)
+            copy_metadata(source, target)
+        else:
+            raise ValueError(f"Unexpected entry in metrics snapshot: {source}")
+
+    def backup_metrics(claim):
+        data = claim / "data"
+        if not (data / "metadata").is_dir():
+            raise ValueError("VictoriaMetrics storage missing")
+        target = stage(claim)
+        name = snapshot_api("create")["snapshot"]
+        if not re.fullmatch(r"[a-zA-Z0-9_-]+", name):
+            raise ValueError("Unexpected snapshot name")
+        try:
+            snapshot = data / "snapshots" / name
+            if not (snapshot / "metadata").is_dir() or not (snapshot / "data").is_dir():
+                raise ValueError("API snapshot missing on mounted volume")
+            link_parts(snapshot, target, data)
+            # During the storage migration the app init container checks this record.
+            marker = data / ".home-ops-copied-from"
+            if marker.is_file():
+                subprocess.run(["cp", "-a", "--", marker, target], check=True)
+            copy_metadata(data, target)
+        finally:
+            snapshot_api("delete", snapshot=name)
+
+    backup_grafana(Path("/claims/grafana"))
+    backup_metrics(Path("/claims/metrics"))

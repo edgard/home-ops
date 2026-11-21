@@ -5,7 +5,7 @@ Status: current. Reviewed against: `09ff984c2258c4403ef203631fd580106f839e53` an
 
 The original Restic repository stays on the retained `dpool/restic` dataset
 and serves the Kubernetes cluster and existing workstation clients. Separate
-CronJobs in home-automation, media and selfhosted read their concrete appdata
+CronJobs in home-automation, media, platform-system and selfhosted read their concrete appdata
 claims and publish namespace snapshots that retain the historical claim paths.
 An explicitly approved maintenance job copies the repository to its established
 encrypted B2 destination, then applies local retention on its weekly cadence.

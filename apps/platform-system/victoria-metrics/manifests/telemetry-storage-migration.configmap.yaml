@@ -1,0 +1,45 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telemetry-storage-migration
+  namespace: platform-system
+data:
+  copy.sh: |-
+    #!/bin/sh
+    set -eu
+    set -o pipefail
+    source_dataset=$1
+    required_file=$2
+
+    # Only the pinned, read-only original and a complete writable appdata dataset are eligible.
+    awk -v old="$source_dataset" '
+      $4 == "/" {
+        for (i=7; i<NF; i++) if ($i == "-" && $(i+1) == "zfs") {
+          if ($5 == "/original" && $6 ~ /(^|,)ro(,|$)/ && $(i+2) == old) src=1
+          if ($5 == "/destination" && $6 ~ /(^|,)rw(,|$)/ && $(i+2) ~ /^dpool\/k8s\/pvc-/) dst=1
+        }
+      }
+      END {exit !(src && dst)}' /proc/self/mountinfo
+
+    marker=.home-ops-copied-from
+    if [ -e /destination/data ]; then
+      # After publication, the running app owns the data and can have changed it.
+      test ! -L /destination/data
+      test "$(cat "/destination/data/$marker")" = "$source_dataset"
+      exit 0
+    fi
+    test -e "/original/$required_file"
+    test ! -e "/original/$marker"
+    test -z "$(find /destination -mindepth 1 -maxdepth 1 ! -name .telemetry-copy -print -quit)"
+    stage=/destination/.telemetry-copy
+    test ! -L "$stage"
+    # Retry only from a clean staging directory. Live data is never a copy target.
+    rm -rf "$stage"
+    mkdir "$stage"
+    tar -C /original -cf - . | tar -C "$stage" -xopf -
+    diff -qr /original "$stage"
+    printf '%s\n' "$source_dataset" > "$stage/$marker"
+    sync
+    mv "$stage" /destination/data
+    sync

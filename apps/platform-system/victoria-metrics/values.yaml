@@ -18,6 +18,22 @@ controllers:
       reloader.stakater.com/auto: "true"
     serviceAccount:
       identifier: main
+    initContainers:
+      copy-data:
+        image:
+          repository: busybox
+          tag: 1.37.0
+        command:
+          - /bin/sh
+          - /migration/copy.sh
+          - dpool/pvc-eaa3d6a3-3989-4535-9021-5f550ad366ba
+          - metadata
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
     containers:
       app:
         image:
@@ -28,6 +44,8 @@ controllers:
           - -retentionPeriod=1y
           - -promscrape.config=/config/scrape.yaml
           - -deleteAuthKey=file:///run/vm-admin/key
+          - -snapshotAuthKey=file:///run/vm-snapshot/key
+          - -snapshotsMaxAge=1d
           - -memory.allowedBytes=192MiB
           - -storage.minFreeDiskSpaceBytes=1GiB
         env:
@@ -89,9 +107,36 @@ service:
 persistence:
   storage:
     type: persistentVolumeClaim
-    existingClaim: victoria-metrics
-    globalMounts:
-      - path: /storage
+    forceRename: victoria-metrics-appdata
+    accessMode: ReadWriteOnce
+    storageClass: zfs-appdata
+    size: 64Gi
+    advancedMounts:
+      main:
+        app:
+          - path: /storage
+            subPath: data
+        copy-data:
+          - path: /destination
+  original:
+    type: custom
+    volumeSpec:
+      persistentVolumeClaim:
+        claimName: victoria-metrics
+        readOnly: true
+    advancedMounts:
+      main:
+        copy-data:
+          - path: /original
+            readOnly: true
+  migration:
+    type: configMap
+    name: telemetry-storage-migration
+    advancedMounts:
+      main:
+        copy-data:
+          - path: /migration
+            readOnly: true
   config:
     type: configMap
     name: victoria-metrics-scrape
@@ -120,3 +165,15 @@ persistence:
     globalMounts:
       - path: /run/vm-admin
         readOnly: true
+
+  snapshot-key:
+    type: secret
+    name: restic-credentials
+    items:
+      - key: VM_SNAPSHOT_KEY
+        path: key
+    advancedMounts:
+      main:
+        app:
+          - path: /run/vm-snapshot
+            readOnly: true

@@ -31,8 +31,7 @@ After seven days including a backup cycle, record the monitoring pods' CPU
 and working sets, active series, ingestion rate, and actual bytes used on the
 metrics filesystem. Use the observed daily growth to project 13 months,
 allowing for VictoriaMetrics' monthly partitions and compaction. If the
-projection exceeds 80% of the PVC capacity, expand the claim in Git before
-cutover. Disk allocation and initial resource requests are sizing inputs,
+projection exceeds 80% of the PVC capacity, expand the claim in Git. Disk allocation and initial resource requests are sizing inputs,
 not measurements. [VictoriaMetrics retention](https://docs.victoriametrics.com/victoriametrics/single-server-victoriametrics/#retention)
 
 A failing static scrape continues to generate `up=0`. When a target is removed
@@ -60,7 +59,7 @@ five days once production delivery is enabled.
    owner after Argo sync. Record the verification evidence in the PR.
 4. To roll back, revert that cutover PR and verify Gatus owns the hostname and
    Telegram while Grafana returns to comparison mode. This preserves collected
-   telemetry. Deleting the telemetry claims deletes their datasets.
+   telemetry. The appdata StorageClass retains the datasets on PVC deletion.
 
 ## Sources
 

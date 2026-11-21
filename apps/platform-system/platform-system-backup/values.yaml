@@ -1,0 +1,130 @@
+---
+defaultPodOptions:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    seccompProfile:
+      type: RuntimeDefault
+
+controllers:
+  backup:
+    type: cronjob
+    cronjob:
+      schedule: "35 3 * * *"
+      timeZone: Europe/Warsaw
+      concurrencyPolicy: Forbid
+      activeDeadlineSeconds: 21600
+      backoffLimit: 1
+    initContainers:
+      prepare:
+        image:
+          repository: python
+          tag: 3.14-alpine@sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
+        command:
+          - python
+          - /scripts/prepare.py
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - CHOWN
+              - DAC_OVERRIDE
+              - FOWNER
+        env:
+          POD_UID: &podUid
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+    containers:
+      app:
+        image:
+          repository: restic/restic
+          tag: 0.20.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - DAC_READ_SEARCH
+        command:
+          - /bin/sh
+          - -ec
+          - |
+            case "$RESTIC_REPOSITORY_ID" in ""|*[!0-9a-f]*) exit 1 ;; esac
+            test "${#RESTIC_REPOSITORY_ID}" -eq 64
+            actual=$(restic --no-lock cat config | sed -n 's/^ *"id": *"\([0-9a-f]*\)"[,]*$/\1/p')
+            test "$actual" = "$RESTIC_REPOSITORY_ID"
+            root=/data/appdata/platform-system
+            for name in grafana-appdata victoria-metrics-appdata; do
+              awk -v path="$root/$name" -v stage="/.restic-backup/$POD_UID" '
+                $4 == stage && $5 == path && $6 ~ /(^|,)ro(,|$)/ {
+                  for (i=7; i<NF; i++) if ($i == "-" && $(i+1) == "zfs" && $(i+2) ~ /^dpool\/k8s\/pvc-/) ok=1
+                } END {exit !ok}' /proc/self/mountinfo
+            done
+            test -s "$root/grafana-appdata/data/grafana.db"
+            test -d "$root/victoria-metrics-appdata/data/metadata"
+            test -d "$root/victoria-metrics-appdata/data/data"
+            exec restic --retry-lock 30m backup "$root" --host homelab --tag appdata
+        env:
+          POD_UID: *podUid
+          RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
+          RESTIC_REST_USERNAME: restic
+          RESTIC_REST_PASSWORD: &password
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_PASSWORD
+          RESTIC_PASSWORD: *password
+          RESTIC_REPOSITORY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: restic-credentials
+                key: RESTIC_REPOSITORY_ID
+
+persistence:
+  grafana:
+    type: persistentVolumeClaim
+    existingClaim: grafana-appdata
+    advancedMounts:
+      backup:
+        prepare:
+          - path: /claims/grafana
+        app:
+          - path: /data/appdata/platform-system/grafana-appdata
+            subPathExpr: .restic-backup/$(POD_UID)
+            readOnly: true
+  metrics:
+    type: persistentVolumeClaim
+    existingClaim: victoria-metrics-appdata
+    advancedMounts:
+      backup:
+        prepare:
+          - path: /claims/metrics
+        app:
+          - path: /data/appdata/platform-system/victoria-metrics-appdata
+            subPathExpr: .restic-backup/$(POD_UID)
+            readOnly: true
+  scripts:
+    type: configMap
+    name: platform-system-backup
+    advancedMounts:
+      backup:
+        prepare:
+          - path: /scripts
+            readOnly: true
+  snapshot-key:
+    type: secret
+    name: restic-credentials
+    items:
+      - key: VM_SNAPSHOT_KEY
+        path: key
+    advancedMounts:
+      backup:
+        prepare:
+          - path: /run/vm-snapshot
+            readOnly: true
