@@ -10,7 +10,7 @@ dev = [
     "ansible-compat==26.11.0",
     "kubernetes==37.0.3",
     "jsonpatch==1.48",
-    "PyYAML==6.0.3",
+    "PyYAML==6.0.4",
     "requests-oauthlib==2.0.0",
     "jsonschema==4.26.0",
     "json5==0.17.3",
