@@ -1,0 +1,46 @@
+---
+- name: Require the restricted service and explicit kernel module before storage release
+  ansible.builtin.assert:
+    that:
+      - talos_live_zfs.v1alpha1.module
+      - talos_live_zfs.v1alpha1.policy == talos_zfs_guard
+    fail_msg: Storage release requires the guarded configuration and a completed explicit ZFS module apply.
+
+- name: Read the exact imported vdevs and verify the held snapshot and persistent mount properties
+  ansible.builtin.include_tasks: probe_zfs.yml
+  vars:
+    talos_zfs_probe_expected: ZFS release checks passed
+    talos_zfs_probe_script: "{{ lookup('ansible.builtin.template', 'verify-zfs-release.sh.j2') }}"
+
+- name: Collect four stable member paths
+  ansible.builtin.set_fact:
+    talos_zfs_members: "{{ talos_zfs_probe.stdout_lines | select('match', '^ZFS_MEMBER=') | map('regex_replace', '^ZFS_MEMBER=', '') | sort }}"
+
+- name: Require a unique canonical partition UUID for every dpool member
+  ansible.builtin.assert:
+    that:
+      - talos_zfs_members | length == 4
+      - talos_zfs_members | unique | length == 4
+      - talos_zfs_members | select('match', '^/dev/disk/by-partuuid/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$') | list | length == 4
+
+- name: Build the ZFS service policy limited to the verified dpool partitions
+  ansible.builtin.set_fact:
+    talos_released_zfs: "{{ talos_zfs_guard | combine({'environment': ['ZPOOL_IMPORT_PATH=' + talos_zfs_members | join(':')]}) }}"
+
+- name: Stage the verified four-member policy for the planned reboot
+  ansible.builtin.command:
+    argv: "{{ talos_authenticated_client + ['apply-config', '--mode=staged', '--file', talos_controlplane_config_path, '--config-patch', talos_released_zfs | to_json] }}"
+  changed_when: true
+
+- name: Verify the staged allowlist and the running discovery restriction
+  no_log: true
+  ansible.builtin.command:
+    argv: "{{ talos_authenticated_client + ['get', 'machineconfigs', '-o', 'yaml'] }}"
+  register: talos_zfs_staged
+  changed_when: false
+  until: >-
+    talos_zfs_staged.rc == 0 and
+    (talos_zfs_staged.stdout | talos_zfs_state).v1alpha1.policy == talos_zfs_guard and
+    (talos_zfs_staged.stdout | talos_zfs_state).get('persistent', {}).get('policy') == talos_released_zfs
+  retries: 10
+  delay: 2

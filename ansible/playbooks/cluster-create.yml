@@ -25,7 +25,13 @@
         name: talos
         tasks_from: bootstrap
 
+    - name: Report the held storage boundary on first bootstrap
+      when: not ansible_check_mode and not talos_live_zfs.released
+      ansible.builtin.debug:
+        msg: Talos and Kubernetes are ready. Complete the physical pool inspection, release and reboot before running task platform:foundation.
+
     - name: Bootstrap platform
+      when: not ansible_check_mode and talos_live_zfs.released
       ansible.builtin.include_role:
         name: platform
         tasks_from: bootstrap

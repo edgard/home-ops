@@ -26,13 +26,39 @@ exclusion on this single node. Talos 1.14 isolates Kubernetes workloads in
 their own PID and mount namespaces. The OpenEBS pool guard and maintenance
 Pods use explicit host mounts and the host's ZFS extension binaries. Verify
 the CSI driver can provision and mount a test volume on a sacrificial pool
-before attaching the production HDDs. Host administration through
+during rehearsal. Host administration through
 `talosctl debug --namespace inmem` uses Talos's system container runtime.
 
-`task cluster:create` generates the machine configuration, applies it,
-bootstraps fresh etcd and installs the platform foundation. For a staged
-recovery, the Talos tasks can be run individually, then
-`task platform:foundation` installs CSI, networking, certificates, ESO, a
+The four HDDs can stay attached during first boot. Set `DEBUG_IMAGE` to an
+approved image or local archive with a shell and util-linux `nsenter`.
+`task talos:apply` sends a standalone `zfs-service` configuration that sets
+`ZPOOL_IMPORT_PATH=/dev/null`. It verifies the rendered service status while
+Talos is still in maintenance, then submits the control plane configuration
+with the same restriction. At the final authenticated address it checks the
+effective setting and confirms that ZFS is unloaded or the pool list is empty.
+It then loads the explicit module and verifies that the running extension
+imported no pool. If the bridge switched before an interruption,
+clear `TALOS_MAINTENANCE_NODE` and rerun the task.
+
+Keep discovery disabled while inspecting the recorded pool and remapping its
+filesystems. After the [storage procedure](../operations/truenas-migration.md),
+export the verified `MIGRATION_POOL_GUID`, `MIGRATION_SNAPSHOT` and
+`MIGRATION_SNAPSHOT_GUID`. Run
+`TALOS_ZFS_RELEASE_CONFIRM="$MIGRATION_POOL_GUID" task talos:release-zfs`.
+It checks the live pool, held snapshot and mount properties, then stages an
+import path containing the four member partition UUIDs. Keep writers stopped
+for the planned reboot. Verify the remounted pool and datasets before
+starting the foundation. Routine applies preserve the current discovery
+policy and stop if a different machine configuration is already staged.
+A pool member replacement changes its partition UUID. Update the verified
+import path as part of disk replacement before depending on the next reboot.
+
+`task cluster:create` generates and applies the machine configuration and
+bootstraps fresh etcd. It holds the platform while ZFS discovery is disabled.
+With the four-member policy active it continues to the foundation. For a
+staged recovery, run the Talos tasks individually. After accepting the cold
+boot, `task platform:foundation` checks that the released member policy is
+active with no pending machine configuration, then installs CSI, networking, certificates, ESO, a
 private read-only Restic server and Argo CD. Set `MIGRATION_POOL_GUID` to the
 source-recorded dpool GUID on first foundation bootstrap. The immutable storage
 identity preserves that GUID and the boot SSD by-id path across reruns.
@@ -69,6 +95,7 @@ uninstall waiting and failure propagation; no permanent CLI simulation remains.
 ## Sources
 
 - [CLI secret contract](../../../secretspec.toml)
+- [First-boot ZFS restriction](../../../ansible/roles/talos/tasks/preseed_zfs.yml) and [four-member release](../../../ansible/roles/talos/tasks/release_zfs.yml)
 - [Physical target checks](../../../ansible/roles/talos/tasks/target.yml)
 - [Private repository bootstrap](../../../ansible/roles/platform/tasks/restic_server.yml)
 - [GitOps release](../../../ansible/roles/platform/tasks/release_root.yml)

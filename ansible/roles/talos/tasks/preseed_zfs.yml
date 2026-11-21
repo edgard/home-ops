@@ -1,0 +1,42 @@
+---
+- name: Require the approved host debug image for first-boot pool inspection
+  ansible.builtin.assert:
+    that: talos_debug_image | length > 0
+    fail_msg: Set DEBUG_IMAGE to an approved Linux image or local image archive with a shell and util-linux nsenter.
+
+- name: Verify maintenance before sending the standalone service configuration
+  ansible.builtin.include_tasks: maintenance_ready.yml
+
+- name: Disable automatic ZFS discovery before starting CRI
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['apply-config', '--insecure', '--mode=no-reboot', '--file', talos_zfs_guard_file] }}"
+  changed_when: true
+
+- name: Wait until Talos has rendered the restriction for zfs-service
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['get', 'extensionserviceconfigstatuses', 'zfs-service', '--insecure', '-o', 'yaml'] }}"
+  register: talos_rendered_zfs
+  changed_when: false
+  until: >-
+    talos_rendered_zfs.rc == 0 and
+    (talos_rendered_zfs.stdout | from_yaml).metadata.id == 'zfs-service' and
+    (talos_rendered_zfs.stdout | from_yaml).metadata.owner == 'runtime.ExtensionServiceConfigFilesController' and
+    (talos_rendered_zfs.stdout | from_yaml).metadata.phase == 'running' and
+    (talos_rendered_zfs.stdout | from_yaml).spec.specVersion | length > 0
+  retries: 15
+  delay: 2
+
+- name: Recheck maintenance before sending the first control plane configuration
+  ansible.builtin.include_tasks: maintenance_ready.yml
+
+- name: Start the control plane with discovery disabled and defer the explicit ZFS module
+  vars:
+    talos_defer_module: |-
+      apiVersion: v1alpha1
+      kind: KernelModuleConfig
+      name: zfs
+      $patch: delete
+  ansible.builtin.command:
+    argv: "{{ talos_target_client + ['apply-config', '--insecure', '--mode=no-reboot', '--file', talos_controlplane_config_path, '--config-patch', '@' + talos_zfs_guard_file, '--config-patch', talos_defer_module] }}"
+    expand_argument_vars: false
+  changed_when: true

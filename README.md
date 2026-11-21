@@ -50,18 +50,23 @@ Follow the [TrueNAS migration runbook](docs/wiki/operations/truenas-migration.md
 to fence the source, preserve the SSD rollback bundle and import the retained
 pool. Use the [Talos bootstrap procedure](docs/wiki/architecture/talos-bootstrap.md)
 for the maintenance address, physical identity checks and secret inputs.
-`platform:foundation` keeps app writers held. `migration:restore` seeds the
-new claims and `platform:handoff` verifies them before releasing Argo.
+On first boot, `cluster:create` configures Talos and bootstraps etcd with
+automatic pool import disabled. Inspect the pool and remap the datasets,
+then use `talos:release-zfs` to stage the four verified member partitions.
+Verify their mounts after reboot before running `platform:foundation`.
+`migration:restore` seeds the claims while writers are held.
+`platform:handoff` verifies them before releasing Argo.
 
 ## Common Commands
 
 ```bash
 # Cluster management
-task cluster:create                  # Configure the pre-flashed SSD and bootstrap the held foundation
+task cluster:create                  # Configure Talos and bootstrap etcd on first boot
 task cluster:destroy                 # Destroy platform components, then reset the Talos node
 task talos:gen                       # Generate Talos machine configuration
 task talos:apply                     # Apply Talos machine configuration to the node
 task talos:bootstrap                 # Bootstrap Kubernetes on the Talos node
+TALOS_ZFS_RELEASE_CONFIRM="$MIGRATION_POOL_GUID" task talos:release-zfs  # Stage verified dpool members for reboot
 task talos:upgrade                   # Upgrade Talos using the pinned role version
 task talos:upgrade-k8s K8S_VERSION="${TARGET_KUBERNETES_VERSION}"  # Upgrade Kubernetes to the requested version
 

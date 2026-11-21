@@ -5,6 +5,11 @@
 - name: Verify the physical node and Kubernetes context
   ansible.builtin.import_tasks: target.yml
 
+- name: Verify the released storage policy before installing the foundation
+  ansible.builtin.include_role:
+    name: talos
+    tasks_from: require_zfs_release
+
 - name: Build bootstrap release specs
   ansible.builtin.set_fact:
     platform_bootstrap_release_specs: []

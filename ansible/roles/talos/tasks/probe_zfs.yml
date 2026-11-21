@@ -1,0 +1,12 @@
+---
+- name: Run the read-only verification in the Talos host mount namespace
+  vars:
+    # Keep the entire script in one CLI argument, including for noninteractive clients.
+    talos_probe_command: "echo {{ talos_zfs_probe_script | b64encode }} | base64 -d | /bin/sh -e"
+  ansible.builtin.command:
+    argv: "{{ talos_authenticated_client + ['debug', '--namespace', 'inmem', talos_debug_image, '--args=/bin/sh', '--args=-ec', '--args=' + talos_probe_command] }}"
+    expand_argument_vars: false
+  register: talos_zfs_probe
+  changed_when: false
+  failed_when: talos_zfs_probe.rc != 0 or talos_zfs_probe_expected not in talos_zfs_probe.stdout_lines
+  timeout: 180

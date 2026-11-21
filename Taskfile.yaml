@@ -291,7 +291,7 @@ tasks:
 
   # High-level cluster lifecycle
   cluster:create:
-    desc: Configure the pre-flashed Talos SSD and bootstrap the held foundation
+    desc: Bootstrap Talos and Kubernetes, then install the foundation once the ZFS member policy is active
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
@@ -336,7 +336,7 @@ tasks:
           playbook: talos-generate.yml
 
   talos:apply:
-    desc: Apply Talos config to control plane
+    desc: Apply Talos config while preserving the verified ZFS discovery policy
     dir: "{{.TASKFILE_DIR}}"
     deps:
       - task: ansible:check
@@ -345,6 +345,21 @@ tasks:
         - TALOS_NODE
     cmds:
       - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-apply.yml"
+
+  talos:release-zfs:
+    desc: Stage ZFS import restricted to the verified four dpool members for the next reboot
+    dir: "{{.TASKFILE_DIR}}"
+    deps:
+      - task: ansible:check
+    requires:
+      vars:
+        - DEBUG_IMAGE
+        - MIGRATION_POOL_GUID
+        - MIGRATION_SNAPSHOT
+        - MIGRATION_SNAPSHOT_GUID
+        - TALOS_ZFS_RELEASE_CONFIRM
+    cmds:
+      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-apply.yml -e talos_release_zfs=true"
 
   talos:bootstrap:
     desc: Bootstrap Talos control plane and kubeconfig

@@ -18,7 +18,8 @@ curl --fail-with-body --silent --show-error \
 ```
 
 Use the matching Factory `image/<id>/<version>/metal-amd64.raw.zst` artifact
-when flashing the detached boot SSD. Use the `metal-installer/<id>:<version>`
+when flashing the original boot SSD from a Mac enclosure or a headless rescue
+USB. Use the `metal-installer/<id>:<version>`
 image from the same schematic for installation and future upgrades. The
 generation check verifies that the role and machine patch select the same
 installer. The [migration runbook](../operations/truenas-migration.md) covers

@@ -199,8 +199,9 @@ the uncompressed hash. A new version or schematic needs its own evidence.
 **Operator disk write:** after confirming all three backup pieces, reidentify
 the external whole SSD by geometry and GPT and unmount it. The image covers
 only the start of the larger SSD. Its write leaves the former secondary GPT
-and ZFS labels outside that range. With the HDDs physically isolated, clear
-the old SSD signatures and its original backup GPT before writing the RAW.
+and ZFS labels outside that range. With the identified SSD in its Mac
+enclosure, clear the old SSD signatures and its original backup GPT before
+writing the RAW. For an installed SSD, use the headless procedure below.
 A full zero-fill of this verified SSD is one option. This is the point at
 which recovering TrueNAS requires the saved three-piece bundle. Flash the
 reviewed RAW to that same whole device. Sync and read back the first 2246 MiB before boot, for example
@@ -210,10 +211,9 @@ On a headless host, confirm how firmware will reach the RAW image's EFI loader
 and how you will regain control if the NIC never receives its maintenance
 lease. Verify the fallback loader on the SSD and retain the tested original
 boot-entry recovery path. Use the bare-metal profile and the independent LAN
-maintenance address. Boot
-with the pool disks isolated until the intended ZFS import behavior has been
-verified against sacrificial storage. The extension can auto-import visible
-pools; connecting production disks is a separate operator action.
+maintenance address. Rehearse the intended ZFS import behavior on disposable
+storage before booting with the surviving HDDs attached. The first machine
+configuration must restrict automatic import while those disks are present.
 
 ### Leave the SSD in a headless host
 
@@ -226,17 +226,23 @@ TrueNAS system briefly to select the rescue USB if the firmware boots the SSD fi
    and firmware, key-only SSH and a host key pinned on the Mac. For SystemRescue,
    include `copytoram` and `nomdlvm` in the default kernel command line.
    Rehearse boot and SSH on the finished image, then read the written USB back.
-2. Check firmware Secure Boot compatibility. On a host without a working boot
-   menu, the current OS can register the verified USB's EFI loader with
-   `efibootmgr --create-only` and set that entry as `BootNext`, preserving
-   the original boot order. Identify the stick by its partition signature and
-   EFI loader. Record the original and requested entries. Keep the source
+2. Check firmware Secure Boot compatibility. Match the USB's partition
+   signature and EFI loader to the firmware's existing entry. If an entry is
+   missing, the current OS can register it with `efibootmgr --create-only`.
+   Select it as `BootNext`, preserving the normal boot order. Record the
+   original and requested entries. Keep the source
    services fenced if booting TrueNAS for this step.
-3. With the host powered off, isolate the surviving pool disks. After USB boot,
-   authenticate the SSH host key and confirm UEFI, the expected physical NIC,
-   the RAM-backed rescue root and the absence of production HDDs. Match the
-   internal SSD's stable ID, serial, sector size, total size and both GPTs to
-   preflight. Check that its children have no mounts, swap or active holders.
+3. After USB boot, authenticate the SSH host key and confirm UEFI, the expected
+   physical NIC, the RAM-backed root, inactive swap, and no active ZFS, MD or
+   device-mapper consumers of the drives. The HDDs can stay attached during
+   rescue. Match each disk and partition to the original inventory, including
+   WWNs, serial numbers, sizes and partition UUIDs. Set each HDD and each of
+   its partitions read-only using Linux block-device controls. Read the flags
+   back and require all of them before capture and again before the SSD write.
+   Alternatively, disconnect the HDDs while powered off. Match the SSD's
+   stable ID, serial, size and both GPTs to preflight, verify it has no mounts
+   or active holders, and keep an exclusive handle on the identified SSD.
+   Linux's read-only flags expire on reboot.
 4. From the Mac, stream the exact prefix and secondary GPT ranges from that
    cold SSD to private local files. Verify their byte counts and independent
    SHA-256 readbacks. Hash the middle partition on the NAS and compare it to
@@ -247,7 +253,8 @@ TrueNAS system briefly to select the rescue USB if the firmware boots the SSD fi
    using the same SSD identity, signature-clearing and readback checks as the
    enclosure route. From rescue, verify Talos's new EFI partition and loader,
    and select it for the next boot. Keep the rescue USB available until the
-   physical Talos API responds. Keep the pool disks isolated for the first boot.
+   physical Talos API responds. If the HDDs remain attached, use the guarded
+   first configuration below before starting CRI or Kubernetes.
 
 ## Bring up the new cluster
 
@@ -256,11 +263,15 @@ TrueNAS system briefly to select the rescue USB if the firmware boots the SSD fi
    LAN. Check the generated disk selector, versions and schematic. Bootstrap
    only the Talos node and Kubernetes API using the
    [Talos bootstrap guide](../architecture/talos-bootstrap.md). Keep Argo and
-   data writers stopped. Power down before attaching the surviving HDDs.
-   Boot and inspect `talosctl -n "$NODE" get extensions`, `talosctl -n "$NODE"
-   services`, `talosctl -n "$NODE" logs ext-zfs-service`, and
-   `talosctl -n "$NODE" mounts`. The service imports all visible pools and can
-   force an import. Use disks exclusively attached to this fenced host.
+   data writers stopped. A maintenance boot can load the ZFS kernel module
+   when it sees disk signatures. The extension service waits for CRI. Before
+   sending a complete configuration, `task talos:apply` preseeds an
+   `ExtensionServiceConfig` named `zfs-service` with
+   `ZPOOL_IMPORT_PATH=/dev/null` and checks its rendered status in
+   maintenance. Supply the approved `DEBUG_IMAGE` for its authenticated
+   host checks. Keep this discovery restriction active for pool inspection.
+   The unrestricted service attempts a forced import of every visible pool,
+   including pools whose filesystems cannot be mounted.
 2. Perform the mount and ACL procedure below. Meet the identity, reboot and
    copy prerequisites before launching the storage foundation.
 
@@ -281,17 +292,30 @@ host() { nsenter --mount=/proc/1/ns/mnt --root=/proc/1/root -- "$@"; }
 zpool() { host /usr/local/sbin/zpool "$@"; }
 zfs() { host /usr/local/sbin/zfs "$@"; }
 zpool list -Hp -o name,guid,health
-zpool status -LP dpool
-zpool get -H -o property,value altroot dpool
-zfs get -Hr -t filesystem -o name,property,value,source mountpoint,canmount,sharenfs,sharesmb dpool
 ```
 
-Match the pool GUID to `data_guid` and every member to the source inventory.
-If the pool has not imported, inspect `zpool import` and the extension logs.
-Once the importer is idle and the pool is exclusively attached, a manual
-`zpool import -N "$DATA_GUID"` selects that specific GUID without mounting its
-filesystems. Investigate any request to force import, a missing member,
-encryption lock, or unknown feature before changing a property.
+Require an empty pool list. Set `P1` through `P4` to the four verified
+`/dev/disk/by-partuuid/…` paths of the original ZFS member partitions.
+Match the partition and parent-disk identities to preflight. Check the
+available pool GUID against `data_guid` before importing it read-only.
+
+```sh
+candidates() { zpool import -d "$P1" -d "$P2" -d "$P3" -d "$P4" "$@"; }
+candidates
+candidates -N -o readonly=on -o cachefile=none "$DATA_GUID"
+zpool get -Hp -o property,value guid,readonly,cachefile,altroot dpool
+zpool status -LP dpool
+zfs get -Hpr -t filesystem -o name,property,value,source mountpoint,canmount,mounted,readonly,sharenfs,sharesmb dpool
+zfs get -Hp -o value guid "dpool/migration/appdata@$MIGRATION_SNAPSHOT"
+zfs holds "dpool/migration/appdata@$MIGRATION_SNAPSHOT"
+```
+
+Verify four healthy members, the held snapshot GUID and the absence of
+mounted datasets. Save the output off-node. Investigate any request to
+force import, missing member, encryption lock or unknown feature. After
+accepting the read-only inspection, run `zpool export dpool`, confirm an
+empty pool list and use `candidates -N -o cachefile=none "$DATA_GUID"`
+for the writable import. Keep automatic discovery restricted.
 
 Save the displayed property table privately **before changing anything**.
 The source's original table and import prefix are also in `preflight.json`.
@@ -303,25 +327,24 @@ an automatic mount; cleanly unmount it separately if currently mounted.
 Keep share properties disabled on the target. Check the host mount table
 and underlying target directories for existing data before remapping.
 
-For the example layout below, these three independent mounts suffice. The
-stage child normally inherits its parent's path. Confirm each dataset is a
-filesystem, its source and properties match the private inventory, and each
-target is absent or empty on the correct parent. Apply changes one at a time,
-recording each previous value **and property source**. A local mountpoint on
-a child overrides inheritance and requires its own explicit remap if needed.
+On the recorded source the root mountpoint is default, media, Restic and
+migration inherit from the root, and staged appdata inherits from migration.
+TrueNAS imported the pool with a temporary `/mnt` altroot. The original
+default resolves to `/dpool` on Talos. Verify this layout and confirm the
+target directories are absent or empty. Record the root property value and
+source off-node, then set the single root override without mounting anything.
 
 ```sh
-zfs set mountpoint=/var/mnt/dpool/media dpool/media
-zfs set mountpoint=/var/mnt/dpool/restic dpool/restic
-zfs set mountpoint=/var/mnt/dpool/migration dpool/migration
-zfs get -H -o name,property,value,source mountpoint,mounted,readonly dpool/media dpool/restic dpool/migration dpool/migration/appdata
+zfs set -u mountpoint=/var/mnt/dpool dpool
+zfs get -Hr -t filesystem -o name,property,value,source mountpoint,canmount dpool
 ```
 
-If a required filesystem shows `mounted=no`, inspect its `canmount`, mountpoint
-and any parent mounts. Use `zfs mount DATASET` for that verified filesystem.
-Its automatic mounts must work after reboot too. Ensure the stage remains
-read-only. Check that `/proc/1/mountinfo` shows the exact dataset name and ZFS
-filesystem at each required path.
+Verify the resulting inherited paths, the legacy TrueNAS system mounts and
+`mountpoint=none` on the OpenEBS parent. Review any unexpected child override
+before mounting. Use `zfs mount DATASET` on the verified root, media, Restic,
+migration and migration/appdata filesystems in that order. Check each source
+and filesystem type in `/proc/1/mountinfo`, the read-only stage and its
+snapshot GUID. Keep the home and dump datasets unmounted for inspection.
 
 ### Create the OpenEBS parent
 
@@ -335,7 +358,7 @@ extended attributes for app PVCs. Keep each existing shared dataset's ACL
 model intact. For case-sensitive source appdata and a Linux target:
 
 ```sh
-zfs create -o mountpoint=/var/mnt/dpool/k8s -o acltype=posixacl -o xattr=sa -o sharenfs=off -o sharesmb=off dpool/k8s
+zfs create -o mountpoint=none -o acltype=posixacl -o xattr=sa -o sharenfs=off -o sharesmb=off dpool/k8s
 zfs get -H -o name,property,value,source acltype,xattr,casesensitivity,normalization dpool/migration/appdata dpool/k8s
 ```
 
@@ -350,8 +373,15 @@ under actual workload IDs before handoff. Keep the immutable staged copy.
 If the target cannot read the stage's security metadata, finish that
 translation with the source tooling before permitting writers.
 
-Reboot with `talosctl -n "$NODE" reboot`. Verify the pool GUID and mounts
-after reboot. In the isolated rehearsal, verify that an absent pool or
+With all writers still held, clear `TALOS_MAINTENANCE_NODE` and export
+`MIGRATION_POOL_GUID`, `MIGRATION_SNAPSHOT` and `MIGRATION_SNAPSHOT_GUID`
+from the private source receipts. Run
+`TALOS_ZFS_RELEASE_CONFIRM="$MIGRATION_POOL_GUID" task talos:release-zfs`.
+It stages discovery limited to the four member partition UUIDs for the next
+boot. Match those four paths to preflight. Confirm durable UEFI boot order,
+then reboot with `talosctl -n "$NODE" reboot`. Verify the importer scope,
+the original pool GUID, all four members online, the expected mounts and
+the held stage snapshot after reboot. In the isolated rehearsal, verify that an absent pool or
 an ordinary directory at either local mount stops writers. To recover from
 a missing-pool boot, verify the GUID and import/mount the original pool first.
 Wait for the CSI node to become Ready. Recreate blocked static-volume Pods
@@ -437,7 +467,9 @@ results before resuming writers.
    effective paths. Recheck all changed values against the journal and keep
    the source system dataset and operator home available on TrueNAS.
 3. Gracefully shut down the bare-metal node. Put the SSD on the Mac, or boot
-   the verified rescue USB with the HDDs isolated and the SSD installed, and
+   the verified rescue USB with the SSD installed. If the HDDs stay
+   attached, repeat the rescue identity and read-only fencing checks on this
+   boot before opening the SSD for writing. In either case,
    independently recheck physical identity, disk size and sector size against
    `preflight.json`. Talos has changed its GPT. With that disk unmounted and
    your source files hash-verified, write **only** the saved boot prefix at byte
@@ -494,6 +526,7 @@ cleanup decision after the rollback window.
 - [TrueNAS pool management](https://www.truenas.com/docs/scale/25.10/scaletutorials/storage/managepoolsscale/) documents the export and configuration removal options.
 - [TrueNAS cloud encryption](https://www.truenas.com/docs/scale/25.10/scaleuireference/dataprotection/cloudsynctasksscreensscale/) describes remote encryption and filename settings.
 - [OpenZFS send](https://openzfs.github.io/openzfs-docs/man/master/8/zfs-send.8.html) documents snapshot streams and property replication.
+- [OpenZFS pool import](https://openzfs.github.io/openzfs-docs/man/master/8/zpool-import.8.html) documents individual device selection, read-only imports and mounting controls.
 - [SystemRescue boot options](https://www.system-rescue.org/manual/Booting_SystemRescue/) documents RAM boot and disabling automatic storage activation.
 - [efibootmgr](https://manpages.debian.org/trixie/efibootmgr/efibootmgr.8.en.html) documents one-time UEFI boot selection and creating entries without changing the boot order.
 - [Talos privileged debug implementation](https://github.com/siderolabs/talos/blob/v1.14.6/internal/app/debug/debug.go) documents host PID access in the release debugging profile.

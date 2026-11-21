@@ -11,6 +11,8 @@ storage monitoring, and bare-metal lifecycle checks. Added a headless rescue
 USB route for capturing and reimaging an installed SSD over the LAN.
 Updated the cutover to Talos 1.14, including the new configuration documents
 and an unattended install selector tied to the SSD's stable path and serial.
+Documented rescue with the HDDs attached, a guarded first Talos apply and
+the verified four-partition discovery scope for subsequent boots.
 
 ## [2026-11-21] revision | Stage a cold TrueNAS migration
 
