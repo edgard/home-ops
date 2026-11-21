@@ -54,7 +54,13 @@ A pool member replacement changes its partition UUID. Update the verified
 import path as part of disk replacement before depending on the next reboot.
 
 `task cluster:create` generates and applies the machine configuration and
-bootstraps fresh etcd. It holds the platform while ZFS discovery is disabled.
+bootstraps fresh etcd. If interrupted before writing kubeconfig, rerun
+`task talos:bootstrap` with the same target environment. It resumes from a
+healthy local member and verifies Talos health, the member ID, voting status
+and advertised endpoints before issuing credentials. A nonempty etcd
+directory by itself cannot satisfy these checks.
+
+Cluster creation holds the platform while ZFS discovery is disabled.
 With the four-member policy active it continues to the foundation. For a
 staged recovery, run the Talos tasks individually. After accepting the cold
 boot, `task platform:foundation` checks that the released member policy is
