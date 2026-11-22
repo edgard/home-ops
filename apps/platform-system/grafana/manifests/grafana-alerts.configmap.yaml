@@ -7,6 +7,44 @@ metadata:
 data:
   notifications.yaml: |
     apiVersion: 1
+    templates:
+      - orgId: 1
+        name: homeops.telegram
+        template: |-
+          {{ define "homeops.telegram.alert" -}}
+          {{- $rule := .Labels.alertname -}}
+          {{- $target := or .Labels.instance .Labels.rulename "Monitoring" | printf "%.80s" | html -}}
+          {{- $firing := eq .Status "firing" -}}
+          {{- if and (not $firing) .Annotations.grafana_state_reason -}}
+          ⚪ <b>{{ $target }} · Alert closed</b>
+          Grafana closed the alert ({{ .Annotations.grafana_state_reason | printf "%.60s" | html }}). Target health is unconfirmed.
+          {{- else if eq $rule "Uptime probe failed" -}}
+          {{ if $firing }}🔴{{ else }}🟢{{ end }} <b>{{ if eq .Labels.instance "storage" }}Storage readiness{{ else }}{{ $target }}{{ end }} · {{ if $firing }}Check failed{{ else }}Recovered{{ end }}</b>
+          {{ if $firing }}Five consecutive probes failed.{{ with .Annotations.description }} {{ . | printf "%.120s" | html }}{{ end }}{{ else }}Two consecutive probes passed.{{ end }}
+          {{- else if eq $rule "Monitoring scrape missing" -}}
+          {{ if $firing }}🟡{{ else }}🟢{{ end }} <b>{{ $target }} · {{ if $firing }}Monitoring data missing{{ else }}Samples resumed{{ end }}</b>
+          {{ if $firing }}Check the VictoriaMetrics scrape for {{ else }}Fresh samples received from {{ end }}{{ .Labels.job | printf "%.60s" | html }}.
+          {{- else if or (eq $rule "DatasourceNoData") (eq $rule "DatasourceError") -}}
+          {{ if $firing }}🟡{{ else }}⚪{{ end }} <b>{{ $target }} · {{ if not $firing }}Evaluation alert closed{{ else if eq $rule "DatasourceNoData" }}No evaluation data{{ else }}Evaluation error{{ end }}</b>
+          Check the rule evaluation in Grafana.
+          {{- else -}}
+          {{ if $firing }}🔔{{ else }}⚪{{ end }} <b>{{ or $rule "Grafana alert" | printf "%.80s" | html }} · {{ if $firing }}Firing{{ else }}Closed{{ end }}</b>
+          {{ with .Annotations.summary }}{{ . | printf "%.120s" | html }}{{ end }}
+          {{- end -}}
+          {{- end }}
+
+          {{ define "homeops.telegram" -}}
+          {{ if gt (len .Alerts) 1 }}{{ len .Alerts.Firing }} firing · {{ len .Alerts.Resolved }} resolved{{ "\n\n" }}{{ end -}}
+          {{ range $i, $alert := .Alerts }}{{ if lt $i 2 }}{{ if $i }}{{ "\n\n" }}{{ end }}{{ template "homeops.telegram.alert" $alert }}{{ end }}{{ end }}
+          {{ if gt (len .Alerts) 2 }}Showing 2 of {{ len .Alerts }} alerts.
+          {{ end -}}
+          {{ if eq .CommonLabels.job "uptime" -}}
+          <a href="https://grafana.edgard.org/d/uptime/service-uptime{{ with .CommonLabels.instance }}{{ if le (len .) 128 }}?var-target={{ . | urlquery }}{{ end }}{{ end }}">View uptime</a>
+          {{- else -}}
+          <a href="https://grafana.edgard.org/alerting/list">View alerts</a>
+          {{- end -}}
+          {{ if eq (len .Alerts) 1 }}{{ with index .Alerts 0 }}{{ if and (eq .Status "firing") .SilenceURL (le (len .SilenceURL) 320) }} · <a href="{{ .SilenceURL | html }}">Silence</a>{{ end }}{{ end }}{{ end }}
+          {{- end }}
     contactPoints:
       - orgId: 1
         name: Telegram
@@ -17,6 +55,9 @@ data:
             settings:
               bottoken: $TELEGRAM_BOT_TOKEN
               chatid: "$TELEGRAM_CHAT_ID"
+              message: '{{ template "homeops.telegram" . }}'
+              parse_mode: HTML
+              disable_web_page_preview: true
     policies:
       - orgId: 1
         receiver: Telegram
@@ -39,7 +80,14 @@ data:
             noDataState: KeepLast
             execErrState: Error
             annotations:
+              __dashboardUid__: uptime
+              __panelId__: "1"
               summary: "Five consecutive probes failed for {{ $labels.instance }}"
+              description: >-
+                {{ if eq $labels.instance "storage" }}Check the storage-maintenance health pod and its Service endpoints.
+                {{- else if eq $labels.group "dns" }}Check DNS resolution from the cluster.
+                {{- else if eq $labels.group "internet" }}Compare the other internet probes.
+                {{- else }}Check the application and its Gateway route.{{ end }}
             data:
               - refId: A
                 datasourceUid: metrics

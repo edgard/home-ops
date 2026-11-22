@@ -1,7 +1,7 @@
 # Uptime and cluster monitoring
 
 Purpose: operate the in-cluster Grafana dashboards, probes and production alerts.
-Status: current. Reviewed against: `cdb7a398deaa06451737a5a43e895942443e7d3c` and this revision.
+Status: current. Reviewed against: `7fad7f2565192a6b198cf345b155063f0c898afd` and this revision.
 
 Grafana owns Telegram notifications. `status.edgard.org` redirects to the
 uptime dashboard on the Grafana hostname. All three dashboards require sign-in. Monitoring and notification delivery depend on the single
@@ -16,12 +16,24 @@ Inspect `probe_success{job="uptime"}` by instance for target health and
 `up` for scrape health. The rules count consecutive probe results and
 separately detect a loss of samples.
 
-On the host dashboard, check physical NIC and disk counters against Talos,
-including bridge br0, and compare the number of CPU cores with the node
-inventory. On the workloads dashboard compare CPU rates and working-set
-memory with `kubectl top pods -A` over a similar sampling interval. Check
-controller readiness and restarts against Kubernetes. Keep metrics-server
-for the Kubernetes resource metrics API.
+The uptime dashboard shows the latest probe result. Filter by group or target
+to inspect its history and latency. A failed probe means the check ran and
+failed. Unknown means the result is missing or stale. Telegram waits for
+confirmation before reporting a service failure or recovery, so its state
+can briefly differ from the latest probe.
+
+For a storage readiness alert, open the target history and check the
+[storage maintenance workload](../apps/kube-system/storage-maintenance.md).
+Its readiness depends on pool checks, SMART health and scheduled maintenance.
+Use the Talos dashboard to check pool state and free space alongside CPU and
+available RAM. The bridge and its physical interfaces can carry the same
+traffic, so compare their rates separately.
+
+Use the workloads dashboard to find deployments short of available replicas
+and pods with recent restarts. Filter by namespace to compare CPU and memory
+with `kubectl top pods -n <namespace>` over a similar sampling interval.
+The kubelet supplies resource usage and kube-state-metrics supplies workload
+state. The Kubernetes resource metrics API still depends on metrics-server.
 
 After seven days including a backup cycle, record the monitoring pods' CPU
 and working sets, active series, ingestion rate, and actual bytes used on the
