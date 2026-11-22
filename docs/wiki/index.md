@@ -23,7 +23,7 @@ remain authoritative; verify the running system separately.
 - [Secrets and credentials](architecture/secrets.md) — Bitwarden, External Secrets, and scoped CLI inputs.
 - [Storage and shared media](architecture/storage.md) — OpenEBS appdata and shared ZFS filesystems.
 - [Backup and recovery](architecture/backup-recovery.md) — Restic and restore transaction.
-- [Uptime monitoring](architecture/uptime.md) — Grafana alerts, authenticated status and probe checks.
+- [Uptime monitoring](architecture/uptime.md) — Grafana dashboards, alerts and probe checks.
 - [Terraform](architecture/terraform.md) — Cloudflare, Tailscale, and backend.
 - [Validation and PR gate](architecture/validation.md) — native checks, pytest, and CI.
 
