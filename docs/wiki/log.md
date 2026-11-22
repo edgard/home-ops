@@ -7,7 +7,8 @@ revisions. Ordinary questions and dependency bumps do not need entries.
 
 The [monitoring runbook](architecture/uptime.md) explains how to follow a
 Telegram alert to the affected target, distinguish a failed check from missing
-samples, and investigate host or workload pressure.
+samples, and investigate host or workload pressure. The affected-target table
+leads on mobile, and workload rankings identify individual deployments and pods.
 
 ## [2026-11-22] revision | Transfer uptime notifications and status
 

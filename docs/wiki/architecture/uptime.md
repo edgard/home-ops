@@ -16,8 +16,9 @@ Inspect `probe_success{job="uptime"}` by instance for target health and
 `up` for scrape health. The rules count consecutive probe results and
 separately detect a loss of samples.
 
-The uptime dashboard shows the latest probe result. Filter by group or target
-to inspect its history and latency. A failed probe means the check ran and
+The uptime dashboard lists affected targets first. Select a target name to
+open its probe history. Failed HTTP checks show the response code or
+“No response” when the probe received none. Filter by group to compare latency. A failed probe means the check ran and
 failed. Unknown means the result is missing or stale. Telegram waits for
 confirmation before reporting a service failure or recovery, so its state
 can briefly differ from the latest probe.
