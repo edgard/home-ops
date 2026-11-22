@@ -16,6 +16,12 @@ Inspect `probe_success{job="uptime"}` by instance for target health and
 `up` for scrape health. The rules count consecutive probe results and
 separately detect a loss of samples.
 
+Each monitored application's web Service declares its probe URL. Its standard
+`app.kubernetes.io/instance` label supplies the stable name used by Grafana. Use the routed HTTPS hostname and health path
+so Blackbox exercises DNS, TLS and the Gateway from inside the cluster.
+The `monitoring.edgard.org/uptime` label opts the Service in. VictoriaMetrics
+has read-only Service discovery access in the four application namespaces.
+
 The uptime dashboard lists affected targets first. Select a target name to
 open its probe history. Failed HTTP checks show the response code or
 “No response” when the probe received none. Filter by group to compare latency. A failed probe means the check ran and
