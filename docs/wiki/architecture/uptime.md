@@ -1,11 +1,10 @@
 # Uptime and cluster monitoring
 
-Purpose: operate the in-cluster Grafana comparison and verify a safe transfer of production alerts.
+Purpose: operate the in-cluster Grafana dashboards, probes and production alerts.
 Status: current. Reviewed against: `cdb7a398deaa06451737a5a43e895942443e7d3c` and this revision.
 
 Grafana owns Telegram notifications. `status.edgard.org` redirects to the
-read-only shared uptime dashboard. The Talos and Kubernetes dashboards require
-a Grafana login. Monitoring and notification delivery depend on the single
+uptime dashboard on the Grafana hostname. All three dashboards require sign-in. Monitoring and notification delivery depend on the single
 node and working internet access.
 
 ## Inspect monitoring
@@ -35,18 +34,21 @@ A failing static scrape continues to generate `up=0`. When a target is removed
 from the configuration its old label set ages out of missing-scrape detection
 after an hour. Review the target list in every route-changing PR.
 Grafana groups notifications by instance and repeats an ongoing incident after
-five days once production delivery is enabled.
+five days.
 
 ## Verify changes and recover
 
 Verify a controlled target fires after five failed checks, stays firing through
 an isolated success and resolves after two consecutive successes. Test missing
-scrapes separately. Check the private shared status link logged out and verify
-that host dashboards and the data-source API require authentication.
+scrapes separately. Open the status hostname in a signed-out session and verify that Grafana asks
+for a login. Sign in and check that the uptime dashboard loads.
 
 To restore Gatus following a cutover failure, revert the cutover PR. Check
 Argo restores its status route and Telegram delivery, and that Grafana's
-comparison mute returns. Both appdata volumes persist across this rollback.
+comparison mute returns. Reverting the entire cutover also re-enables public
+sharing and restores the sharing Job. To keep dashboards private during
+rollback, retain the disabled public dashboard setting and omit the Job.
+Both monitoring appdata volumes persist across this rollback.
 
 ## Sources
 

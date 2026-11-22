@@ -113,7 +113,7 @@ controllers:
 - Review explicit VictoriaMetrics Blackbox targets whenever changing routes.
   Keep Jellyfin `/health`, CrossWatch `/healthz` and the storage readiness Service.
 - Grafana evaluates uptime and scrape health and delivers Telegram notifications.
-  The status hostname opens the shared uptime dashboard. All components depend
+  The status hostname opens the uptime dashboard after sign-in. All components depend
   on the single node. See [monitoring](architecture/uptime.md) for diagnosis.
 
 ### Storage

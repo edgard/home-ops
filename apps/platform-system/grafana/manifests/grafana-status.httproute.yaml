@@ -19,5 +19,5 @@ spec:
             hostname: grafana.edgard.org
             path:
               type: ReplaceFullPath
-              replaceFullPath: /public-dashboards/2f8238a85f9b4edaa3a77ca397cf9973
+              replaceFullPath: /d/uptime/service-uptime
             statusCode: 302

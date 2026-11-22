@@ -11,7 +11,7 @@ restores directly into each application's appdata PVC. Use the full snapshot
 ID in the [restore runbook](../../operations/restic-backup-restore.md).
 
 The backup uses the internal Restic service and a namespace-scoped secret.
-After recovery, open Grafana, verify the shared uptime dashboard, and query
+After recovery, sign in to Grafana, verify the uptime dashboard, and query
 VictoriaMetrics at a timestamp preceding the backup.
 
 ## Sources
