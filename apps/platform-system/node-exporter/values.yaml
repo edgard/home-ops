@@ -20,7 +20,7 @@ controllers:
       app:
         image:
           repository: quay.io/prometheus/node-exporter
-          tag: v1.12.1
+          tag: v1.13.1
         args:
           - --path.procfs=/host/proc
           - --path.sysfs=/host/sys

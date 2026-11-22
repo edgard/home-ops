@@ -13,7 +13,7 @@ zfsNode:
         type: DirectoryOrCreate
   initContainers:
     - name: verify-storage
-      image: busybox:1.37.0
+      image: busybox:1.38.0
       securityContext:
         privileged: true
       env:
