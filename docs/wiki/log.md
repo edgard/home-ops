@@ -3,6 +3,11 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-22] revision | Prefer energy efficiency on the Ryzen host
+
+The [Talos runbook](architecture/talos-bootstrap.md#cpu-power-preference)
+covers the CPU energy preference and how to verify or roll it back.
+
 ## [2026-11-22] revision | Retire the status hostname
 
 The [monitoring runbook](architecture/uptime.md) points directly to the

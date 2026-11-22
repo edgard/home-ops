@@ -37,6 +37,28 @@ checks the system disk and NIC before submitting configuration. Platform
 operations also match the Kubernetes node's hardware UUID and InternalIP
 against that endpoint.
 
+## CPU power preference
+
+The [control-plane patch](../../../ansible/roles/talos/files/controlplane-patch.yaml)
+sets the Ryzen 9 3900X's energy performance preference to `balance_power`.
+The active `amd-pstate-epp` driver chooses frequencies under load and can
+still boost. The patch names each of the 24 CPU frequency policies on this
+node. On replacement hardware, check the available policies and supported
+preferences before reusing the patch.
+
+Read the current preference and available choices through the Talos API:
+
+```sh
+talosctl -e "$TALOS_NODE" -n "$TALOS_NODE" read /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference
+talosctl -e "$TALOS_NODE" -n "$TALOS_NODE" read /sys/devices/system/cpu/cpufreq/policy0/energy_performance_available_preferences
+```
+
+To restore the previous policy, set the same EPP keys to
+`balance_performance` in both the tracked patch and the live configuration.
+A targeted `talosctl patch mc --mode=no-reboot` accepts the SysfsConfig
+document on this Talos version. Use `--dry-run` before applying it and read
+back the preference across the policies afterward.
+
 ## First boot and pool enrollment
 
 The four data HDDs can stay attached. Set `DEBUG_IMAGE` to a trusted Linux

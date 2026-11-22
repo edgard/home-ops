@@ -39,6 +39,35 @@ params:
   net.ipv4.tcp_fastopen: "3"
   user.max_user_namespaces: "11255"
 ---
+apiVersion: v1alpha1
+kind: SysfsConfig
+params:
+  # Ryzen 9 3900X exposes one CPUFreq policy per logical CPU.
+  devices.system.cpu.cpufreq.policy0.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy1.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy2.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy3.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy4.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy5.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy6.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy7.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy8.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy9.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy10.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy11.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy12.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy13.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy14.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy15.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy16.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy17.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy18.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy19.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy20.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy21.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy22.energy_performance_preference: balance_power
+  devices.system.cpu.cpufreq.policy23.energy_performance_preference: balance_power
+---
 version: v1alpha1
 machine:
   features:
