@@ -3,7 +3,7 @@
 Purpose: collect and store one year of metrics for Grafana.
 Status: current. Reviewed against: `cdb7a398deaa06451737a5a43e895942443e7d3c` and this revision.
 
-One process scrapes explicit targets and serves the private query API. The appdata claim retains samples across pod replacements. Recover the data from the platform-system Restic snapshot after pool loss. Authenticate kubelet scrapes with the dedicated service account and validate its serving certificate against the public kubelet CA for homelab.
+One process discovers application probes from labeled Services, scrapes the explicit infrastructure targets and serves the private query API. The appdata claim retains samples across pod replacements. Recover the data from the platform-system Restic snapshot after pool loss. Authenticate kubelet scrapes with the dedicated service account and validate its serving certificate against the public kubelet CA for homelab.
 
 The query and ingestion API is reachable on the cluster network. The deletion
 API requires a rotating projected token with its own audience, mounted only

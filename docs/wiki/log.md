@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-22] revision | Discover routed uptime probes from Services
+
+VictoriaMetrics now discovers application URLs from their owning Services.
+The [monitoring runbook](architecture/uptime.md) covers onboarding, target
+withdrawal and verification. Infrastructure and external probes remain explicit.
+
 ## [2026-11-22] revision | Declare application uptime probes on Services
 
 The application values now declare the intended routed URL and stable uptime

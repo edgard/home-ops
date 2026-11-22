@@ -10,8 +10,8 @@ node and working internet access.
 ## Inspect monitoring
 
 VictoriaMetrics asks Blackbox Exporter to probe configured targets every
-minute. Keep the routed applications, storage readiness Service, DNS A
-queries and IPv4 ICMP targets current in the scrape configuration.
+minute. It discovers application probes from opted-in Services. Storage
+readiness, external DNS and IPv4 ICMP checks use explicit targets.
 Inspect `probe_success{job="uptime"}` by instance for target health and
 `up` for scrape health. The rules count consecutive probe results and
 separately detect a loss of samples.
@@ -20,7 +20,14 @@ Each monitored application's web Service declares its probe URL. Its standard
 `app.kubernetes.io/instance` label supplies the stable name used by Grafana. Use the routed HTTPS hostname and health path
 so Blackbox exercises DNS, TLS and the Gateway from inside the cluster.
 The `monitoring.edgard.org/uptime` label opts the Service in. VictoriaMetrics
-has read-only Service discovery access in the four application namespaces.
+uses list/watch access to Services in `argocd`, `home-automation`, `media` and
+`selfhosted`. Place the `monitoring.edgard.org/probe-url` annotation on the
+frontend Service with a port named `http`. In app-template values reference
+the route hostname and append the health path when needed.
+[CrossWatch](../../../apps/media/crosswatch/values.yaml) shows the pattern.
+Use a unique, stable release label. Confirm that the rendered URL matches
+the HTTPRoute and that the application appears once in the collector's
+`/api/v1/targets` under the `uptime-apps` scrape pool, with `job="uptime"`.
 
 The uptime dashboard lists affected targets first. Select a target name to
 open its probe history. Failed HTTP checks show the response code or
@@ -49,9 +56,10 @@ allowing for VictoriaMetrics' monthly partitions and compaction. If the
 projection exceeds 80% of the PVC capacity, expand the claim in Git. Disk allocation and initial resource requests are sizing inputs,
 not measurements. [VictoriaMetrics retention](https://docs.victoriametrics.com/victoriametrics/single-server-victoriametrics/#retention)
 
-A failing static scrape continues to generate `up=0`. When a target is removed
-from the configuration its old label set ages out of missing-scrape detection
-after an hour. Review the target list in every route-changing PR.
+A Service with no ready pods remains discoverable and Blackbox keeps probing
+its routed URL. Deleting the Service or removing its opt-in label withdraws
+the target. Its old label set ages out of missing-scrape detection after
+one hour. Review the Service metadata with each route change.
 Grafana groups notifications by instance and repeats an ongoing incident after
 five days.
 

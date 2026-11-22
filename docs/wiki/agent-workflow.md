@@ -110,8 +110,9 @@ controllers:
 - Multus LAN IP (media apps): `k8s.v1.cni.cncf.io/networks: [{"name":"multus-lan-bridge","namespace":"kube-system","ips":["192.168.1.X/24"]}]`
 
 ### Monitoring
-- Review explicit VictoriaMetrics Blackbox targets whenever changing routes.
-  Keep Jellyfin `/health`, CrossWatch `/healthz` and the storage readiness Service.
+- Declare application uptime on the frontend Service. Check its opt-in label,
+  `http` port, probe URL and release identity when changing the route.
+  Keep Jellyfin `/health`, CrossWatch `/healthz` and the explicit storage readiness probe.
 - Grafana evaluates uptime and scrape health and delivers Telegram notifications.
   The status hostname opens the uptime dashboard after sign-in. All components depend
   on the single node. See [monitoring](architecture/uptime.md) for diagnosis.
@@ -195,7 +196,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 - [Pull request workflow](../../.github/workflows/ci.yml) defines the CI jobs.
 - [Pull request template](../../.github/pull_request_template.md) prompts for wiki impact.
 - [ApplicationSet](../../argocd/appsets/apps.appset.yaml) defines app discovery.
-- [VictoriaMetrics scrapes](../../apps/platform-system/victoria-metrics/manifests/victoria-metrics-scrape.configmap.yaml) define explicit uptime coverage for review.
+- [VictoriaMetrics scrapes](../../apps/platform-system/victoria-metrics/manifests/victoria-metrics-scrape.configmap.yaml) define application Service discovery and explicit infrastructure probes.
 
 ## Related pages
 
