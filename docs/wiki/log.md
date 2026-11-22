@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-22] revision | Triage service, host and workload health in Grafana
+
+The [monitoring runbook](architecture/uptime.md) explains how to follow a
+Telegram alert to the affected target, distinguish a failed check from missing
+samples, and investigate host or workload pressure.
+
 ## [2026-11-22] revision | Transfer uptime notifications and status
 
 The [monitoring runbook](architecture/uptime.md) covers the Grafana status

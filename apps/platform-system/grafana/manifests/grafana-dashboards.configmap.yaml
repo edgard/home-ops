@@ -12,29 +12,319 @@ data:
       "schemaVersion": 39,
       "editable": false,
       "refresh": "1m",
-      "time": {"from": "now-6h", "to": "now"},
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
       "timezone": "browser",
-      "annotations": {"list": []},
+      "tags": [
+        "home-ops",
+        "uptime"
+      ],
+      "annotations": {
+        "list": []
+      },
+      "templating": {
+        "list": [
+          {
+            "type": "query",
+            "name": "group",
+            "label": "Group",
+            "datasource": {"type": "prometheus", "uid": "metrics"},
+            "definition": "label_values(up{job=\"uptime\"}, group)",
+            "query": {"query": "label_values(up{job=\"uptime\"}, group)", "refId": "StandardVariableQuery"},
+            "refresh": 1,
+            "sort": 1,
+            "multi": true,
+            "includeAll": true,
+            "allValue": ".*",
+            "current": {"text": "All", "value": "$__all"},
+            "options": []
+          },
+          {
+            "type": "query",
+            "name": "target",
+            "label": "Target",
+            "datasource": {"type": "prometheus", "uid": "metrics"},
+            "definition": "label_values(up{job=\"uptime\",group=~\"${group:regex}\"}, instance)",
+            "query": {
+              "query": "label_values(up{job=\"uptime\",group=~\"${group:regex}\"}, instance)",
+              "refId": "StandardVariableQuery"
+            },
+            "refresh": 1,
+            "sort": 1,
+            "multi": true,
+            "includeAll": true,
+            "allValue": ".*",
+            "current": {"text": "All", "value": "$__all"},
+            "options": []
+          }
+        ]
+      },
+      "links": [
+        {"type": "link", "title": "Talos host", "url": "/d/talos/talos-host", "includeVars": false, "keepTime": true},
+        {
+          "type": "link",
+          "title": "Kubernetes workloads",
+          "url": "/d/workloads/kubernetes-workloads",
+          "includeVars": false,
+          "keepTime": true
+        }
+      ],
       "panels": [
         {
-          "id": 1,
-          "title": "Probe status",
-          "type": "state-timeline",
+          "id": 3,
+          "type": "stat",
+          "title": "Up",
+          "description": "Targets with a fresh successful probe. The counts follow the selected groups and targets.",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 22},
-          "targets": [{"refId": "A", "expr": "WITH (ok = last_over_time(up{job=\"uptime\"}[90s]) == 1) (last_over_time(probe_success{job=\"uptime\"}[90s]) and ok) or (last_over_time(up{job=\"uptime\"}[1h]) * 0 - 1)", "legendFormat": "{{group}} / {{instance}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "none", "mappings": [{"type": "value", "options": {"1": {"text": "Up", "color": "green"}, "0": {"text": "Down", "color": "red"}, "-1": {"text": "Unknown", "color": "gray"}}}]}, "overrides": []},
-          "options": {"mergeValues": true, "showValue": "never", "rowHeight": 0.85, "legend": {"showLegend": false}, "tooltip": {"mode": "single"}}
+          "gridPos": {"x": 0, "y": 0, "w": 8, "h": 4},
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "expr": "WITH (\n  expected = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[1h]),\n  fresh = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[90s]) == 1,\n  state = (last_over_time(probe_success{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[90s]) and fresh) or (expected * 0 - 1)\n)\nsum(state == bool 1)",
+              "format": "time_series",
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "No telemetry",
+              "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "green"}]},
+              "color": {"mode": "thresholds"}
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+            "orientation": "horizontal",
+            "textMode": "value",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "wideLayout": true
+          }
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Down",
+          "description": "Targets with a fresh failed probe. The alert waits for five consecutive failures. The counts follow the selected groups and targets.",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 8, "y": 0, "w": 8, "h": 4},
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "expr": "WITH (\n  expected = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[1h]),\n  fresh = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[90s]) == 1,\n  state = (last_over_time(probe_success{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[90s]) and fresh) or (expected * 0 - 1)\n)\nsum(state == bool 0)",
+              "format": "time_series",
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "No telemetry",
+              "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "blue"}, {"value": 1, "color": "red"}]},
+              "color": {"mode": "thresholds"}
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+            "orientation": "horizontal",
+            "textMode": "value",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "wideLayout": true
+          }
+        },
+        {
+          "id": 5,
+          "type": "stat",
+          "title": "Unknown",
+          "description": "Targets seen in the past hour without a successful scrape and probe result in the past 90 seconds. The counts follow the selected groups and targets.",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 16, "y": 0, "w": 8, "h": 4},
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "expr": "WITH (\n  expected = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[1h]),\n  fresh = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[90s]) == 1,\n  state = (last_over_time(probe_success{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[90s]) and fresh) or (expected * 0 - 1)\n)\nsum(state == bool -1)",
+              "format": "time_series",
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "No telemetry",
+              "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "blue"}, {"value": 1, "color": "orange"}]},
+              "color": {"mode": "thresholds"}
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+            "orientation": "horizontal",
+            "textMode": "value",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "wideLayout": true
+          }
+        },
+        {
+          "id": 6,
+          "type": "table",
+          "title": "Current exceptions",
+          "description": "Select a target to inspect its history. Failed HTTP checks show the response from the same probe sample. A blank HTTP result means no applicable result is available. When every reporting target is up, the table displays a summary row.",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 4, "w": 24, "h": 6},
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "expr": "WITH (\n  expected = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[1h]),\n  fresh = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[90s]) == 1,\n  result = probe_success{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"},\n  state = (last_over_time(result[90s]) and fresh) or (expected * 0 - 1),\n  http = probe_http_status_code{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"},\n  code = last_over_time(http[90s]) and (tlast_over_time(http[90s]) == tlast_over_time(result[90s])),\n  code_labels = count_values by (instance,group) (\"http_status\", code),\n  detail = label_replace(code_labels, \"http_status\", \"No response\", \"http_status\", \"^0$\")\n)\n((state == 0) * on(instance,group) group_left(http_status) detail)\nor on(instance,group) (state < 1)\nor label_set((count(state) > bool 0) unless on() (state < 1), \"group\", \"All reporting targets\")",
+              "format": "table",
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"custom": {"align": "auto", "cellOptions": {"type": "auto"}, "inspect": false}},
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "Status"},
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "1": {"text": "Up", "color": "green"},
+                          "0": {"text": "Down", "color": "red"},
+                          "-1": {"text": "Unknown", "color": "orange"}
+                        }
+                      }
+                    ]
+                  },
+                  {"id": "custom.cellOptions", "value": {"type": "color-text"}}
+                ]
+              },
+              {
+                "matcher": {"id": "byName", "options": "Target"},
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Inspect this target",
+                        "url": "/d/uptime/service-uptime?${group:queryparam}&var-target=${__value.raw}&from=${__from}&to=${__to}",
+                        "targetBlank": false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {"showHeader": true, "cellHeight": "sm", "sortBy": [{"displayName": "Status", "desc": true}]},
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {"Time": true, "__name__": true, "job": true},
+                "indexByName": {"instance": 0, "group": 1, "Value": 2, "http_status": 3},
+                "renameByName": {"instance": "Target", "group": "Group", "Value": "Status", "http_status": "HTTP result"}
+              }
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "type": "state-timeline",
+          "title": "Probe history",
+          "description": "Each row records one target’s sampled state. Orange indicates missing telemetry. Use the group or target selector to narrow the history.",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 10, "w": 24, "h": 13},
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "expr": "WITH (\n  expected = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[1h]),\n  fresh = last_over_time(up{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[90s]) == 1,\n  state = (last_over_time(probe_success{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"}[90s]) and fresh) or (expected * 0 - 1)\n)\nstate",
+              "format": "time_series",
+              "range": true,
+              "instant": false,
+              "legendFormat": "{{group}} / {{instance}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "1": {"text": "Up", "color": "green"},
+                    "0": {"text": "Down", "color": "red"},
+                    "-1": {"text": "Unknown", "color": "orange"}
+                  }
+                }
+              ],
+              "custom": {"lineWidth": 0, "fillOpacity": 85, "spanNulls": false}
+            },
+            "overrides": []
+          },
+          "options": {
+            "mergeValues": true,
+            "showValue": "never",
+            "rowHeight": 0.8,
+            "pageSize": 12,
+            "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          }
         },
         {
           "id": 2,
-          "title": "Probe duration",
           "type": "timeseries",
+          "title": "Slowest successful probe by group",
+          "description": "Each line shows the longest successful check in its group at each sample. Select a target to drill into its duration. Failed checks are excluded.",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 22, "w": 24, "h": 10},
-          "targets": [{"refId": "A", "expr": "probe_duration_seconds{job=\"uptime\"}", "legendFormat": "{{instance}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 0, "y": 23, "w": 24, "h": 8},
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "expr": "max by (group) (probe_duration_seconds{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"} and (probe_success{job=\"uptime\", group=~\"${group:regex}\", instance=~\"${target:regex}\"} == 1))",
+              "format": "time_series",
+              "range": true,
+              "instant": false,
+              "legendFormat": "{{group}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "min": 0,
+              "color": {"mode": "palette-classic"},
+              "custom": {"lineWidth": 2, "fillOpacity": 8, "showPoints": "never", "spanNulls": false}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"showLegend": true, "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]},
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          }
         }
       ]
     }
@@ -42,82 +332,367 @@ data:
     {
       "uid": "talos",
       "title": "Talos host",
+      "description": "Current condition and capacity of the homelab node, followed by resource history.",
       "schemaVersion": 39,
       "editable": false,
       "refresh": "1m",
-      "time": {"from": "now-6h", "to": "now"},
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
       "timezone": "browser",
-      "annotations": {"list": []},
+      "graphTooltip": 1,
+      "annotations": {
+        "list": []
+      },
+      "links": [
+        {
+          "type": "link",
+          "title": "Service uptime",
+          "url": "/d/uptime/service-uptime",
+          "includeVars": false,
+          "keepTime": true
+        },
+        {
+          "type": "link",
+          "title": "Kubernetes workloads",
+          "url": "/d/workloads/kubernetes-workloads",
+          "includeVars": false,
+          "keepTime": true
+        }
+      ],
       "panels": [
+        {
+          "id": 7,
+          "title": "ZFS pool · dpool",
+          "description": "Active pool state reported by ZFS. The storage readiness probe also checks maintenance and drive health.",
+          "type": "stat",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(last_over_time(node_zfs_zpool_state{job=\"node-exporter\",zpool=\"dpool\"}[90s]) == 1) and on() (last_over_time(up{job=\"node-exporter\"}[90s]) == 1)",
+              "legendFormat": "{{state}}",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "short", "color": {"mode": "fixed", "fixedColor": "red"}, "noValue": "No data"},
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "online"},
+                "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]
+              }
+            ]
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "name",
+            "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}
+          }
+        },
+        {
+          "id": 8,
+          "title": "dpool available",
+          "description": "Space available at the root of the pool. Child datasets can draw on the same space.",
+          "type": "stat",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(last_over_time(node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=\"/var/mnt/dpool\"}[90s])) and on() (last_over_time(up{job=\"node-exporter\"}[90s]) == 1)",
+              "legendFormat": "Value",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "bytes", "color": {"mode": "fixed", "fixedColor": "blue"}, "noValue": "No data"},
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "value",
+            "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}
+          }
+        },
+        {
+          "id": 9,
+          "title": "Memory available",
+          "description": "Memory available for new allocations, including reclaimable cache.",
+          "type": "stat",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(last_over_time(node_memory_MemAvailable_bytes{job=\"node-exporter\"}[90s])) and on() (last_over_time(up{job=\"node-exporter\"}[90s]) == 1)",
+              "legendFormat": "Value",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "bytes", "color": {"mode": "fixed", "fixedColor": "purple"}, "noValue": "No data"},
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "value",
+            "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}
+          }
+        },
+        {
+          "id": 10,
+          "title": "CPU busy",
+          "description": "Share of total CPU time spent outside idle across all cores, averaged over five minutes.",
+          "type": "stat",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(100 * (1 - avg(rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[5m])))) and on() (last_over_time(up{job=\"node-exporter\"}[90s]) == 1)",
+              "legendFormat": "Value",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "percent", "color": {"mode": "fixed", "fixedColor": "blue"}, "noValue": "No data"},
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "value",
+            "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}
+          }
+        },
         {
           "id": 1,
           "title": "CPU utilization",
+          "description": "Five-minute average across host cores.",
           "type": "timeseries",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 7},
-          "targets": [{"refId": "A", "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[5m])))", "legendFormat": "Busy", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[5m])))",
+              "legendFormat": "Busy",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "color": {"mode": "palette-classic"},
+              "custom": {"lineWidth": 2, "fillOpacity": 7, "showPoints": "never", "spanNulls": false, "axisCenteredZero": false},
+              "max": 100
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          }
         },
         {
           "id": 2,
-          "title": "Memory",
+          "title": "Memory headroom",
+          "description": "Available memory alongside total installed memory.",
           "type": "timeseries",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 7, "w": 24, "h": 7},
-          "targets": [{"refId": "A", "expr": "node_memory_MemAvailable_bytes{job=\"node-exporter\"}", "legendFormat": "Available", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}, {"refId": "B", "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"}", "legendFormat": "Total", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
-        },
-        {
-          "id": 3,
-          "title": "Physical disk throughput",
-          "type": "timeseries",
-          "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 14, "w": 24, "h": 7},
-          "targets": [{"refId": "A", "expr": "rate(node_disk_read_bytes_total{job=\"node-exporter\",device=~\"sd[a-z]+|nvme[0-9]+n[0-9]+\"}[5m])", "legendFormat": "{{device}} read", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}, {"refId": "B", "expr": "rate(node_disk_written_bytes_total{job=\"node-exporter\",device=~\"sd[a-z]+|nvme[0-9]+n[0-9]+\"}[5m])", "legendFormat": "{{device}} write", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
-        },
-        {
-          "id": 4,
-          "title": "Network throughput",
-          "type": "timeseries",
-          "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 21, "w": 24, "h": 7},
-          "targets": [{"refId": "A", "expr": "rate(node_network_receive_bytes_total{job=\"node-exporter\",device=~\"br0|en.*|eth.*\"}[5m])", "legendFormat": "{{device}} RX", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}, {"refId": "B", "expr": "rate(node_network_transmit_bytes_total{job=\"node-exporter\",device=~\"br0|en.*|eth.*\"}[5m])", "legendFormat": "{{device}} TX", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "node_memory_MemAvailable_bytes{job=\"node-exporter\"}",
+              "legendFormat": "Available",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "expr": "node_memory_MemTotal_bytes{job=\"node-exporter\"}",
+              "legendFormat": "Total",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "color": {"mode": "palette-classic"},
+              "custom": {"lineWidth": 2, "fillOpacity": 7, "showPoints": "never", "spanNulls": false, "axisCenteredZero": false}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          }
         },
         {
           "id": 5,
           "title": "Filesystem space available",
+          "description": "Capacity at each mounted filesystem. ZFS datasets share pool space and their free values overlap.",
           "type": "timeseries",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 28, "w": 24, "h": 8},
-          "targets": [{"refId": "A", "expr": "node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=~\"/var|/var/mnt/dpool(/.*)?\"}", "legendFormat": "{{mountpoint}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=~\"/var|/var/mnt/dpool(/.*)?\"}",
+              "legendFormat": "{{mountpoint}}",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "color": {"mode": "palette-classic"},
+              "custom": {"lineWidth": 2, "fillOpacity": 7, "showPoints": "never", "spanNulls": false, "axisCenteredZero": false}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          }
         },
         {
           "id": 6,
-          "title": "ZFS ARC",
+          "title": "ZFS cache size",
+          "description": "Bytes currently held by the adaptive replacement cache (ARC).",
           "type": "timeseries",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 36, "w": 24, "h": 6},
-          "targets": [{"refId": "A", "expr": "node_zfs_arc_size{job=\"node-exporter\"}", "legendFormat": "ARC size", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "node_zfs_arc_size{job=\"node-exporter\"}",
+              "legendFormat": "ARC",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "color": {"mode": "palette-classic"},
+              "custom": {"lineWidth": 2, "fillOpacity": 7, "showPoints": "never", "spanNulls": false, "axisCenteredZero": false}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          }
         },
         {
-          "id": 7,
-          "title": "ZFS pool state",
+          "id": 3,
+          "title": "Physical disk throughput",
+          "description": "Five-minute read and write rates by device.",
           "type": "timeseries",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 42, "w": 24, "h": 6},
-          "targets": [{"refId": "A", "expr": "node_zfs_zpool_state{job=\"node-exporter\"} == 1", "legendFormat": "{{zpool}} / {{state}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 0, "y": 20, "w": 12, "h": 9},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_disk_read_bytes_total{job=\"node-exporter\",device=~\"sd[a-z]+|nvme[0-9]+n[0-9]+\"}[5m])",
+              "legendFormat": "{{device}} read",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_disk_written_bytes_total{job=\"node-exporter\",device=~\"sd[a-z]+|nvme[0-9]+n[0-9]+\"}[5m])",
+              "legendFormat": "{{device}} write",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "min": 0,
+              "color": {"mode": "palette-classic"},
+              "custom": {"lineWidth": 2, "fillOpacity": 7, "showPoints": "never", "spanNulls": false, "axisCenteredZero": false}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          }
+        },
+        {
+          "id": 4,
+          "title": "Network throughput",
+          "description": "Five-minute receive and transmit rates. The bridge and its underlying NIC can carry the same traffic.",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 12, "y": 20, "w": 12, "h": 9},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_network_receive_bytes_total{job=\"node-exporter\",device=~\"br0|en.*|eth.*\"}[5m])",
+              "legendFormat": "{{device}} RX",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_network_transmit_bytes_total{job=\"node-exporter\",device=~\"br0|en.*|eth.*\"}[5m])",
+              "legendFormat": "{{device}} TX",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "min": 0,
+              "color": {"mode": "palette-classic"},
+              "custom": {"lineWidth": 2, "fillOpacity": 7, "showPoints": "never", "spanNulls": false, "axisCenteredZero": false}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          }
         }
       ]
     }
@@ -125,52 +700,324 @@ data:
     {
       "uid": "workloads",
       "title": "Kubernetes workloads",
+      "description": "Deployment availability, container restarts and pod resource use for the selected namespaces.",
       "schemaVersion": 39,
       "editable": false,
       "refresh": "1m",
-      "time": {"from": "now-6h", "to": "now"},
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
       "timezone": "browser",
-      "annotations": {"list": []},
+      "graphTooltip": 1,
+      "annotations": {
+        "list": []
+      },
+      "links": [
+        {
+          "type": "link",
+          "title": "Service uptime",
+          "url": "/d/uptime/service-uptime",
+          "includeVars": false,
+          "keepTime": true
+        },
+        {"type": "link", "title": "Talos host", "url": "/d/talos/talos-host", "includeVars": false, "keepTime": true}
+      ],
+      "templating": {
+        "list": [
+          {
+            "name": "namespace",
+            "label": "Namespace",
+            "type": "query",
+            "datasource": {"type": "prometheus", "uid": "metrics"},
+            "query": {
+              "query": "label_values(kube_pod_status_ready{job=\"kube-state-metrics\"}, namespace)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "definition": "label_values(kube_pod_status_ready{job=\"kube-state-metrics\"}, namespace)",
+            "refresh": 1,
+            "sort": 1,
+            "includeAll": true,
+            "multi": true,
+            "allValue": ".*",
+            "current": {"text": "All", "value": "$__all"},
+            "options": []
+          }
+        ]
+      },
       "panels": [
         {
-          "id": 1,
-          "title": "Pod CPU usage",
-          "type": "timeseries",
+          "id": 5,
+          "title": "Unavailable replicas",
+          "description": "Desired minus available replicas, summed across deployments with fresh samples. Surplus rollout replicas do not offset shortages elsewhere.",
+          "type": "stat",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
-          "targets": [{"refId": "A", "expr": "topk(10, rate(pod_cpu_usage_seconds_total{job=\"kubelet\"}[5m]))", "legendFormat": "{{namespace}} / {{pod}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "cores"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 4},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(sum(clamp_min(last_over_time(kube_deployment_spec_replicas{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[90s]) - last_over_time(kube_deployment_status_replicas_available{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[90s]), 0))) and on() (last_over_time(up{job=\"kube-state-metrics\"}[90s]) == 1)",
+              "legendFormat": "Value",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": {"mode": "thresholds"},
+              "noValue": "No data",
+              "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "red"}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "value",
+            "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}
+          }
         },
         {
-          "id": 2,
-          "title": "Pod working set",
-          "type": "timeseries",
+          "id": 6,
+          "title": "Container restarts · 1h",
+          "description": "Observed counter increases over the trailing hour, including containers that have since terminated.",
+          "type": "stat",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 8, "w": 24, "h": 8},
-          "targets": [{"refId": "A", "expr": "topk(10, pod_memory_working_set_bytes{job=\"kubelet\"})", "legendFormat": "{{namespace}} / {{pod}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 12, "y": 0, "w": 12, "h": 4},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(sum(sum by (namespace,pod) (increase(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[1h])))) and on() (last_over_time(up{job=\"kube-state-metrics\"}[90s]) == 1) and on() (count(last_over_time(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[90s])) > 0)",
+              "legendFormat": "Value",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": {"mode": "thresholds"},
+              "noValue": "No data",
+              "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "orange"}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "textMode": "value",
+            "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}
+          }
         },
         {
           "id": 3,
-          "title": "Unavailable deployment replicas",
-          "type": "timeseries",
+          "title": "Deployments missing replicas",
+          "description": "The ten largest deployment shortfalls. A healthy selection shows zero missing replicas.",
+          "type": "bargauge",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 16, "w": 24, "h": 7},
-          "targets": [{"refId": "A", "expr": "kube_deployment_spec_replicas{job=\"kube-state-metrics\"} - kube_deployment_status_replicas_available{job=\"kube-state-metrics\"}", "legendFormat": "{{namespace}} / {{deployment}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sort_desc((topk(10,clamp_min(last_over_time(kube_deployment_spec_replicas{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[90s]) - last_over_time(kube_deployment_status_replicas_available{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[90s]), 0) > 0)) and on() (last_over_time(up{job=\"kube-state-metrics\"}[90s]) == 1))",
+              "legendFormat": "{{namespace}} / {{deployment}}",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            },
+            {
+              "refId": "B",
+              "expr": "((sum(clamp_min(last_over_time(kube_deployment_spec_replicas{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[90s]) - last_over_time(kube_deployment_status_replicas_available{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[90s]), 0))) and on() (last_over_time(up{job=\"kube-state-metrics\"}[90s]) == 1)) == 0",
+              "legendFormat": "All deployment replicas available",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "short", "min": 0, "color": {"mode": "fixed", "fixedColor": "red"}},
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "All deployment replicas available"},
+                "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]
+              }
+            ]
+          },
+          "options": {
+            "orientation": "horizontal",
+            "displayMode": "basic",
+            "showUnfilled": false,
+            "namePlacement": "top",
+            "sizing": "auto",
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+          }
         },
         {
           "id": 4,
-          "title": "Container restarts in the last hour",
+          "title": "Pods with restarts · 1h",
+          "description": "The ten pods with the most observed restarts in the last hour. A healthy selection shows zero restarts.",
+          "type": "bargauge",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sort_desc(((topk(10,sum by (namespace,pod) (increase(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[1h])) > 0)) and on() (last_over_time(up{job=\"kube-state-metrics\"}[90s]) == 1)) and on() (count(last_over_time(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[90s])) > 0))",
+              "legendFormat": "{{namespace}} / {{pod}}",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            },
+            {
+              "refId": "B",
+              "expr": "((sum(sum by (namespace,pod) (increase(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[1h])))) and on() (last_over_time(up{job=\"kube-state-metrics\"}[90s]) == 1) and on() (count(last_over_time(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\",namespace=~\"${namespace:regex}\"}[90s])) > 0)) == 0",
+              "legendFormat": "No recent restarts",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "short", "min": 0, "color": {"mode": "fixed", "fixedColor": "orange"}},
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "No recent restarts"},
+                "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]
+              }
+            ]
+          },
+          "options": {
+            "orientation": "horizontal",
+            "displayMode": "basic",
+            "showUnfilled": false,
+            "namePlacement": "top",
+            "sizing": "auto",
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+          }
+        },
+        {
+          "id": 1,
+          "title": "Highest CPU usage",
+          "description": "Top five pods by average CPU cores used in the last five minutes. One core is 1,000 millicores.",
+          "type": "bargauge",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 0, "y": 12, "w": 12, "h": 10},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sort_desc((topk(5,1000 * rate(pod_cpu_usage_seconds_total{job=\"kubelet\",namespace=~\"${namespace:regex}\"}[5m]))) and on() (last_over_time(up{job=\"kubelet\"}[90s]) == 1))",
+              "legendFormat": "{{namespace}} / {{pod}}",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "suffix: mCPU", "min": 0, "color": {"mode": "fixed", "fixedColor": "blue"}},
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "displayMode": "basic",
+            "showUnfilled": false,
+            "namePlacement": "top",
+            "sizing": "auto",
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+          }
+        },
+        {
+          "id": 2,
+          "title": "Largest working sets",
+          "description": "Top five pods by current memory working set.",
+          "type": "bargauge",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 12, "y": 12, "w": 12, "h": 10},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sort_desc((topk(5,last_over_time(pod_memory_working_set_bytes{job=\"kubelet\",namespace=~\"${namespace:regex}\"}[90s]))) and on() (last_over_time(up{job=\"kubelet\"}[90s]) == 1))",
+              "legendFormat": "{{namespace}} / {{pod}}",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": false,
+              "instant": true
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "bytes", "min": 0, "color": {"mode": "fixed", "fixedColor": "purple"}}, "overrides": []},
+          "options": {
+            "orientation": "horizontal",
+            "displayMode": "basic",
+            "showUnfilled": false,
+            "namePlacement": "top",
+            "sizing": "auto",
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}
+          }
+        },
+        {
+          "id": 7,
+          "title": "CPU by namespace",
+          "description": "Total pod CPU consumption across each namespace, averaged over five minutes.",
           "type": "timeseries",
           "datasource": {"type": "prometheus", "uid": "metrics"},
-          "gridPos": {"x": 0, "y": 23, "w": 24, "h": 7},
-          "targets": [{"refId": "A", "expr": "sum by (namespace,pod) (increase(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\"}[1h])) > 0", "legendFormat": "{{namespace}} / {{pod}}", "datasource": {"type": "prometheus", "uid": "metrics"}, "range": true}],
-          "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
-          "options": {"legend": {"displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi"}}
+          "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(sum by (namespace) (rate(pod_cpu_usage_seconds_total{job=\"kubelet\",namespace=~\"${namespace:regex}\"}[5m]))) and on() (last_over_time(up{job=\"kubelet\"}[90s]) == 1)",
+              "legendFormat": "{{namespace}}",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cores",
+              "min": 0,
+              "color": {"mode": "palette-classic"},
+              "custom": {"lineWidth": 2, "fillOpacity": 7, "showPoints": "never", "spanNulls": false, "axisCenteredZero": false}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          }
+        },
+        {
+          "id": 8,
+          "title": "Memory by namespace",
+          "description": "Sum of pod working sets by namespace.",
+          "type": "timeseries",
+          "datasource": {"type": "prometheus", "uid": "metrics"},
+          "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(sum by (namespace) (last_over_time(pod_memory_working_set_bytes{job=\"kubelet\",namespace=~\"${namespace:regex}\"}[90s]))) and on() (last_over_time(up{job=\"kubelet\"}[90s]) == 1)",
+              "legendFormat": "{{namespace}}",
+              "datasource": {"type": "prometheus", "uid": "metrics"},
+              "range": true,
+              "instant": false
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "color": {"mode": "palette-classic"},
+              "custom": {"lineWidth": 2, "fillOpacity": 7, "showPoints": "never", "spanNulls": false, "axisCenteredZero": false}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "multi", "sort": "desc"}
+          }
         }
       ]
     }
