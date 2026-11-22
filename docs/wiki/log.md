@@ -3,6 +3,11 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-22] revision | Transfer uptime notifications and status
+
+The [monitoring runbook](architecture/uptime.md) covers the Grafana status
+redirect to the authenticated dashboard, disabled public sharing, Telegram delivery, and reverting the cutover to restore Gatus.
+
 ## [2026-11-22] revision | Retire the temporary telemetry storage class
 
 [PR #521](https://github.com/edgard/home-ops/pull/521) moved both databases to

@@ -1,24 +1,20 @@
 # Uptime and cluster monitoring
 
-Purpose: operate the in-cluster Grafana comparison and verify a safe transfer of production alerts.
+Purpose: operate the in-cluster Grafana dashboards, probes and production alerts.
 Status: current. Reviewed against: `cdb7a398deaa06451737a5a43e895942443e7d3c` and this revision.
 
-Gatus owns `status.edgard.org` and production Telegram notifications during
-the comparison. VictoriaMetrics asks Blackbox Exporter to check the same
-targets once a minute. Preserve the final HTTPS 2xx checks, the exact 200
-storage Service check, the DNS A queries with NOERROR, and IPv4-only ICMP.
-Jellyfin uses `/health` and CrossWatch uses `/healthz`. Keep both target lists
-in sync when routes change. Neither in-cluster evaluator can report a total
-node outage, and Telegram delivery depends on working internet access.
+Grafana owns Telegram notifications. `status.edgard.org` redirects to the
+uptime dashboard on the Grafana hostname. All three dashboards require sign-in. Monitoring and notification delivery depend on the single
+node and working internet access.
 
-## Inspect the parallel deployment
+## Inspect monitoring
 
-Open `grafana.edgard.org` from the LAN or Tailscale. In Explore, check
-`count by (group) (probe_success{job="uptime"})` against the Gatus groups.
-Compare individual `instance` results and timestamps with the Gatus status
-history over at least 24 hours. Probe success means the target passed;
-`up` measures whether the scraper obtained a response from the exporter.
-Keep absent or stale results visible during diagnosis.
+VictoriaMetrics asks Blackbox Exporter to probe configured targets every
+minute. Keep the routed applications, storage readiness Service, DNS A
+queries and IPv4 ICMP targets current in the scrape configuration.
+Inspect `probe_success{job="uptime"}` by instance for target health and
+`up` for scrape health. The rules count consecutive probe results and
+separately detect a loss of samples.
 
 On the host dashboard, check physical NIC and disk counters against Talos,
 including bridge br0, and compare the number of CPU cores with the node
@@ -38,32 +34,24 @@ A failing static scrape continues to generate `up=0`. When a target is removed
 from the configuration its old label set ages out of missing-scrape detection
 after an hour. Review the target list in every route-changing PR.
 Grafana groups notifications by instance and repeats an ongoing incident after
-five days once production delivery is enabled.
+five days.
 
-## Transfer production alerting
+## Verify changes and recover
 
-1. Exercise a temporary, independently controlled target through the same
-   probe and Grafana evaluation path. Route only the canary to Telegram.
-   Verify four consecutive failures stay quiet, the fifth fires once, one
-   success followed by a failure leaves the incident open, and two consecutive
-   successes send one recovery. Interrupt its scrape separately and verify
-   missing data is reported. Remove the temporary target, policy and fixtures.
-2. Verify both PVCs survive pod replacement, historical queries still work,
-   and the uptime dashboard's shared URL works logged out. Check a host dashboard
-   and data-source query require authentication from the same browser.
-3. Make a separate cutover PR after acceptance. Move the status HTTPRoute
-   from Gatus to a Gateway redirect to the verified shared dashboard URL on
-   the private Grafana hostname, activate the Grafana Telegram policy, and
-   retire the Gatus app. Keep the shared Bitwarden Telegram items, which also
-   supply Changedetection. Confirm exactly one production notifier and route
-   owner after Argo sync. Record the verification evidence in the PR.
-4. To roll back, revert that cutover PR and verify Gatus owns the hostname and
-   Telegram while Grafana returns to comparison mode. This preserves collected
-   telemetry. The appdata StorageClass retains the datasets on PVC deletion.
+Verify a controlled target fires after five failed checks, stays firing through
+an isolated success and resolves after two consecutive successes. Test missing
+scrapes separately. Open the status hostname in a signed-out session and verify that Grafana asks
+for a login. Sign in and check that the uptime dashboard loads.
+
+To restore Gatus following a cutover failure, revert the cutover PR. Check
+Argo restores its status route and Telegram delivery, and that Grafana's
+comparison mute returns. Reverting the entire cutover also re-enables public
+sharing and restores the sharing Job. To keep dashboards private during
+rollback, retain the disabled public dashboard setting and omit the Job.
+Both monitoring appdata volumes persist across this rollback.
 
 ## Sources
 
-- [Gatus probes and alert thresholds](../../../apps/platform-system/gatus/values.yaml)
 - [VictoriaMetrics collection](../../../apps/platform-system/victoria-metrics)
 - [Blackbox modules](../../../apps/platform-system/blackbox-exporter)
 - [Grafana dashboards and alerting](../../../apps/platform-system/grafana)

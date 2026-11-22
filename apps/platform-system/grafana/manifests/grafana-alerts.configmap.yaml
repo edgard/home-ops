@@ -17,13 +17,6 @@ data:
             settings:
               bottoken: $TELEGRAM_BOT_TOKEN
               chatid: "$TELEGRAM_CHAT_ID"
-    muteTimes:
-      - orgId: 1
-        name: Shadow comparison
-        time_intervals:
-          - times:
-              - start_time: "00:00"
-                end_time: "24:00"
     policies:
       - orgId: 1
         receiver: Telegram
@@ -31,9 +24,6 @@ data:
         group_wait: 0s
         group_interval: 30s
         repeat_interval: 120h
-        routes:
-          - receiver: Telegram
-            mute_time_intervals: [Shadow comparison]
   rules.yaml: |-
     apiVersion: 1
     groups:

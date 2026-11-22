@@ -6,7 +6,7 @@ Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
 **Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) •
-Gatus • Helm • Ansible • Terraform
+Grafana • VictoriaMetrics • Helm • Ansible • Terraform
 
 ## Local setup
 
@@ -110,14 +110,11 @@ controllers:
 - Multus LAN IP (media apps): `k8s.v1.cni.cncf.io/networks: [{"name":"multus-lan-bridge","namespace":"kube-system","ips":["192.168.1.X/24"]}]`
 
 ### Monitoring
-- Gatus owns production uptime and Telegram during the Grafana comparison. Its routed app,
-  DNS, and ICMP targets are explicit in `apps/platform-system/gatus/values.yaml`.
-- Review explicit Gatus targets when changing routes. Keep Jellyfin `/health`
-  and CrossWatch `/healthz`; automated route-coverage assertions are retired.
-- Do not add `gethomepage.dev/*` or `gatus.home-operations.com/endpoint`
-  annotations to routed apps; Gatus does not use route discovery.
-- Gatus uses memory storage without a PVC. VictoriaMetrics stores metrics locally. Update its explicit Blackbox
-  targets alongside Gatus until the [cutover](architecture/uptime.md) is complete. A complete outage of this single node cannot trigger an alert.
+- Review explicit VictoriaMetrics Blackbox targets whenever changing routes.
+  Keep Jellyfin `/health`, CrossWatch `/healthz` and the storage readiness Service.
+- Grafana evaluates uptime and scrape health and delivers Telegram notifications.
+  The status hostname opens the uptime dashboard after sign-in. All components depend
+  on the single node. See [monitoring](architecture/uptime.md) for diagnosis.
 
 ### Storage
 - Managed appdata uses the default `zfs-appdata` class on `dpool/k8s`.
@@ -198,7 +195,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 - [Pull request workflow](../../.github/workflows/ci.yml) defines the CI jobs.
 - [Pull request template](../../.github/pull_request_template.md) prompts for wiki impact.
 - [ApplicationSet](../../argocd/appsets/apps.appset.yaml) defines app discovery.
-- [Gatus values](../../apps/platform-system/gatus/values.yaml) define explicit uptime coverage for review.
+- [VictoriaMetrics scrapes](../../apps/platform-system/victoria-metrics/manifests/victoria-metrics-scrape.configmap.yaml) define explicit uptime coverage for review.
 
 ## Related pages
 
