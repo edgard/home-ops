@@ -114,7 +114,7 @@ controllers:
   `http` port, probe URL and release identity when changing the route.
   Keep Jellyfin `/health`, CrossWatch `/healthz` and the explicit storage readiness probe.
 - Grafana evaluates uptime and scrape health and delivers Telegram notifications.
-  The status hostname opens the uptime dashboard after sign-in. All components depend
+  Operators open the uptime dashboard directly in Grafana. All components depend
   on the single node. See [monitoring](architecture/uptime.md) for diagnosis.
 
 ### Storage

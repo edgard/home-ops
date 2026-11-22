@@ -3,7 +3,7 @@
 Purpose: serve host, workload and uptime dashboards and evaluate alerts against VictoriaMetrics.
 Status: current. Reviewed against: `7fad7f2565192a6b198cf345b155063f0c898afd` and this revision.
 
-Use the private Gateway route for Grafana. Git provisions the dashboards, data source and alerting configuration. The appdata volume holds SQLite and UI state across pod replacements. The platform-system Restic backup preserves it for pool recovery. Grafana routes confirmed incidents and recoveries to Telegram. The status hostname redirects to the uptime dashboard after sign-in. Anonymous access and public dashboard sharing are disabled.
+Use the private Gateway route for Grafana. Git provisions the dashboards, data source and alerting configuration. The appdata volume holds SQLite and UI state across pod replacements. The platform-system Restic backup preserves it for pool recovery. Grafana routes confirmed incidents and recoveries to Telegram. Open [Service uptime](https://grafana.edgard.org/d/uptime/service-uptime) directly and sign in. Anonymous access and public dashboard sharing are disabled.
 
 ## Dashboards and notifications
 

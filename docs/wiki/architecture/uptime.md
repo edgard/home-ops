@@ -3,8 +3,7 @@
 Purpose: operate the in-cluster Grafana dashboards, probes and production alerts.
 Status: current. Reviewed against: `7fad7f2565192a6b198cf345b155063f0c898afd` and this revision.
 
-Grafana owns Telegram notifications. `status.edgard.org` redirects to the
-uptime dashboard on the Grafana hostname. All three dashboards require sign-in. Monitoring and notification delivery depend on the single
+Grafana owns Telegram notifications and hosts the [Service uptime](https://grafana.edgard.org/d/uptime/service-uptime) dashboard. All three dashboards require sign-in. Monitoring and notification delivery depend on the single
 node and working internet access.
 
 ## Inspect monitoring
@@ -67,14 +66,15 @@ five days.
 
 Verify a controlled target fires after five failed checks, stays firing through
 an isolated success and resolves after two consecutive successes. Test missing
-scrapes separately. Open the status hostname in a signed-out session and verify that Grafana asks
+scrapes separately. Open the uptime dashboard in a signed-out session and verify that Grafana asks
 for a login. Sign in and check that the uptime dashboard loads.
 
 To restore Gatus following a cutover failure, revert the cutover PR. Check
-Argo restores its status route and Telegram delivery, and that Grafana's
+Argo restores Gatus and its Telegram delivery, and that Grafana's
 comparison mute returns. Reverting the entire cutover also re-enables public
 sharing and restores the sharing Job. To keep dashboards private during
 rollback, retain the disabled public dashboard setting and omit the Job.
+Omit the retired Gatus route when restoring its alert checks.
 Both monitoring appdata volumes persist across this rollback.
 
 ## Sources

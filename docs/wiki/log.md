@@ -3,6 +3,11 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-22] revision | Retire the status hostname
+
+The [monitoring runbook](architecture/uptime.md) points directly to the
+authenticated Grafana uptime dashboard after removal of the redirect route.
+
 ## [2026-11-22] revision | Discover routed uptime probes from Services
 
 VictoriaMetrics now discovers application URLs from their owning Services.
