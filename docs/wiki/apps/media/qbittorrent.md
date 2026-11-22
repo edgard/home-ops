@@ -13,7 +13,7 @@ The values declare app-owned PVC (`data`). Check [restore eligibility](../../arc
 
 ## Networking and monitoring
 
-The app values configure a route through the shared Gateway. Check [VictoriaMetrics scrape targets](../../../../apps/platform-system/victoria-metrics/manifests/victoria-metrics-scrape.configmap.yaml) for the current explicit uptime target and probe path.
+The [app values](../../../../apps/media/qbittorrent/values.yaml) define the Gateway route and declare its Blackbox probe URL on the web Service.
 
 ## Operational note
 

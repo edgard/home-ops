@@ -230,6 +230,10 @@ controllers:
               failureThreshold: 6
 service:
   main:
+    labels:
+      monitoring.edgard.org/uptime: "true"
+    annotations:
+      monitoring.edgard.org/probe-url: "https://{{ first .Values.route.main.hostnames }}"
     forceRename: sparkyfitness
     controller: main
     ports:

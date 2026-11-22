@@ -289,6 +289,10 @@ controllers:
 
 service:
   main:
+    labels:
+      monitoring.edgard.org/uptime: "true"
+    annotations:
+      monitoring.edgard.org/probe-url: "https://{{ first .Values.route.main.hostnames }}"
     controller: main
     primary: true
     ports:

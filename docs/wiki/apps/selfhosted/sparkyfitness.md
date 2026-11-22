@@ -31,6 +31,8 @@ Garmin Connect is disconnected and its optional sync service is not deployed.
 Previously imported fitness records remain in PostgreSQL. An older native
 backup can restore the saved connection; unlink it again if it reappears.
 
+The [app values](../../../../apps/selfhosted/sparkyfitness/values.yaml) declare the routed uptime probe on the web Service.
+
 ## AI onboarding
 
 Use the existing Bitwarden `openai_api_key` when configuring providers through

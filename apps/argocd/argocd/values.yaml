@@ -30,6 +30,11 @@ controller:
     reloader.stakater.com/auto: "true"
 
 server:
+  service:
+    labels:
+      monitoring.edgard.org/uptime: "true"
+    annotations:
+      monitoring.edgard.org/probe-url: https://argocd.edgard.org
   deploymentAnnotations:
     reloader.stakater.com/auto: "true"
   httproute:
