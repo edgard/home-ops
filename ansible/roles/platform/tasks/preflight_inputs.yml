@@ -47,7 +47,8 @@
       {{ platform_bootstrap_releases | map(attribute='app_metadata') | list
          + platform_bootstrap_releases | map(attribute='values_file') | list
          + platform_external_secrets_bootstrap_manifests
-         + [platform_k8tz_app_metadata, platform_external_secrets_store_manifest, platform_gateway_api_bundle,
+         + [platform_k8tz_app_metadata, platform_external_secrets_store_manifest,
+            platform_gateway_crds_dir ~ '/app.yaml', platform_gateway_crds_dir ~ '/values.yaml',
             platform_argocd_repo_credentials_manifest, platform_argocd_root_application_manifest,
             'apps/selfhosted/restic/app.yaml', 'apps/selfhosted/restic/values.yaml',
             'apps/selfhosted/restic/manifests/restic-repo.persistentvolume.yaml',

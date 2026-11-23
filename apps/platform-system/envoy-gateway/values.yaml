@@ -1,0 +1,21 @@
+---
+crds:
+  enabled: false
+
+deployment:
+  envoyGateway:
+    strategy:
+      type: Recreate
+  pod:
+    annotations:
+      prometheus.io/scrape: "false"
+
+config:
+  envoyGateway:
+    telemetry:
+      metrics:
+        prometheus:
+          disable: true
+
+topologyInjector:
+  enabled: false

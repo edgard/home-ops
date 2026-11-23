@@ -1,0 +1,7 @@
+---
+chart:
+  repo: oci://docker.io/envoyproxy/gateway-helm
+  path: "."
+  version: v1.10.0
+sync:
+  wave: "-2"

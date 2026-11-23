@@ -1,0 +1,87 @@
+---
+- name: Check for the previous Gateway API Application
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    name: gateway-api
+    namespace: argocd
+  register: platform_previous_gateway_app
+
+- name: Require the previous Gateway API owner to be retired before foundation installs CRDs
+  ansible.builtin.assert:
+    that: not platform_previous_gateway_app.resources
+    fail_msg: The gateway-api Application still owns the shared CRDs. Use the ingress cutover procedure.
+
+- name: Render the gateway CRDs from the same release and values as Argo CD
+  vars:
+    platform_gateway_chart: "{{ (lookup('ansible.builtin.file', repo_root ~ '/' ~ platform_gateway_crds_dir ~ '/app.yaml') | from_yaml).chart }}"
+  kubernetes.core.helm_template:
+    release_name: "{{ platform_gateway_crds_dir | basename }}"
+    release_namespace: platform-system
+    chart_ref: "{{ platform_gateway_chart.repo }}"
+    chart_version: "{{ platform_gateway_chart.version }}"
+    include_crds: true
+    values_files:
+      - "{{ repo_root }}/{{ platform_gateway_crds_dir }}/values.yaml"
+  check_mode: false
+  register: platform_gateway_render
+  changed_when: false
+
+- name: Collect the rendered CRDs and admission resources
+  ansible.builtin.set_fact:
+    platform_gateway_objects: "{{ platform_gateway_render.stdout | from_yaml_all | select('mapping') | list }}"
+  no_log: true # The full chart contains several megabytes of schemas.
+
+- name: Read any existing Gateway API bundle before applying the chart
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.name | default(omit) }}"
+    hidden_fields:
+      - metadata.managedFields
+      - spec
+  loop:
+    - api_version: apiextensions.k8s.io/v1
+      kind: CustomResourceDefinition
+    - api_version: admissionregistration.k8s.io/v1
+      kind: ValidatingAdmissionPolicy
+      name: safe-upgrades.gateway.networking.k8s.io
+    - api_version: admissionregistration.k8s.io/v1
+      kind: ValidatingAdmissionPolicyBinding
+      name: safe-upgrades.gateway.networking.k8s.io
+  register: platform_gateway_existing
+
+- name: Require a fresh cluster or matching Gateway API bundle for a bootstrap retry
+  vars:
+    platform_gateway_annotations: >-
+      {{ (platform_gateway_objects | selectattr('kind', 'equalto', 'CustomResourceDefinition')
+          | selectattr('spec.group', 'equalto', 'gateway.networking.k8s.io') | first).metadata.annotations }}
+  ansible.builtin.assert:
+    that:
+      - (item.metadata.annotations | default({})).get('gateway.networking.k8s.io/bundle-version') == platform_gateway_annotations['gateway.networking.k8s.io/bundle-version']
+      - (item.metadata.annotations | default({})).get('gateway.networking.k8s.io/channel') == platform_gateway_annotations['gateway.networking.k8s.io/channel']
+    fail_msg: "Existing {{ item.kind }} {{ item.metadata.name }} has a different Gateway API version or channel. Use the ingress cutover procedure."
+  loop: >-
+    {{ platform_gateway_existing.results | map(attribute='resources') | flatten
+       | selectattr('metadata.name', 'match', '^.+[.]gateway[.]networking[.]k8s[.]io$') | list }}
+  loop_control:
+    label: "{{ item.kind }}/{{ item.metadata.name }}"
+
+- name: Install gateway CRDs and admission resources with the GitOps field manager
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    context: "{{ kube_context }}"
+    state: present
+    apply: true
+    server_side_apply:
+      field_manager: argocd-controller
+    definition: "{{ platform_gateway_objects }}"
+
+- name: Record CRDs that must be established before installing Argo CD
+  ansible.builtin.set_fact:
+    platform_gateway_install_crds: >-
+      {{ platform_gateway_objects | selectattr('kind', 'equalto', 'CustomResourceDefinition') | map(attribute='metadata.name') | list }}

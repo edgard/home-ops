@@ -6,13 +6,12 @@ metadata:
   namespace: platform-system
   annotations:
     external-dns.kubernetes.io/target: 192.168.1.241
-    networking.istio.io/service-type: ClusterIP
 spec:
-  gatewayClassName: istio
+  gatewayClassName: envoy
   infrastructure:
     parametersRef:
-      group: ""
-      kind: ConfigMap
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
       name: gateway-parameters
   listeners:
     - name: http

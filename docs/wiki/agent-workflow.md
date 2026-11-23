@@ -1,11 +1,11 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `9ce0904e1fa682e1ad6dee5ff56ace85f03834f7`.
+Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
-**Tech**: Talos • K8s • Argo CD • Istio Gateway API • External Secrets (Bitwarden) •
+**Tech**: Talos • K8s • Argo CD • Envoy Gateway • External Secrets (Bitwarden) •
 Grafana • VictoriaMetrics • Helm • Ansible • Terraform
 
 ## Local setup
@@ -123,7 +123,7 @@ controllers:
 - Include each new appdata claim in its namespace backup and verify its restore path.
 
 ### ArgoCD Sync Waves
-`-4` CRDs → `-3` Controllers/DNS → `-2` Mesh/PVCs → `-1` k8tz → `0` Apps
+`-4` CRDs → `-3` Controllers/DNS → `-2` Ingress/PVCs → `-1` k8tz → `0` Apps
 
 ### ExternalSecret Pattern
 `refreshInterval → secretStoreRef (name, kind) → target → data`

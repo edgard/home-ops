@@ -46,7 +46,6 @@
       managerFilePatterns: [
         ".github/actions/setup-toolchain/action.yml",
         "apps/platform-system/tuppr/manifests/**/*.kubernetesupgrade.{yml,yaml}",
-        "apps/platform-system/gateway-api/manifests/gateway-api-version.configmap.{yml,yaml}",
         "ansible/roles/{talos,cli_secrets,restic,platform}/defaults/main.{yml,yaml}",
       ],
       matchStrings: [
@@ -112,27 +111,10 @@
       allowedVersions: "/^[1-9]\\.[0-9]+\\.[0-9]+$/",
     },
 
-    // Manual review: Gateway API updates (CRD changes are risky)
-    {
-      description: "Require manual review for Gateway API updates",
-      matchPackageNames: ["kubernetes-sigs/gateway-api"],
-      automerge: false,
-      groupName: "gateway-api",
-      addLabels: ["renovate/manual-review"],
-      postUpgradeTasks: {
-        commands: [
-          "curl -sL https://github.com/kubernetes-sigs/gateway-api/releases/download/{{{newVersion}}}/standard-install.yaml -o apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml",
-        ],
-        fileFilters: ["apps/platform-system/gateway-api/manifests/**"],
-        executionMode: "branch",
-      },
-    },
-
     // Deployment and operator-tool majors need review beyond static CI.
     {
       description: "Require manual review for majors outside the CI allowlist",
       matchUpdateTypes: ["major"],
-      matchPackageNames: ["!kubernetes-sigs/gateway-api"],
       automerge: false,
       groupName: "dependencies (major)",
       labels: ["renovate/manual-review"],
@@ -193,14 +175,25 @@
       internalChecksFilter: "strict",
     },
 
-    // Routine updates share one PR. Node release changes below override this rule.
+    // Routine updates share one PR. Platform release rules below override this group.
     {
       description: "Auto-merge non-major updates",
       matchUpdateTypes: ["minor", "patch", "digest", "pin", "pinDigest", "rollback"],
-      matchPackageNames: ["!kubernetes-sigs/gateway-api"],
       groupName: "dependencies (non-major)",
       automerge: true,
       automergeType: "pr",
+    },
+
+    {
+      description: "Review Envoy Gateway and its bundled Gateway API schemas together",
+      matchPackageNames: [
+        "docker.io/envoyproxy/gateway-helm",
+        "docker.io/envoyproxy/gateway-crds-helm",
+      ],
+      groupName: "Envoy Gateway",
+      minimumGroupSize: 2,
+      automerge: false,
+      labels: ["renovate/manual-review"],
     },
 
     {
