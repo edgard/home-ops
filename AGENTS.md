@@ -11,11 +11,18 @@ PR as substantive changes. Routine version bumps need a wiki edit only when
 the explanation changes. On the first substantive PR each month, check the
 [log](docs/wiki/log.md) and follow the [monthly review rule](docs/wiki/AGENTS.md#review).
 
+## Temporary files
+
+Use a temporary directory outside the checkout for one-off scripts, playbooks,
+tests, fixtures, plans, rendered manifests, and logs. Before opening or updating
+a PR, review the diff and working tree, including ignored files, for artifacts
+created by the task. Record useful commands and results in the PR and delete
+the scratch files when finished. Remove migration-only checks and playbooks
+once the migration is complete. Keep safeguards used by deployment and recovery.
+
 ## Validation
 
-Run `task fmt` and `task check` before committing. Use change-specific
-verification, remove temporary tests and fixtures before merge, and record
-commands and results in the PR. Keep runtime safeguards in operational code.
+Run `task fmt` and `task check` before committing. Verify the specific change.
 Retain a permanent test only for a concrete credential, data, selected platform
 compatibility, schema-conversion, or wiki-integrity risk beyond native checks.
 Keep it small, deterministic, serial, and offline. Follow the

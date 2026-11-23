@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-24] revision | Clean up implementation artifacts
+
+The [agent workflow](agent-workflow.md#developer-loop) links the repository's
+rule for temporary files. Gateway foundation no longer queries the retired
+`gateway-api` Application.
+
 ## [2026-11-23] revision | Replace Istio and consolidate Gateway API ownership
 
 The [gateway](apps/platform-system/envoy-gateway.md) manages the shared ingress
