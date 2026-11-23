@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `bec6f23a0ad540fde038cdcdb7573473089102a0`.
+Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669`.
 
 ## Dependencies
 
@@ -33,7 +33,7 @@ Helm, and OpenTofu inputs in the CI toolchain.
 Two custom managers read the Helm chart pins from ApplicationSet inputs and
 the annotated versions and image tags elsewhere. Put a `# renovate:` comment
 directly above the matching key for upgrade targets, remaining CI tool pins,
-Gateway API, the Restic restore image, the storage inspection image, or the
+the Restic restore image, the storage inspection image, or the
 runtime SecretSpec pin. When
 moving a pin, check its manager's file patterns and compare the dependencies
 reported by a local extraction dry run.
@@ -45,9 +45,8 @@ leaves Kubernetes pulling the old digest.
 
 Talos updates cover both the machine-config installer and the upgrade target in
 role defaults. The [installer contract](../../decisions/talos-image-factory.md)
-keeps these aligned. Gateway API upgrades require manual review and refresh the
-vendored CRDs through the configured post-upgrade command; the RenovateJob allows
-that command.
+keeps these aligned. Envoy Gateway controller and CRD chart upgrades share a manually reviewed PR.
+The CRD chart also carries the standard Gateway API schemas and their admission policy.
 
 Routine dependency updates and scheduled lockfile refreshes are eligible for
 automerge through the required [Quality Gate](../../architecture/validation.md).

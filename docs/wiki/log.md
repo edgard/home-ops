@@ -3,6 +3,13 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-23] revision | Replace Istio and consolidate Gateway API ownership
+
+The [gateway](apps/platform-system/envoy-gateway.md) manages the shared ingress
+proxy. Its [CRD chart](apps/platform-system/envoy-gateway-crds.md) supplies the
+standard Gateway API to both GitOps and foundation. Documented the direct LAN
+listener, certificate ownership, and recovery checks.
+
 ## [2026-11-23] revision | Recover storage and kubelet monitoring
 
 Refreshed the public kubelet CA after its self-signed serving chain changed.

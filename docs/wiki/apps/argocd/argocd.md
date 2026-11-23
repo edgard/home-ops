@@ -1,13 +1,13 @@
 # Argo CD
 
 Purpose: Argo CD reconciles the applications generated from repository metadata.
-Status: current. Reviewed against: `e46461cb42fb9ec5470e3346789620c4f26845c0`.
+Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669`.
 
 ## Dependencies
 
 Platform bootstrap installs Argo CD after its storage, networking, certificate,
 and secret prerequisites. Its Helm chart creates the server HTTPRoute, so
-foundation waits for the [Gateway API](../platform-system/gateway-api.md)
+foundation waits for the [Envoy Gateway CRDs](../platform-system/envoy-gateway-crds.md)
 before installing that release.
 
 ## Data and recovery

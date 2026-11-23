@@ -1,7 +1,7 @@
 # Talos and platform bootstrap
 
 Purpose: identify the physical node, rebuild its control plane and admit the correct storage before starting workloads.
-Status: current. Reviewed against: `09ff984c2258c4403ef203631fd580106f839e53` and this revision.
+Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669` and this revision.
 
 ## Identify the node
 
@@ -178,8 +178,8 @@ ZFS extension tools.
 Tuppr handles ordinary Kubernetes upgrades when Argo applies the committed
 target. For a manual upgrade, follow the [Tuppr suspension procedure](../apps/platform-system/tuppr.md#operational-note).
 
-Platform foundation installs the Gateway API CRDs and verifies HTTPRoute
-discovery before installing Argo CD. Its private Restic service opens the
+Platform foundation renders the [Envoy Gateway CRD chart](../apps/platform-system/envoy-gateway-crds.md)
+from the GitOps pin and values. It verifies HTTPRoute discovery before installing Argo CD. Its private Restic service opens the
 existing repository and checks its ID and snapshot listing. See
 [operator credential maintenance](../operations/secrets-maintenance.md)
 for its external credentials. Platform removal forwards its timeout through

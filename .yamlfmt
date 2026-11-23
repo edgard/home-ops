@@ -4,7 +4,6 @@ gitignore_excludes: true
 exclude:
   - ".ansible/**"
   - ".venv/**"
-  - "apps/platform-system/gateway-api/manifests/gateway-api-crds.yaml"
 formatter:
   type: basic
   force_quote_style: double

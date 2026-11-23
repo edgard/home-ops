@@ -1,11 +1,13 @@
 # cert-manager
 
 Purpose: cert-manager issues and renews certificates used by platform components.
-Status: current. Reviewed against: `2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b`.
+Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669`.
 
 ## Dependencies
 
-Gateway TLS and webhook certificates depend on its controllers and issuers.
+The app owns the gateway wildcard Certificate, its production and staging ACME
+Issuers, and the ExternalSecret that supplies the Cloudflare DNS challenge token.
+Envoy references the resulting TLS Secret in the same namespace.
 
 ## Data and recovery
 
@@ -23,6 +25,7 @@ It is installed during platform bootstrap before dependent webhooks and routes.
 
 - [App metadata](../../../../apps/platform-system/cert-manager/app.yaml)
 - [Helm values](../../../../apps/platform-system/cert-manager/values.yaml)
+- [Gateway certificate and issuers](../../../../apps/platform-system/cert-manager/manifests)
 
 ## Related pages
 

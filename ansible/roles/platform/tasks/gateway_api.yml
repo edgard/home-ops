@@ -1,26 +1,29 @@
 ---
-- name: Check whether Argo CD owns the Gateway API bundle
+- name: Check whether Argo CD owns the gateway CRDs
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
     api_version: argoproj.io/v1alpha1
     kind: Application
-    name: gateway-api
+    name: "{{ platform_gateway_crds_dir | basename }}"
     namespace: argocd
   register: platform_gateway_app
+  until: >-
+    not platform_gateway_app.resources or
+    (platform_gateway_app.resources[0].status.resources | default([])
+     | selectattr('kind', 'equalto', 'CustomResourceDefinition') | map(attribute='name') | list)
+    is superset(['httproutes.gateway.networking.k8s.io', 'envoyproxies.gateway.envoyproxy.io'])
+  retries: "{{ platform_wait_default_retries }}"
+  delay: "{{ platform_wait_default_delay }}"
 
-- name: Install the vendored standard Gateway API bundle before GitOps handoff
+- name: Bootstrap gateway CRDs before Argo CD takes ownership
+  ansible.builtin.include_tasks: install_gateway_crds.yml
   when: not platform_gateway_app.resources
-  kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    state: present
-    apply: true
-    server_side_apply:
-      field_manager: argocd-controller
-    src: "{{ repo_root }}/{{ platform_gateway_api_bundle }}"
 
-- name: Wait for each bundled Gateway API CRD to be established
+- name: Wait for each gateway CRD to be established
+  vars:
+    platform_gateway_owned_crds: >-
+      {{ platform_gateway_app.resources[0].status.resources | selectattr('kind', 'equalto', 'CustomResourceDefinition') | map(attribute='name') | list }}
   kubernetes.core.k8s_info:
     kubeconfig: "{{ kubeconfig_path }}"
     context: "{{ kube_context }}"
@@ -34,9 +37,7 @@
     hidden_fields:
       - metadata.managedFields
       - spec
-  loop: >-
-    {{ lookup('ansible.builtin.file', repo_root ~ '/' ~ platform_gateway_api_bundle) | from_yaml_all
-       | selectattr('kind', 'equalto', 'CustomResourceDefinition') | map(attribute='metadata.name') | list }}
+  loop: "{{ platform_gateway_owned_crds if platform_gateway_app.resources else platform_gateway_install_crds }}"
   register: platform_gateway_crd
   failed_when: platform_gateway_crd is failed or platform_gateway_crd.resources | default([]) | length != 1
 
