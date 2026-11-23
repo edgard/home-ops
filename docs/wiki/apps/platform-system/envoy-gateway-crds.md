@@ -1,7 +1,7 @@
 # Envoy Gateway CRDs
 
 Purpose: install the standard Kubernetes Gateway API and Envoy Gateway's extension APIs.
-Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669`.
+Status: current. Reviewed against: `f4eb64d2ff3fe6a97a5685871f137e7661c7e131`.
 
 Foundation needs the HTTPRoute API before Helm can install Argo CD's server
 route. It renders this app's chart pin and values, applies the definitions with
@@ -22,7 +22,7 @@ on an isolated API server. Keep an off-node etcd snapshot for recovery.
 ## Sources
 
 - [CRD chart pin](../../../../apps/platform-system/envoy-gateway-crds/app.yaml) and [channel selection](../../../../apps/platform-system/envoy-gateway-crds/values.yaml)
-- [First-install ownership and version checks](../../../../ansible/roles/platform/tasks/install_gateway_crds.yml) and [foundation API discovery](../../../../ansible/roles/platform/tasks/gateway_api.yml)
+- [First-install bundle check and chart application](../../../../ansible/roles/platform/tasks/install_gateway_crds.yml) and [Argo ownership and API discovery](../../../../ansible/roles/platform/tasks/gateway_api.yml)
 - [Renovate policy](../../../../.renovaterc.json5)
 - [Upstream CRD management](https://gateway-api.sigs.k8s.io/guides/crd-management/) explains storage-version compatibility and downgrade risks.
 

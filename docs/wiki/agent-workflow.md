@@ -1,7 +1,7 @@
 # Home Ops agent workflow
 
 Purpose: repository conventions for people and agents changing the homelab.
-Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669`.
+Status: current. Reviewed against: `f4eb64d2ff3fe6a97a5685871f137e7661c7e131`.
 Paths in this page are relative to the repository root.
 
 GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
@@ -49,9 +49,10 @@ to discover operator tasks and their descriptions.
 1. Read the relevant pages from [the wiki index](index.md) and follow their
    source links before changing a repository contract.
 2. Make a small change and use targeted verification during implementation.
-   Temporary tests may be extensive; remove them before merge and record results
-   in the PR. Keep a permanent test only for the concrete risks in the validation
-   guide, with minimal deterministic code not already covered by native tools.
+   Follow the [temporary files rule](../../AGENTS.md#temporary-files) for
+   one-off work. Record verification results in the PR and use the
+   [validation guide](../../validation/README.md#permanent-checks) to decide
+   which tests belong in the repository.
 3. Recheck affected wiki explanations. Update them in the same PR when the
    change alters their meaning; a version-only bump does not require prose
    churn. Record which pages were checked in the PR.

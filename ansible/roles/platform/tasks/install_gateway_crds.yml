@@ -1,19 +1,4 @@
 ---
-- name: Check for the previous Gateway API Application
-  kubernetes.core.k8s_info:
-    kubeconfig: "{{ kubeconfig_path }}"
-    context: "{{ kube_context }}"
-    api_version: argoproj.io/v1alpha1
-    kind: Application
-    name: gateway-api
-    namespace: argocd
-  register: platform_previous_gateway_app
-
-- name: Require the previous Gateway API owner to be retired before foundation installs CRDs
-  ansible.builtin.assert:
-    that: not platform_previous_gateway_app.resources
-    fail_msg: The gateway-api Application still owns the shared CRDs. Use the ingress cutover procedure.
-
 - name: Render the gateway CRDs from the same release and values as Argo CD
   vars:
     platform_gateway_chart: "{{ (lookup('ansible.builtin.file', repo_root ~ '/' ~ platform_gateway_crds_dir ~ '/app.yaml') | from_yaml).chart }}"
@@ -64,7 +49,7 @@
     that:
       - (item.metadata.annotations | default({})).get('gateway.networking.k8s.io/bundle-version') == platform_gateway_annotations['gateway.networking.k8s.io/bundle-version']
       - (item.metadata.annotations | default({})).get('gateway.networking.k8s.io/channel') == platform_gateway_annotations['gateway.networking.k8s.io/channel']
-    fail_msg: "Existing {{ item.kind }} {{ item.metadata.name }} has a different Gateway API version or channel. Use the ingress cutover procedure."
+    fail_msg: "Existing {{ item.kind }} {{ item.metadata.name }} has a different Gateway API version or channel. Resolve the bundle mismatch before retrying foundation."
   loop: >-
     {{ platform_gateway_existing.results | map(attribute='resources') | flatten
        | selectattr('metadata.name', 'match', '^.+[.]gateway[.]networking[.]k8s[.]io$') | list }}
