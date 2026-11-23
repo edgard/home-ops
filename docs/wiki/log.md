@@ -3,6 +3,15 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-23] revision | Recover storage and kubelet monitoring
+
+Refreshed the public kubelet CA after its self-signed serving chain changed.
+The [VictoriaMetrics page](apps/platform-system/victoria-metrics.md) explains
+upgrade checks, trust reload and the remaining manual renewal requirement.
+The [storage maintenance page](apps/kube-system/storage-maintenance.md)
+documents initializing the scheduled SMART job and distinguishing test
+initiation from completed device self-tests.
+
 ## [2026-11-22] revision | Prefer energy efficiency on the Ryzen host
 
 The [Talos runbook](architecture/talos-bootstrap.md#cpu-power-preference)
