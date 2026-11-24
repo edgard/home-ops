@@ -14,15 +14,6 @@ talos_maintenance_node: "{{ lookup('env', 'TALOS_MAINTENANCE_NODE') }}"
 talos_maintenance_fingerprint: "{{ lookup('env', 'TALOS_MAINTENANCE_FINGERPRINT') }}"
 talos_destroy_confirm: "{{ lookup('env', 'TALOS_DESTROY_CONFIRM') }}"
 
-talos_upgrade:
-  installer:
-    repository: factory.talos.dev/metal-installer/39699a54506a4570606671d813387abadbba0767ec91769b57e993f3387795d9
-    # renovate: datasource=github-releases depName=siderolabs/talos
-    version: v1.14.6
-  upgrade:
-    rebootMode: default
-    timeout: 30m
-
 talos_zfs_guard_file: "{{ role_path }}/files/zfs-import-guard.yaml"
 talos_zfs_guard: "{{ lookup('ansible.builtin.file', talos_zfs_guard_file) | from_yaml }}"
 talos_debug_image: "{{ lookup('env', 'DEBUG_IMAGE') }}"

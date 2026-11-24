@@ -151,6 +151,7 @@ Store: `external-secrets-store`
   - The [test guide](../../validation/README.md) defines which permanent checks may remain
 - `sync.wave` is required in every `apps/*/*/app.yaml` and stays within `-4` to `0`
 - Kubernetes target version comes from `apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml`
+- Talos target version comes from `apps/platform-system/tuppr/manifests/tuppr-talos.talosupgrade.yaml`; Tuppr applies both upgrade types after GitOps sync
 - The native Kubernetes adapter owns a private temporary workspace and runs Helm,
   kubeconform, and Pluto serially; served CRD schemas retain precedence. No
   pytest rendering fixtures, worker locks, or shared snapshots remain.

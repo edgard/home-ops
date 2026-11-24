@@ -1,4 +1,9 @@
 ---
+- name: Validate repository targets before applying generated configuration
+  ansible.builtin.import_tasks: validate_generation.yml
+  vars:
+    talos_validate_material: false
+
 - name: Require authenticated access and explicit pool identity for releasing discovery
   when: talos_release_zfs | default(false) | bool
   ansible.builtin.assert:
@@ -28,7 +33,7 @@
   ansible.builtin.assert:
     that:
       - talos_generated_install.provisioning == talos_expected_install.provisioning
-      - talos_generated_install.installer.image == talos_upgrade.installer.repository ~ ':' ~ talos_upgrade.installer.version
+      - talos_generated_install.installer.image == talos_generation_targets.installer
       - talos_generated_cluster.endpoint == 'https://' ~ talos_node ~ ':6443'
       - talos_generated_cluster.clusterName == talos_cluster_name
       - lookup('ansible.builtin.template', 'uplink.yaml.j2') | from_yaml in talos_documents
