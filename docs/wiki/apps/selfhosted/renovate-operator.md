@@ -1,7 +1,7 @@
 # Renovate Operator
 
 Purpose: Renovate Operator runs repository dependency-update jobs.
-Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669`.
+Status: current. Reviewed against: `46c0ab2a` and this revision.
 
 ## Dependencies
 
@@ -43,9 +43,12 @@ The built-in Helm values manager reads both parts and updates them together.
 A separate `image.digest` is invisible to that manager; a tag-only update then
 leaves Kubernetes pulling the old digest.
 
-Talos updates cover both the machine-config installer and the upgrade target in
-role defaults. The [installer contract](../../decisions/talos-image-factory.md)
-keeps these aligned. Envoy Gateway controller and CRD chart upgrades share a manually reviewed PR.
+Talos updates cover both the machine-config installer and the TalosUpgrade
+target in one dedicated release PR, including patches. The group requires both
+dependencies, and the [installer contract](../../decisions/talos-image-factory.md)
+keeps their versions aligned. Merged Talos targets trigger Tuppr immediately,
+so an automerged patch or minor update can reboot the single node without a
+separate operator command. Envoy Gateway controller and CRD chart upgrades share a manually reviewed PR.
 The CRD chart also carries the standard Gateway API schemas and their admission policy.
 
 Routine dependency updates and scheduled lockfile refreshes are eligible for
@@ -58,10 +61,10 @@ The PR gate also exercises the CI actions, their uv, Helm, and OpenTofu inputs,
 and the allowlisted validation tools whose major updates are eligible for
 automerge. Other majors require manual review because
 rendering and offline checks leave deployed workloads, provider plans, and
-operator procedures outside their coverage. Kubernetes and Talos release-line
-changes and downgrades require review of live upgrade preconditions. Their
-ordinary patches remain eligible for automerge within the version and release-age
-limits in the repository configuration. When changing the Talos release line,
+operator procedures outside their coverage. Kubernetes release-line changes,
+Talos major upgrades and downgrades require review of live upgrade preconditions.
+Kubernetes patches and Talos patches and minors remain eligible for automerge
+within the version and release-age limits in the repository configuration. When changing the Talos release line,
 review its Kubernetes ceiling against the [Talos support matrix](https://docs.siderolabs.com/talos/v1.14/getting-started/support-matrix).
 
 Gotenberg stays within the major supported by Paperless's bundled conversion

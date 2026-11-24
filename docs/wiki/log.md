@@ -3,6 +3,19 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-24] revision | Let Tuppr own Talos and Kubernetes upgrades
+
+Added the Talos target beside Kubernetes and made bootstrap generation consume
+both manifests. Removed both manual upgrade commands, their playbooks and
+upgrade-only helpers, defaults and version overrides. Talos uses Tuppr's native
+single-node behavior without custom backup or storage checks. Renovate groups
+the target and Factory installer for patch updates as well as release changes;
+patches and minors automerge, while major upgrades and downgrades need review.
+Updated Tuppr operations, bootstrap, the installer
+decision, Renovate, contributor and validation explanations. Reviewed README,
+source catalog and recovery pages; their bootstrap and recovery links remain
+accurate. November's semantic review is already recorded below.
+
 ## [2026-11-24] revision | Clean up implementation artifacts
 
 The [agent workflow](agent-workflow.md#developer-loop) links the repository's
