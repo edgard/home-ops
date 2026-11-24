@@ -1,7 +1,7 @@
 # Talos and platform bootstrap
 
 Purpose: identify the physical node, rebuild its control plane and admit the correct storage before starting workloads.
-Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669` and this revision.
+Status: current. Reviewed against: `46c0ab2a` and this revision.
 
 ## Identify the node
 
@@ -167,16 +167,16 @@ pool in place and stages the changed paths for a planned reboot. Repeating
 release with the existing paths verifies the pool without staging another
 configuration.
 
-Take a restricted etcd snapshot before a live Talos upgrade. The upgrade
-checks physical and Kubernetes identity, pool membership and the mounted
-datasets, then drains the single node and keeps it cordoned through reboot.
-The role releases the cordon after verifying the new server version and the
-returned storage. The workload PID and mount namespaces in Talos 1.14 remain
-isolated. OpenEBS and maintenance Pods use explicit host mounts and the host's
-ZFS extension tools.
+Tuppr handles Talos and Kubernetes upgrades when Argo applies their committed
+targets. Talos uses native single-node handling with no custom backup or
+storage checks; its reboot takes the whole homelab offline. The
+[Tuppr procedure](../apps/platform-system/tuppr.md#operational-note) covers
+progress, retry and suspension for emergency intervention. Configuration
+generation reads the same target versions and the bootstrap patch's Factory
+installer, requiring its image tag to match the Talos target.
 
-Tuppr handles ordinary Kubernetes upgrades when Argo applies the committed
-target. For a manual upgrade, follow the [Tuppr suspension procedure](../apps/platform-system/tuppr.md#operational-note).
+The workload PID and mount namespaces in Talos 1.14 remain isolated. OpenEBS
+and maintenance Pods use explicit host mounts and the host's ZFS extension tools.
 
 Platform foundation renders the [Envoy Gateway CRD chart](../apps/platform-system/envoy-gateway-crds.md)
 from the GitOps pin and values. It verifies HTTPRoute discovery before installing Argo CD. Its private Restic service opens the
@@ -191,7 +191,8 @@ the Kubernetes collection's Helm `wait_timeout` parameter.
 - [Talos defaults](../../../ansible/roles/talos/defaults/main.yml) and [machine configuration generation](../../../ansible/roles/talos/tasks/generate.yml)
 - [Physical target checks](../../../ansible/roles/talos/tasks/target.yml)
 - [First-boot ZFS restriction](../../../ansible/roles/talos/tasks/preseed_zfs.yml) and [four-member release](../../../ansible/roles/talos/tasks/release_zfs.yml)
-- [Storage admission](../../../ansible/roles/platform/tasks/storage_mounts.yml) and [Talos upgrades](../../../ansible/roles/talos/tasks/upgrade.yml)
+- [Storage admission](../../../ansible/roles/platform/tasks/storage_mounts.yml)
+- [Upgrade targets](../../../apps/platform-system/tuppr/manifests) and [generation checks](../../../ansible/roles/talos/tasks/validate_generation.yml)
 - [Platform bootstrap](../../../ansible/roles/platform/tasks/bootstrap.yml) and [GitOps release](../../../ansible/roles/platform/tasks/release_root.yml)
 
 ## Related pages

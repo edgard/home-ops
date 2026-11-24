@@ -33,7 +33,7 @@ results are retained even on failure; Quality Gate requires every job to succeed
 - Secret scopes/project alignment and ignored/untracked sensitive artifacts.
 - Production secret-provider rejection/redaction, secret-delivery predicates,
   and Talos identity validation.
-- Talos install and upgrade image alignment, interpreter alignment,
+- Talos bootstrap installer tag and Tuppr target alignment, interpreter alignment,
   and the Cloudflare provider constraint relationship.
 - First GitOps handoff requires native PostgreSQL recovery evidence for
   SparkyFitness because Restic excludes the live database files. Cold recovery

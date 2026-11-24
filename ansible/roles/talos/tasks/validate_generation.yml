@@ -1,7 +1,8 @@
 ---
-- name: Read repository Kubernetes target and control plane patch
+- name: Read repository upgrade targets and control plane patch
   ansible.builtin.set_fact:
-    talos_generation_upgrade: "{{ lookup('ansible.builtin.file', repo_root + '/apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml') | from_yaml }}"
+    talos_generation_kubernetes: "{{ lookup('ansible.builtin.file', repo_root + '/apps/platform-system/tuppr/manifests/tuppr-kubernetes.kubernetesupgrade.yaml') | from_yaml }}"
+    talos_generation_talos: "{{ lookup('ansible.builtin.file', repo_root + '/apps/platform-system/tuppr/manifests/tuppr-talos.talosupgrade.yaml') | from_yaml }}"
     talos_generation_install: >-
       {{ lookup('ansible.builtin.file', talos_controlplane_patch_file) | from_yaml_all
          | selectattr('kind', 'defined') | selectattr('kind', 'equalto', 'UnattendedInstallConfig') | first }}
@@ -9,16 +10,16 @@
 - name: Record explicit repository generation targets
   ansible.builtin.set_fact:
     talos_generation_targets:
-      talos: "{{ talos_upgrade.installer.version }}"
-      installer: "{{ talos_upgrade.installer.repository }}:{{ talos_upgrade.installer.version }}"
-      kubernetes: "{{ talos_generation_upgrade.spec.kubernetes.version }}"
+      talos: "{{ talos_generation_talos.spec.talos.version }}"
+      installer: "{{ talos_generation_install.installer.image }}"
+      kubernetes: "{{ talos_generation_kubernetes.spec.kubernetes.version }}"
 
 - name: Require consistent repository installer and nonempty versions
   ansible.builtin.assert:
     that:
       - talos_generation_targets.talos | length > 0
       - talos_generation_targets.kubernetes | length > 0
-      - talos_generation_install.installer.image == talos_generation_targets.installer
+      - talos_generation_targets.installer.endswith(':' ~ talos_generation_targets.talos)
     fail_msg: repository-generation-targets-invalid
 
 - name: Require valid existing Talos identity without parser diagnostics

@@ -8,7 +8,6 @@ set:
   - pipefail
 
 vars:
-  K8S_VERSION: "{{.K8S_VERSION | default \"\"}}"
   TERRAFORM_DIR: "{{.TERRAFORM_DIR | default (printf \"%s/terraform\" .TASKFILE_DIR)}}"
   TALOS_CLUSTER_NAME: "{{.TALOS_CLUSTER_NAME | default \"homelab\"}}"
   TALOS_INSTALL_DISK: "{{.TALOS_INSTALL_DISK | default \"\"}}"
@@ -26,7 +25,6 @@ env:
   TALOS_INSTALL_DISK: "{{.TALOS_INSTALL_DISK}}"
   TALOS_NODE: "{{.TALOS_NODE}}"
   TERRAFORM_DIR: "{{.TERRAFORM_DIR}}"
-  K8S_VERSION: "{{.K8S_VERSION}}"
 
 tasks:
   default:
@@ -339,27 +337,6 @@ tasks:
         - TALOS_CLUSTER_NAME
     cmds:
       - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-bootstrap.yml"
-
-  talos:upgrade:
-    desc: Upgrade Talos on a node from the repo target version
-    deps:
-      - task: ansible:check
-    requires:
-      vars:
-        - TALOS_NODE
-    cmds:
-      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-upgrade.yml"
-
-  talos:upgrade-k8s:
-    desc: Apply the committed Kubernetes version manually while Tuppr is suspended
-    dir: "{{.TASKFILE_DIR}}"
-    deps:
-      - task: ansible:check
-    requires:
-      vars:
-        - TALOS_NODE
-    cmds:
-      - "\"{{.ANSIBLE_PLAYBOOK}}\" ansible/playbooks/talos-upgrade-k8s.yml"
 
   # Platform and Argo operations
   platform:foundation:

@@ -167,17 +167,18 @@ def test_private_artifacts_stay_ignored_and_untracked(repo_root):
 
 
 def test_talos_install_and_upgrade_images_match(repo_root):
-    installer = read_yaml(repo_root / "ansible/roles/talos/defaults/main.yml")[
-        "talos_upgrade"
-    ]["installer"]
+    upgrade = read_yaml(
+        repo_root / "apps/platform-system/tuppr/manifests/tuppr-talos.talosupgrade.yaml"
+    )
     patches = read_yaml(
         repo_root / "ansible/roles/talos/files/controlplane-patch.yaml", multiple=True
     )
     (install,) = (
         doc for doc in patches if doc.get("kind") == "UnattendedInstallConfig"
     )
-    assert install["installer"]["image"] == (
-        installer["repository"] + ":" + installer["version"]
+    assert (
+        install["installer"]["image"].rsplit(":", 1)[1]
+        == (upgrade["spec"]["talos"]["version"])
     )
 
 

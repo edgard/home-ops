@@ -45,8 +45,8 @@
       description: "Annotated versions and operational images",
       managerFilePatterns: [
         ".github/actions/setup-toolchain/action.yml",
-        "apps/platform-system/tuppr/manifests/**/*.kubernetesupgrade.{yml,yaml}",
-        "ansible/roles/{talos,cli_secrets,restic,platform}/defaults/main.{yml,yaml}",
+        "apps/platform-system/tuppr/manifests/**/*.{kubernetesupgrade,talosupgrade}.{yml,yaml}",
+        "ansible/roles/{cli_secrets,restic,platform}/defaults/main.{yml,yaml}",
       ],
       matchStrings: [
         "(?:^|\\r?\\n)[ \\t]*# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)[ \\t]*\\r?\\n[ \\t]*(?:version|IMAGE_TAG|kubeconform-version|YAMLFMT_VERSION|ACTIONLINT_VERSION|cli_secrets_secretspec_version):[ \\t]*[\"']?(?<currentValue>v?[0-9][^\\s\"']*)",
@@ -206,9 +206,9 @@
     },
 
     {
-      description: "Review Talos release changes and downgrades together with the factory installer",
+      description: "Update the Talos target together with the factory installer",
       matchFileNames: [
-        "ansible/roles/talos/defaults/main.yml",
+        "apps/platform-system/tuppr/manifests/tuppr-talos.talosupgrade.yaml",
         "ansible/roles/talos/files/controlplane-patch.yaml",
       ],
       matchPackageNames: [
@@ -216,8 +216,18 @@
         "ghcr.io/siderolabs/installer-base",
         "/^factory\\.talos\\.dev\\/metal-installer\\//",
       ],
-      matchUpdateTypes: ["major", "minor", "rollback"],
       groupName: "Talos release",
+      minimumGroupSize: 2,
+    },
+
+    {
+      description: "Review Talos major upgrades and downgrades before Tuppr applies them",
+      matchPackageNames: [
+        "siderolabs/talos",
+        "ghcr.io/siderolabs/installer-base",
+        "/^factory\\.talos\\.dev\\/metal-installer\\//",
+      ],
+      matchUpdateTypes: ["major", "rollback"],
       automerge: false,
       labels: ["renovate/manual-review"],
     },
