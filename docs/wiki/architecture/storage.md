@@ -1,7 +1,7 @@
 # Storage and shared media
 
 Purpose: explain appdata provisioning and the two shared filesystem mounts.
-Status: current. Reviewed against: `50dc84a27f19eac0ca5d644abdeccc2d4383bc48` and this revision.
+Status: current. Reviewed against: `f3d70c440454c49341d0606d47bdf502f87e3c4a` and this revision.
 
 OpenEBS provisions a ZFS filesystem under `dpool/k8s` when a Pod first
 consumes a managed claim. The default class retains the dataset after PVC
@@ -21,7 +21,7 @@ Save an off-node etcd snapshot and the matching Talos identity to recover
 existing PVC/PV records. Keep an independent copy of the Restic repository
 for recovery if the pool is lost. On a rebuilt control plane, verify the
 actual bound datasets before starting applications. The [Restic runbook](../operations/restic-backup-restore.md)
-covers recovery of namespace backups and application-native databases.
+covers recovery of namespace backups and retained appdata.
 The [Samba service](../apps/selfhosted/samba.md) mounts the media and dump
 filesystems directly from its own namespace. Its startup checks the pool marker
 and each ZFS mount before allowing LAN guests to write. These shared datasets

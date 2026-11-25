@@ -105,5 +105,4 @@ The app pages describe dependencies and unusual behavior. Read the linked
 - [Renovate Operator](apps/selfhosted/renovate-operator.md)
 - [Restic](apps/selfhosted/restic.md)
 - [Samba](apps/selfhosted/samba.md) — guest access to shared NAS datasets on the LAN.
-- [SparkyFitness](apps/selfhosted/sparkyfitness.md)
 - [Twitch Drops Miner](apps/selfhosted/twitch-drops-miner.md)

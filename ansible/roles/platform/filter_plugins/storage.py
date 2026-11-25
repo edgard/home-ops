@@ -44,11 +44,8 @@ def recovery_claims(document, pool_guid, records):
             "Missing operator recovery claim inventory",
         )
         require(
-            all(
-                r["verification"] in {"retained-checksum", "native-postgresql"}
-                for r in manual
-            ),
-            "Manual evidence requires a verified recovery method for retained data or native PostgreSQL",
+            all(r["verification"] == "retained-checksum" for r in manual),
+            "Manual evidence requires checksum verification of retained data",
         )
         rows.extend(manual)
     require(
@@ -69,14 +66,8 @@ def recovery_claims(document, pool_guid, records):
             and guid(row["snapshot_guid"]),
             f"Invalid or duplicate recovery identity for {name}",
         )
-        native_db = name == "selfhosted/sparkyfitness-data"
-        methods = (
-            {"native-postgresql"}
-            if native_db
-            else {"restic-verify", "retained-checksum"}
-        )
         require(
-            row["verification"] in methods,
+            row["verification"] in {"restic-verify", "retained-checksum"},
             f"Missing verified recovery method for {name}",
         )
         names.add(name)

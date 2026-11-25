@@ -1,7 +1,7 @@
 # Backup and recovery
 
 Purpose: connect deployed backup resources with the operator restore procedure.
-Status: current. Reviewed against: `09ff984c2258c4403ef203631fd580106f839e53` and this revision.
+Status: current. Reviewed against: `f3d70c440454c49341d0606d47bdf502f87e3c4a` and this revision.
 
 The original Restic repository stays on the retained `dpool/restic` dataset
 and serves the Kubernetes cluster and existing workstation clients. Separate
@@ -30,13 +30,6 @@ see [secret recovery](../operations/secrets-maintenance.md). The existing Talos
 identity and infrastructure values resolve from Bitwarden through scoped
 SecretSpec. Protected infrastructure-state backups have a separate recovery
 procedure; they do not replace Bitwarden availability.
-
-SparkyFitness uses its native scheduled SQL-and-uploads archives. Restic stores
-those archives and uploads while excluding live PostgreSQL files. Its cold
-recovery includes a database import before application writers resume; generic
-file restoration alone is insufficient. The existing generic restore exclusion
-list keeps this app out of automatic file-restore/resume transactions. See the
-[application recovery procedure](../operations/restic-backup-restore.md#sparkyfitness-database-and-files).
 
 ## Sources
 

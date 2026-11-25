@@ -1,7 +1,7 @@
 # Restic
 
 Purpose: Restic serves the shared backup repository and runs appdata backup and maintenance jobs.
-Status: current. Reviewed against: `d80872c8700249ef67aa42919e297c37e75faef3`.
+Status: current. Reviewed against: `f3d70c440454c49341d0606d47bdf502f87e3c4a` and this revision.
 
 ## Dependencies
 
@@ -15,8 +15,8 @@ Restic Secret in selfhosted.
 ## Data and recovery
 
 The server exposes the `dpool/restic` filesystem and checks its
-identity before opening it. The selfhosted backup reads named appdata PVCs
-and preserves native SparkyFitness archives. Scheduled encrypted B2 copying
+identity before opening it. The selfhosted backup reads named appdata PVCs.
+Scheduled encrypted B2 copying
 requires independent verification of a cloud snapshot and runtime approval.
 See the [runbook](../../operations/restic-backup-restore.md) for enabling
 the copy and recovering files.
