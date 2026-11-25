@@ -29,7 +29,7 @@ controllers:
       app:
         image:
           repository: lscr.io/linuxserver/qbittorrent
-          tag: 5.3.0
+          tag: 5.3.1
         env:
           PUID: "1000"
           PGID: "1000"
