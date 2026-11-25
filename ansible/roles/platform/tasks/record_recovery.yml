@@ -7,7 +7,6 @@
       - platform_recovered_name is match('^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$')
       - platform_recovered_uid is match('^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$')
       - platform_restic_snapshot_id is match('^[0-9a-f]{64}$')
-      - (platform_recovered_namespace, platform_recovered_name) != ('selfhosted', 'sparkyfitness-data')
 
 - name: Read the completed restore Job, bound claim and enrolled pool
   kubernetes.core.k8s_info:

@@ -1,7 +1,7 @@
 # Validation and PR gate
 
 Purpose: distinguish native deployment validation, small offline checks, and live evidence.
-Status: current. Reviewed against: `bec6f23a0ad540fde038cdcdb7573473089102a0`.
+Status: current. Reviewed against: `f3d70c440454c49341d0606d47bdf502f87e3c4a` and this revision.
 
 `task check` runs formatting checks, native lint/deployment validation, and the
 small serial pytest suite once. `task lint:kubernetes` renders every app and
@@ -47,9 +47,10 @@ are removed before merge and evidence is summarized in the PR. Retain only small
 checks for the enumerated risks; do not turn every implementation detail or prior
 outage into a permanent contract. Runtime operator guards remain authoritative.
 Removing lifecycle simulations intentionally removes ongoing bootstrap, restore,
-rollback, and transport regression coverage. The permanent recovery check rejects a file-only attestation for SparkyFitness
-because its PostgreSQL data directory is excluded from Restic. Use an actual
-restore drill to verify the service and data.
+rollback, and transport regression coverage. The permanent recovery checks
+require checksum evidence for manual retained-data recovery and fence direct
+pool writers during cold recovery. Use an actual restore drill to verify
+services and data.
 
 ## Sources
 

@@ -47,7 +47,7 @@
 - name: Require restorable appdata for the selected apps
   ansible.builtin.assert:
     that: restic_restore_plan | length > 0
-    fail_msg: "No matching Argo Application with a restorable bound zfs-appdata claim. SparkyFitness requires native SQL recovery."
+    fail_msg: "No matching Argo Application with a restorable bound zfs-appdata claim."
 
 - name: Require every current appdata claim in a full restore
   when: restic_restore_mode == 'all'

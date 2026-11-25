@@ -93,9 +93,7 @@ controllers:
                 for (i=7; i<NF; i++) if ($i == "-" && $(i+1) == "zfs" && $(i+2) ~ /^dpool\/k8s\/pvc-/) ok=1
               } END {exit !ok}' /proc/self/mountinfo
             done
-            exec restic --retry-lock 30m backup /data/appdata/selfhosted --host homelab --tag appdata \
-              --exclude /data/appdata/selfhosted/sparkyfitness-data/postgresql \
-              --exclude /data/appdata/selfhosted/sparkyfitness-data/backups/.tmp
+            exec restic --retry-lock 30m backup /data/appdata/selfhosted --host homelab --tag appdata
         env:
           RESTIC_REPOSITORY: rest:http://restic.selfhosted.svc.cluster.local:8000/
           RESTIC_REST_USERNAME: restic
@@ -286,14 +284,6 @@ persistence:
       backup:
         app:
           - path: /data/appdata/selfhosted/paperless
-            readOnly: true
-  sparkyfitness-data:
-    type: persistentVolumeClaim
-    existingClaim: sparkyfitness-data
-    advancedMounts:
-      backup:
-        app:
-          - path: /data/appdata/selfhosted/sparkyfitness-data
             readOnly: true
   twitch-drops-miner:
     type: persistentVolumeClaim

@@ -1,7 +1,7 @@
 # GitOps delivery
 
 Purpose: explain how a repository change becomes a cluster application.
-Status: current. Reviewed against: `e0ffdb032870a9272c7abd691788e9b4e4b48ee1`.
+Status: current. Reviewed against: `f3d70c440454c49341d0606d47bdf502f87e3c4a` and this revision.
 
 Ansible installs foundational services and the Argo CD controller. The separate
 handoff applies the root Application, which installs namespaces, projects, and
@@ -26,11 +26,10 @@ read-only Pods trigger OpenEBS first-consumer binding. The platform and restore
 tasks share an exclusive Kubernetes lock while preparing, restoring or releasing
 these volumes.
 
-- **Rebuild from backups.** Restore each claim and verify its contents. Recover
-  and check the native PostgreSQL database and uploads for SparkyFitness.
+- **Rebuild from backups.** Restore each claim and verify its contents.
   The Restic recovery task creates a held checkpoint and records its identity
   for each verified file restore automatically. Supply `PLATFORM_RECOVERY_FILE`
-  for the native database and any manually recovered datasets. Handoff matches
+  for manually recovered datasets. Handoff matches
   every receipt to its live PVC,
   retained PV, OpenEBS record, filesystem and snapshot GUID and checks for
   changes since verification. The [recovery runbook](../operations/restic-backup-restore.md)

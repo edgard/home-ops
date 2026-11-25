@@ -3,6 +3,15 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-25] revision | Retire an unused selfhosted application
+
+Removed the application definition, dedicated credential mapping and app page,
+its Restic mount and exclusions, and application-specific SQL recovery paths.
+Simplified first-handoff evidence to verified file restores or checksum-verified
+retained data. Updated the backup, GitOps, storage, validation, index and source
+explanations and removed retired application references from this log. Git history
+retains the original records. November's semantic review is already recorded below.
+
 ## [2026-11-24] revision | Let Tuppr own Talos and Kubernetes upgrades
 
 Added the Talos target beside Kubernetes and made bootstrap generation consume
@@ -173,16 +182,8 @@ pages. November's semantic review is already recorded below.
 
 ## [2026-11-13] revision | Keep Helm image tags and digests together
 
-Removed duplicate Renovate extraction for Helm values and corrected the three
-SparkyFitness image pins using a combined tag and digest. Documented the pin
-format and updated the native restore description for the deployed release.
-
-## [2026-11-13] revision | Retire SparkyFitness Garmin Connect sync
-
-Removed the optional Garmin deployment, service and backend endpoint setting.
-The saved connection was unlinked before retiring the service, and existing
-fitness records remain in PostgreSQL. Updated the app page and cold recovery
-procedure. November's semantic review is already recorded below.
+Removed duplicate Renovate extraction for Helm values and documented combined
+tag-and-digest image pins.
 
 ## [2026-11-09] revision | Focus Renovate manual review on operational changes
 
@@ -216,30 +217,6 @@ implementation verification from justified minimal permanent checks. Updated
 related validation, secret, bootstrap, storage, uptime, and recovery explanations
 and removed stale test links. November's semantic review is already recorded below.
 
-## [2026-11-07] revision | Close SparkyFitness registration
-
-Closed new account registration after initial administrator onboarding. Existing
-accounts and native AI settings remain available. Updated the application page
-to document the closed-registration default and explicit GitOps reopening.
-
-## [2026-11-07] revision | Correct SparkyFitness runtime directories
-
-Live startup identified the frontend PID directory and backend restore-upload
-staging directory as root-owned image paths. Added a writable ephemeral `/run`
-for Nginx and selected the backend's native `/tmp` staging override, preserving
-non-root execution and the existing persistent-data layout.
-
-## [2026-11-07] revision | Reinstall SparkyFitness with native features
-
-Reintroduced the dedicated frontend, backend, PostgreSQL and Garmin stack with
-one retained claim and three persistent infrastructure credentials. Documented
-interactive administrator creation, full native OpenAI configuration, hourly
-Garmin sync, native scheduled backups and manual SQL-aware cold recovery.
-Restic includes completed native archives and excludes live PostgreSQL and
-unfinished backup work. Reviewed storage, secrets, backup architecture and the
-recovery runbook, including the existing generic restore exclusion for this SQL
-app; November's semantic review is already recorded below.
-
 ## [2026-11-07] revision | Resume normal Restic scheduling
 
 Removed the temporary retirement pause from backup and maintenance CronJobs and
@@ -247,9 +224,9 @@ removed its temporary operational note. Daily and weekly schedules, retention,
 and the existing file-based restore procedure remain unchanged. Historical
 application retirement records remain in this log.
 
-## [2026-11-07] revision | Retire Sure and SparkyFitness
+## [2026-11-07] revision | Retire Sure
 
-Removed both independent application definitions, app-only tests, route monitoring,
+Removed the independent application definition, app-only tests, route monitoring,
 and SQL-specific backup/recovery instructions. Restic backup and maintenance are
 explicitly suspended for the retirement's storage cleanup and selective historical
 snapshot rewrite; the follow-up change restores their original schedules and policy.
@@ -267,14 +244,12 @@ while preserving stored custom resources and coordinating GitOps. Reviewed Istio
 their existing controller and route contracts remain accurate. November's
 semantic review is already recorded below.
 
-## [2026-11-07] revision | Enable native AI in Sure and SparkyFitness
+## [2026-11-07] revision | Enable native AI in Sure
 
 Wired Sure web and worker to the existing Bitwarden OpenAI credential with shared
 model and request budgets. Documented native account/family switches and hosted
-document retrieval. Documented SparkyFitness's encrypted database-backed chat,
-vision, full-tool and voice configuration, user preferences, and recovery keys.
-No additional services or backup framework are introduced. Reviewed both app
-pages against the versioned upstream provider implementations.
+document retrieval. No additional services or backup framework are introduced.
+Reviewed the app page against the versioned upstream provider implementation.
 
 ## [2026-11-07] revision | Preserve application contracts during major upgrades
 
@@ -287,21 +262,11 @@ Paperless upgrade gate and Unpackerr's headless, nonpersistent configuration.
 Reviewed Karakeep, networking, storage and validation explanations; they remain
 accurate. November's semantic review is already recorded below.
 
-## [2026-11-07] revision | Preserve SparkyFitness volume-group inheritance
+## [2026-11-07] revision | Verify shell programs
 
-Removed the backend's redundant pod security-context override so the chart
-retains the default NFS volume group. A rendered regression checks that the
-non-root backend receives its writable persistent-storage group. Updated the
-application storage explanation after confirming the chart's replacement behavior.
-
-## [2026-11-07] revision | Add standalone SparkyFitness and verify shell programs
-
-Added SparkyFitness with its own PostgreSQL, native frontend/backend/Garmin,
-private credentials and app-local SQL dumps. Documented file-plus-dump recovery
-and added the explicit Gatus route. Existing application databases remain local.
 Corrected Sure's temporary-directory startup and preserved shell programs as
 literal YAML blocks. Executable command tests cover Redis launch, dump publication,
-failure cleanup and seven-generation retention for both apps. November's semantic
+failure cleanup and seven-generation retention. November's semantic
 review is already recorded below. The Kubernetes target matches the running
 patch version so the temporary downgrade-prevention suspension can be cleared
 without scheduling node maintenance.

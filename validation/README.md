@@ -35,9 +35,9 @@ results are retained even on failure; Quality Gate requires every job to succeed
   and Talos identity validation.
 - Talos bootstrap installer tag and Tuppr target alignment, interpreter alignment,
   and the Cloudflare provider constraint relationship.
-- First GitOps handoff requires native PostgreSQL recovery evidence for
-  SparkyFitness because Restic excludes the live database files. Cold recovery
-  also fences writable direct mounts of shared pool data in any namespace.
+- First GitOps handoff requires checksum evidence for manual retained-data
+  recovery. Cold recovery also fences writable direct mounts of shared pool
+  data in any namespace.
 - CRD schema conversion, wiki local links, and app-page coverage.
 - Raw/rendered populated Secrets; app-template PVC rollout replicas/strategy;
   shared-media group/ownership policy; Paperless GPT persistence, complete OCR,

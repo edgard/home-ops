@@ -1,7 +1,7 @@
 # Kubernetes Restic restore runbook
 
 Purpose: recover existing Kubernetes appdata and verify the independent copy of the shared Restic repository.
-Status: current. Reviewed against: `9ce0904e1fa682e1ad6dee5ff56ace85f03834f7`.
+Status: current. Reviewed against: `f3d70c440454c49341d0606d47bdf502f87e3c4a` and this revision.
 
 ## Repository and backups
 
@@ -222,49 +222,8 @@ snapshot from one namespace cannot restore another namespace. Restore-all
 requires its planned namespace/claim names and Argo owners to match the
 current Helm-rendered appdata inventory, with the declared exclusions. Full
 preview therefore needs access to the pinned app chart. Single-app recovery
-uses its live Argo resource inventory. Media, repository storage
-and SparkyFitness have their own recovery procedures.
-
-## SparkyFitness database and files
-
-SparkyFitness's native full archives contain a compressed SQL dump and an uploads
-archive. Restic excludes the live PostgreSQL subdirectory. Restoring its PVC as
-files therefore does not restore the database. For a running installation, recover
-the selected completed archive into a temporary directory and use the native
-administrator restore page, retaining the same Bitwarden encryption/auth secrets.
-
-For a stopped or damaged application on a cluster already managed by Argo, use this manual application-specific sequence:
-
-1. Recover the selected completed archive from Restic into temporary storage.
-   Preserve the current data if it is still needed; do not overwrite an existing
-   installation before confirming the selected archive.
-2. Hold Argo reconciliation for this app using the existing maintenance procedure.
-   Stop the frontend and backend; start only its dedicated PostgreSQL.
-3. Use a temporary official PostgreSQL 18 client mounting the app PVC at `/data`
-   and the existing app Secret for its owner credentials. Extract the outer
-   archive and create the `sparky_app` LOGIN role if it is missing, leaving its
-   password unset until the backend provisions it. Native dumps include grants
-   to this role but do not create it. Drop/recreate only `sparkyfitness_db`, then stream the inner
-   `sparkyfitness_db_backup_*.sql.gz` into `psql --set ON_ERROR_STOP=1` against that
-   database. Do not use `pg_restore`: this native archive contains plain SQL.
-4. Replace `/data/uploads` with the recovered uploads archive contents, preserving
-   the backend's writable UID/group. Retain the API-encryption and authentication
-   keys from Bitwarden. Leave the PostgreSQL files to PostgreSQL itself.
-5. Remove the temporary client, resume the backend and then the frontend, and
-   restore the recorded Argo settings. The backend maintains its runtime role.
-   Verify login, records, upload hashes, decrypted AI/provider settings and backup
-   scheduling before allowing new imports. Clean temporary recovery files.
-
-The app's dedicated PostgreSQL owner retains the upstream privileges needed by
-native restore. Native restore loads a staging database and swaps it into place,
-retaining the previous database and uploads for recovery. Verify SQL results,
-records, and uploads after the swap before removing the retained copies.
-See the [app page](../apps/selfhosted/sparkyfitness.md) and
-[backup implementation](https://github.com/CodeWithCJ/SparkyFitness/blob/v1.12.1/SparkyFitnessServer/services/backupService.ts).
-
-The ordinary in-place restore excludes both the SparkyFitness app and its data
-claim, including during restore-all. The fresh-claim path can recover its files
-before a separate native database import.
+uses its live Argo resource inventory. Media and repository storage have their
+own recovery procedures.
 
 ## New cluster or lost etcd state
 
@@ -334,48 +293,17 @@ rsync -aHAXS --numeric-ids --filter='-x system.*' --filter='-x security.selinux'
 rsync -aHAXSnic --delete --numeric-ids --filter='-x system.*' --filter='-x security.selinux' "$source/" "$target/"
 ```
 
-For SparkyFitness before first Argo handoff, restore the claim subtree to
-recover its uploads and completed archives. Run the following recovery with
-application deployments and their Services still absent.
-
-1. Apply the checked-in [SparkyFitness ExternalSecret](../../../apps/selfhosted/sparkyfitness/manifests/sparkyfitness-credentials.externalsecret.yaml)
-   and wait for its `Ready` condition. The Bitwarden entries must contain
-   the original database owner credential and application encryption keys.
-2. Start one temporary PostgreSQL-only Pod in `selfhosted` using the
-   digest-pinned official image, database owner Secret reference, security
-   context, `PGDATA` and `postgresql` PVC subpath from the
-   [PostgreSQL controller values](../../../apps/selfhosted/sparkyfitness/values.yaml).
-   Bind only a local Unix socket with `postgres -c listen_addresses=''`.
-   Verify the mount belongs to the expected new CSI volume before PostgreSQL
-   initializes. Use a private working directory for archive extraction and
-   read the archive from the same restored claim.
-3. For an ordinary completed full archive, extract its gzipped plain SQL
-   and uploads tar. Initialize the target database with its expected owner.
-   Create the `sparky_app` role if necessary, restore SQL over the local
-   socket through `psql --set ON_ERROR_STOP=1`, and restore uploaded files
-   with the backend's expected ownership. A separately recorded custom-format
-   PostgreSQL dump uses `pg_restore --exit-on-error` and its separately saved
-   global roles. Match the archive format before choosing the command.
-4. Check recovered schema, nonempty expected records and representative
-   upload hashes. Stop PostgreSQL cleanly, remove its temporary Pod and all
-   recovery consumers, and capture the verified destination snapshot for
-   handoff. If SQL import or upload verification stops partway, preserve
-   the original archive, inspect the isolated database and partial files,
-   and repeat the import into a clean destination. Record `native-postgresql`
-   only after both checks pass. The normal deployments start after release.
-
 A successful cold Restic Job for an ordinary claim automatically takes a
 destination snapshot, holds it and records the restored source and current
-volume identity in an immutable ConfigMap. For manual retained-data copies
-and SparkyFitness, stop all recovery consumers after application checks,
-take a destination snapshot, hold it and record its GUID. Supply manual
+volume identity in an immutable ConfigMap. For manual retained-data copies,
+stop all recovery consumers after application checks, take a destination
+snapshot, hold it and record its GUID. Supply manual
 entries in the owner-private `PLATFORM_RECOVERY_FILE` JSON object with
 decimal-string `pool_guid` and a `claims` array.
 Each entry records `namespace`, `name`, new PVC `uid`, `dataset_guid`,
 destination `snapshot` basename, `snapshot_guid` and `verification`. Manual
-entries use `retained-checksum` or `native-postgresql`. The automatic checkpoint
-uses `restic-verify`. SparkyFitness
-requires the native method. Every current claim must have exactly one
+entries use `retained-checksum`. The automatic checkpoint uses `restic-verify`.
+Every current claim must have exactly one
 accepted automatic or manual proof. The first `task platform:handoff` checks the
 held snapshot, unchanged destination and complete claim inventory before
 starting writers. Preserve the independent recovery sources through a new

@@ -116,7 +116,6 @@
         restic_job_name: "restic-recover-{{ restic_recovery_uid }}"
 
     - name: Record a held destination checkpoint for ordinary restored files
-      when: (restic_recovery_namespace, restic_recovery_claim) != ('selfhosted', 'sparkyfitness-data')
       ansible.builtin.include_role:
         name: platform
         tasks_from: record_recovery
