@@ -32,7 +32,7 @@ data:
         authorization:
           credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
         tls_config:
-          ca_file: /tls/kubelet/ca.crt
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
           server_name: homelab
         static_configs:
           - targets: ["%{KUBELET_ADDRESS}:10250"]

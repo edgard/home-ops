@@ -1,7 +1,7 @@
 # Uptime and cluster monitoring
 
 Purpose: operate the in-cluster Grafana dashboards, probes and production alerts.
-Status: current. Reviewed against: `7fad7f2565192a6b198cf345b155063f0c898afd` and this revision.
+Status: current. Reviewed against: `15c898cf` and this revision.
 
 Grafana owns Telegram notifications and hosts the [Service uptime](https://grafana.edgard.org/d/uptime/service-uptime) dashboard. All three dashboards require sign-in. Monitoring and notification delivery depend on the single
 node and working internet access.
@@ -47,6 +47,10 @@ and pods with recent restarts. Filter by namespace to compare CPU and memory
 with `kubectl top pods -n <namespace>` over a similar sampling interval.
 The kubelet supplies resource usage and kube-state-metrics supplies workload
 state. The Kubernetes resource metrics API still depends on metrics-server.
+CPU and memory collection require a cluster-signed kubelet serving certificate.
+For a failed kubelet scrape with a certificate error, check the
+[CSR approver](../apps/kube-system/kubelet-csr-approver.md) and
+[Talos rotation setting](talos-bootstrap.md#kubelet-serving-certificates).
 
 After seven days including a backup cycle, record the monitoring pods' CPU
 and working sets, active series, ingestion rate, and actual bytes used on the

@@ -31,6 +31,7 @@ results are retained even on failure; Quality Gate requires every job to succeed
 ## Permanent checks
 
 - Secret scopes/project alignment and ignored/untracked sensitive artifacts.
+- Kubelet CSR approval credentials cannot approve Kubernetes API client certificates.
 - Production secret-provider rejection/redaction, secret-delivery predicates,
   and Talos identity validation.
 - Talos bootstrap installer tag and Tuppr target alignment, interpreter alignment,

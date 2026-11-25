@@ -4,4 +4,4 @@ replicas: 1
 updateStrategy:
   type: Recreate
 args:
-  - --kubelet-insecure-tls
+  - --kubelet-certificate-authority=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt

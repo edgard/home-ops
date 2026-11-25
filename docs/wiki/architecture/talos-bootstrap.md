@@ -1,7 +1,7 @@
 # Talos and platform bootstrap
 
 Purpose: identify the physical node, rebuild its control plane and admit the correct storage before starting workloads.
-Status: current. Reviewed against: `46c0ab2a` and this revision.
+Status: current. Reviewed against: `15c898cf` and this revision.
 
 ## Identify the node
 
@@ -36,6 +36,42 @@ same key. The final endpoint uses authenticated Talos credentials. Every apply
 checks the system disk and NIC before submitting configuration. Platform
 operations also match the Kubernetes node's hardware UUID and InternalIP
 against that endpoint.
+
+## Kubelet serving certificates
+
+The [control-plane patch](../../../ansible/roles/talos/files/controlplane-patch.yaml)
+enables `rotate-server-certificates` in a `KubeletConfig` document. Keep the
+[CSR approver](../apps/kube-system/kubelet-csr-approver.md) deployed so initial
+requests and subsequent renewals can be approved. Kubernetes signs these
+certificates with the cluster CA trusted by VictoriaMetrics and metrics-server.
+The default self-signed serving chain no longer needs a Git-managed CA pin.
+
+For an existing node, deploy and verify the approver first. Extract only the
+`KubeletConfig` document from the tracked patch to a temporary file. Preview a
+targeted patch:
+
+```sh
+talosctl -e "$TALOS_NODE" -n "$TALOS_NODE" patch mc --mode=no-reboot \
+  --dry-run --patch @<file>
+```
+
+Then apply the same command without `--dry-run`.
+Do not apply the entire bootstrap patch as an operational shortcut. This
+targeted change must preserve the node's active and staged storage policy.
+Talos may restart kubelet when the setting changes; do not force a node reboot.
+
+During the initial migration, merging the consumer trust changes before applying
+this Talos setting temporarily stops Kubernetes resource metrics and kubelet
+scrapes. Apply the targeted patch promptly after the approver is ready. For a
+fresh build, platform foundation installs the approver before kubelet-dependent
+observer log reads and retries those reads while the first certificate is issued.
+
+Verify a `kubernetes.io/kubelet-serving` CSR from `system:node:homelab` becomes
+`Approved,Issued`. Verify the certificate actually served on port 10250 against
+the Kubernetes cluster CA with the `homelab` hostname. Then check
+`up{job="kubelet"} == 1`, fresh pod CPU/memory samples and `kubectl top pods -A`.
+If issuance stalls, inspect the CSR and approver logs; do not blindly approve
+unvalidated requests or disable TLS verification.
 
 ## CPU power preference
 

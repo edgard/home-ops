@@ -1,7 +1,7 @@
 # Source catalog
 
 Purpose: locate the evidence used to build and maintain this wiki.
-Status: current. Reviewed against: `f3d70c440454c49341d0606d47bdf502f87e3c4a` and this revision.
+Status: current. Reviewed against: `15c898cf` and this revision.
 
 The immutable starting snapshot is Git commit
 [`2b1488a2`](https://github.com/edgard/home-ops/tree/2b1488a25dc2af9e6c4d35c0960cba3306b6ec7b).
@@ -16,6 +16,7 @@ catalog is a guide to it, not a copy of all tracked files.
 | App discovery and reconciliation | [ApplicationSet](../../argocd/appsets/apps.appset.yaml) | [GitOps delivery](architecture/gitops-delivery.md) |
 | App definitions | [Apps](../../apps) | [App catalog](index.md#applications) |
 | Monitoring | [Grafana](../../apps/platform-system/grafana), [collector](../../apps/platform-system/victoria-metrics) and [probes](../../apps/platform-system/blackbox-exporter) | [Uptime and cutover](architecture/uptime.md) |
+| Kubelet certificate issuance | [Talos rotation](../../ansible/roles/talos/files/controlplane-patch.yaml) and [CSR approval policy](../../apps/kube-system/kubelet-csr-approver/values.yaml) | [CSR approver](apps/kube-system/kubelet-csr-approver.md), [Talos migration](architecture/talos-bootstrap.md#kubelet-serving-certificates) |
 | Persistent storage | [OpenEBS and local volumes](../../apps/kube-system/zfs-localpv), [Restic roles](../../ansible/roles/restic) | [Storage](architecture/storage.md), [backup and restore](operations/restic-backup-restore.md) |
 | Bootstrap and operations | [Ansible](../../ansible) and [Taskfile](../../Taskfile.yaml) | [Talos](architecture/talos-bootstrap.md), [recovery](architecture/backup-recovery.md) |
 | Secrets and CLI inputs | [SecretSpec](../../secretspec.toml), [CLI role](../../ansible/roles/cli_secrets), [platform playbooks](../../ansible/playbooks) | [Secrets](architecture/secrets.md), [maintenance](operations/secrets-maintenance.md) |

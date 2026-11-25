@@ -1,0 +1,107 @@
+---
+defaultPodOptions:
+  automountServiceAccountToken: true
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+
+controllers:
+  main:
+    replicas: 1
+    strategy: Recreate
+    serviceAccount:
+      identifier: main
+    containers:
+      app:
+        image:
+          repository: ghcr.io/postfinance/kubelet-csr-approver
+          tag: v1.2.16@sha256:3a09df2f9e1e628863fccbe5479e63b11bbc1f411c82134ee975778e1a25b5e6
+        args:
+          - --metrics-bind-address=0
+          - --health-probe-bind-address=:8081
+        env:
+          - name: NODE_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          - name: PROVIDER_IP_PREFIXES
+            value: "$(NODE_IP)/32"
+          - name: PROVIDER_REGEX
+            value: "^homelab$"
+          # The exact hostname and host-IP /32 constrain SANs without relying on DNS.
+          - name: BYPASS_DNS_RESOLUTION
+            value: "true"
+          - name: IGNORE_NON_SYSTEM_NODE
+            value: "true"
+          - name: SKIP_DENY_STEP
+            value: "true"
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /healthz
+                port: 8081
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /healthz
+                port: 8081
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+
+serviceAccount:
+  main:
+    enabled: true
+
+rbac:
+  roles:
+    main:
+      type: ClusterRole
+      rules:
+        - apiGroups:
+            - certificates.k8s.io
+          resources:
+            - certificatesigningrequests
+          verbs:
+            - get
+            - list
+            - watch
+        - apiGroups:
+            - certificates.k8s.io
+          resources:
+            - certificatesigningrequests/approval
+          verbs:
+            - update
+        - apiGroups:
+            - certificates.k8s.io
+          resources:
+            - signers
+          resourceNames:
+            - kubernetes.io/kubelet-serving
+          verbs:
+            - approve
+  bindings:
+    main:
+      type: ClusterRoleBinding
+      roleRef:
+        identifier: main
+      subjects:
+        - identifier: main
+          kind: ServiceAccount

@@ -204,3 +204,26 @@ def test_python_interpreter_alignment(repo_root):
 
 def test_cloudflare_provider_stays_below_renovate_limit(repo_root):
     assert_terraform(repo_root)
+
+
+def test_kubelet_approver_cannot_issue_other_credentials(repo_root):
+    source = repo_root / "apps/kube-system/kubelet-csr-approver/values.yaml"
+    assert source.is_file(), "automatic approval needs an explicit credential scope"
+    values = read_yaml(source)
+    rules = values["rbac"]["roles"]["main"]["rules"]
+    mutations = {
+        (tuple(rule["apiGroups"]), resource, verb, tuple(rule.get("resourceNames", [])))
+        for rule in rules
+        for resource in rule["resources"]
+        for verb in rule["verbs"]
+        if verb not in {"get", "list", "watch"}
+    }
+    assert mutations == {
+        (("certificates.k8s.io",), "certificatesigningrequests/approval", "update", ()),
+        (
+            ("certificates.k8s.io",),
+            "signers",
+            "approve",
+            ("kubernetes.io/kubelet-serving",),
+        ),
+    }, "automatic approval must never issue API client credentials"

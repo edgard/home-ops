@@ -104,12 +104,6 @@ persistence:
     globalMounts:
       - path: /config
         readOnly: true
-  kubelet-ca:
-    type: configMap
-    name: victoria-metrics-kubelet-ca
-    globalMounts:
-      - path: /tls/kubelet
-        readOnly: true
   exporter-client:
     type: secret
     name: node-exporter-client-tls
