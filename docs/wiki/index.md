@@ -58,6 +58,7 @@ The app pages describe dependencies and unusual behavior. Read the linked
 - [CoreDNS](apps/kube-system/coredns.md)
 - [k8s-gateway](apps/kube-system/k8s-gateway.md)
 - [k8tz](apps/kube-system/k8tz.md)
+- [Kubelet CSR approver](apps/kube-system/kubelet-csr-approver.md)
 - [metrics-server](apps/kube-system/metrics-server.md)
 - [Multus](apps/kube-system/multus.md)
 - [OpenEBS ZFS LocalPV](apps/kube-system/zfs-localpv.md)

@@ -1,7 +1,7 @@
 # GitOps delivery
 
 Purpose: explain how a repository change becomes a cluster application.
-Status: current. Reviewed against: `f3d70c440454c49341d0606d47bdf502f87e3c4a` and this revision.
+Status: current. Reviewed against: `15c898cf` and this revision.
 
 Ansible installs foundational services and the Argo CD controller. The separate
 handoff applies the root Application, which installs namespaces, projects, and
@@ -12,7 +12,11 @@ prerequisites before apps. Changes reach the cluster through a merged PR.
 
 ## First installation and recovery
 
-Run `task platform:foundation` against the verified Talos node. It checks the
+Run `task platform:foundation` against the verified Talos node. It first installs
+the [kubelet CSR approver](../apps/kube-system/kubelet-csr-approver.md) using the
+same chart and values later owned by Argo CD. A fresh kubelet needs its initial
+serving certificate before the storage observer's logs are available; that read
+retries while issuance completes. The foundation then checks the
 pool's four enrolled members, the actual shared filesystems and media root
 permissions, then records the boot disk and pool GUID in the immutable
 `kube-system/storage-identity` ConfigMap before starting the CSI driver. The

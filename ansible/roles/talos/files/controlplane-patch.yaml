@@ -5,6 +5,11 @@ installer:
   image: factory.talos.dev/metal-installer/39699a54506a4570606671d813387abadbba0767ec91769b57e993f3387795d9:v1.14.7
 ---
 apiVersion: v1alpha1
+kind: KubeletConfig
+extraArgs:
+  rotate-server-certificates: true
+---
+apiVersion: v1alpha1
 kind: KubeNodeConfig
 labels:
   node.kubernetes.io/exclude-from-external-load-balancers:

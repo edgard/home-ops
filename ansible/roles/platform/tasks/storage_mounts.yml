@@ -77,6 +77,9 @@
         name: "{{ platform_mount_pod.result.metadata.name }}"
         container: verify
       register: platform_mount_log
+      until: platform_mount_log is succeeded
+      retries: "{{ platform_wait_default_retries }}"
+      delay: "{{ platform_wait_default_delay }}"
 
     - name: Require healthy pool members and expected mounts
       ansible.builtin.assert:

@@ -5,14 +5,6 @@
 - name: Verify the physical node and Kubernetes context
   ansible.builtin.import_tasks: target.yml
 
-- name: Verify the pool and data mounts before enrolling storage
-  ansible.builtin.import_tasks: storage_mounts.yml
-  vars:
-    platform_enroll_identity: true
-
-- name: Record the verified pool and system disk before starting CSI
-  ansible.builtin.import_tasks: storage_identity.yml
-
 - name: Build bootstrap release specs
   ansible.builtin.set_fact:
     platform_bootstrap_release_specs: []
@@ -22,6 +14,21 @@
   loop: "{{ platform_bootstrap_releases }}"
   loop_control:
     loop_var: platform_release
+
+- name: Install kubelet certificate approval before reading pod logs
+  ansible.builtin.include_tasks: install_release.yml
+  loop: "{{ platform_bootstrap_release_specs | selectattr('phase', 'equalto', 'kubelet-certificates') | list }}"
+  loop_control:
+    loop_var: platform_release_spec
+    label: "{{ platform_release_spec.name }}"
+
+- name: Verify the pool and data mounts before enrolling storage
+  ansible.builtin.import_tasks: storage_mounts.yml
+  vars:
+    platform_enroll_identity: true
+
+- name: Record the verified pool and system disk before starting CSI
+  ansible.builtin.import_tasks: storage_identity.yml
 
 - name: Ensure bootstrap namespaces
   ansible.builtin.import_tasks: namespaces.yml

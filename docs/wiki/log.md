@@ -3,6 +3,17 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-25] revision | Automate kubelet serving-certificate trust
+
+Enabled Talos serving-certificate rotation and a scoped kubelet CSR approver.
+VictoriaMetrics and metrics-server trust the mounted Kubernetes cluster CA,
+replacing the temporary kubelet CA pin and the metrics-server verification
+bypass. Documented initial migration, automatic renewal and diagnosis in the
+bootstrap, monitoring and app pages. Added the approver to the index and a
+small credential-scope check. Foundation installs the approver before reading
+storage observer logs so a fresh node can obtain its first serving certificate.
+November's semantic review is already recorded below.
+
 ## [2026-11-25] revision | Retire an unused selfhosted application
 
 Removed the application definition, dedicated credential mapping and app page,

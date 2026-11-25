@@ -23,6 +23,12 @@ platform_bootstrap_namespaces:
   - selfhosted
 
 platform_bootstrap_releases:
+  - name: kubelet-csr-approver
+    namespace: kube-system
+    app_metadata: apps/kube-system/kubelet-csr-approver/app.yaml
+    values_file: apps/kube-system/kubelet-csr-approver/values.yaml
+    phase: kubelet-certificates
+
   - name: zfs-localpv
     namespace: kube-system
     app_metadata: apps/kube-system/zfs-localpv/app.yaml
