@@ -158,7 +158,7 @@ controllers:
       app:
         image:
           repository: docker.io/library/postgres
-          tag: 18.7-trixie@sha256:f5cbc081c25690710f3fc6f4c61a7565382bae01ca0d0f2028a53d7926b85a20
+          tag: 18.7-trixie@sha256:c699303802144847d238196173655dbbecf7a96aeca1565f2b02eb671a1f0b6b
         env:
           PGDATA: /var/lib/postgresql/18/docker
           POSTGRES_DB: sparkyfitness_db
