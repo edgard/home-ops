@@ -6,8 +6,8 @@ requires-python = ">=3.14,<3.15"
 [dependency-groups]
 dev = [
     "ansible-core==2.22.0",
-    "ansible-lint==26.11.0",
-    "ansible-compat==26.11.0",
+    "ansible-lint==26.11.1",
+    "ansible-compat==26.11.1",
     "kubernetes==37.0.3",
     "jsonpatch==1.48",
     "PyYAML==6.0.4",
