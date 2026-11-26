@@ -3,6 +3,11 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-27] revision | Publish Karakeep and Atuin through Cloudflare
+
+Enabled both proxied tunnel records after verifying connector readiness, client
+policy enrollment and the two Envoy header filters.
+
 ## [2026-11-26] revision | Stage authenticated Cloudflare access
 
 Added the outbound connector, per-app Access configuration and staged DNS
