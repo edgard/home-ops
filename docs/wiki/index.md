@@ -80,6 +80,7 @@ The app pages describe dependencies and unusual behavior. Read the linked
 
 ### Platform system
 
+- [Cloudflare Tunnel](apps/platform-system/cloudflared.md) — authenticated public access and recovery.
 - [cert-manager](apps/platform-system/cert-manager.md)
 - [External DNS](apps/platform-system/external-dns.md)
 - [External Secrets](apps/platform-system/external-secrets.md)

@@ -4,7 +4,7 @@ Purpose: repository conventions for people and agents changing the homelab.
 Status: current. Reviewed against: `f4eb64d2ff3fe6a97a5685871f137e7661c7e131`.
 Paths in this page are relative to the repository root.
 
-GitOps Talos Kubernetes homelab (single-node, local-only). Changes via PR only.
+GitOps Talos Kubernetes homelab (single-node, private ingress with selected Cloudflare routes). Changes via PR only.
 **Tech**: Talos • K8s • Argo CD • Envoy Gateway • External Secrets (Bitwarden) •
 Grafana • VictoriaMetrics • Helm • Ansible • Terraform
 
@@ -167,7 +167,7 @@ Store: `external-secrets-store`
 
 ## Architecture Overview
 
-GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discovered from `apps/*/*/app.yaml` metadata files. Platform services bootstrap via Ansible-managed Helm installs that read the same app metadata, infrastructure is managed through Terraform (Cloudflare DNS, Tailscale networking). Single-node cluster with local-only access via Tailscale VPN.
+GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discovered from `apps/*/*/app.yaml` metadata files. Platform services bootstrap via Ansible-managed Helm installs that read the same app metadata, infrastructure is managed through Terraform (Cloudflare DNS, Tailscale networking). Selected apps can also be published through [Cloudflare Tunnel](apps/platform-system/cloudflared.md).
 
 ## External Services
 
@@ -178,7 +178,7 @@ GitOps homelab using ArgoCD for deployment synchronization. Apps are auto-discov
 
 ## Gotchas
 
-- Local + Tailscale only (192.168.1.0/24)
+- LAN and Tailscale use private DNS. Public DNS is a separate rollout step.
 - Single-node → `replicas: 1`, `strategy: Recreate`
 - s6-overlay: run as root + SETUID/SETGID; ports <1024: +NET_BIND_SERVICE
 - Never commit directly to `master`

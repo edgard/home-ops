@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-26] revision | Stage authenticated Cloudflare access
+
+Added the outbound connector, per-app Access configuration and staged DNS
+controls for Atuin and Karakeep. The connector page covers credential delivery,
+remote acceptance and rollback.
+
 ## [2026-11-25] revision | Automate kubelet serving-certificate trust
 
 Enabled Talos serving-certificate rotation and a scoped kubelet CSR approver.
