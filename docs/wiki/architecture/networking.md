@@ -5,9 +5,9 @@ Status: current. Reviewed against: `b898924ceaf8be0a1b00e20fed8f57369259f669`.
 
 Routed apps attach HTTPRoutes to the shared Envoy Gateway listener in
 `platform-system`. Cloudflare DNS is managed in Terraform, while the cluster
-also runs External DNS and a Tailscale router. The homelab is intended for
-local and Tailscale access; a route or DNS record alone does not prove a service
-is reachable from every client.
+also runs External DNS and a Tailscale router. LAN and Tailscale clients resolve application names privately.
+[Cloudflare Tunnel](../apps/platform-system/cloudflared.md) can publish Karakeep
+and Atuin through Access. OpenTofu controls public DNS separately for each app.
 
 Multus supplies a LAN bridge for workloads needing direct LAN traffic, such as
 Jellyfin discovery. Its network attachment and each workload's annotation are

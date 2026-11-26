@@ -3,7 +3,9 @@
 Purpose: locate Cloudflare, Tailscale, provider secrets, and state boundaries.
 Status: current. Reviewed against: `9f966763020631cd9bab2de5ddd8471434b71876`.
 
-OpenTofu manages Cloudflare DNS and Tailscale resources from this repo. Its
+OpenTofu manages Cloudflare DNS, Tunnel, Access and Tailscale resources. The
+[connector runbook](../apps/platform-system/cloudflared.md#provision-and-publish)
+describes the private operator input required for each plan and apply. Its
 remote S3-compatible backend remains configured in Terraform. SecretSpec supplies
 backend credentials and native provider variables from the shared Bitwarden project; credential variables are
 sensitive, while the zone ID is nonsensitive. Sensitivity masks display and does
@@ -42,6 +44,8 @@ remain unchanged; no lifecycle rule suppresses DNS changes.
 - [CLI tasks](../../../Taskfile.yaml)
 
 ## Related pages
+
+- [Cloudflare public access and recovery](../apps/platform-system/cloudflared.md)
 
 - [Networking](networking.md)
 - [Secrets](secrets.md)
