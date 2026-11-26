@@ -20,9 +20,9 @@ locals {
     karakeep = var.private_access.karakeep_token_ids
   }
   # Publish individually after the connector and protected origins are verified.
-  published_apps = toset(["atuin", "karakeep"])
+  published_apps = toset(["karakeep"])
   # Add an app here to disable its origin before withdrawing DNS.
-  suspended_apps    = toset([])
+  suspended_apps    = toset(["atuin"])
   access_account_id = data.cloudflare_zone.home_ops.account.id
 }
 

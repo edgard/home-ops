@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-27] revision | Suspend the public Atuin route
+
+The Mac CLI failed its public sync at the zone TLS minimum. Removed the Atuin
+tunnel origin before withdrawing its DNS record and retained its Access policy.
+Karakeep passed its public token and isolation checks.
+
 ## [2026-11-27] revision | Publish Karakeep and Atuin through Cloudflare
 
 Enabled both proxied tunnel records after verifying connector readiness, client

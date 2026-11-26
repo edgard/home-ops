@@ -61,6 +61,14 @@ secret headers before proxying.
    both clients. Inspect WAF events for rejected legitimate requests. LAN
    probes exercise the private gateway independently of this public path.
 
+## Mac Atuin compatibility
+
+The macOS Homebrew client at 18.25.1 uses native TLS and failed to negotiate
+with the public edge at the zone's TLS 1.3 minimum. The private gateway accepts
+the client. Keep the public Atuin route suspended until a supported Mac client
+completes a sync through the edge or an operator approves a TLS policy change.
+A successful token-authenticated HTTPS probe alone does not verify CLI sync.
+
 ## Recovery
 
 Add the affected app to `suspended_apps` and apply. Unmatched requests then
@@ -82,6 +90,7 @@ There is no connector PVC to restore.
 - [Cloudflare origin parameters and JWT validation](https://developers.cloudflare.com/tunnel/reference/origin-parameters/)
 - [Access authentication and MFA enrollment](https://developers.cloudflare.com/cloudflare-one/access-controls/access-settings/independent-mfa/)
 - [Free managed WAF deployment](https://developers.cloudflare.com/waf/get-started/)
+- [Apple Secure Transport TLS versions](https://developer.apple.com/documentation/security/secure-transport) and [Atuin 18.25.1 HTTPS dependency](https://github.com/atuinsh/atuin/blob/v18.25.1/Cargo.toml)
 - [Atuin sync headers](https://docs.atuin.sh/18.25/configuration/config/#extra_headers) and [Karakeep client headers](https://github.com/karakeep-app/karakeep/issues/1287)
 
 ## Related pages
