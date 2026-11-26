@@ -1,13 +1,13 @@
 # Networking and ingress
 
 Purpose: connect the cluster's routes, local network, and external DNS sources.
-Status: current. Reviewed against: `8ae8c60f and this revision`.
+Status: current. Reviewed against: `042a505f` and this revision.
 
 Routed apps attach HTTPRoutes to the shared Envoy Gateway listener in
 `platform-system`. Cloudflare DNS is managed in Terraform, while the cluster
 also runs External DNS and a Tailscale router. LAN and Tailscale clients resolve application names privately.
 [Cloudflare Tunnel](../apps/platform-system/cloudflared.md) publishes Karakeep
-and Atuin through Access. OpenTofu controls public DNS separately for each app.
+through Access. Atuin uses private DNS while its public route is suspended. OpenTofu controls public DNS separately for each app.
 
 Multus supplies a LAN bridge for workloads needing direct LAN traffic, such as
 Jellyfin discovery. Its network attachment and each workload's annotation are
