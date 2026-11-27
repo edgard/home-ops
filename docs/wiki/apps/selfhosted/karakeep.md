@@ -39,8 +39,6 @@ them to make an older engine start.
 
 ## Related pages
 
-- [Cloudflare public access and recovery](../platform-system/cloudflared.md)
-
 - [GitOps delivery](../../architecture/gitops-delivery.md)
 - [Storage](../../architecture/storage.md)
 - [Networking](../../architecture/networking.md)

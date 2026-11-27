@@ -3,22 +3,10 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
-## [2026-11-27] revision | Suspend the public Atuin route
+## [2026-11-27] revision | Restore private access for Karakeep and Atuin
 
-The Mac CLI failed its public sync at the zone TLS minimum. Removed the Atuin
-tunnel origin before withdrawing its DNS record and retained its Access policy.
-Karakeep passed its public token and isolation checks.
-
-## [2026-11-27] revision | Publish Karakeep and Atuin through Cloudflare
-
-Enabled both proxied tunnel records after verifying connector readiness, client
-policy enrollment and the two Envoy header filters.
-
-## [2026-11-26] revision | Stage authenticated Cloudflare access
-
-Added the outbound connector, per-app Access configuration and staged DNS
-controls for Atuin and Karakeep. The connector page covers credential delivery,
-remote acceptance and rollback.
+Reverted the Cloudflare rollout from PRs #544–546. Both services use their
+original private Envoy routes through LAN or Tailscale.
 
 ## [2026-11-25] revision | Automate kubelet serving-certificate trust
 

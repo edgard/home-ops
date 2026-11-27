@@ -154,8 +154,6 @@ ApplicationSet children, followed by fresh ExternalSecret reconciliation.
 
 ## Related pages
 
-- [Cloudflare public access and recovery](../apps/platform-system/cloudflared.md)
-
 - [Secrets](../architecture/secrets.md)
 - [Talos bootstrap](../architecture/talos-bootstrap.md)
 - [Terraform](../architecture/terraform.md)
