@@ -23,4 +23,3 @@ __pycache__/
 /ansible/roles/talos/files/secrets.vault.yml
 /.pytest_cache/
 /.ruff_cache/
-/terraform/private-access.auto.tfvars.json

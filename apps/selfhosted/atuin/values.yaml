@@ -65,13 +65,7 @@ route:
     hostnames:
       - atuin.edgard.org
     rules:
-      - filters:
-          - type: RequestHeaderModifier
-            requestHeaderModifier:
-              remove:
-                - CF-Access-Client-Id
-                - CF-Access-Client-Secret
-        backendRefs:
+      - backendRefs:
           - identifier: main
             port: 8888
 
