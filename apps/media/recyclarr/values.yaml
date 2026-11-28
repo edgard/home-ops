@@ -18,9 +18,9 @@ controllers:
       app:
         image:
           repository: ghcr.io/recyclarr/recyclarr
-          tag: 8.8.1
+          tag: 9.0.0
         env:
-          CRON_SCHEDULE: "25 2 * * *"
+          ASPNETCORE_URLS: http://127.0.0.1:7982
         envFrom:
           - secretRef:
               name: recyclarr-credentials
@@ -40,6 +40,9 @@ persistence:
     globalMounts:
       - path: /config/recyclarr.yml
         subPath: recyclarr.yml
+        readOnly: true
+      - path: /config/settings.yml
+        subPath: settings.yml
         readOnly: true
   data:
     type: persistentVolumeClaim

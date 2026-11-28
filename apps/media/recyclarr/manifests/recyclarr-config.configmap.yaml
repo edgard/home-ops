@@ -5,6 +5,11 @@ metadata:
   name: recyclarr-config
   namespace: media
 data:
+  settings.yml: |-
+    ---
+    server:
+      schedule:
+        cron: "25 2 * * *"
   recyclarr.yml: |-
     # yaml-language-server: $schema=https://raw.githubusercontent.com/recyclarr/recyclarr/master/schemas/config-schema.json
     ---

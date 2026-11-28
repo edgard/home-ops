@@ -3,6 +3,12 @@
 This is the chronological record of source ingests and substantive wiki
 revisions. Ordinary questions and dependency bumps do not need entries.
 
+## [2026-11-28] revision | Migrate Recyclarr to its v9 server
+
+Updated the Recyclarr app page for the Bitwarden server key, the move from
+container cron to server settings, and the loopback API and management
+listeners. November's semantic review is already recorded below.
+
 ## [2026-11-27] revision | Restore private access for Karakeep and Atuin
 
 Reverted the Cloudflare rollout from PRs #544–546. Both services use their
